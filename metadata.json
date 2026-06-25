@@ -1,0 +1,6 @@
+{
+  "name": "Enterprise Supply Chain & Inventory ERP",
+  "description": "Enterprise Supply Chain & Inventory ERP with Delivery Challan sheets, Procurement forms, Stock adjustments, and Accounting reports for Bangladeshi businesses.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
