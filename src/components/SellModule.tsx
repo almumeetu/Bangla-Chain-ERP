@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState } from 'react';
 import { 
   ShoppingBag, 
@@ -15,6 +17,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { Product, ProductAttribute, SR, Customer, ChallanItem, DeliveryMan } from '../types';
+import { translations, Language } from '../translations';
 
 interface SellModuleProps {
   products: Product[];
@@ -25,6 +28,7 @@ interface SellModuleProps {
   deliveryMen: DeliveryMan[];
   setChallans: React.Dispatch<React.SetStateAction<ChallanItem[]>>;
   onNavigate: (tab: any) => void;
+  language: Language;
 }
 
 interface CartItem {
@@ -42,7 +46,8 @@ export default function SellModule({
   customers,
   deliveryMen,
   setChallans,
-  onNavigate
+  onNavigate,
+  language
 }: SellModuleProps) {
   // POS Cart State
   const [cart, setCart] = useState<CartItem[]>([]);

@@ -1,3 +1,5 @@
+'use client';
+
 import React from 'react';
 import { 
   LayoutDashboard, 
@@ -14,6 +16,7 @@ import {
   Box,
   ClipboardList
 } from 'lucide-react';
+import { translations, Language } from '../translations';
 
 export type TabID = 
   | 'dashboard' 
@@ -30,19 +33,35 @@ interface SidebarProps {
   setActiveTab: (tab: TabID) => void;
   collapsed: boolean;
   setCollapsed: (collapsed: boolean) => void;
+  language: Language;
 }
 
-export default function Sidebar({ activeTab, setActiveTab, collapsed, setCollapsed }: SidebarProps) {
+export default function Sidebar({ activeTab, setActiveTab, collapsed, setCollapsed, language }: SidebarProps) {
   const menuItems = [
-    { id: 'dashboard', name: 'Dashboard', icon: LayoutDashboard, color: 'text-indigo-400' },
-    { id: 'sell', name: 'Sales Point (Sell)', icon: ShoppingBag, color: 'text-emerald-400' },
-    { id: 'challan', name: 'Delivery Challan (Top Sheet)', icon: FileText, color: 'text-sky-400' },
-    { id: 'product-list', name: 'Product Attributes', icon: Layers, color: 'text-amber-400' },
-    { id: 'stock-adjustment', name: 'Stock Adjustment', icon: Sliders, color: 'text-rose-400' },
-    { id: 'procurement', name: 'Procurements', icon: Box, color: 'text-purple-400' },
-    { id: 'accounting', name: 'Expenses & Log', icon: DollarSign, color: 'text-teal-400' },
-    { id: 'reports', name: 'Profit & Loss Reports', icon: TrendingUp, color: 'text-pink-400' },
+    { id: 'dashboard', icon: LayoutDashboard, color: 'text-indigo-400' },
+    { id: 'sell', icon: ShoppingBag, color: 'text-emerald-400' },
+    { id: 'challan', icon: FileText, color: 'text-sky-400' },
+    { id: 'product-list', icon: Layers, color: 'text-amber-400' },
+    { id: 'stock-adjustment', icon: Sliders, color: 'text-rose-400' },
+    { id: 'procurement', icon: Box, color: 'text-purple-400' },
+    { id: 'accounting', icon: DollarSign, color: 'text-teal-400' },
+    { id: 'reports', icon: TrendingUp, color: 'text-pink-400' },
   ] as const;
+
+  const getMenuItemName = (id: TabID) => {
+    const s = translations[language].sidebar;
+    switch (id) {
+      case 'dashboard': return s.dashboard;
+      case 'sell': return s.sell;
+      case 'challan': return s.challan;
+      case 'product-list': return s.productList;
+      case 'stock-adjustment': return s.stockAdjustment;
+      case 'procurement': return s.procurement;
+      case 'accounting': return s.accounting;
+      case 'reports': return s.reports;
+      default: return id;
+    }
+  };
 
   return (
     <aside 
@@ -59,8 +78,12 @@ export default function Sidebar({ activeTab, setActiveTab, collapsed, setCollaps
                 <ClipboardList className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-sm font-bold tracking-tight text-white leading-tight">BanglaChain ERP</h1>
-                <p className="text-[10px] text-indigo-400 font-mono font-semibold tracking-wider">ENTERPRISE OS</p>
+                <h1 className="text-sm font-bold tracking-tight text-white leading-tight">
+                  {translations[language].sidebar.brand}
+                </h1>
+                <p className="text-[10px] text-indigo-400 font-mono font-semibold tracking-wider">
+                  {translations[language].sidebar.subBrand}
+                </p>
               </div>
             </div>
           )}
@@ -85,6 +108,7 @@ export default function Sidebar({ activeTab, setActiveTab, collapsed, setCollaps
           {menuItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
+            const displayName = getMenuItemName(item.id);
             return (
               <button
                 id={`sidebar-tab-${item.id}`}
@@ -99,7 +123,7 @@ export default function Sidebar({ activeTab, setActiveTab, collapsed, setCollaps
                 <Icon className={`w-5 h-5 shrink-0 ${isActive ? 'text-white' : item.color} group-hover:scale-110 transition-transform`} />
                 {!collapsed && (
                   <span className="text-sm tracking-wide transition-opacity duration-300">
-                    {item.name}
+                    {displayName}
                   </span>
                 )}
                 {/* Active Indicator bar */}
@@ -110,7 +134,7 @@ export default function Sidebar({ activeTab, setActiveTab, collapsed, setCollaps
                 {/* Tooltip for collapsed mode */}
                 {collapsed && (
                   <div className="absolute left-full ml-4 px-2.5 py-1.5 bg-slate-950 text-white text-xs rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150 z-50 shadow-xl border border-slate-800 font-medium font-sans">
-                    {item.name}
+                    {displayName}
                   </div>
                 )}
               </button>
@@ -127,10 +151,10 @@ export default function Sidebar({ activeTab, setActiveTab, collapsed, setCollaps
               M
             </div>
             <div className="overflow-hidden">
-              <p className="text-xs font-semibold text-white truncate">Muin (Senior Admin)</p>
+              <p className="text-xs font-semibold text-white truncate">Muin ({translations[language].sidebar.adminRole})</p>
               <p className="text-[10px] text-emerald-400 font-mono flex items-center gap-1">
                 <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse inline-block" />
-                Dhaka Hub • Active
+                {translations[language].sidebar.dhakaHub} • {translations[language].sidebar.activeStatus}
               </p>
             </div>
           </div>

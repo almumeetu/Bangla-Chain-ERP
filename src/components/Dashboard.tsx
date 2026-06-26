@@ -1,3 +1,5 @@
+'use client';
+
 import React from 'react';
 import { 
   TrendingUp, 
@@ -14,6 +16,7 @@ import {
   FileText
 } from 'lucide-react';
 import { Product, ChallanItem, Procurement, ExpenseRecord } from '../types';
+import { translations, Language } from '../translations';
 
 interface DashboardProps {
   products: Product[];
@@ -22,12 +25,23 @@ interface DashboardProps {
   expenses: ExpenseRecord[];
   onNavigate: (tab: any) => void;
   onDownloadPDF: (view: 'dashboard' | 'procurement' | 'accounting') => void;
+  language: Language;
 }
 
-export default function Dashboard({ products, challans, procurements, expenses, onNavigate, onDownloadPDF }: DashboardProps) {
+export default function Dashboard({ 
+  products, 
+  challans, 
+  procurements, 
+  expenses, 
+  onNavigate, 
+  onDownloadPDF,
+  language
+}: DashboardProps) {
+  const tCommon = translations[language].common;
+  const tDash = translations[language].dashboard;
+
   // Calculators
   const totalSales = challans.reduce((sum, ch) => {
-    // If the challan is not returned, add its total
     if (ch.status !== 'Returned') {
       return sum + ch.totalAmount;
     }
@@ -40,9 +54,18 @@ export default function Dashboard({ products, challans, procurements, expenses, 
   // Expenses total
   const totalExpensesCost = expenses.reduce((sum, exp) => sum + exp.amount, 0);
 
-  // Calculate Net Profit: Sales - Procurement cost of sold goods (or just simpler global formula: Sales - Procurements - Expenses)
-  // Let's offer both or a solid ERP standard: Sales - Procurement cost of active items - expenses
+  // Net Profit: Revenue - Procurements - Expenses
   const netProfit = totalSales - totalProcurementCost - totalExpensesCost;
+
+  // Calculate Due Amount from Procurement invoices
+  const dueAmount = procurements.reduce((sum, pr) => {
+    if (pr.paymentStatus === 'Pending') {
+      return sum + pr.globalTotal;
+    } else if (pr.paymentStatus === 'Partial') {
+      return sum + (pr.globalTotal * 0.4); // Assume 40% remains due for partial records
+    }
+    return sum;
+  }, 0);
 
   // Today vs Yesterday Quick Report Calculations
   const getChallanDate = (id: string) => {
@@ -52,7 +75,6 @@ export default function Dashboard({ products, challans, procurements, expenses, 
     if (id === 'ch-4') return '2026-06-24';
     if (id === 'ch-5') return '2026-06-25';
     if (id.startsWith('ch-')) {
-      // Formats: 'ch-timestamp-idx' or 'ch-timestamp'
       const parts = id.split('-');
       const ms = Number(parts[1]);
       if (!isNaN(ms)) {
@@ -129,7 +151,6 @@ export default function Dashboard({ products, challans, procurements, expenses, 
   const todaysTurnoverAnnualized = (todaysTurnoverRate / 100) * 365;
 
   // Stock highlights
-  const totalItemsInStock = products.reduce((sum, p) => sum + p.currentStock, 0);
   const lowStockProducts = products.filter(p => p.currentStock < 600);
 
   // Recent Challans
@@ -137,103 +158,99 @@ export default function Dashboard({ products, challans, procurements, expenses, 
 
   // Format BDT helper
   const formatBDT = (amount: number) => {
-    return new Intl.NumberFormat('en-BD', {
-      style: 'currency',
-      currency: 'BDT',
+    const formatted = new Intl.NumberFormat('en-BD', {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
     }).format(amount);
+    return `৳${formatted}`;
   };
 
   return (
-    <div className="space-y-6">
-      {/* Welcome Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-2xl p-6 border border-indigo-900/30 shadow-lg text-white relative overflow-hidden flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-        <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
-          <Briefcase className="w-48 h-48 text-indigo-400" />
-        </div>
-        <div className="relative z-10 space-y-2 flex-1">
-          <span className="bg-indigo-500/25 text-indigo-300 text-[11px] font-mono font-semibold tracking-wider uppercase px-2.5 py-1 rounded-full border border-indigo-400/20">
-            SYSTEM STATUS: OPERATIONAL
+    <div className="space-y-8">
+      {/* Welcome Banner - Minimalist, white background, no heavy gradients */}
+      <div className="bg-white rounded-2xl p-6 md:p-8 border border-slate-200/80 flex flex-col md:flex-row md:items-center md:justify-between gap-6 transition-all duration-300">
+        <div className="space-y-3 flex-1">
+          <span className="bg-indigo-50 text-indigo-700 text-[11px] font-mono font-semibold tracking-wider uppercase px-3 py-1 rounded-full border border-indigo-100">
+            {tCommon.systemOperational}
           </span>
-          <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">Enterprise ERP Dashboard</h2>
-          <p className="text-slate-300 text-sm max-w-2xl leading-relaxed">
-            Welcome back, <span className="font-semibold text-white">Muin</span>. Manage supply lines, generate delivery sheets, monitor stock adjustments, track expenditures, and analyze net yields in real-time.
+          <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900">{tDash.welcomeTitle}</h2>
+          <p className="text-slate-500 text-sm max-w-2xl leading-relaxed">
+            {tDash.welcomeSub}
           </p>
         </div>
-        <div className="relative z-10 shrink-0">
+        <div className="shrink-0">
           <button
             onClick={() => onDownloadPDF('dashboard')}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-all text-white font-semibold text-xs px-4 py-3 rounded-xl shadow-md border border-indigo-500/30 cursor-pointer"
+            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 transition-all text-white font-semibold text-xs px-5 py-3.5 rounded-xl shadow-sm border border-indigo-500 cursor-pointer"
           >
             <FileText className="w-4 h-4" />
-            Download PDF Report
+            {tDash.downloadReport}
           </button>
         </div>
       </div>
 
       {/* Today's Quick Pulse & Operations Report */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
-          <div className="flex items-center gap-2">
+      <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+          <div className="flex items-center gap-2.5">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-600"></span>
             </span>
-            <h3 className="font-extrabold text-slate-900 text-xs tracking-wide uppercase flex items-center gap-1.5">
-              Today's Quick Report Summary
+            <h3 className="font-extrabold text-slate-800 text-xs tracking-wider uppercase">
+              {tDash.quickReportTitle}
             </h3>
           </div>
-          <span className="text-[10px] font-bold text-slate-400 font-mono">
-            PERIOD: {todayStr} &bull; COMPARE YESTERDAY ({yesterdayStr})
+          <span className="text-[10px] font-bold text-slate-400 font-mono tracking-wide">
+            {tDash.periodLabel}: {todayStr} &bull; {tDash.compareYesterday} ({yesterdayStr})
           </span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Today's Sales */}
-          <div className="bg-slate-50/50 rounded-xl p-4 border border-slate-100/80 flex flex-col justify-between">
+          <div className="bg-slate-50/60 rounded-2xl p-5 border border-slate-100/80 flex flex-col justify-between">
             <div className="space-y-1">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Today's Total Sales</span>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">{tDash.todaySales}</span>
               <div className="flex items-baseline justify-between gap-2">
                 <span className="text-xl font-bold text-slate-900 font-mono">{formatBDT(todaysSales)}</span>
                 {salesChangePercent !== 0 ? (
-                  <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                  <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md text-[10px] font-bold ${
                     salesChangePercent >= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
                   }`}>
                     {salesChangePercent >= 0 ? '+' : ''}{salesChangePercent.toFixed(1)}%
                   </span>
                 ) : (
-                  <span className="text-[10px] font-medium text-slate-400">Stable</span>
+                  <span className="text-[10px] font-medium text-slate-400">{tCommon.stable}</span>
                 )}
               </div>
             </div>
-            <div className="text-[10px] text-slate-400 mt-3 border-t border-slate-100/80 pt-2 flex justify-between items-center">
-              <span>Yesterday's Sales:</span>
+            <div className="text-[10px] text-slate-400 mt-4 border-t border-slate-100 pt-3 flex justify-between items-center">
+              <span>{tDash.yesterdaySales}</span>
               <span className="font-mono font-bold text-slate-600">{formatBDT(yesterdaysSales)}</span>
             </div>
           </div>
 
           {/* Today's Net Profit */}
-          <div className="bg-slate-50/50 rounded-xl p-4 border border-slate-100/80 flex flex-col justify-between">
+          <div className="bg-slate-50/60 rounded-2xl p-5 border border-slate-100/80 flex flex-col justify-between">
             <div className="space-y-1">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Today's Net Profit</span>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">{tDash.todayProfit}</span>
               <div className="flex items-baseline justify-between gap-2">
                 <span className={`text-xl font-bold font-mono ${todaysNetProfit >= 0 ? 'text-indigo-600' : 'text-rose-600'}`}>
                   {formatBDT(todaysNetProfit)}
                 </span>
                 {profitChangePercent !== 0 ? (
-                  <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                  <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md text-[10px] font-bold ${
                     profitChangePercent >= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
                   }`}>
                     {profitChangePercent >= 0 ? '+' : ''}{profitChangePercent.toFixed(1)}%
                   </span>
                 ) : (
-                  <span className="text-[10px] font-medium text-slate-400">Stable</span>
+                  <span className="text-[10px] font-medium text-slate-400">{tCommon.stable}</span>
                 )}
               </div>
             </div>
-            <div className="text-[10px] text-slate-400 mt-3 border-t border-slate-100/80 pt-2 flex justify-between items-center">
-              <span>Est. Daily Profit Margin:</span>
+            <div className="text-[10px] text-slate-400 mt-4 border-t border-slate-100 pt-3 flex justify-between items-center">
+              <span>{tDash.estMargin}</span>
               <span className="font-bold text-slate-600">
                 {todaysSales > 0 ? `${((todaysNetProfit / todaysSales) * 100).toFixed(1)}%` : '0%'}
               </span>
@@ -241,223 +258,217 @@ export default function Dashboard({ products, challans, procurements, expenses, 
           </div>
 
           {/* Inventory Turnover */}
-          <div className="bg-slate-50/50 rounded-xl p-4 border border-slate-100/80 flex flex-col justify-between">
+          <div className="bg-slate-50/60 rounded-2xl p-5 border border-slate-100/80 flex flex-col justify-between">
             <div className="space-y-1">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Today's Inventory Turnover</span>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">{tDash.todayTurnover}</span>
               <div className="flex items-baseline justify-between gap-2">
                 <span className="text-xl font-bold text-slate-900 font-mono">
                   {todaysTurnoverRate.toFixed(3)}%
                 </span>
                 {turnoverChangePercent !== 0 ? (
-                  <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                  <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md text-[10px] font-bold ${
                     turnoverChangePercent >= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
                   }`}>
                     {turnoverChangePercent >= 0 ? '+' : ''}{turnoverChangePercent.toFixed(1)}%
                   </span>
                 ) : (
-                  <span className="text-[10px] font-medium text-slate-400">Stable</span>
+                  <span className="text-[10px] font-medium text-slate-400">{tCommon.stable}</span>
                 )}
               </div>
             </div>
-            <div className="text-[10px] text-slate-400 mt-3 border-t border-slate-100/80 pt-2 flex justify-between items-center">
-              <span>Projected Annualized Rate:</span>
+            <div className="text-[10px] text-slate-400 mt-4 border-t border-slate-100 pt-3 flex justify-between items-center">
+              <span>{tDash.projectedAnnual}</span>
               <span className="font-mono font-bold text-slate-600">{todaysTurnoverAnnualized.toFixed(2)}x / Year</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      {/* KPI Cards - Generous layout, large bold key numbers */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         
-        {/* Total Sales */}
-        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-md transition-all group duration-200">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-semibold text-slate-500 font-sans tracking-wide uppercase">Active Wholesale Revenue</span>
-            <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl group-hover:bg-emerald-100 transition-colors">
-              <ShoppingBag className="w-5 h-5" />
-            </div>
-          </div>
-          <div>
-            <h3 className="text-2xl font-bold text-slate-900 font-mono tracking-tight">{formatBDT(totalSales)}</h3>
-            <div className="flex items-center gap-1.5 mt-1">
-              <TrendingUp className="w-4.5 h-4.5 text-emerald-500" />
-              <span className="text-xs text-slate-500">
-                From <span className="font-semibold text-slate-700">{challans.filter(c => c.status !== 'Returned').length}</span> active challans
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Total Procurements */}
-        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-md transition-all group duration-200">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-semibold text-slate-500 font-sans tracking-wide uppercase">Procurement Investment</span>
-            <div className="p-2.5 bg-purple-50 text-purple-600 rounded-xl group-hover:bg-purple-100 transition-colors">
-              <Box className="w-5 h-5" />
-            </div>
-          </div>
-          <div>
-            <h3 className="text-2xl font-bold text-slate-900 font-mono tracking-tight">{formatBDT(totalProcurementCost)}</h3>
-            <div className="flex items-center gap-1.5 mt-1">
-              <span className="w-2 h-2 rounded-full bg-purple-400" />
-              <span className="text-xs text-slate-500">
-                <span className="font-semibold text-slate-700">{procurements.length}</span> procurement batches
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Total Expenses */}
-        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-md transition-all group duration-200">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-semibold text-slate-500 font-sans tracking-wide uppercase">Operating Expenses</span>
-            <div className="p-2.5 bg-rose-50 text-rose-600 rounded-xl group-hover:bg-rose-100 transition-colors">
-              <DollarSign className="w-5 h-5" />
-            </div>
-          </div>
-          <div>
-            <h3 className="text-2xl font-bold text-slate-900 font-mono tracking-tight">{formatBDT(totalExpensesCost)}</h3>
-            <div className="flex items-center gap-1.5 mt-1">
-              <TrendingDown className="w-4.5 h-4.5 text-rose-500" />
-              <span className="text-xs text-slate-500">
-                <span className="font-semibold text-slate-700">{expenses.length}</span> logged payouts
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Net Yield Profit */}
-        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-md transition-all group duration-200">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-semibold text-slate-500 font-sans tracking-wide uppercase">Calculated ERP Yield</span>
-            <div className={`p-2.5 rounded-xl transition-colors ${netProfit >= 0 ? 'bg-indigo-50 text-indigo-600 group-hover:bg-indigo-100' : 'bg-amber-50 text-amber-600 group-hover:bg-amber-100'}`}>
+        {/* Total Yield / Profit */}
+        <div className="bg-white rounded-2xl p-6 border border-slate-200/85 flex flex-col justify-between hover:border-indigo-200 hover:shadow-sm transition-all duration-200">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{tDash.calculatedYield}</span>
+            <div className={`p-2 rounded-xl ${netProfit >= 0 ? 'bg-indigo-50 text-indigo-600' : 'bg-rose-50 text-rose-600'}`}>
               <TrendingUp className="w-5 h-5" />
             </div>
           </div>
           <div>
-            <h3 className={`text-2xl font-bold font-mono tracking-tight ${netProfit >= 0 ? 'text-indigo-600' : 'text-rose-600'}`}>
+            <h3 className={`text-3xl font-black font-mono tracking-tight ${netProfit >= 0 ? 'text-indigo-600' : 'text-rose-600'}`}>
               {formatBDT(netProfit)}
             </h3>
-            <div className="flex items-center gap-1.5 mt-1">
-              <span className={`w-2 h-2 rounded-full ${netProfit >= 0 ? 'bg-indigo-500' : 'bg-rose-500'}`} />
-              <span className="text-xs text-slate-500">
-                Net yield (Revenue - Stock - Expenses)
-              </span>
+            <p className="text-[10px] text-slate-400 mt-2 font-medium">
+              {tDash.yieldDescription}
+            </p>
+          </div>
+        </div>
+
+        {/* Due Amount */}
+        <div className="bg-white rounded-2xl p-6 border border-slate-200/85 flex flex-col justify-between hover:border-amber-200 hover:shadow-sm transition-all duration-200">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Due Amount</span>
+            <div className="p-2 bg-amber-50 text-amber-600 rounded-xl">
+              <AlertTriangle className="w-5 h-5" />
             </div>
+          </div>
+          <div>
+            <h3 className="text-3xl font-black text-slate-900 font-mono tracking-tight">{formatBDT(dueAmount)}</h3>
+            <div className="flex items-center gap-1.5 mt-2">
+              <span className="w-2 h-2 rounded-full bg-amber-400" />
+              <span className="text-[10px] text-slate-400 font-medium">Outstanding credit liabilities</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Active Wholesale Revenue */}
+        <div className="bg-white rounded-2xl p-6 border border-slate-200/85 flex flex-col justify-between hover:border-emerald-200 hover:shadow-sm transition-all duration-200">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{tDash.activeRevenue}</span>
+            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
+              <ShoppingBag className="w-5 h-5" />
+            </div>
+          </div>
+          <div>
+            <h3 className="text-3xl font-black text-slate-900 font-mono tracking-tight">{formatBDT(totalSales)}</h3>
+            <p className="text-[10px] text-slate-400 mt-2 font-medium">
+              {tDash.activeChallansCount.replace('{count}', String(challans.filter(c => c.status !== 'Returned').length))}
+            </p>
+          </div>
+        </div>
+
+        {/* Total Expenses */}
+        <div className="bg-white rounded-2xl p-6 border border-slate-200/85 flex flex-col justify-between hover:border-rose-200 hover:shadow-sm transition-all duration-200">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{tDash.operatingExpenses}</span>
+            <div className="p-2 bg-rose-50 text-rose-600 rounded-xl">
+              <DollarSign className="w-5 h-5" />
+            </div>
+          </div>
+          <div>
+            <h3 className="text-3xl font-black text-slate-900 font-mono tracking-tight">{formatBDT(totalExpensesCost)}</h3>
+            <p className="text-[10px] text-slate-400 mt-2 font-medium">
+              {tDash.expensesCount.replace('{count}', String(expenses.length))}
+            </p>
           </div>
         </div>
 
       </div>
 
       {/* Grid: Low Stock Alert & Recent Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         
         {/* Low Stock Alerts */}
-        <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-100 p-5 shadow-sm space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-50 pb-3">
-            <div>
-              <h4 className="font-bold text-slate-800 text-base">Low Stock Warnings</h4>
-              <p className="text-xs text-slate-500">Inventory items currently below threshold (&lt; 600 units)</p>
+        <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-200/85 p-6 shadow-sm flex flex-col justify-between">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div>
+                <h4 className="font-bold text-slate-800 text-sm tracking-tight">{tDash.lowStockWarnings}</h4>
+                <p className="text-[10px] text-slate-400 mt-0.5">{tDash.lowStockDesc}</p>
+              </div>
+              <span className="bg-amber-50 text-amber-700 text-[10px] px-2.5 py-1 rounded-full font-bold border border-amber-200 flex items-center gap-1">
+                <AlertTriangle className="w-3.5 h-3.5" />
+                {tDash.alertsCount.replace('{count}', String(lowStockProducts.length))}
+              </span>
             </div>
-            <span className="bg-amber-50 text-amber-700 text-xs px-2.5 py-1 rounded-full font-semibold border border-amber-200 flex items-center gap-1 animate-pulse">
-              <AlertTriangle className="w-3.5 h-3.5" />
-              {lowStockProducts.length} Alert{lowStockProducts.length !== 1 ? 's' : ''}
-            </span>
-          </div>
 
-          <div className="divide-y divide-slate-100 max-h-76 overflow-y-auto pr-1">
-            {lowStockProducts.map(p => (
-              <div key={p.id} className="py-3 flex items-center justify-between group">
-                <div className="space-y-0.5">
-                  <p className="text-sm font-semibold text-slate-700 group-hover:text-indigo-600 transition-colors">{p.name}</p>
-                  <p className="text-xs text-slate-400 font-mono">SKU: {p.sku}</p>
+            <div className="divide-y divide-slate-100 max-h-80 overflow-y-auto pr-1">
+              {lowStockProducts.map(p => (
+                <div key={p.id} className="py-3 flex items-center justify-between group">
+                  <div className="space-y-0.5">
+                    <p className="text-xs font-bold text-slate-700 group-hover:text-indigo-600 transition-colors">{p.name}</p>
+                    <p className="text-[9px] text-slate-400 font-mono">SKU: {p.sku}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs font-bold text-rose-600 font-mono">{p.currentStock} {tCommon.units}</p>
+                    <span className="text-[9px] text-slate-400 font-medium">{tCommon.reorderRec}</span>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm font-bold text-rose-600 font-mono">{p.currentStock} Units</p>
-                  <span className="text-[10px] text-slate-400 font-medium">Reorder Recommended</span>
+              ))}
+              {lowStockProducts.length === 0 && (
+                <div className="py-12 text-center text-slate-400 text-xs font-medium">
+                  🎉 All stock counts are healthy.
                 </div>
-              </div>
-            ))}
-            {lowStockProducts.length === 0 && (
-              <div className="py-8 text-center text-slate-400 text-sm">
-                🎉 All products have healthy stock levels above 600 units.
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
           <button
             id="dash-btn-adjust-stock"
             onClick={() => onNavigate('stock-adjustment')}
-            className="w-full py-2.5 px-4 bg-slate-50 text-slate-700 hover:text-white hover:bg-slate-800 transition-all rounded-xl text-xs font-semibold flex items-center justify-center gap-2 border border-slate-200/60"
+            className="w-full mt-6 py-3 px-4 bg-slate-50 text-slate-700 hover:text-white hover:bg-slate-900 active:scale-95 transition-all rounded-xl text-xs font-bold flex items-center justify-center gap-2 border border-slate-200 cursor-pointer"
           >
-            Adjust Inventories
+            {tDash.adjustInventories}
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
 
         {/* Recent Challans Activity */}
-        <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-100 p-5 shadow-sm space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-50 pb-3">
+        <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200/85 p-6 shadow-sm space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
             <div>
-              <h4 className="font-bold text-slate-800 text-base">Recent Delivery Challans</h4>
-              <p className="text-xs text-slate-500">Live feed of distributed wholesale sheets</p>
+              <h4 className="font-bold text-slate-800 text-sm tracking-tight">{tDash.recentChallans}</h4>
+              <p className="text-[10px] text-slate-400 mt-0.5">{tDash.recentChallansDesc}</p>
             </div>
             <button
               id="dash-btn-view-challans"
               onClick={() => onNavigate('challan')}
-              className="text-indigo-600 hover:text-indigo-800 text-xs font-semibold flex items-center gap-1 hover:underline transition-all"
+              className="text-indigo-600 hover:text-indigo-800 text-xs font-bold flex items-center gap-1 transition-all cursor-pointer"
             >
-              Manage Sheets
+              {tDash.manageSheets}
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+            <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="text-slate-400 font-semibold border-b border-slate-100 pb-2">
-                  <th className="py-2.5 font-sans">Product Name</th>
-                  <th className="py-2.5 font-sans">SR / Delivery</th>
-                  <th className="py-2.5 font-sans">Clients</th>
-                  <th className="py-2.5 font-sans text-right">Value</th>
-                  <th className="py-2.5 font-sans text-center">Status</th>
+                <tr className="text-slate-400 font-bold border-b border-slate-100 pb-2">
+                  <th className="py-3 px-1">{tDash.tableName}</th>
+                  <th className="py-3 px-1">{tDash.tableSr}</th>
+                  <th className="py-3 px-1">{tDash.tableClients}</th>
+                  <th className="py-3 px-1 text-right">{tDash.tableValue}</th>
+                  <th className="py-3 px-1 text-center">{tDash.tableStatus}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {recentChallans.map((ch) => (
-                  <tr key={ch.id} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="py-3 pr-2">
-                      <p className="font-bold text-slate-700">{ch.productName}</p>
-                      <span className="text-[10px] text-slate-400 font-mono block">{ch.attribute}</span>
+                  <tr key={ch.id} className="hover:bg-slate-50/40 transition-colors">
+                    <td className="py-4 px-1">
+                      <p className="font-bold text-slate-700 text-xs">{ch.productName}</p>
+                      <span className="text-[9px] text-slate-400 font-mono block mt-0.5">{ch.attribute}</span>
                     </td>
-                    <td className="py-3">
-                      <p className="text-slate-600 font-medium">{ch.srName}</p>
-                      <span className="text-[10px] text-indigo-500 font-mono block">{ch.deliveryManName}</span>
+                    <td className="py-4 px-1">
+                      <p className="text-slate-600 font-semibold text-xs">{ch.srName}</p>
+                      <span className="text-[9px] text-indigo-500 font-mono block mt-0.5">{ch.deliveryManName}</span>
                     </td>
-                    <td className="py-3">
-                      <div className="flex flex-wrap gap-1 max-w-[150px]">
+                    <td className="py-4 px-1">
+                      <div className="flex flex-wrap gap-1 max-w-[140px]">
                         {ch.customerNames.slice(0, 1).map((c, i) => (
-                          <span key={i} className="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded text-[9px] font-semibold truncate block max-w-[120px]">
+                          <span key={i} className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-[9px] font-semibold truncate block max-w-[110px]">
                             {c}
                           </span>
                         ))}
                         {ch.customerNames.length > 1 && (
-                          <span className="px-1 py-0.5 bg-indigo-50 text-indigo-600 rounded text-[9px] font-extrabold">
+                          <span className="px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded text-[9px] font-bold">
                             +{ch.customerNames.length - 1}
                           </span>
                         )}
                       </div>
                     </td>
-                    <td className="py-3 text-right font-bold text-slate-700 font-mono">{formatBDT(ch.totalAmount)}</td>
-                    <td className="py-3 text-center">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold tracking-wide border ${
-                        ch.status === 'Delivered' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                    <td className="py-4 px-1 text-right font-bold text-slate-700 font-mono">{formatBDT(ch.totalAmount)}</td>
+                    <td className="py-4 px-1 text-center">
+                      <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold border ${
+                        ch.status === 'Delivered' ? 'bg-green-50 text-green-700 border-green-200' :
                         ch.status === 'Shipped' ? 'bg-sky-50 text-sky-700 border-sky-200' :
                         ch.status === 'Returned' ? 'bg-rose-50 text-rose-700 border-rose-200' :
                         'bg-amber-50 text-amber-700 border-amber-200'
                       }`}>
-                        {ch.status}
+                        {ch.status === 'Delivered' ? tCommon.delivered :
+                         ch.status === 'Shipped' ? tCommon.shipped :
+                         ch.status === 'Returned' ? tCommon.returned :
+                         tCommon.pending}
                       </span>
                     </td>
                   </tr>
@@ -470,43 +481,43 @@ export default function Dashboard({ products, challans, procurements, expenses, 
       </div>
 
       {/* Quick Launchpad & Hub Distribution */}
-      <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200/60 grid grid-cols-1 md:grid-cols-3 gap-5">
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-2 text-slate-800 font-bold text-sm">
-            <MapPin className="w-4 h-4 text-slate-600" />
-            Primary Hub Distribution
+      <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200 grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-slate-800 font-bold text-xs uppercase tracking-wide">
+            <MapPin className="w-4 h-4 text-indigo-500" />
+            {tDash.primaryHub}
           </div>
           <p className="text-xs text-slate-500 leading-relaxed">
-            All logistics, procurements, and payments are coordinated centrally at Chawkbazar Hub & Elephant Road Outlet, Dhaka, Bangladesh.
+            {tDash.primaryHubDesc}
           </p>
         </div>
 
-        <div className="space-y-1.5 border-t md:border-t-0 md:border-x border-slate-200/80 px-0 md:px-5 py-3 md:py-0">
-          <div className="flex items-center gap-2 text-slate-800 font-bold text-sm">
-            <Clock className="w-4 h-4 text-slate-600" />
-            Automatic Stock Lock
+        <div className="space-y-2 border-t md:border-t-0 md:border-x border-slate-200/80 px-0 md:px-6 py-4 md:py-0">
+          <div className="flex items-center gap-2 text-slate-800 font-bold text-xs uppercase tracking-wide">
+            <Clock className="w-4 h-4 text-indigo-500" />
+            {tDash.autoStockLock}
           </div>
           <p className="text-xs text-slate-500 leading-relaxed">
-            Challan approvals, procurement lists, and physical inventory reconciliations lock automatically at 10:00 PM BST daily.
+            {tDash.autoStockLockDesc}
           </p>
         </div>
 
-        <div className="flex flex-col justify-center space-y-2">
+        <div className="flex flex-col justify-center gap-3">
           <button
             id="dash-quick-procure"
             onClick={() => onNavigate('procurement')}
-            className="py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-md shadow-indigo-500/20"
+            className="py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-sm cursor-pointer"
           >
             <Plus className="w-4 h-4" />
-            New Procurement Invoice
+            {tDash.newProcInvoice}
           </button>
           <button
             id="dash-quick-sell"
             onClick={() => onNavigate('sell')}
-            className="py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-md shadow-emerald-500/20"
+            className="py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-sm cursor-pointer"
           >
             <ShoppingBag className="w-4 h-4" />
-            Go to Sales Terminal
+            {tDash.salesTerminal}
           </button>
         </div>
       </div>

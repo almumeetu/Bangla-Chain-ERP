@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState } from 'react';
 import { 
   FileText, 
@@ -18,6 +20,7 @@ import {
   Users
 } from 'lucide-react';
 import { ChallanItem, SR, Customer, DeliveryMan, Product, ProductAttribute } from '../types';
+import { translations, Language } from '../translations';
 
 interface ChallanModuleProps {
   challans: ChallanItem[];
@@ -27,6 +30,7 @@ interface ChallanModuleProps {
   deliveryMen: DeliveryMan[];
   products: Product[];
   attributes: ProductAttribute[];
+  language: Language;
 }
 
 export default function ChallanModule({
@@ -36,8 +40,13 @@ export default function ChallanModule({
   customers,
   deliveryMen,
   products,
-  attributes
+  attributes,
+  language
 }: ChallanModuleProps) {
+  const tCommon = translations[language].common;
+  const tChallan = translations[language].challan;
+  const tDash = translations[language].dashboard;
+
   // Search & Filters State
   const [filterSR, setFilterSR] = useState('');
   const [filterCustomer, setFilterCustomer] = useState('');
@@ -45,7 +54,7 @@ export default function ChallanModule({
   const [filterStatus, setFilterStatus] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Active searched filters (applied when user clicks "Search" or instantly)
+  // Active searched filters
   const [appliedSearch, setAppliedSearch] = useState('');
   const [appliedSR, setAppliedSR] = useState('');
   const [appliedCustomer, setAppliedCustomer] = useState('');
@@ -174,7 +183,7 @@ export default function ChallanModule({
   };
 
   const handleDeleteChallan = (id: string) => {
-    if (confirm('Are you sure you want to delete this Challan record?')) {
+    if (confirm(tCommon.confirmDelete)) {
       setChallans(prev => prev.filter(c => c.id !== id));
     }
   };
@@ -235,7 +244,7 @@ export default function ChallanModule({
     printWindow.document.write(`
       <html>
         <head>
-          <title>Enterprise ERP - Challan Sheet Report</title>
+          <title>${tChallan.voucherTitle}</title>
           <style>
             body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #333; margin: 40px; }
             h1 { text-align: center; margin-bottom: 5px; font-size: 24px; color: #1e1b4b; }
@@ -248,8 +257,8 @@ export default function ChallanModule({
           </style>
         </head>
         <body>
-          <h1>ENTERPRISE DELIVERY CHALLAN SHEET</h1>
-          <p class="meta">Generated on ${new Date().toLocaleString('en-BD')} | Target: Active Search Report</p>
+          <h1>${tChallan.title.toUpperCase()}</h1>
+          <p class="meta">Generated on ${new Date().toLocaleString('en-BD')} | Period: Active Summary</p>
           <hr>
           <table>
             <thead>
@@ -270,26 +279,12 @@ export default function ChallanModule({
             <tbody>
               ${htmlRows}
               <tr class="total-row">
-                <td colspan="6" style="text-align: right; padding: 12px;">GLOBAL TOTAL AMOUNT:</td>
+                <td colspan="6" style="text-align: right; padding: 12px;">TOTAL AMOUNT:</td>
                 <td style="text-align: right; padding: 12px; color: #1e1b4b;">৳${totalCalculatedAmt}</td>
                 <td colspan="4"></td>
               </tr>
             </tbody>
           </table>
-          <div style="margin-top: 60px; display: flex; justify-content: space-between; font-size: 12px;">
-            <div>
-              <p>_________________________</p>
-              <p><b>Prepared By (Muin)</b></p>
-            </div>
-            <div>
-              <p>_________________________</p>
-              <p><b>Delivery Man Signature</b></p>
-            </div>
-            <div>
-              <p>_________________________</p>
-              <p><b>Authorized Stamp</b></p>
-            </div>
-          </div>
           <script>window.print();</script>
         </body>
       </html>
@@ -313,58 +308,58 @@ export default function ChallanModule({
         <div>
           <h2 className="text-xl font-extrabold text-slate-800 tracking-tight flex items-center gap-2">
             <FileText className="w-6 h-6 text-indigo-500" />
-            Delivery Man Challan Sheets
+            {tChallan.title}
           </h2>
-          <p className="text-xs text-slate-500">Sales dispatch, distribution sheets, and bulk wholesale handovers</p>
+          <p className="text-xs text-slate-500">{tChallan.subtitle}</p>
         </div>
 
         <div className="flex items-center gap-2.5">
           <button
             id="challan-btn-download-csv"
             onClick={downloadCSV}
-            className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-transform active:scale-95 flex items-center gap-2 border border-slate-200/60"
-            title="Export current active sheet to CSV"
+            className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-transform active:scale-95 flex items-center gap-2 border border-slate-200 cursor-pointer"
+            title="Export to CSV"
           >
             <Download className="w-4 h-4 text-slate-500" />
-            Export CSV
+            {tChallan.exportCsv}
           </button>
           
           <button
             id="challan-btn-download-pdf"
             onClick={triggerPrintPDF}
-            className="px-3.5 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-bold transition-transform active:scale-95 flex items-center gap-2 border border-indigo-200/50"
-            title="Download printable delivery sheet PDF"
+            className="px-3.5 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-bold transition-transform active:scale-95 flex items-center gap-2 border border-indigo-200/50 cursor-pointer"
+            title="Download/Print PDF"
           >
             <FileText className="w-4 h-4 text-indigo-600" />
-            Download/Print Sheet
+            {tChallan.downloadPrint}
           </button>
 
           <button
             id="challan-btn-add"
             onClick={() => setShowAddModal(true)}
-            className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all active:scale-95 flex items-center gap-2 shadow-md shadow-indigo-500/10"
+            className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all active:scale-95 flex items-center gap-2 shadow-md shadow-indigo-500/10 cursor-pointer"
           >
             <Plus className="w-4.5 h-4.5" />
-            Create Challan
+            {tChallan.createBtn}
           </button>
         </div>
       </div>
 
-      {/* Reactive Filter Engine Form */}
-      <form onSubmit={handleSearch} className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm space-y-4">
-        <h3 className="text-xs font-bold text-slate-500 tracking-wider uppercase">Challan Filter Engine</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3.5">
+      {/* Filter Engine Form */}
+      <form onSubmit={handleSearch} className="bg-white rounded-2xl border border-slate-250 p-5 shadow-sm space-y-4">
+        <h3 className="text-xs font-bold text-slate-400 tracking-wider uppercase">{tChallan.filterTitle}</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
           
           {/* SR Dropdown */}
           <div className="space-y-1">
-            <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Sales Representative (SR)</label>
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">{tChallan.srLabel}</label>
             <select
               id="filter-sr-select"
               value={filterSR}
               onChange={(e) => setFilterSR(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs text-slate-700 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all outline-none"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2.5 text-xs text-slate-700 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all outline-none"
             >
-              <option value="">All Representatives</option>
+              <option value="">{tChallan.allSr}</option>
               {srs.map(sr => (
                 <option key={sr.id} value={sr.name}>{sr.name}</option>
               ))}
@@ -373,14 +368,14 @@ export default function ChallanModule({
 
           {/* Customer Dropdown */}
           <div className="space-y-1">
-            <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Wholesale Customer</label>
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">{tChallan.customerLabel}</label>
             <select
               id="filter-customer-select"
               value={filterCustomer}
               onChange={(e) => setFilterCustomer(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs text-slate-700 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all outline-none"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2.5 text-xs text-slate-700 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all outline-none"
             >
-              <option value="">All Customers</option>
+              <option value="">{tChallan.allCustomers}</option>
               {customers.map(cust => (
                 <option key={cust.id} value={cust.name}>{cust.name}</option>
               ))}
@@ -389,14 +384,14 @@ export default function ChallanModule({
 
           {/* Delivery Man Dropdown */}
           <div className="space-y-1">
-            <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Delivery Agent</label>
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">{tChallan.deliveryLabel}</label>
             <select
               id="filter-delivery-select"
               value={filterDeliveryMan}
               onChange={(e) => setFilterDeliveryMan(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs text-slate-700 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all outline-none"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2.5 text-xs text-slate-700 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all outline-none"
             >
-              <option value="">All Delivery Men</option>
+              <option value="">{tChallan.allDelivery}</option>
               {deliveryMen.map(dm => (
                 <option key={dm.id} value={dm.name}>{dm.name}</option>
               ))}
@@ -405,33 +400,33 @@ export default function ChallanModule({
 
           {/* Status Dropdown */}
           <div className="space-y-1">
-            <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Logistics Status</label>
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">{tChallan.statusLabel}</label>
             <select
               id="filter-status-select"
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs text-slate-700 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all outline-none"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2.5 text-xs text-slate-700 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all outline-none"
             >
-              <option value="">All Statuses</option>
-              <option value="Pending">Pending</option>
-              <option value="Shipped">Shipped</option>
-              <option value="Delivered">Delivered</option>
-              <option value="Returned">Returned</option>
+              <option value="">{tChallan.allStatus}</option>
+              <option value="Pending">{tCommon.pending}</option>
+              <option value="Shipped">{tCommon.shipped}</option>
+              <option value="Delivered">{tCommon.delivered}</option>
+              <option value="Returned">{tCommon.returned}</option>
             </select>
           </div>
 
           {/* Keyword Search */}
           <div className="space-y-1">
-            <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Keyword Search</label>
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">{tChallan.keywordLabel}</label>
             <div className="relative">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 id="filter-keyword-input"
                 type="text"
-                placeholder="Apex, Lotto, Size..."
+                placeholder={tCommon.search}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-8.5 pr-3 py-2 text-xs text-slate-700 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all outline-none"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-9 pr-3 py-2 text-xs text-slate-700 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all outline-none"
               />
             </div>
           </div>
@@ -439,34 +434,34 @@ export default function ChallanModule({
         </div>
 
         {/* Action buttons inside filter card */}
-        <div className="flex items-center justify-end gap-2 border-t border-slate-50 pt-4">
+        <div className="flex items-center justify-end gap-2 border-t border-slate-100 pt-4">
           <button
             id="filter-btn-reset"
             type="button"
             onClick={handleReset}
-            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-transform active:scale-95"
+            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-transform active:scale-95 cursor-pointer"
           >
             <RotateCcw className="w-3.5 h-3.5" />
-            Reset Filters
+            {tChallan.resetFilters}
           </button>
           
           <button
             id="filter-btn-submit"
             type="submit"
-            className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-transform active:scale-95 shadow-sm"
+            className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-transform active:scale-95 shadow-sm cursor-pointer"
           >
             <Search className="w-3.5 h-3.5" />
-            Query Sheet
+            {tChallan.querySheet}
           </button>
         </div>
       </form>
 
-      {/* Workable Grid / Table */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-50 flex items-center justify-between bg-slate-50/35">
-          <h4 className="font-bold text-slate-800 text-sm">Active Challan Sheet Logs</h4>
+      {/* Table */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-1 shadow-sm overflow-hidden">
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/35">
+          <h4 className="font-bold text-slate-800 text-sm">{tChallan.tableTitle}</h4>
           <span className="bg-indigo-50 text-indigo-700 text-[11px] font-semibold px-2.5 py-0.5 rounded-full border border-indigo-100">
-            {filteredChallans.length} Record{filteredChallans.length !== 1 ? 's' : ''} found
+            {tChallan.recordsFound.replace('{count}', String(filteredChallans.length))}
           </span>
         </div>
 
@@ -475,110 +470,94 @@ export default function ChallanModule({
             <thead>
               <tr className="bg-slate-100 text-slate-500 border-b border-slate-200">
                 <th className="py-3.5 px-4 font-semibold font-sans w-12 text-center">#</th>
-                <th className="py-3.5 px-4 font-semibold font-sans">Product Name</th>
-                <th className="py-3.5 px-4 font-semibold font-sans">Attribute / Spec</th>
-                <th className="py-3.5 px-4 font-semibold font-sans text-center">Qty</th>
-                <th className="py-3.5 px-4 font-semibold font-sans text-center">Bonus Qty</th>
-                <th className="py-3.5 px-4 font-semibold font-sans text-center">Total Qty</th>
-                <th className="py-3.5 px-4 font-semibold font-sans text-right">Total Amount</th>
-                <th className="py-3.5 px-4 font-semibold font-sans">SR Name</th>
-                <th className="py-3.5 px-4 font-semibold font-sans">Customers</th>
-                <th className="py-3.5 px-4 font-semibold font-sans">Delivery Man</th>
-                <th className="py-3.5 px-4 font-semibold font-sans text-center">Status</th>
-                <th className="py-3.5 px-4 font-semibold font-sans text-center w-24">Actions</th>
+                <th className="py-3.5 px-4 font-semibold font-sans">{tDash.tableName}</th>
+                <th className="py-3.5 px-4 font-semibold font-sans">{tChallan.specHeader}</th>
+                <th className="py-3.5 px-4 font-semibold font-sans text-center">{tChallan.primaryQty.replace('*', '')}</th>
+                <th className="py-3.5 px-4 font-semibold font-sans text-center">{tChallan.bonusQty}</th>
+                <th className="py-3.5 px-4 font-semibold font-sans text-center">{tChallan.totalCalculatedQty}</th>
+                <th className="py-3.5 px-4 font-semibold font-sans text-right">{tDash.tableValue}</th>
+                <th className="py-3.5 px-4 font-semibold font-sans">{tChallan.srLabel}</th>
+                <th className="py-3.5 px-4 font-semibold font-sans">{tChallan.custHeader}</th>
+                <th className="py-3.5 px-4 font-semibold font-sans">{tChallan.deliveryLabel}</th>
+                <th className="py-3.5 px-4 font-semibold font-sans text-center">{tDash.tableStatus}</th>
+                <th className="py-3.5 px-4 font-semibold font-sans text-center w-24">{tCommon.actions}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {paginatedChallans.map((c, index) => {
                 const globalIndex = startIndex + index + 1;
                 return (
-                  <tr key={c.id} className="hover:bg-indigo-50/20 transition-all duration-150 group">
+                  <tr key={c.id} className="hover:bg-indigo-50/10 transition-all duration-150 group">
                     <td className="py-3.5 px-4 text-center text-slate-400 font-mono font-medium">{globalIndex}</td>
-                    
-                    {/* Product Name */}
                     <td className="py-3.5 px-4 font-bold text-slate-800 font-sans">{c.productName}</td>
-                    
-                    {/* Attribute */}
                     <td className="py-3.5 px-4">
-                      <span className="px-2.5 py-1 bg-slate-50 text-slate-600 rounded-lg text-[11px] font-mono border border-slate-200">
+                      <span className="px-2.5 py-1 bg-slate-50 text-slate-600 rounded-lg text-[10px] font-mono border border-slate-200">
                         {c.attribute}
                       </span>
                     </td>
-                    
-                    {/* Qty */}
                     <td className="py-3.5 px-4 text-center text-slate-600 font-mono font-medium">{c.qty}</td>
-                    
-                    {/* Bonus Qty */}
                     <td className="py-3.5 px-4 text-center text-slate-400 font-mono">{c.bonusQty || 0}</td>
-                    
-                    {/* Total Qty (Auto calculated: qty + bonusQty) */}
                     <td className="py-3.5 px-4 text-center font-bold text-slate-700 font-mono bg-slate-50/40">{c.totalQty}</td>
-                    
-                    {/* Total Amount (BDT) */}
                     <td className="py-3.5 px-4 text-right font-extrabold text-slate-900 font-mono">
                       ৳{c.totalAmount.toLocaleString('en-BD')}
                     </td>
-                    
-                    {/* SR Name */}
                     <td className="py-3.5 px-4 font-medium text-slate-600">{c.srName}</td>
                     
-                    {/* Customers Multi-Customer Badge */}
+                    {/* Simplified Customers Row Display */}
                     <td className="py-3.5 px-4">
-                      <div className="flex flex-wrap items-center gap-1 max-w-[170px]">
-                        {c.customerNames.slice(0, 1).map((cust, i) => (
-                          <span key={i} className="px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded-md text-[10px] font-semibold border border-indigo-100 truncate block max-w-[130px]" title={cust}>
-                            {cust}
-                          </span>
-                        ))}
+                      <div className="flex items-center gap-1.5">
+                        <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded-md text-[10px] font-semibold border border-indigo-100 truncate block max-w-[100px]">
+                          {c.customerNames[0]}
+                        </span>
                         {c.customerNames.length > 1 && (
                           <button
                             id={`challan-badge-cust-more-${c.id}`}
                             type="button"
-                            onClick={() => setCustomerModalList({ title: `Consolidated Client List`, list: c.customerNames })}
-                            className="px-1.5 py-0.5 bg-indigo-600 text-white rounded-md text-[10px] font-extrabold hover:bg-indigo-700 cursor-pointer active:scale-95 transition-all shadow-sm"
-                            title="Click to view all multi-customers"
+                            onClick={() => setCustomerModalList({ title: tChallan.consolidatedClientList || 'Consolidated Client List', list: c.customerNames })}
+                            className="px-2 py-0.5 bg-indigo-600 text-white rounded-md text-[10px] font-bold hover:bg-indigo-700 cursor-pointer active:scale-95 transition-all shadow-sm"
+                            title="Show Clients Details"
                           >
-                            +{c.customerNames.length - 1} More
+                            +{c.customerNames.length - 1} {tCommon.details}
                           </button>
                         )}
                       </div>
                     </td>
                     
-                    {/* Delivery Man */}
                     <td className="py-3.5 px-4">
                       <p className="font-semibold text-slate-700 text-xs">{c.deliveryManName}</p>
                     </td>
 
-                    {/* Status Pill */}
                     <td className="py-3.5 px-4 text-center">
-                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wide border ${
-                        c.status === 'Delivered' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                        c.status === 'Delivered' ? 'bg-green-50 text-green-700 border-green-200' :
                         c.status === 'Shipped' ? 'bg-sky-50 text-sky-700 border-sky-200' :
                         c.status === 'Returned' ? 'bg-rose-50 text-rose-700 border-rose-200' :
                         'bg-amber-50 text-amber-700 border-amber-200'
                       }`}>
-                        {c.status}
+                        {c.status === 'Delivered' ? tCommon.delivered :
+                         c.status === 'Shipped' ? tCommon.shipped :
+                         c.status === 'Returned' ? tCommon.returned :
+                         tCommon.pending}
                       </span>
                     </td>
 
-                    {/* Inline Actions */}
                     <td className="py-3.5 px-4 text-center">
                       <div className="flex items-center justify-center gap-1.5">
                         <button
                           id={`challan-action-view-${c.id}`}
                           onClick={() => setViewingChallan(c)}
-                          className="p-1 text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50 rounded-lg transition-colors"
-                          title="View detailed voucher sheet"
+                          className="p-1.5 text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
+                          title={tChallan.viewVoucher}
                         >
-                          <Eye className="w-4.5 h-4.5" />
+                          <Eye className="w-4 h-4" />
                         </button>
                         <button
                           id={`challan-action-delete-${c.id}`}
                           onClick={() => handleDeleteChallan(c.id)}
-                          className="p-1 text-rose-600 hover:text-rose-900 hover:bg-rose-50 rounded-lg transition-colors"
-                          title="Delete challan record"
+                          className="p-1.5 text-rose-600 hover:text-rose-900 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                          title={tChallan.deleteRecord}
                         >
-                          <Trash2 className="w-4.5 h-4.5" />
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </td>
@@ -588,14 +567,14 @@ export default function ChallanModule({
               {filteredChallans.length === 0 && (
                 <tr>
                   <td colSpan={12} className="py-12 text-center text-slate-400">
-                    <p className="text-sm font-semibold">No Challan sheet logs found matching the selected filters.</p>
+                    <p className="text-sm font-semibold">{tChallan.noChallans}</p>
                     <button
                       id="challan-btn-reset-table"
                       type="button"
                       onClick={handleReset}
-                      className="mt-3 inline-flex items-center gap-1 text-indigo-600 hover:underline font-bold text-xs"
+                      className="mt-3 inline-flex items-center gap-1 text-indigo-600 hover:underline font-bold text-xs cursor-pointer"
                     >
-                      Reset and Show All Logs
+                      {tChallan.resetShowAll}
                     </button>
                   </td>
                 </tr>
@@ -604,18 +583,21 @@ export default function ChallanModule({
           </table>
         </div>
 
-        {/* Client-Side Native Pagination Footer */}
+        {/* Pagination Footer */}
         {totalPages > 1 && (
-          <div className="px-5 py-4 border-t border-slate-50 flex items-center justify-between bg-slate-50/20 text-xs">
+          <div className="px-5 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/20 text-xs">
             <span className="text-slate-500 font-medium">
-              Showing <span className="font-semibold text-slate-700">{startIndex + 1}</span> to <span className="font-semibold text-slate-700">{Math.min(startIndex + itemsPerPage, totalItems)}</span> of <span className="font-semibold text-slate-700">{totalItems}</span> records
+              {tChallan.showingLabel
+                .replace('{start}', String(startIndex + 1))
+                .replace('{end}', String(Math.min(startIndex + itemsPerPage, totalItems)))
+                .replace('{total}', String(totalItems))}
             </span>
             <div className="flex items-center gap-1.5">
               <button
                 id="challan-page-prev"
                 onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                 disabled={currentPage === 1}
-                className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-transparent transition-all"
+                className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-transparent transition-all cursor-pointer"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
@@ -625,7 +607,7 @@ export default function ChallanModule({
                   id={`challan-page-num-${page}`}
                   key={page}
                   onClick={() => setCurrentPage(page)}
-                  className={`px-3 py-1.5 rounded-lg border font-bold transition-all ${
+                  className={`px-3 py-1.5 rounded-lg border font-bold transition-all cursor-pointer ${
                     currentPage === page 
                       ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' 
                       : 'border-slate-200 text-slate-600 hover:bg-slate-50'
@@ -639,7 +621,7 @@ export default function ChallanModule({
                 id="challan-page-next"
                 onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                 disabled={currentPage === totalPages}
-                className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-transparent transition-all"
+                className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-transparent transition-all cursor-pointer"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
@@ -655,12 +637,12 @@ export default function ChallanModule({
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
                 <PlusCircle className="w-5 h-5 text-indigo-600" />
-                <h3 className="font-bold text-slate-800 text-lg">Create New Wholesale Challan</h3>
+                <h3 className="font-bold text-slate-800 text-lg">{tChallan.modalCreateTitle}</h3>
               </div>
               <button
                 id="challan-modal-add-close"
                 onClick={() => setShowAddModal(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -671,14 +653,13 @@ export default function ChallanModule({
               {/* Product and Attribute row */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Product Selection *</label>
+                  <label className="text-xs font-bold text-slate-550 uppercase tracking-wide">{tChallan.productSelect}</label>
                   <select
                     id="new-challan-product-select"
                     required
                     value={newProduct}
                     onChange={(e) => {
                       setNewProduct(e.target.value);
-                      // Auto pick first active attribute or default
                       const activeAttrs = attributes.filter(a => a.status === 'Active');
                       if (activeAttrs.length > 0) {
                         setNewAttribute(activeAttrs[0].name);
@@ -686,22 +667,22 @@ export default function ChallanModule({
                     }}
                     className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2.5 text-xs text-slate-700 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all outline-none"
                   >
-                    <option value="">-- Choose Product --</option>
+                    <option value="">{tChallan.chooseProduct}</option>
                     {products.map(p => (
-                      <option key={p.id} value={p.name}>{p.name} (Wholesale: ৳{p.defaultWSP})</option>
+                      <option key={p.id} value={p.name}>{p.name} ({tChallan.rateHeader}: ৳{p.defaultWSP})</option>
                     ))}
                   </select>
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Product Attribute / Spec</label>
+                  <label className="text-xs font-bold text-slate-550 uppercase tracking-wide">{tChallan.attributeSelect}</label>
                   <select
                     id="new-challan-attribute-select"
                     value={newAttribute}
                     onChange={(e) => setNewAttribute(e.target.value)}
                     className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2.5 text-xs text-slate-700 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all outline-none"
                   >
-                    <option value="">None (Bulk)</option>
+                    <option value="">{tChallan.noneBulk}</option>
                     {attributes.filter(a => a.status === 'Active').map(attr => (
                       <option key={attr.id} value={attr.name}>{attr.name}</option>
                     ))}
@@ -712,7 +693,7 @@ export default function ChallanModule({
               {/* Quantities & Price Previews */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200/50">
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-600 uppercase">Primary Quantity *</label>
+                  <label className="text-xs font-bold text-slate-650 uppercase">{tChallan.primaryQty}</label>
                   <input
                     id="new-challan-qty-input"
                     type="number"
@@ -725,7 +706,7 @@ export default function ChallanModule({
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-600 uppercase">Bonus Quantity</label>
+                  <label className="text-xs font-bold text-slate-655 uppercase">{tChallan.bonusQty}</label>
                   <input
                     id="new-challan-bonus-qty-input"
                     type="number"
@@ -738,8 +719,8 @@ export default function ChallanModule({
 
                 <div className="flex flex-col justify-end">
                   <div className="text-right">
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wide">Total Calculated Qty</p>
-                    <p className="text-lg font-extrabold text-indigo-600 font-mono">{Number(newQty) + Number(newBonusQty)} Units</p>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wide">{tChallan.totalCalculatedQty}</p>
+                    <p className="text-lg font-extrabold text-indigo-600 font-mono">{Number(newQty) + Number(newBonusQty)} {tCommon.units}</p>
                   </div>
                 </div>
               </div>
@@ -747,7 +728,7 @@ export default function ChallanModule({
               {/* SR & Delivery Agent Selection */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Sales Representative (SR) *</label>
+                  <label className="text-xs font-bold text-slate-550 uppercase tracking-wide">{tChallan.srSelectLabel}</label>
                   <select
                     id="new-challan-sr-select"
                     required
@@ -755,7 +736,7 @@ export default function ChallanModule({
                     onChange={(e) => setNewSR(e.target.value)}
                     className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2.5 text-xs text-slate-700 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all outline-none"
                   >
-                    <option value="">-- Select SR --</option>
+                    <option value="">{tChallan.selectSr}</option>
                     {srs.map(sr => (
                       <option key={sr.id} value={sr.name}>{sr.name}</option>
                     ))}
@@ -763,7 +744,7 @@ export default function ChallanModule({
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Delivery Agent (Transport) *</label>
+                  <label className="text-xs font-bold text-slate-550 uppercase tracking-wide">{tChallan.deliverySelectLabel}</label>
                   <select
                     id="new-challan-delivery-select"
                     required
@@ -771,7 +752,7 @@ export default function ChallanModule({
                     onChange={(e) => setNewDeliveryMan(e.target.value)}
                     className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2.5 text-xs text-slate-700 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all outline-none"
                   >
-                    <option value="">-- Choose Delivery Agent --</option>
+                    <option value="">{tChallan.selectDelivery}</option>
                     {deliveryMen.map(dm => (
                       <option key={dm.id} value={dm.name}>{dm.name} ({dm.vehicle})</option>
                     ))}
@@ -781,8 +762,8 @@ export default function ChallanModule({
 
               {/* Status and Customers */}
               <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block">Select Consolidated Customer(s) *</label>
-                <p className="text-[10px] text-slate-400">You may select multiple customers to group them under this delivery run sheet</p>
+                <label className="text-xs font-bold text-slate-550 uppercase tracking-wide block">{tChallan.selectConsolidatedCust}</label>
+                <p className="text-[10px] text-slate-400">{tChallan.custSubtitle}</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-36 overflow-y-auto border border-slate-100 p-3 rounded-xl bg-slate-50">
                   {customers.map((c) => {
                     const isSelected = newSelectedCustomers.includes(c.name);
@@ -815,23 +796,23 @@ export default function ChallanModule({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Logistics Status</label>
+                  <label className="text-xs font-bold text-slate-550 uppercase tracking-wide">{tChallan.statusLabel}</label>
                   <select
                     id="new-challan-status-select"
                     value={newStatus}
                     onChange={(e: any) => setNewStatus(e.target.value)}
                     className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2.5 text-xs text-slate-700 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all outline-none"
                   >
-                    <option value="Pending">Pending</option>
-                    <option value="Shipped">Shipped</option>
-                    <option value="Delivered">Delivered</option>
-                    <option value="Returned">Returned</option>
+                    <option value="Pending">{tCommon.pending}</option>
+                    <option value="Shipped">{tCommon.shipped}</option>
+                    <option value="Delivered">{tCommon.delivered}</option>
+                    <option value="Returned">{tCommon.returned}</option>
                   </select>
                 </div>
 
                 <div className="flex items-center justify-end">
                   <div className="text-right">
-                    <span className="text-[10px] text-slate-400 font-bold uppercase block">Estimated Wholesale Price</span>
+                    <span className="text-[10px] text-slate-400 font-bold uppercase block">{tChallan.estimatedWholesalePrice}</span>
                     <span className="text-2xl font-black text-emerald-600 font-mono">
                       ৳{((newQty || 0) * getProductWSP(newProduct)).toLocaleString('en-BD')}
                     </span>
@@ -845,16 +826,16 @@ export default function ChallanModule({
                   id="new-challan-btn-cancel"
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-transform active:scale-95"
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-transform active:scale-95 cursor-pointer"
                 >
-                  Cancel
+                  {tCommon.cancel}
                 </button>
                 <button
                   id="new-challan-btn-submit"
                   type="submit"
-                  className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-transform active:scale-95 shadow-md shadow-indigo-600/15"
+                  className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-transform active:scale-95 shadow-md shadow-indigo-600/15 cursor-pointer"
                 >
-                  Dispatch Challan Run
+                  {tChallan.dispatchBtn}
                 </button>
               </div>
 
@@ -870,12 +851,12 @@ export default function ChallanModule({
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
                 <FileText className="w-5 h-5 text-indigo-600" />
-                <h3 className="font-bold text-slate-800 text-lg">Challan Invoice Voucher</h3>
+                <h3 className="font-bold text-slate-800 text-lg">{tChallan.voucherTitle}</h3>
               </div>
               <button
                 id="challan-modal-view-close"
                 onClick={() => setViewingChallan(null)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -884,52 +865,55 @@ export default function ChallanModule({
             <div className="space-y-4 text-xs">
               <div className="flex justify-between bg-slate-50 p-4 rounded-xl border border-slate-200/50">
                 <div>
-                  <p className="text-slate-400 font-bold uppercase text-[9px] tracking-wider">CHALLAN REFERENCE</p>
+                  <p className="text-slate-400 font-bold uppercase text-[9px] tracking-wider">{tChallan.reference}</p>
                   <p className="font-mono text-slate-800 font-bold">{viewingChallan.id.toUpperCase()}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-slate-400 font-bold uppercase text-[9px] tracking-wider">LOGISTICS STATUS</p>
-                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold border block ${
-                    viewingChallan.status === 'Delivered' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                  <p className="text-slate-400 font-bold uppercase text-[9px] tracking-wider">{tChallan.statusUpper}</p>
+                  <span className={`px-2.5 py-0.5 rounded text-[10px] font-bold border block ${
+                    viewingChallan.status === 'Delivered' ? 'bg-green-50 text-green-700 border-green-200' :
                     viewingChallan.status === 'Shipped' ? 'bg-sky-50 text-sky-700 border-sky-200' :
                     viewingChallan.status === 'Returned' ? 'bg-rose-50 text-rose-700 border-rose-200' :
                     'bg-amber-50 text-amber-700 border-amber-200'
                   }`}>
-                    {viewingChallan.status}
+                    {viewingChallan.status === 'Delivered' ? tCommon.delivered :
+                     viewingChallan.status === 'Shipped' ? tCommon.shipped :
+                     viewingChallan.status === 'Returned' ? tCommon.returned :
+                     tCommon.pending}
                   </span>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <p className="font-bold text-slate-800 text-sm border-b border-slate-50 pb-1">Product Details</p>
+                <p className="font-bold text-slate-800 text-sm border-b border-slate-50 pb-1">{tChallan.productDetails}</p>
                 <div className="grid grid-cols-2 gap-y-2">
-                  <span className="text-slate-400 font-medium">Product Name:</span>
+                  <span className="text-slate-400 font-medium">{tChallan.productNameLabel}</span>
                   <span className="font-bold text-slate-800 text-right">{viewingChallan.productName}</span>
 
-                  <span className="text-slate-400 font-medium">Attribute Specs:</span>
+                  <span className="text-slate-400 font-medium">{tChallan.attrSpecsLabel}</span>
                   <span className="font-mono text-slate-700 text-right">{viewingChallan.attribute}</span>
 
-                  <span className="text-slate-400 font-medium">Primary Dispatch Qty:</span>
-                  <span className="font-mono text-slate-800 text-right font-semibold">{viewingChallan.qty} Units</span>
+                  <span className="text-slate-400 font-medium">{tChallan.primaryDispatchLabel}</span>
+                  <span className="font-mono text-slate-800 text-right font-semibold">{viewingChallan.qty} {tCommon.units}</span>
 
-                  <span className="text-slate-400 font-medium">Bonus / Freebie Qty:</span>
-                  <span className="font-mono text-slate-500 text-right">{viewingChallan.bonusQty} Units</span>
+                  <span className="text-slate-400 font-medium">{tChallan.bonusFreebieLabel}</span>
+                  <span className="font-mono text-slate-500 text-right">{viewingChallan.bonusQty} {tCommon.units}</span>
 
-                  <span className="text-slate-400 font-medium">Aggregate Total Handed Over:</span>
-                  <span className="font-mono text-indigo-600 text-right font-bold text-sm">{viewingChallan.totalQty} Units</span>
+                  <span className="text-slate-400 font-medium">{tChallan.aggregateTotalLabel}</span>
+                  <span className="font-mono text-indigo-600 text-right font-bold text-sm">{viewingChallan.totalQty} {tCommon.units}</span>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <p className="font-bold text-slate-800 text-sm border-b border-slate-50 pb-1">Distribution Hub Mapping</p>
+                <p className="font-bold text-slate-800 text-sm border-b border-slate-50 pb-1">{tChallan.distHubLabel}</p>
                 <div className="grid grid-cols-2 gap-y-2">
-                  <span className="text-slate-400 font-medium">Sales Rep (SR):</span>
+                  <span className="text-slate-400 font-medium">{tChallan.srNameLabel}</span>
                   <span className="font-semibold text-slate-700 text-right">{viewingChallan.srName}</span>
 
-                  <span className="text-slate-400 font-medium">Assigned Driver / Van:</span>
+                  <span className="text-slate-400 font-medium">{tChallan.assignedDriverLabel}</span>
                   <span className="font-semibold text-slate-700 text-right">{viewingChallan.deliveryManName}</span>
 
-                  <span className="text-slate-400 font-medium">Recipient Customers:</span>
+                  <span className="text-slate-400 font-medium">{tChallan.recipientLabel}</span>
                   <span className="font-medium text-indigo-600 text-right text-[11px] truncate max-w-[200px]" title={viewingChallan.customerNames.join(', ')}>
                     {viewingChallan.customerNames.join(', ')}
                   </span>
@@ -938,11 +922,11 @@ export default function ChallanModule({
 
               <div className="border-t border-slate-100 pt-3 flex justify-between items-center">
                 <div>
-                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Wholesale Rate per Item</span>
+                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">{tChallan.ratePerItem}</span>
                   <span className="font-mono font-bold text-slate-600">৳{viewingChallan.rate}</span>
                 </div>
                 <div className="text-right">
-                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Aggregate Billable Value</span>
+                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">{tChallan.aggregateBillable}</span>
                   <span className="font-mono font-black text-lg text-emerald-600">৳{viewingChallan.totalAmount.toLocaleString('en-BD')}</span>
                 </div>
               </div>
@@ -952,9 +936,9 @@ export default function ChallanModule({
               <button
                 id="viewing-challan-btn-close"
                 onClick={() => setViewingChallan(null)}
-                className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-transform active:scale-95 text-center shadow-md shadow-slate-900/10"
+                className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-transform active:scale-95 text-center shadow-md shadow-slate-900/10 cursor-pointer"
               >
-                Close Voucher
+                {tChallan.closeVoucher}
               </button>
             </div>
           </div>
@@ -973,7 +957,7 @@ export default function ChallanModule({
               <button
                 id="customer-modal-close"
                 onClick={() => setCustomerModalList(null)}
-                className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -991,9 +975,9 @@ export default function ChallanModule({
             <button
               id="customer-modal-btn-dismiss"
               onClick={() => setCustomerModalList(null)}
-              className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg transition-transform active:scale-95"
+              className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg transition-transform active:scale-95 cursor-pointer"
             >
-              Dismiss
+              {tCommon.close}
             </button>
           </div>
         </div>

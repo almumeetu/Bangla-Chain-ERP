@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useEffect } from 'react';
 import { jsPDF } from 'jspdf';
 import { 
@@ -11,16 +13,18 @@ import {
   LogOut, 
   Bell, 
   MapPin,
-  ClipboardList
+  ClipboardList,
+  Globe
 } from 'lucide-react';
+import { translations, Language } from '../../../translations';
 
-import Sidebar, { TabID } from './components/Sidebar';
-import Dashboard from './components/Dashboard';
-import ChallanModule from './components/ChallanModule';
-import ProcurementModule from './components/ProcurementModule';
-import StockAdjustmentModule from './components/StockAdjustmentModule';
-import AccountingModule from './components/AccountingModule';
-import SellModule from './components/SellModule';
+import Sidebar, { TabID } from '../../../components/Sidebar';
+import Dashboard from '../../../components/Dashboard';
+import ChallanModule from '../../../components/ChallanModule';
+import ProcurementModule from '../../../components/ProcurementModule';
+import StockAdjustmentModule from '../../../components/StockAdjustmentModule';
+import AccountingModule from '../../../components/AccountingModule';
+import SellModule from '../../../components/SellModule';
 
 // Raw Types & seed arrays
 import { 
@@ -41,12 +45,28 @@ import {
   INITIAL_STOCK_ADJUSTMENTS,
   INITIAL_EXP_CATEGORIES,
   INITIAL_EXPENSES
-} from './types';
+} from '../../../types';
 
 export default function App() {
   // Navigation State
   const [activeTab, setActiveTab] = useState<TabID>('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  // Multi-language state
+  const [language, setLanguage] = useState<Language>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('erp_language');
+      return (saved as Language) || 'en';
+    }
+    return 'en';
+  });
+  const [langOpen, setLangOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('erp_language', language);
+    }
+  }, [language]);
 
   // Real-time local Date & Time State formatted for Bangladesh / Local context
   const [currentDateTime, setCurrentDateTime] = useState(new Date());
@@ -57,38 +77,59 @@ export default function App() {
 
   // Global Core Reactive States with localStorage hydration
   const [products, setProducts] = useState<Product[]>(() => {
-    const saved = localStorage.getItem('erp_products');
-    return saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('erp_products');
+      return saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
+    }
+    return INITIAL_PRODUCTS;
   });
 
   const [attributes, setAttributes] = useState<ProductAttribute[]>(() => {
-    const saved = localStorage.getItem('erp_attributes');
-    return saved ? JSON.parse(saved) : INITIAL_ATTRIBUTES;
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('erp_attributes');
+      return saved ? JSON.parse(saved) : INITIAL_ATTRIBUTES;
+    }
+    return INITIAL_ATTRIBUTES;
   });
 
   const [challans, setChallans] = useState<ChallanItem[]>(() => {
-    const saved = localStorage.getItem('erp_challans');
-    return saved ? JSON.parse(saved) : INITIAL_CHALLAN_ITEMS;
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('erp_challans');
+      return saved ? JSON.parse(saved) : INITIAL_CHALLAN_ITEMS;
+    }
+    return INITIAL_CHALLAN_ITEMS;
   });
 
   const [procurements, setProcurements] = useState<Procurement[]>(() => {
-    const saved = localStorage.getItem('erp_procurements');
-    return saved ? JSON.parse(saved) : INITIAL_PROCUREMENTS;
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('erp_procurements');
+      return saved ? JSON.parse(saved) : INITIAL_PROCUREMENTS;
+    }
+    return INITIAL_PROCUREMENTS;
   });
 
   const [adjustments, setAdjustments] = useState<StockAdjustment[]>(() => {
-    const saved = localStorage.getItem('erp_adjustments');
-    return saved ? JSON.parse(saved) : INITIAL_STOCK_ADJUSTMENTS;
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('erp_adjustments');
+      return saved ? JSON.parse(saved) : INITIAL_STOCK_ADJUSTMENTS;
+    }
+    return INITIAL_STOCK_ADJUSTMENTS;
   });
 
   const [categories, setCategories] = useState<ExpenseCategory[]>(() => {
-    const saved = localStorage.getItem('erp_categories');
-    return saved ? JSON.parse(saved) : INITIAL_EXP_CATEGORIES;
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('erp_categories');
+      return saved ? JSON.parse(saved) : INITIAL_EXP_CATEGORIES;
+    }
+    return INITIAL_EXP_CATEGORIES;
   });
 
   const [expenses, setExpenses] = useState<ExpenseRecord[]>(() => {
-    const saved = localStorage.getItem('erp_expenses');
-    return saved ? JSON.parse(saved) : INITIAL_EXPENSES;
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('erp_expenses');
+      return saved ? JSON.parse(saved) : INITIAL_EXPENSES;
+    }
+    return INITIAL_EXPENSES;
   });
 
   // Global search query inside TopBar (can show feedback or navigate)
@@ -96,31 +137,45 @@ export default function App() {
 
   // Sync state with local storage on updates
   useEffect(() => {
-    localStorage.setItem('erp_products', JSON.stringify(products));
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('erp_products', JSON.stringify(products));
+    }
   }, [products]);
 
   useEffect(() => {
-    localStorage.setItem('erp_attributes', JSON.stringify(attributes));
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('erp_attributes', JSON.stringify(attributes));
+    }
   }, [attributes]);
 
   useEffect(() => {
-    localStorage.setItem('erp_challans', JSON.stringify(challans));
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('erp_challans', JSON.stringify(challans));
+    }
   }, [challans]);
 
   useEffect(() => {
-    localStorage.setItem('erp_procurements', JSON.stringify(procurements));
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('erp_procurements', JSON.stringify(procurements));
+    }
   }, [procurements]);
 
   useEffect(() => {
-    localStorage.setItem('erp_adjustments', JSON.stringify(adjustments));
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('erp_adjustments', JSON.stringify(adjustments));
+    }
   }, [adjustments]);
 
   useEffect(() => {
-    localStorage.setItem('erp_categories', JSON.stringify(categories));
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('erp_categories', JSON.stringify(categories));
+    }
   }, [categories]);
 
   useEffect(() => {
-    localStorage.setItem('erp_expenses', JSON.stringify(expenses));
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('erp_expenses', JSON.stringify(expenses));
+    }
   }, [expenses]);
 
   // Real-time clock update (every 1 second)
@@ -133,7 +188,8 @@ export default function App() {
 
   // Format Date for Topbar
   const formatHeaderDate = (date: Date) => {
-    return date.toLocaleDateString('en-BD', {
+    const locale = language === 'bn' ? 'bn-BD' : language === 'de' ? 'de-DE' : 'en-BD';
+    return date.toLocaleDateString(locale, {
       weekday: 'short',
       year: 'numeric',
       month: 'short',
@@ -142,18 +198,21 @@ export default function App() {
   };
 
   const formatHeaderTime = (date: Date) => {
-    return date.toLocaleTimeString('en-BD', {
+    const locale = language === 'bn' ? 'bn-BD' : language === 'de' ? 'de-DE' : 'en-BD';
+    return date.toLocaleTimeString(locale, {
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit',
-      hour12: true
+      hour12: language !== 'de'
     });
   };
 
   // Quick navigation handler passed to sub-components
   const handleNavigate = (tab: TabID) => {
     setActiveTab(tab);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
   // Global PDF Generator utility using jsPDF
@@ -459,7 +518,7 @@ export default function App() {
         }
         doc.text(pr.invoiceRef, 15, procY);
         doc.text(pr.supplierName, 40, procY);
-        doc.text(pr.name.length > 25 ? pr.name.substring(0, 23) + '...' : pr.name, 85, procY);
+        doc.text(pr.procurementName.length > 25 ? pr.procurementName.substring(0, 23) + '...' : pr.procurementName, 85, procY);
         doc.text(pr.invoiceDate, 135, procY);
         doc.text(pr.paymentStatus, 160, procY);
         doc.text(formatBDTVal(pr.globalTotal), 175, procY);
@@ -548,6 +607,7 @@ export default function App() {
             expenses={expenses}
             onNavigate={handleNavigate}
             onDownloadPDF={handleDownloadPDF}
+            language={language}
           />
         );
       case 'sell':
@@ -561,6 +621,7 @@ export default function App() {
             deliveryMen={INITIAL_DELIVERY_MEN}
             setChallans={setChallans}
             onNavigate={handleNavigate}
+            language={language}
           />
         );
       case 'challan':
@@ -573,6 +634,7 @@ export default function App() {
             deliveryMen={INITIAL_DELIVERY_MEN}
             products={products}
             attributes={attributes}
+            language={language}
           />
         );
       case 'product-list':
@@ -585,6 +647,7 @@ export default function App() {
             setAdjustments={setAdjustments}
             products={products}
             setProducts={setProducts}
+            language={language}
           />
         );
       case 'procurement':
@@ -595,6 +658,7 @@ export default function App() {
             products={products}
             setProducts={setProducts}
             onDownloadPDF={handleDownloadPDF}
+            language={language}
           />
         );
       case 'accounting':
@@ -608,6 +672,7 @@ export default function App() {
             challans={challans}
             procurements={procurements}
             onDownloadPDF={handleDownloadPDF}
+            language={language}
           />
         );
       default:
@@ -623,7 +688,7 @@ export default function App() {
   const lowStockCount = products.filter(p => p.currentStock < 600).length;
 
   return (
-    <div className="flex bg-slate-50 min-h-screen font-sans text-slate-800 selection:bg-indigo-500 selection:text-white">
+    <div className={`flex bg-slate-50 min-h-screen ${language === 'bn' ? 'font-bengali' : 'font-sans'} text-slate-800 selection:bg-indigo-500 selection:text-white`}>
       
       {/* Sidebar Navigation */}
       <Sidebar 
@@ -631,6 +696,7 @@ export default function App() {
         setActiveTab={setActiveTab} 
         collapsed={sidebarCollapsed} 
         setCollapsed={setSidebarCollapsed} 
+        language={language}
       />
 
       {/* Main ERP Layout Panel */}
@@ -656,7 +722,7 @@ export default function App() {
               <input
                 id="global-search-input"
                 type="text"
-                placeholder="Search ERP index (e.g. Sales, Procurements)"
+                placeholder={translations[language].header.searchPlaceholder}
                 value={globalSearch}
                 onChange={(e) => {
                   setGlobalSearch(e.target.value);
@@ -676,14 +742,35 @@ export default function App() {
           <div className="flex items-center gap-5">
             
             {/* Live Bangladesh Standard Clock */}
-            <div className="hidden sm:flex items-center gap-2 bg-slate-100/80 px-3 py-1.5 rounded-xl border border-slate-200/50">
+            <div className="hidden lg:flex items-center gap-2 bg-slate-100/80 px-3 py-1.5 rounded-xl border border-slate-200/50">
               <Clock className="w-4 h-4 text-indigo-500" />
               <div className="text-left font-mono leading-tight">
-                <span className="text-[10px] text-slate-400 font-bold font-sans uppercase tracking-wider block">Local Hub Server (BST)</span>
+                <span className="text-[10px] text-slate-400 font-bold font-sans uppercase tracking-wider block">{translations[language].header.localServer}</span>
                 <span className="text-xs font-extrabold text-slate-700">
                   {formatHeaderDate(currentDateTime)} &bull; {formatHeaderTime(currentDateTime)}
                 </span>
               </div>
+            </div>
+
+            {/* Language Switcher Dropdown */}
+            <div className="relative">
+              <button
+                id="header-lang-switcher-btn"
+                onClick={() => setLangOpen(!langOpen)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-slate-100 active:scale-95 transition-all text-xs font-semibold text-slate-700 border border-slate-200 cursor-pointer"
+                title="Switch Language / ভাষা পরিবর্তন করুন"
+              >
+                <Globe className="w-4 h-4 text-indigo-500" />
+                <span>{language === 'en' ? 'English' : language === 'bn' ? 'বাংলা' : 'Deutsch'}</span>
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+              </button>
+              {langOpen && (
+                <div className="absolute right-0 mt-2 w-32 bg-white rounded-xl border border-slate-150 shadow-xl p-1 z-50 animate-scale-up text-xs font-medium">
+                  <button type="button" onClick={() => { setLanguage('en'); setLangOpen(false); }} className={`w-full text-left px-3 py-2 hover:bg-slate-50 rounded-lg ${language === 'en' ? 'text-indigo-600 font-bold bg-indigo-50/50' : 'text-slate-700'}`}>English</button>
+                  <button type="button" onClick={() => { setLanguage('bn'); setLangOpen(false); }} className={`w-full text-left px-3 py-2 hover:bg-slate-50 rounded-lg ${language === 'bn' ? 'text-indigo-600 font-bold bg-indigo-50/50' : 'text-slate-700'}`}>বাংলা</button>
+                  <button type="button" onClick={() => { setLanguage('de'); setLangOpen(false); }} className={`w-full text-left px-3 py-2 hover:bg-slate-50 rounded-lg ${language === 'de' ? 'text-indigo-600 font-bold bg-indigo-50/50' : 'text-slate-700'}`}>Deutsch</button>
+                </div>
+              )}
             </div>
 
             {/* Notifications Alert Bell */}
@@ -704,24 +791,24 @@ export default function App() {
               {notificationsOpen && (
                 <div className="absolute right-0 mt-3 w-80 bg-white rounded-2xl border border-slate-100 shadow-2xl p-4.5 z-50 space-y-3.5 animate-scale-up text-xs">
                   <div className="flex items-center justify-between border-b border-slate-50 pb-2">
-                    <span className="font-bold text-slate-800">System Notifications</span>
-                    <button onClick={() => setNotificationsOpen(false)} className="text-[10px] text-indigo-600 font-bold hover:underline">Clear All</button>
+                    <span className="font-bold text-slate-800">{translations[language].header.notifications}</span>
+                    <button onClick={() => setNotificationsOpen(false)} className="text-[10px] text-indigo-600 font-bold hover:underline">{translations[language].common.clearAll}</button>
                   </div>
                   <div className="space-y-2.5 max-h-60 overflow-y-auto">
                     {lowStockCount > 0 ? (
                       <div className="p-2.5 bg-rose-50 text-rose-800 rounded-xl border border-rose-100 space-y-1">
                         <p className="font-bold">Low Stock Warning!</p>
                         <p className="text-[11px] text-rose-600 leading-normal">
-                          There are <span className="font-extrabold">{lowStockCount}</span> product items with quantities below safe levels (&lt; 600 units). Consider opening a procurement invoice.
+                          {translations[language].header.lowStockCount.replace('{count}', String(lowStockCount))}
                         </p>
                       </div>
                     ) : (
-                      <p className="text-center text-slate-400 py-4 font-medium">All systems safe. Zero alerts logged.</p>
+                      <p className="text-center text-slate-400 py-4 font-medium">{translations[language].header.noNotifications}</p>
                     )}
                     <div className="p-2.5 bg-indigo-50 text-indigo-800 rounded-xl border border-indigo-100 space-y-0.5">
-                      <p className="font-bold">Data Persistent Enabled</p>
+                      <p className="font-bold">{translations[language].header.dataPersistent}</p>
                       <p className="text-[11px] text-indigo-600 leading-normal">
-                        All local changes are secured inside your browser cache.
+                        {translations[language].header.dataPersistentDesc}
                       </p>
                     </div>
                   </div>
@@ -747,8 +834,8 @@ export default function App() {
               {profileOpen && (
                 <div className="absolute right-0 mt-3 w-56 bg-white rounded-2xl border border-slate-100 shadow-2xl p-2 z-50 animate-scale-up">
                   <div className="p-3 border-b border-slate-100 text-xs">
-                    <p className="font-bold text-slate-800">Muinul Islam</p>
-                    <p className="text-[10px] text-slate-400 mt-0.5">Senior ERP Operations Lead</p>
+                    <p className="font-bold text-slate-800">{translations[language].header.profileTitle}</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">{translations[language].header.profileSub}</p>
                   </div>
                   <div className="p-1 space-y-0.5 text-xs">
                     <button
@@ -757,7 +844,7 @@ export default function App() {
                       className="w-full flex items-center gap-2.5 px-3 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-lg text-left"
                     >
                       <Briefcase className="w-4 h-4 text-slate-400" />
-                      HQ Operations Hub
+                      {translations[language].header.hqHub}
                     </button>
                     <button
                       id="profile-action-sell"
@@ -765,14 +852,14 @@ export default function App() {
                       className="w-full flex items-center gap-2.5 px-3 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-lg text-left"
                     >
                       <Settings className="w-4 h-4 text-slate-400" />
-                      Sales POS Setting
+                      {translations[language].header.posSetting}
                     </button>
                   </div>
                   <div className="p-1 border-t border-slate-100">
                     <button
                       id="profile-action-logout"
                       onClick={() => {
-                        if (confirm('Are you sure you want to log out from this ERP session?')) {
+                        if (confirm(translations[language].sidebar.userSessionConfirm)) {
                           localStorage.clear();
                           window.location.reload();
                         }
@@ -780,7 +867,7 @@ export default function App() {
                       className="w-full flex items-center gap-2.5 px-3 py-2 text-rose-600 hover:bg-rose-50 rounded-lg text-left text-xs font-bold"
                     >
                       <LogOut className="w-4 h-4 text-rose-400" />
-                      Log out / Flush Session
+                      {translations[language].header.logout}
                     </button>
                   </div>
                 </div>
@@ -798,7 +885,7 @@ export default function App() {
 
         {/* Minimal professional credit footer */}
         <footer className="py-5 text-center text-[11px] text-slate-400 font-mono border-t border-slate-200 bg-white">
-          <span>&copy; 2026 BanglaChain ERP &bull; Chittagong & Dhaka logistics centers &bull; Version 2.0.0 Stable</span>
+          <span>&copy; 2026 {translations[language].sidebar.brand} &bull; {translations[language].dashboard.primaryHub} &bull; Version 2.0.0 Stable</span>
         </footer>
 
       </div>

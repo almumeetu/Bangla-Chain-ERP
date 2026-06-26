@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState } from 'react';
 import { 
   Sliders, 
@@ -14,6 +16,7 @@ import {
   Info
 } from 'lucide-react';
 import { ProductAttribute, StockAdjustment, Product } from '../types';
+import { translations, Language } from '../translations';
 
 interface StockAdjustmentModuleProps {
   attributes: ProductAttribute[];
@@ -22,6 +25,7 @@ interface StockAdjustmentModuleProps {
   setAdjustments: React.Dispatch<React.SetStateAction<StockAdjustment[]>>;
   products: Product[];
   setProducts: React.Dispatch<React.SetStateAction<Product[]>>;
+  language: Language;
 }
 
 export default function StockAdjustmentModule({
@@ -30,7 +34,8 @@ export default function StockAdjustmentModule({
   adjustments,
   setAdjustments,
   products,
-  setProducts
+  setProducts,
+  language
 }: StockAdjustmentModuleProps) {
   // Tabs: 'attributes' or 'adjustments'
   const [subTab, setSubTab] = useState<'attributes' | 'adjustments'>('attributes');
