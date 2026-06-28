@@ -230,29 +230,29 @@ export default function AccountingModule({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       
       {/* Title & Internal tab switch */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-xl font-extrabold text-slate-800 tracking-tight flex items-center gap-2">
-            <DollarSign className="w-6 h-6 text-indigo-500" />
+          <h2 className="text-2xl font-semibold text-slate-800 tracking-tight flex items-center gap-2">
+            <DollarSign className="w-6 h-6 text-slate-600" />
             {tAcc.title}
           </h2>
-          <p className="text-xs text-slate-500">{tAcc.subtitle}</p>
+          <p className="text-sm text-slate-500">{tAcc.subtitle}</p>
         </div>
 
-        <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
+        <div className="flex bg-slate-105 p-1 rounded-lg border border-slate-200 shadow-sm shrink-0">
           <button
             id="accounting-tab-exp"
             onClick={() => setActiveTab('expenses')}
-            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+            className={`px-4.5 py-2 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
               activeTab === 'expenses' 
                 ? 'bg-white text-slate-900 shadow-sm' 
                 : 'text-slate-500 hover:text-slate-800'
             }`}
           >
-            <DollarSign className="w-4 h-4" />
+            <DollarSign className="w-4 h-4 text-slate-700" />
             {tAcc.expensesTab}
           </button>
           
@@ -262,27 +262,27 @@ export default function AccountingModule({
               setActiveTab('profit-report');
               setTimeout(() => handleCalculateReport(), 50);
             }}
-            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+            className={`px-4.5 py-2 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
               activeTab === 'profit-report' 
                 ? 'bg-white text-slate-900 shadow-sm' 
                 : 'text-slate-500 hover:text-slate-800'
             }`}
           >
-            <PieChart className="w-4 h-4" />
+            <PieChart className="w-4 h-4 text-slate-700" />
             {tAcc.profitReportTab}
           </button>
         </div>
       </div>
 
-      {/* SUB TAB RENDER: Expense logs (Overhauled to Full width list + Single click modal) */}
+      {/* SUB TAB RENDER: Expense logs */}
       {activeTab === 'expenses' && (
         <div className="space-y-6">
           
           {/* Main Controls & Category Management header */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wide">{tAcc.expenseListTitle}</span>
-              <span className="text-[10px] text-slate-400 font-mono bg-slate-100 px-2 py-0.5 rounded-md">
+          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{tAcc.expenseListTitle}</span>
+              <span className="bg-slate-100 text-slate-850 text-[11px] font-semibold px-2.5 py-0.5 rounded-full border border-slate-200 shadow-sm">
                 {expenses.length} Voucher Logs
               </span>
             </div>
@@ -291,7 +291,7 @@ export default function AccountingModule({
               <button
                 id="exp-category-modal-trigger"
                 onClick={() => setShowAddCategoryModal(true)}
-                className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-transform active:scale-95 border border-slate-250 cursor-pointer"
+                className="px-4 py-2.5 bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-semibold transition-all active:scale-95 cursor-pointer"
               >
                 {tAcc.createNew} Category
               </button>
@@ -299,22 +299,22 @@ export default function AccountingModule({
               <button
                 id="exp-add-expense-modal-trigger"
                 onClick={() => setShowAddExpenseModal(true)}
-                className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-transform active:scale-95 shadow-md shadow-indigo-500/10 cursor-pointer flex items-center gap-1"
+                className="inline-flex h-11 items-center gap-2 rounded-lg bg-slate-900 px-5 text-sm font-semibold text-white hover:bg-slate-800 transition-all border border-slate-950 shrink-0 cursor-pointer"
               >
-                <Plus className="w-4.5 h-4.5" />
+                <Plus className="w-4 h-4 text-white" />
                 {tAcc.addExpenseBtn}
               </button>
             </div>
           </div>
 
           {/* Full-width Expense Log Table */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-1 shadow-sm overflow-hidden flex flex-col justify-between">
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
             <div>
-              <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/40 flex items-center justify-between gap-3">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wide">{tAcc.historicalLog}</span>
+              <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between gap-3">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{tAcc.historicalLog}</span>
                 <button
                   onClick={() => onDownloadPDF('accounting')}
-                  className="flex items-center gap-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 hover:text-slate-900 font-semibold text-[11px] px-3.5 py-2 rounded-xl transition-all shadow-sm cursor-pointer"
+                  className="inline-flex h-11 items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-55 transition-all shadow-sm cursor-pointer"
                 >
                   <FileText className="w-3.5 h-3.5 text-slate-400" />
                   {tAcc.downloadPdf}
@@ -322,34 +322,34 @@ export default function AccountingModule({
               </div>
 
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
+                <table className="w-full text-left text-sm border-collapse">
                   <thead>
-                    <tr className="bg-slate-100 text-slate-500 border-b border-slate-200">
-                      <th className="py-3.5 px-4 font-semibold font-sans w-12 text-center">#</th>
-                      <th className="py-3.5 px-4 font-semibold font-sans">Date</th>
-                      <th className="py-3.5 px-4 font-semibold font-sans">Category</th>
-                      <th className="py-3.5 px-4 font-semibold font-sans text-right">Amount (BDT)</th>
-                      <th className="py-3.5 px-4 font-semibold font-sans">Paid To (Receiver)</th>
-                      <th className="py-3.5 px-4 font-semibold font-sans">Voucher Notes</th>
-                      <th className="py-3.5 px-4 font-semibold font-sans text-center w-16">Actions</th>
+                    <tr className="bg-slate-50 text-slate-700 border-b border-slate-200">
+                      <th className="px-4 py-4 text-sm font-semibold text-slate-700 w-12 text-center">#</th>
+                      <th className="px-4 py-4 text-sm font-semibold text-slate-700">Date</th>
+                      <th className="px-4 py-4 text-sm font-semibold text-slate-700">{tCommon.category || 'Category'}</th>
+                      <th className="px-4 py-4 text-sm font-semibold text-slate-700 text-right">Amount (BDT)</th>
+                      <th className="px-4 py-4 text-sm font-semibold text-slate-700">Paid To (Receiver)</th>
+                      <th className="px-4 py-4 text-sm font-semibold text-slate-700">Voucher Notes</th>
+                      <th className="px-4 py-4 text-sm font-semibold text-slate-700 text-center w-16">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {paginatedExpenses.map((exp, index) => {
                       const globalIndex = startIndex + index + 1;
                       return (
-                        <tr key={exp.id} className="hover:bg-slate-50/50 transition-colors">
-                          <td className="py-3.5 px-4 text-center text-slate-400 font-mono font-medium">{globalIndex}</td>
-                          <td className="py-3.5 px-4 text-slate-500 font-mono">{exp.expenseDate}</td>
-                          <td className="py-3.5 px-4 font-bold text-slate-800">{exp.categoryName}</td>
-                          <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900">{formatBDT(exp.amount)}</td>
-                          <td className="py-3.5 px-4 font-medium text-slate-600">{exp.paidTo}</td>
-                          <td className="py-3.5 px-4 text-slate-400 italic max-w-xs truncate" title={exp.notes}>{exp.notes || '-'}</td>
-                          <td className="py-3.5 px-4 text-center">
+                        <tr key={exp.id} className="hover:bg-slate-100/40 transition-all duration-200">
+                          <td className="px-4 py-4 text-center text-slate-400 font-mono font-medium">{globalIndex}</td>
+                          <td className="px-4 py-4 text-slate-505 font-mono">{exp.expenseDate}</td>
+                          <td className="px-4 py-4 font-semibold text-slate-800">{exp.categoryName}</td>
+                          <td className="px-4 py-4 text-right font-mono font-semibold text-slate-900">{formatBDT(exp.amount)}</td>
+                          <td className="px-4 py-4 font-semibold text-slate-700">{exp.paidTo}</td>
+                          <td className="px-4 py-4 text-slate-450 italic max-w-xs truncate font-medium" title={exp.notes}>{exp.notes || '-'}</td>
+                          <td className="px-4 py-4 text-center">
                             <button
                               id={`exp-btn-delete-${exp.id}`}
                               onClick={() => handleDeleteExpense(exp.id)}
-                              className="p-1 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded cursor-pointer"
+                              className="p-1.5 text-rose-500 hover:text-rose-900 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -359,7 +359,7 @@ export default function AccountingModule({
                     })}
                     {expenses.length === 0 && (
                       <tr>
-                        <td colSpan={7} className="py-12 text-center text-slate-400 font-medium">
+                        <td colSpan={7} className="py-12 text-center text-slate-400 font-semibold">
                           {tAcc.noExpenses}
                         </td>
                       </tr>
@@ -371,16 +371,16 @@ export default function AccountingModule({
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="px-5 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/20 text-xs">
-                <span className="text-slate-500">
-                  Showing <span className="font-semibold text-slate-700">{startIndex + 1}</span> to <span className="font-semibold text-slate-700">{Math.min(startIndex + itemsPerPage, totalExpenses)}</span> of <span className="font-semibold text-slate-700">{totalExpenses}</span> records
+              <div className="px-5 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 text-xs">
+                <span className="text-slate-500 font-semibold">
+                  Showing <span className="font-semibold text-slate-750">{startIndex + 1}</span> to <span className="font-semibold text-slate-750">{Math.min(startIndex + itemsPerPage, totalExpenses)}</span> of <span className="font-semibold text-slate-750">{totalExpenses}</span> records
                 </span>
                 <div className="flex items-center gap-1.5">
                   <button
                     id="exp-page-prev"
                     onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                     disabled={currentPage === 1}
-                    className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 transition-all cursor-pointer"
+                    className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-55 disabled:opacity-40 transition-all cursor-pointer"
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
@@ -389,10 +389,10 @@ export default function AccountingModule({
                       id={`exp-page-num-${page}`}
                       key={page}
                       onClick={() => setCurrentPage(page)}
-                      className={`px-3 py-1.5 rounded-lg border font-bold cursor-pointer ${
+                      className={`px-3 py-1.5 rounded-lg border font-semibold cursor-pointer ${
                         currentPage === page 
-                          ? 'bg-indigo-600 text-white border-indigo-600' 
-                          : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                          ? 'bg-slate-900 text-white border-slate-900' 
+                          : 'border-slate-200 text-slate-655 hover:bg-slate-50'
                       }`}
                     >
                       {page}
@@ -402,7 +402,7 @@ export default function AccountingModule({
                     id="exp-page-next"
                     onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                     disabled={currentPage === totalPages}
-                    className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 transition-all cursor-pointer"
+                    className="p-1.5 rounded-lg border border-slate-200 text-slate-655 hover:bg-slate-55 disabled:opacity-40 transition-all cursor-pointer"
                   >
                     <ChevronRight className="w-4 h-4" />
                   </button>
@@ -412,20 +412,20 @@ export default function AccountingModule({
 
           </div>
 
-          {/* Categories Setup Drawer - Clean list style */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
-            <h4 className="font-bold text-slate-800 text-sm tracking-tight">{tAcc.categoriesTitle}</h4>
+          {/* Categories Setup Panel */}
+          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm space-y-5">
+            <h4 className="font-semibold text-slate-800 text-sm tracking-tight">{tAcc.categoriesTitle}</h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {categories.map(c => (
-                <div key={c.id} className="p-4 bg-slate-50/50 rounded-2xl border border-slate-200 flex justify-between items-start group">
+                <div key={c.id} className="p-4 bg-slate-50/50 rounded-xl border border-slate-200 flex justify-between items-start group hover:bg-white transition-all duration-200">
                   <div className="space-y-1">
-                    <p className="text-xs font-bold text-slate-800">{c.name}</p>
-                    <p className="text-[10px] text-slate-400 leading-normal">{c.description || 'No description'}</p>
+                    <p className="text-xs font-semibold text-slate-805">{c.name}</p>
+                    <p className="text-[11px] text-slate-400 leading-normal font-medium">{c.description || 'No description'}</p>
                   </div>
                   <button
                     id={`cat-btn-edit-${c.id}`}
                     onClick={() => setEditingCat(c)}
-                    className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-indigo-600 transition-all cursor-pointer"
+                    className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-slate-800 transition-all cursor-pointer"
                     title={tCommon.edit}
                   >
                     <Edit3 className="w-3.5 h-3.5" />
@@ -443,13 +443,13 @@ export default function AccountingModule({
         <div className="space-y-6">
           
           {/* Filter Range form card */}
-          <form onSubmit={handleCalculateReport} className="bg-white rounded-2xl border border-slate-250 p-5 shadow-sm space-y-4">
-            <h3 className="text-xs font-bold text-slate-400 tracking-wider uppercase">{tAcc.dynamicYield}</h3>
+          <form onSubmit={handleCalculateReport} className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm space-y-5">
+            <h3 className="text-xs font-semibold text-slate-800 tracking-wider uppercase">{tAcc.dynamicYield}</h3>
             
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-500 uppercase">{tAcc.fromDate}</label>
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-slate-700">{tAcc.fromDate}</label>
                 <div className="relative">
                   <Calendar className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
@@ -458,13 +458,13 @@ export default function AccountingModule({
                     required
                     value={fromDate}
                     onChange={(e) => setFromDate(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/40 pl-10 pr-3.5 py-2.5 text-xs text-slate-700 outline-none focus:border-indigo-500 focus:bg-white"
+                    className="h-11 w-full rounded-lg border-2 border-slate-200 bg-white pl-10 pr-3.5 text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all"
                   />
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-500 uppercase">{tAcc.toDate}</label>
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-slate-700">{tAcc.toDate}</label>
                 <div className="relative">
                   <Calendar className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
@@ -473,7 +473,7 @@ export default function AccountingModule({
                     required
                     value={toDate}
                     onChange={(e) => setToDate(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/40 pl-10 pr-3.5 py-2.5 text-xs text-slate-700 outline-none focus:border-indigo-500 focus:bg-white"
+                    className="h-11 w-full rounded-lg border-2 border-slate-200 bg-white pl-10 pr-3.5 text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all"
                   />
                 </div>
               </div>
@@ -482,9 +482,9 @@ export default function AccountingModule({
                 <button
                   id="profit-btn-search"
                   type="submit"
-                  className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs transition-transform active:scale-95 flex items-center justify-center gap-2 shadow-md cursor-pointer"
+                  className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-slate-900 px-5 text-sm font-semibold text-white hover:bg-slate-800 transition-all border border-slate-950 shrink-0 cursor-pointer"
                 >
-                  <Search className="w-4 h-4" />
+                  <Search className="w-4 h-4 text-white" />
                   {tAcc.recalculateBtn}
                 </button>
               </div>
@@ -495,62 +495,62 @@ export default function AccountingModule({
           {/* Analysis KPI Results Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             
-            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-1.5">
-              <span className="text-[10px] text-slate-400 font-bold uppercase block">{tAcc.totalSoldQty}</span>
-              <p className="text-xl font-black text-slate-850 font-mono">{reportResults.totalSoldQty} {tCommon.units}</p>
-              <span className="text-[9px] text-slate-400 leading-tight block">{tAcc.soldQtyDesc}</span>
+            <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-2">
+              <span className="text-[11px] text-slate-400 font-semibold block tracking-wider uppercase">{tAcc.totalSoldQty}</span>
+              <p className="text-xl font-semibold text-slate-800 font-mono">{reportResults.totalSoldQty} units</p>
+              <span className="text-[10px] text-slate-400 leading-normal block font-semibold">{tAcc.soldQtyDesc}</span>
             </div>
 
-            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-1.5">
-              <span className="text-[10px] text-slate-400 font-bold uppercase block">{tAcc.wholesaleRevenue}</span>
-              <p className="text-xl font-black text-emerald-600 font-mono">{formatBDT(reportResults.totalSellAmt)}</p>
-              <span className="text-[9px] text-slate-400 leading-tight block">{tAcc.revenueDesc}</span>
+            <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-2">
+              <span className="text-[11px] text-slate-400 font-semibold block tracking-wider uppercase">{tAcc.wholesaleRevenue}</span>
+              <p className="text-xl font-semibold text-emerald-600 font-mono">{formatBDT(reportResults.totalSellAmt)}</p>
+              <span className="text-[10px] text-slate-400 leading-normal block font-semibold">{tAcc.revenueDesc}</span>
             </div>
 
-            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-1.5">
-              <span className="text-[10px] text-slate-400 font-bold uppercase block">{tAcc.procuredStockQty}</span>
-              <p className="text-xl font-black text-slate-850 font-mono">{reportResults.totalPurchaseQty} {tCommon.units}</p>
-              <span className="text-[9px] text-slate-400 leading-tight block">{tAcc.procuredQtyDesc}</span>
+            <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-2">
+              <span className="text-[11px] text-slate-400 font-semibold block tracking-wider uppercase">{tAcc.procuredStockQty}</span>
+              <p className="text-xl font-semibold text-slate-850 font-mono">{reportResults.totalPurchaseQty} units</p>
+              <span className="text-[10px] text-slate-400 leading-normal block font-semibold">{tAcc.procuredQtyDesc}</span>
             </div>
 
-            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-1.5">
-              <span className="text-[10px] text-slate-400 font-bold uppercase block">{tAcc.procurementExpenditure}</span>
-              <p className="text-xl font-black text-purple-600 font-mono">{formatBDT(reportResults.totalPurchaseAmt)}</p>
-              <span className="text-[9px] text-slate-400 leading-tight block">{tAcc.procurementDesc}</span>
+            <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-2">
+              <span className="text-[11px] text-slate-400 font-semibold block tracking-wider uppercase">{tAcc.procurementExpenditure}</span>
+              <p className="text-xl font-semibold text-violet-650 font-mono">{formatBDT(reportResults.totalPurchaseAmt)}</p>
+              <span className="text-[10px] text-slate-400 leading-normal block font-semibold">{tAcc.procurementDesc}</span>
             </div>
 
-            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-1.5">
-              <span className="text-[10px] text-slate-400 font-bold uppercase block">{tAcc.opex}</span>
-              <p className="text-xl font-black text-rose-600 font-mono">{formatBDT(reportResults.totalExpensesAmt)}</p>
-              <span className="text-[9px] text-slate-400 leading-tight block">{tAcc.opexDesc}</span>
+            <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-2">
+              <span className="text-[11px] text-slate-400 font-semibold block tracking-wider uppercase">{tAcc.opex}</span>
+              <p className="text-xl font-semibold text-rose-600 font-mono">{formatBDT(reportResults.totalExpensesAmt)}</p>
+              <span className="text-[10px] text-slate-400 leading-normal block font-semibold">{tAcc.opexDesc}</span>
             </div>
 
           </div>
 
           {/* Formula Card & Net Profit Display */}
-          <div className="bg-slate-900 text-white rounded-2xl p-6 border border-slate-800 shadow-md flex flex-col md:flex-row md:items-center md:justify-between gap-6 relative overflow-hidden">
+          <div className="bg-slate-900 text-white rounded-xl p-6 border border-slate-950 shadow-md flex flex-col md:flex-row md:items-center md:justify-between gap-6 relative overflow-hidden">
             <div className="absolute right-0 top-0 p-8 opacity-5 pointer-events-none">
-              <DollarSign className="w-48 h-48" />
+              <DollarSign className="w-48 h-48 text-slate-700" />
             </div>
 
-            <div className="space-y-2 relative z-10">
-              <span className="bg-indigo-500/20 text-indigo-300 text-[10px] font-mono font-semibold tracking-wider uppercase px-2 py-0.5 rounded-full border border-indigo-400/10">
+            <div className="space-y-2.5 relative z-10">
+              <span className="inline-block bg-slate-800 text-slate-300 text-[10px] font-mono font-semibold tracking-wider uppercase px-2.5 py-0.5 rounded-full border border-slate-700">
                 {tAcc.formulaCardTitle}
               </span>
-              <h3 className="font-extrabold text-lg">{tAcc.analysisPeriod.replace('{from}', fromDate).replace('{to}', toDate)}</h3>
-              <p className="text-slate-400 text-xs max-w-lg leading-relaxed">
+              <h3 className="font-semibold text-base">{tAcc.analysisPeriod.replace('{from}', fromDate).replace('{to}', toDate)}</h3>
+              <p className="text-slate-300 text-xs max-w-lg leading-relaxed font-semibold">
                 {tAcc.formulaDesc}
               </p>
             </div>
 
-            <div className="text-right shrink-0 relative z-10 bg-slate-950/40 border border-slate-800 p-4.5 rounded-xl min-w-[200px]">
-              <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block">{tAcc.netPeriodYield}</span>
-              <span className={`text-2xl md:text-3xl font-black font-mono block mt-1 ${
-                reportResults.netProfit >= 0 ? 'text-indigo-400' : 'text-rose-400'
+            <div className="text-right shrink-0 relative z-10 bg-slate-950/40 border border-slate-800 p-5 rounded-lg min-w-[220px]">
+              <span className="text-[11px] text-slate-400 font-semibold block tracking-wider uppercase">{tAcc.netPeriodYield}</span>
+              <span className={`text-2xl md:text-3xl font-semibold font-mono block mt-1.5 ${
+                reportResults.netProfit >= 0 ? 'text-emerald-400' : 'text-rose-450'
               }`}>
                 {formatBDT(reportResults.netProfit)}
               </span>
-              <span className="text-[9px] text-slate-500 font-medium font-sans">{tAcc.chronologicallyConsolidated}</span>
+              <span className="text-[10px] text-slate-500 font-semibold block mt-0.5">{tAcc.chronologicallyConsolidated}</span>
             </div>
           </div>
 
@@ -560,31 +560,31 @@ export default function AccountingModule({
       {/* Modal: Log New Expense form */}
       {showAddExpenseModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-slate-150 w-full max-w-md shadow-2xl p-6 space-y-4 animate-scale-up">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <span className="font-extrabold text-slate-800 text-sm uppercase tracking-wide">
+          <div className="bg-white rounded-xl border border-slate-200 w-full max-w-md shadow-2xl flex flex-col justify-between animate-scale-up">
+            
+            {/* Modal Header */}
+            <div className="border-b border-slate-200 px-6 py-5 bg-gradient-to-r from-slate-50 to-white flex items-center justify-between shrink-0">
+              <span className="font-semibold text-slate-850 text-sm uppercase tracking-wider">
                 {tAcc.logNewExpense}
               </span>
               <button
                 id="add-expense-modal-close"
                 type="button"
                 onClick={() => setShowAddExpenseModal(false)}
-                className="p-1 rounded text-slate-450 hover:text-slate-600 hover:bg-slate-50 transition-all cursor-pointer"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-55 transition-all cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleAddExpense} className="space-y-4">
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase">{tAcc.expenseCatLabel}</label>
-                </div>
+            <form onSubmit={handleAddExpense} className="modal-body p-6 space-y-4">
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-slate-700">{tAcc.expenseCatLabel}</label>
                 <select
                   id="exp-form-category"
                   value={expenseCategory}
                   onChange={(e) => setExpenseCategory(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 p-2.5 text-xs text-slate-700 outline-none"
+                  className="h-11 w-full rounded-lg border-2 border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-blue-500"
                 >
                   {categories.map(cat => (
                     <option key={cat.id} value={cat.id}>{cat.name}</option>
@@ -593,8 +593,8 @@ export default function AccountingModule({
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase">{tAcc.payoutAmount}</label>
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-slate-700">{tAcc.payoutAmount}</label>
                   <input
                     id="exp-form-amount"
                     type="number"
@@ -603,25 +603,25 @@ export default function AccountingModule({
                     placeholder="e.g. 5000"
                     value={expenseAmount || ''}
                     onChange={(e) => setExpenseAmount(Number(e.target.value))}
-                    className="w-full rounded-xl border border-slate-200 p-2.5 text-xs text-slate-750 font-mono font-bold outline-none"
+                    className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-4 text-sm font-semibold outline-none focus:border-blue-500 focus:bg-white font-mono"
                   />
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase">{tAcc.dateOfPayout}</label>
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-slate-700">{tAcc.dateOfPayout}</label>
                   <input
                     id="exp-form-date"
                     type="date"
                     required
                     value={expenseDate}
                     onChange={(e) => setExpenseDate(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 p-2.5 text-xs text-slate-700 outline-none"
+                    className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-4 text-sm font-semibold outline-none focus:border-blue-500 focus:bg-white"
                   />
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-500 uppercase">{tAcc.paidToLabel}</label>
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-slate-700">{tAcc.paidToLabel}</label>
                 <input
                   id="exp-form-paidto"
                   type="text"
@@ -629,28 +629,38 @@ export default function AccountingModule({
                   placeholder="e.g. Haji Shafiul (Landlord)"
                   value={expensePaidTo}
                   onChange={(e) => setExpensePaidTo(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 p-2.5 text-xs text-slate-700 outline-none"
+                  className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-4 text-sm font-semibold outline-none focus:border-blue-500 focus:bg-white"
                 />
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-500 uppercase">{tAcc.voucherNotes}</label>
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-slate-700">{tAcc.voucherNotes}</label>
                 <textarea
                   id="exp-form-notes"
                   placeholder={tAcc.voucherNotesPlaceholder}
                   value={expenseNotes}
                   onChange={(e) => setExpenseNotes(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 p-2.5 text-xs text-slate-700 outline-none h-20 resize-none"
+                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold outline-none h-20 resize-none focus:border-blue-500 focus:bg-white"
                 />
               </div>
 
-              <button
-                id="exp-form-submit"
-                type="submit"
-                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs transition-transform active:scale-95 text-center shadow-md shadow-indigo-500/10 cursor-pointer"
-              >
-                {tAcc.logBtn}
-              </button>
+              <div className="border-t border-slate-200 px-6 py-5 flex items-center justify-end gap-3 bg-slate-55 -mx-6 -mb-6 rounded-b-xl shrink-0">
+                <button
+                  id="add-expense-modal-cancel"
+                  type="button"
+                  onClick={() => setShowAddExpenseModal(false)}
+                  className="h-11 rounded-lg border-2 border-slate-200 bg-white px-5 text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  id="exp-form-submit"
+                  type="submit"
+                  className="inline-flex h-11 items-center gap-2 rounded-lg bg-slate-900 px-5 text-sm font-semibold text-white hover:bg-slate-800 transition-all border border-slate-950 shrink-0 cursor-pointer"
+                >
+                  {tAcc.logBtn}
+                </button>
+              </div>
             </form>
           </div>
         </div>
@@ -659,23 +669,26 @@ export default function AccountingModule({
       {/* Modal: Create Expense Category */}
       {showAddCategoryModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-slate-150 w-full max-w-sm shadow-2xl p-5 space-y-4 animate-scale-up">
-            <div className="flex items-center justify-between border-b border-slate-50 pb-2">
-              <span className="text-[11px] font-bold text-slate-600 uppercase">
+          <div className="bg-white rounded-xl border border-slate-200 w-full max-w-sm shadow-2xl flex flex-col justify-between animate-scale-up">
+            
+            {/* Modal Header */}
+            <div className="border-b border-slate-200 px-6 py-5 bg-gradient-to-r from-slate-50 to-white flex items-center justify-between shrink-0">
+              <span className="font-semibold text-slate-800 text-xs uppercase tracking-wider">
                 {tAcc.createCatTitle}
               </span>
               <button
                 id="cat-modal-close"
                 type="button"
                 onClick={() => setShowAddCategoryModal(false)}
-                className="p-1 rounded text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-655 transition-colors cursor-pointer"
               >
-                <X className="w-4 h-4" />
+                <X className="w-4.5 h-4.5" />
               </button>
             </div>
-            <form onSubmit={handleAddCategory} className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-500 uppercase">{tAcc.catNameLabel}</label>
+
+            <form onSubmit={handleAddCategory} className="modal-body p-6 space-y-4">
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-slate-700">{tAcc.catNameLabel}</label>
                 <input
                   id="new-cat-name"
                   type="text"
@@ -683,27 +696,38 @@ export default function AccountingModule({
                   placeholder="Category Name"
                   value={newCatName}
                   onChange={(e) => setNewCatName(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white p-2 text-xs outline-none focus:border-indigo-500"
+                  className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-4 text-sm font-semibold outline-none focus:border-blue-500 focus:bg-white"
                 />
               </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-500 uppercase">{tAcc.catDescLabel}</label>
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-slate-700">{tAcc.catDescLabel}</label>
                 <input
                   id="new-cat-desc"
                   type="text"
                   placeholder="Short Description"
                   value={newCatDesc}
                   onChange={(e) => setNewCatDesc(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white p-2 text-xs outline-none focus:border-indigo-500"
+                  className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-4 text-sm font-semibold outline-none focus:border-blue-500 focus:bg-white"
                 />
               </div>
-              <button
-                id="new-cat-submit"
-                type="submit"
-                className="w-full py-2 bg-slate-900 text-white font-bold rounded-xl text-xs hover:bg-slate-800 transition-all cursor-pointer"
-              >
-                {tAcc.saveCat}
-              </button>
+
+              <div className="border-t border-slate-200 px-6 py-5 flex items-center justify-end gap-3 bg-slate-50 -mx-6 -mb-6 rounded-b-xl shrink-0">
+                <button
+                  id="new-cat-cancel"
+                  type="button"
+                  onClick={() => setShowAddCategoryModal(false)}
+                  className="h-11 rounded-lg border-2 border-slate-200 bg-white px-5 text-sm font-semibold text-slate-600 hover:bg-slate-55 hover:border-slate-300 transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  id="new-cat-submit"
+                  type="submit"
+                  className="inline-flex h-11 items-center gap-2 rounded-lg bg-slate-900 px-5 text-sm font-semibold text-white hover:bg-slate-800 transition-all border border-slate-950 shrink-0 cursor-pointer"
+                >
+                  {tAcc.saveCat}
+                </button>
+              </div>
             </form>
           </div>
         </div>
@@ -712,58 +736,60 @@ export default function AccountingModule({
       {/* Editing Category Sub-Modal */}
       {editingCat && (
         <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-slate-100 w-full max-w-sm shadow-2xl p-5 space-y-4 animate-scale-up">
-            <div className="flex items-center justify-between border-b border-slate-50 pb-2">
-              <span className="font-bold text-slate-800 text-sm flex items-center gap-1">
-                <Edit3 className="w-4 h-4 text-indigo-500" />
+          <div className="bg-white rounded-xl border border-slate-200 w-full max-w-sm shadow-2xl flex flex-col justify-between animate-scale-up">
+            
+            {/* Modal Header */}
+            <div className="border-b border-slate-200 px-6 py-5 bg-gradient-to-r from-slate-50 to-white flex items-center justify-between shrink-0">
+              <span className="font-semibold text-slate-800 text-sm flex items-center gap-1.5">
+                <Edit3 className="w-4.5 h-4.5 text-slate-800" />
                 {tAcc.editCatTitle}
               </span>
               <button
                 id="edit-cat-modal-close"
                 onClick={() => setEditingCat(null)}
-                className="p-1 rounded text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-655 transition-colors cursor-pointer"
               >
                 <X className="w-4.5 h-4.5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveEditCategory} className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-500 uppercase">{tAcc.catNameLabel}</label>
+            <form onSubmit={handleSaveEditCategory} className="modal-body p-6 space-y-4">
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-slate-700">{tAcc.catNameLabel}</label>
                 <input
                   id="edit-cat-name-input"
                   type="text"
                   required
                   value={editingCat.name}
                   onChange={(e) => setEditingCat({ ...editingCat, name: e.target.value })}
-                  className="w-full rounded-lg border border-slate-200 p-2 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                  className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-4 text-sm font-semibold outline-none focus:border-blue-500 focus:bg-white"
                 />
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-500 uppercase">{tAcc.catDescLabel}</label>
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-slate-700">{tAcc.catDescLabel}</label>
                 <input
                   id="edit-cat-desc-input"
                   type="text"
                   value={editingCat.description}
                   onChange={(e) => setEditingCat({ ...editingCat, description: e.target.value })}
-                  className="w-full rounded-lg border border-slate-200 p-2 text-xs text-slate-700 outline-none focus:border-indigo-500"
+                  className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-4 text-sm font-semibold outline-none focus:border-blue-500 focus:bg-white"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 border-t border-slate-100 pt-3">
+              <div className="border-t border-slate-200 px-6 py-5 flex items-center justify-end gap-3 bg-slate-55 -mx-6 -mb-6 rounded-b-xl shrink-0">
                 <button
                   id="edit-cat-btn-cancel"
                   type="button"
                   onClick={() => setEditingCat(null)}
-                  className="px-4 py-1.5 bg-slate-100 text-slate-700 text-xs font-bold rounded-lg transition-transform active:scale-95 cursor-pointer"
+                  className="h-11 rounded-lg border-2 border-slate-200 bg-white px-5 text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all cursor-pointer"
                 >
                   {tCommon.cancel}
                 </button>
                 <button
                   id="edit-cat-btn-submit"
                   type="submit"
-                  className="px-5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition-transform active:scale-95 shadow-md shadow-indigo-600/10 cursor-pointer"
+                  className="inline-flex h-11 items-center gap-2 rounded-lg bg-slate-900 px-5 text-sm font-semibold text-white hover:bg-slate-800 transition-all border border-slate-950 shrink-0 cursor-pointer"
                 >
                   {tCommon.save}
                 </button>

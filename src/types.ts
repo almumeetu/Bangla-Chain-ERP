@@ -1,4 +1,4 @@
-// Types & Mock Data for Enterprise Supply Chain & Inventory ERP
+// Types & Mock Data for FMCG Dealer (Diller) Management System
 
 export interface SR {
   id: string;
@@ -11,6 +11,7 @@ export interface Customer {
   name: string;
   market: string;
   phone: string;
+  assignedSR: string; // e.g., "Rakib", "Rahman", "Rahim"
 }
 
 export interface DeliveryMan {
@@ -23,31 +24,32 @@ export interface Product {
   id: string;
   name: string;
   sku: string;
-  defaultPP: number;  // Purchase Price in BDT
-  defaultMRP: number; // Retail Price in BDT
-  defaultWSP: number; // Wholesale Price in BDT
+  company: 'Pran' | 'Olympic' | 'Haque'; // Brand / Manufacturer Company
+  defaultPP: number;  // Import Price / Purchase Price in BDT
+  defaultMRP: number; // Retail Market Price in BDT
+  defaultWSP: number; // Wholesale Supply Price in BDT
   currentStock: number;
 }
 
 export interface ProductAttribute {
   id: string;
-  name: string;      // e.g., "Size: 42", "Color: Black"
-  type: string;      // "Size" | "Color" | "Weight"
-  value: string;     // e.g., "42", "Black", "1.2kg"
+  name: string;      // e.g., "Pack: 24pcs", "Flavor: Chocolate"
+  type: string;      // "Packaging" | "Flavor" | "Weight"
+  value: string;
   status: 'Active' | 'Inactive';
 }
 
 export interface ChallanItem {
   id: string;
   productName: string;
-  attribute: string; // e.g. "Size 10, Black"
+  attribute: string; 
   qty: number;
   bonusQty: number;
-  totalQty: number;  // auto-calculated: qty + bonusQty
-  rate: number;      // Wholesale Price per product
+  totalQty: number;  // qty + bonusQty
+  rate: number;      // Wholesale Supply Price
   totalAmount: number; // rate * qty
-  srName: string;
-  customerNames: string[]; // multi-customer pill badge support
+  srName: string; // Supplied by SR
+  customerNames: string[]; // Mapped to Shops
   deliveryManName: string;
   status: 'Pending' | 'Shipped' | 'Delivered' | 'Returned';
 }
@@ -56,28 +58,28 @@ export interface ProcurementItem {
   id: string;
   productId: string;
   productName: string;
-  purchasePrice: number;
+  purchasePrice: number; // Import price
   mrp: number;
   wsp: number;
   qty: number;
   bonusQty: number;
   discountType: 'Flat' | 'Percentage';
   discountValue: number;
-  totalPrice: number; // Auto calculated
+  totalPrice: number;
 }
 
 export interface Procurement {
   id: string;
-  supplierName: string;
+  supplierName: 'Pran' | 'Olympic' | 'Haque'; // Company supplied from
   procurementName: string;
   invoiceRef: string;
   invoiceDate: string;
   deliveryDate: string;
   paymentStatus: 'Paid' | 'Pending' | 'Partial';
-  additionalCost: number;
+  additionalCost: number; // Carriage/Transport cost
   items: ProcurementItem[];
-  globalTotal: number; // Calculated sum of items totalPrice + additionalCost
-  createdAt: string; // ISO string
+  globalTotal: number; // Items price sum + additionalCost
+  createdAt: string;
 }
 
 export interface StockAdjustment {
@@ -87,10 +89,10 @@ export interface StockAdjustment {
   attributeValue: string;
   oldQty: number;
   newQty: number;
-  qtyChanged: number; // positive or negative
+  qtyChanged: number;
   adjustedBy: string;
   reason: string;
-  date: string; // ISO string
+  date: string;
 }
 
 export interface ExpenseCategory {
@@ -109,20 +111,26 @@ export interface ExpenseRecord {
   paidTo: string;
 }
 
-// Initial Mock Data (Bangladeshi business context)
+// Initial Mock Data matching the Diller Management drawing
 export const INITIAL_SRS: SR[] = [
-  { id: 'sr-1', name: 'Mizanur Rahman', phone: '01711223344' },
-  { id: 'sr-2', name: 'Arif Islam', phone: '01811223344' },
-  { id: 'sr-3', name: 'Kamrul Hassan', phone: '01911223344' },
-  { id: 'sr-4', name: 'Tanvir Ahmed', phone: '01511223344' },
+  { id: 'sr-1', name: 'Rakib', phone: '01711223344' },
+  { id: 'sr-2', name: 'Rahman', phone: '01811223344' },
+  { id: 'sr-3', name: 'Rahim', phone: '01911223344' },
 ];
 
 export const INITIAL_CUSTOMERS: Customer[] = [
-  { id: 'cust-1', name: 'Bismillah Shoes Market', market: 'Elephant Road, Dhaka', phone: '01722998877' },
-  { id: 'cust-2', name: 'Al-Madina Department Store', market: 'Chawkbazar, Dhaka', phone: '01822998877' },
-  { id: 'cust-3', name: 'New Quality Footwear', market: 'Sadarghat, Dhaka', phone: '01922998877' },
-  { id: 'cust-4', name: 'Rahman Brother Traders', market: 'Zilla School Road, Bogura', phone: '01522998877' },
-  { id: 'cust-5', name: 'Maa Enterprise', market: 'Terribazar, Chattogram', phone: '01622998877' },
+  // Rakib's Shops
+  { id: 'cust-1', name: 'Shop-1 (Bismillah Store)', market: 'Elephant Road Market', phone: '01722998877', assignedSR: 'Rakib' },
+  { id: 'cust-2', name: 'Shop-2 (Maa General Store)', market: 'Chawkbazar Lane', phone: '01822998877', assignedSR: 'Rakib' },
+  { id: 'cust-3', name: 'Shop-3 (New Quality Foods)', market: 'Sadarghat Road', phone: '01922998877', assignedSR: 'Rakib' },
+  
+  // Rahman's Shops
+  { id: 'cust-6', name: 'Shop-6 (Chowdhury Mart)', market: 'Bogura Sadar Market', phone: '01522998877', assignedSR: 'Rahman' },
+  { id: 'cust-7', name: 'Shop-7 (Popular Store)', market: 'Zilla School Crossing', phone: '01622998877', assignedSR: 'Rahman' },
+  
+  // Rahim's Shops
+  { id: 'cust-4', name: 'Shop-4 (Rahman Brother Grocers)', market: 'Terribazar Alley', phone: '01622998899', assignedSR: 'Rahim' },
+  { id: 'cust-5', name: 'Shop-5 (Al-Madina Groceries)', market: 'Sarker Tower Bazar', phone: '01622998811', assignedSR: 'Rahim' },
 ];
 
 export const INITIAL_DELIVERY_MEN: DeliveryMan[] = [
@@ -131,151 +139,129 @@ export const INITIAL_DELIVERY_MEN: DeliveryMan[] = [
   { id: 'dm-3', name: 'Khorshed Alam', vehicle: 'Three Wheeler Cargo (Dhaka-H-12-3456)' },
 ];
 
+// Products categorized by Company: Pran, Olympic, Haque
 export const INITIAL_PRODUCTS: Product[] = [
-  { id: 'prod-1', name: 'Sandal Apex 12345', sku: 'APX-S-12345', defaultPP: 450, defaultMRP: 850, defaultWSP: 650, currentStock: 1250 },
-  { id: 'prod-2', name: 'Lotto Sports Runner X', sku: 'LOT-R-10022', defaultPP: 1200, defaultMRP: 2200, defaultWSP: 1750, currentStock: 480 },
-  { id: 'prod-3', name: 'Bata Classic Leather Belt', sku: 'BAT-B-998', defaultPP: 300, defaultMRP: 600, defaultWSP: 450, currentStock: 900 },
-  { id: 'prod-4', name: 'Sponge Sandal Star-20', sku: 'ST-SS-20', defaultPP: 90, defaultMRP: 180, defaultWSP: 130, currentStock: 3500 },
-  { id: 'prod-5', name: 'Ladies Comfort Flat 44', sku: 'CMF-FL-44', defaultPP: 250, defaultMRP: 499, defaultWSP: 360, currentStock: 150 },
-  { id: 'prod-6', name: 'Kids School Shoe Active', sku: 'KID-SCH-01', defaultPP: 400, defaultMRP: 750, defaultWSP: 550, currentStock: 620 },
+  // PRAN Products
+  { id: 'prod-1', name: 'Pran Mango Juice 250ml', sku: 'PRN-MJ-250', company: 'Pran', defaultPP: 22, defaultMRP: 30, defaultWSP: 25, currentStock: 2500 },
+  { id: 'prod-2', name: 'Pran UP Lemon Drink 250ml', sku: 'PRN-UP-250', company: 'Pran', defaultPP: 21, defaultMRP: 30, defaultWSP: 24, currentStock: 1800 },
+  { id: 'prod-3', name: 'Pran Premium Toast Biscuit 350g', sku: 'PRN-TB-350', company: 'Pran', defaultPP: 55, defaultMRP: 80, defaultWSP: 65, currentStock: 1200 },
+
+  // OLYMPIC Products
+  { id: 'prod-4', name: 'Olympic Energy Plus Biscuit 60g', sku: 'OLY-EP-60', company: 'Olympic', defaultPP: 8, defaultMRP: 15, defaultWSP: 10, currentStock: 5000 },
+  { id: 'prod-5', name: 'Olympic Lexus Vegetable Cracker', sku: 'OLY-LX-120', company: 'Olympic', defaultPP: 32, defaultMRP: 50, defaultWSP: 40, currentStock: 3200 },
+
+  // HAQUE Products
+  { id: 'prod-6', name: 'Haque Mr. Cookie Biscuit 150g', sku: 'HAQ-MC-150', company: 'Haque', defaultPP: 25, defaultMRP: 40, defaultWSP: 32, currentStock: 2100 },
+  { id: 'prod-7', name: 'Haque Bourbon Chocolate Biscuit', sku: 'HAQ-BB-100', company: 'Haque', defaultPP: 15, defaultMRP: 25, defaultWSP: 19, currentStock: 1500 },
 ];
 
 export const INITIAL_ATTRIBUTES: ProductAttribute[] = [
-  { id: 'attr-1', name: 'Size: 42', type: 'Size', value: '42', status: 'Active' },
-  { id: 'attr-2', name: 'Size: 43', type: 'Size', value: '43', status: 'Active' },
-  { id: 'attr-3', name: 'Color: Jet Black', type: 'Color', value: 'Jet Black', status: 'Active' },
-  { id: 'attr-4', name: 'Color: Chocolate Brown', type: 'Color', value: 'Chocolate Brown', status: 'Active' },
-  { id: 'attr-5', name: 'Weight: Light (250g)', type: 'Weight', value: 'Light (250g)', status: 'Active' },
-  { id: 'attr-6', name: 'Size: 39', type: 'Size', value: '39', status: 'Inactive' },
+  { id: 'attr-1', name: 'Pack: Case of 24', type: 'Packaging', value: 'Case of 24', status: 'Active' },
+  { id: 'attr-2', name: 'Pack: Carton of 48', type: 'Packaging', value: 'Carton of 48', status: 'Active' },
+  { id: 'attr-3', name: 'Flavor: Mango', type: 'Flavor', value: 'Mango', status: 'Active' },
+  { id: 'attr-4', name: 'Flavor: Chocolate', type: 'Flavor', value: 'Chocolate', status: 'Active' },
+  { id: 'attr-5', name: 'Weight: 250ml', type: 'Weight', value: '250ml', status: 'Active' },
 ];
 
 export const INITIAL_CHALLAN_ITEMS: ChallanItem[] = [
   {
     id: 'ch-1',
-    productName: 'Sandal Apex 12345',
-    attribute: 'Size: 42, Color: Jet Black',
-    qty: 100,
-    bonusQty: 5,
-    totalQty: 105,
-    rate: 650,
-    totalAmount: 65000,
-    srName: 'Mizanur Rahman',
-    customerNames: ['Bismillah Shoes Market', 'Al-Madina Department Store'],
+    productName: 'Pran Mango Juice 250ml',
+    attribute: 'Pack: Case of 24, Flavor: Mango',
+    qty: 240, // 10 cases
+    bonusQty: 12,
+    totalQty: 252,
+    rate: 25,
+    totalAmount: 6000,
+    srName: 'Rakib',
+    customerNames: ['Shop-1 (Bismillah Store)', 'Shop-2 (Maa General Store)'],
     deliveryManName: 'Abul Kalam',
     status: 'Delivered',
   },
   {
     id: 'ch-2',
-    productName: 'Lotto Sports Runner X',
-    attribute: 'Size: 43, Color: Jet Black',
-    qty: 30,
-    bonusQty: 1,
-    totalQty: 31,
-    rate: 1750,
-    totalAmount: 52500,
-    srName: 'Arif Islam',
-    customerNames: ['New Quality Footwear'],
+    productName: 'Olympic Lexus Vegetable Cracker',
+    attribute: 'Pack: Carton of 48',
+    qty: 96, // 2 cartons
+    bonusQty: 4,
+    totalQty: 100,
+    rate: 40,
+    totalAmount: 3840,
+    srName: 'Rahman',
+    customerNames: ['Shop-6 (Chowdhury Mart)'],
     deliveryManName: 'Sujon Mia',
     status: 'Shipped',
   },
   {
     id: 'ch-3',
-    productName: 'Sponge Sandal Star-20',
-    attribute: 'Size: 42',
-    qty: 500,
-    bonusQty: 25,
-    totalQty: 525,
-    rate: 130,
-    totalAmount: 65000,
-    srName: 'Kamrul Hassan',
-    customerNames: ['Rahman Brother Traders', 'Maa Enterprise', 'Bismillah Shoes Market'],
+    productName: 'Haque Mr. Cookie Biscuit 150g',
+    attribute: 'Pack: Case of 24',
+    qty: 480, // 20 cases
+    bonusQty: 24,
+    totalQty: 504,
+    rate: 32,
+    totalAmount: 15360,
+    srName: 'Rahim',
+    customerNames: ['Shop-4 (Rahman Brother Grocers)', 'Shop-5 (Al-Madina Groceries)'],
     deliveryManName: 'Khorshed Alam',
     status: 'Pending',
   },
-  {
-    id: 'ch-4',
-    productName: 'Bata Classic Leather Belt',
-    attribute: 'Color: Chocolate Brown',
-    qty: 50,
-    bonusQty: 0,
-    totalQty: 50,
-    rate: 450,
-    totalAmount: 22500,
-    srName: 'Tanvir Ahmed',
-    customerNames: ['Maa Enterprise'],
-    deliveryManName: 'Abul Kalam',
-    status: 'Delivered',
-  },
-  {
-    id: 'ch-5',
-    productName: 'Kids School Shoe Active',
-    attribute: 'Size: 42, Color: Jet Black',
-    qty: 40,
-    bonusQty: 2,
-    totalQty: 42,
-    rate: 550,
-    totalAmount: 22000,
-    srName: 'Mizanur Rahman',
-    customerNames: ['Al-Madina Department Store'],
-    deliveryManName: 'Sujon Mia',
-    status: 'Returned',
-  }
 ];
 
 export const INITIAL_PROCUREMENTS: Procurement[] = [
   {
     id: 'proc-1',
-    supplierName: 'Apex Footwear Ltd.',
-    procurementName: 'Apex Sandal Eid Bulk Supply',
-    invoiceRef: 'APX-2026-INV-509',
+    supplierName: 'Pran',
+    procurementName: 'Pran Juice & Toast Import Batch A',
+    invoiceRef: 'PRN-2026-INV-99',
     invoiceDate: '2026-06-10',
-    deliveryDate: '2026-06-15',
+    deliveryDate: '2026-06-12',
     paymentStatus: 'Paid',
-    additionalCost: 3500,
+    additionalCost: 2500,
     items: [
       {
         id: 'pi-1',
         productId: 'prod-1',
-        productName: 'Sandal Apex 12345',
-        purchasePrice: 450,
-        mrp: 850,
-        wsp: 650,
-        qty: 500,
-        bonusQty: 25,
+        productName: 'Pran Mango Juice 250ml',
+        purchasePrice: 22,
+        mrp: 30,
+        wsp: 25,
+        qty: 1000,
+        bonusQty: 50,
         discountType: 'Percentage',
-        discountValue: 5, // 5% discount
-        totalPrice: 213750, // (450 * 500) * 0.95
+        discountValue: 3,
+        totalPrice: 21340, // (22 * 1000) * 0.97
       }
     ],
-    globalTotal: 217250, // 213750 + 3500
+    globalTotal: 23840, // 21340 + 2500
     createdAt: '2026-06-10T10:00:00Z',
   },
   {
     id: 'proc-2',
-    supplierName: 'Lotto Bangladesh Ltd.',
-    procurementName: 'Lotto Runner Monsoon Procurement',
-    invoiceRef: 'LOT-99827-26',
-    invoiceDate: '2026-06-20',
-    deliveryDate: '2026-06-24',
+    supplierName: 'Olympic',
+    procurementName: 'Olympic Biscuit Lexus Cargo Import',
+    invoiceRef: 'OLY-MON-9982',
+    invoiceDate: '2026-06-18',
+    deliveryDate: '2026-06-20',
     paymentStatus: 'Partial',
-    additionalCost: 5000,
+    additionalCost: 4000,
     items: [
       {
         id: 'pi-2',
-        productId: 'prod-2',
-        productName: 'Lotto Sports Runner X',
-        purchasePrice: 1200,
-        mrp: 2200,
-        wsp: 1750,
-        qty: 150,
-        bonusQty: 5,
+        productId: 'prod-5',
+        productName: 'Olympic Lexus Vegetable Cracker',
+        purchasePrice: 32,
+        mrp: 50,
+        wsp: 40,
+        qty: 2000,
+        bonusQty: 100,
         discountType: 'Flat',
-        discountValue: 2000, // Flat discount BDT 2000
-        totalPrice: 178000, // (1200 * 150) - 2000
+        discountValue: 1500,
+        totalPrice: 62500, // (32 * 2000) - 1500
       }
     ],
-    globalTotal: 183000, // 178000 + 5000
-    createdAt: '2026-06-20T14:30:00Z',
+    globalTotal: 66500, // 62500 + 4000
+    createdAt: '2026-06-18T14:30:00Z',
   }
 ];
 
@@ -283,63 +269,40 @@ export const INITIAL_STOCK_ADJUSTMENTS: StockAdjustment[] = [
   {
     id: 'adj-1',
     productId: 'prod-1',
-    productName: 'Sandal Apex 12345',
-    attributeValue: 'Size: 42',
-    oldQty: 1200,
-    newQty: 1250,
+    productName: 'Pran Mango Juice 250ml',
+    attributeValue: 'Pack: Case of 24',
+    oldQty: 2450,
+    newQty: 2500,
     qtyChanged: 50,
-    adjustedBy: 'Admin (Muin)',
-    reason: 'Physical stock count correction (found extra box in shelf C)',
+    adjustedBy: 'Samir Chowdhury (Admin)',
+    reason: 'Stock counting check: found extra crate during audit',
     date: '2026-06-22T11:45:00Z',
-  },
-  {
-    id: 'adj-2',
-    productId: 'prod-3',
-    productName: 'Bata Classic Leather Belt',
-    attributeValue: 'Color: Chocolate Brown',
-    oldQty: 920,
-    newQty: 900,
-    qtyChanged: -20,
-    adjustedBy: 'Admin (Muin)',
-    reason: 'Water damage during cleaning',
-    date: '2026-06-24T09:15:00Z',
   }
 ];
 
 export const INITIAL_EXP_CATEGORIES: ExpenseCategory[] = [
-  { id: 'cat-1', name: 'Office Rent & Utility', description: 'Monthly warehouse and head office rent, electricity, water' },
-  { id: 'cat-2', name: 'Delivery Van Fuel', description: 'Octane / Diesel and toll expenses for delivery trucks' },
-  { id: 'cat-3', name: 'Staff Salary & Allowance', description: 'Salaray for showroom, warehouse workers, and SR commissions' },
-  { id: 'cat-4', name: 'Entertainment & Client Lunch', description: 'Tea, biscuits, lunch with wholesale buyers' },
-  { id: 'cat-5', name: 'Marketing & Poster Print', description: 'Leaflets, banners in local shoe market' },
+  { id: 'cat-1', name: 'SR Salaries & Commission', description: 'Monthly fixed salary and performance commissions paid to SRs' },
+  { id: 'cat-2', name: 'Carriage & Transport Fuel', description: 'Fuel and tolls for supplying goods to retail markets' },
+  { id: 'cat-3', name: 'Warehouse Rent & Electric', description: 'Utility bills and floor space rent for storing brand stock' },
 ];
 
 export const INITIAL_EXPENSES: ExpenseRecord[] = [
   {
     id: 'exp-1',
     categoryId: 'cat-2',
-    categoryName: 'Delivery Van Fuel',
-    amount: 12000,
+    categoryName: 'Carriage & Transport Fuel',
+    amount: 15000,
     expenseDate: '2026-06-18',
-    notes: 'Fuel voucher for PickUp Truck (Metro-Tha-11-2044) for 5 roundtrips to Elephant Road',
-    paidTo: 'Kader Petrol Pump, Tejgaon',
+    notes: 'Fuel costs for Abul Kalam and Sujon Miah for market runs',
+    paidTo: 'Tejgaon Petrol Center',
   },
   {
     id: 'exp-2',
-    categoryId: 'cat-4',
-    categoryName: 'Entertainment & Client Lunch',
-    amount: 3500,
-    expenseDate: '2026-06-21',
-    notes: 'Lunch at Star Kabab for Elephant Road shop owners',
-    paidTo: 'Star Kabab & Restaurant',
-  },
-  {
-    id: 'exp-3',
     categoryId: 'cat-1',
-    categoryName: 'Office Rent & Utility',
-    amount: 35000,
-    expenseDate: '2026-06-05',
-    notes: 'Warehouse space B-2 electricity bill & floor rent portion',
-    paidTo: 'Haji Shafiul Alam (Landlord)',
+    categoryName: 'SR Salaries & Commission',
+    amount: 25000,
+    expenseDate: '2026-06-25',
+    notes: 'Rakib, Rahman, Rahim monthly commissions payment',
+    paidTo: 'SR Team Cash Payout',
   }
 ];

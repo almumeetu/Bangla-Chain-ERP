@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { jsPDF } from 'jspdf';
 import { 
   Menu, 
@@ -14,7 +14,8 @@ import {
   Bell, 
   MapPin,
   ClipboardList,
-  Globe
+  Globe,
+  Check
 } from 'lucide-react';
 import { translations, Language } from '../../../translations';
 
@@ -25,6 +26,7 @@ import ProcurementModule from '../../../components/ProcurementModule';
 import StockAdjustmentModule from '../../../components/StockAdjustmentModule';
 import AccountingModule from '../../../components/AccountingModule';
 import SellModule from '../../../components/SellModule';
+import DirectoryModule from '../../../components/DirectoryModule';
 
 // Raw Types & seed arrays
 import { 
@@ -35,6 +37,8 @@ import {
   StockAdjustment, 
   ExpenseCategory, 
   ExpenseRecord,
+  SR,
+  Customer,
   INITIAL_SRS,
   INITIAL_CUSTOMERS,
   INITIAL_DELIVERY_MEN,
@@ -46,8 +50,24 @@ import {
   INITIAL_EXP_CATEGORIES,
   INITIAL_EXPENSES
 } from '../../../types';
+import LoginPage from '../../../components/LoginPage';
 
 export default function App() {
+  const [mounted, setMounted] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const auth = localStorage.getItem('erp_auth');
+      setIsAuthenticated(auth === 'true');
+    }
+    setMounted(true);
+  }, []);
+
+  const handleLogin = useCallback(() => {
+    setIsAuthenticated(true);
+  }, []);
+
   // Navigation State
   const [activeTab, setActiveTab] = useState<TabID>('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -79,15 +99,60 @@ export default function App() {
   const [products, setProducts] = useState<Product[]>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('erp_products');
-      return saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (parsed.length > 0 && !parsed[0].company) {
+            localStorage.removeItem('erp_products');
+            localStorage.removeItem('erp_challans');
+            localStorage.removeItem('erp_procurements');
+            localStorage.removeItem('erp_adjustments');
+            localStorage.removeItem('erp_expenses');
+            localStorage.removeItem('erp_categories');
+            localStorage.removeItem('erp_attributes');
+            return INITIAL_PRODUCTS;
+          }
+          return parsed;
+        } catch (e) {
+          return INITIAL_PRODUCTS;
+        }
+      }
+      return INITIAL_PRODUCTS;
     }
     return INITIAL_PRODUCTS;
+  });
+
+  const [srs, setSrs] = useState<SR[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('erp_srs');
+      return saved ? JSON.parse(saved) : INITIAL_SRS;
+    }
+    return INITIAL_SRS;
+  });
+
+  const [customers, setCustomers] = useState<Customer[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('erp_customers');
+      return saved ? JSON.parse(saved) : INITIAL_CUSTOMERS;
+    }
+    return INITIAL_CUSTOMERS;
   });
 
   const [attributes, setAttributes] = useState<ProductAttribute[]>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('erp_attributes');
-      return saved ? JSON.parse(saved) : INITIAL_ATTRIBUTES;
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (parsed.length > 0 && parsed[0].type !== 'Packaging') {
+            return INITIAL_ATTRIBUTES;
+          }
+          return parsed;
+        } catch (e) {
+          return INITIAL_ATTRIBUTES;
+        }
+      }
+      return INITIAL_ATTRIBUTES;
     }
     return INITIAL_ATTRIBUTES;
   });
@@ -95,7 +160,19 @@ export default function App() {
   const [challans, setChallans] = useState<ChallanItem[]>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('erp_challans');
-      return saved ? JSON.parse(saved) : INITIAL_CHALLAN_ITEMS;
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          // If product is Apex Sandal, reload INITIAL_CHALLAN_ITEMS
+          if (parsed.length > 0 && parsed[0].productName.includes('Apex')) {
+            return INITIAL_CHALLAN_ITEMS;
+          }
+          return parsed;
+        } catch (e) {
+          return INITIAL_CHALLAN_ITEMS;
+        }
+      }
+      return INITIAL_CHALLAN_ITEMS;
     }
     return INITIAL_CHALLAN_ITEMS;
   });
@@ -103,7 +180,18 @@ export default function App() {
   const [procurements, setProcurements] = useState<Procurement[]>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('erp_procurements');
-      return saved ? JSON.parse(saved) : INITIAL_PROCUREMENTS;
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (parsed.length > 0 && parsed[0].supplierName !== 'Pran' && parsed[0].supplierName !== 'Olympic' && parsed[0].supplierName !== 'Haque') {
+            return INITIAL_PROCUREMENTS;
+          }
+          return parsed;
+        } catch (e) {
+          return INITIAL_PROCUREMENTS;
+        }
+      }
+      return INITIAL_PROCUREMENTS;
     }
     return INITIAL_PROCUREMENTS;
   });
@@ -119,7 +207,18 @@ export default function App() {
   const [categories, setCategories] = useState<ExpenseCategory[]>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('erp_categories');
-      return saved ? JSON.parse(saved) : INITIAL_EXP_CATEGORIES;
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (parsed.length > 0 && parsed[0].name.includes('Office Rent')) {
+            return INITIAL_EXP_CATEGORIES;
+          }
+          return parsed;
+        } catch (e) {
+          return INITIAL_EXP_CATEGORIES;
+        }
+      }
+      return INITIAL_EXP_CATEGORIES;
     }
     return INITIAL_EXP_CATEGORIES;
   });
@@ -127,7 +226,18 @@ export default function App() {
   const [expenses, setExpenses] = useState<ExpenseRecord[]>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('erp_expenses');
-      return saved ? JSON.parse(saved) : INITIAL_EXPENSES;
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (parsed.length > 0 && parsed[0].notes.includes('Van Fuel')) {
+            return INITIAL_EXPENSES;
+          }
+          return parsed;
+        } catch (e) {
+          return INITIAL_EXPENSES;
+        }
+      }
+      return INITIAL_EXPENSES;
     }
     return INITIAL_EXPENSES;
   });
@@ -178,6 +288,18 @@ export default function App() {
     }
   }, [expenses]);
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('erp_srs', JSON.stringify(srs));
+    }
+  }, [srs]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('erp_customers', JSON.stringify(customers));
+    }
+  }, [customers]);
+
   // Real-time clock update (every 1 second)
   useEffect(() => {
     const timer = setInterval(() => {
@@ -188,7 +310,7 @@ export default function App() {
 
   // Format Date for Topbar
   const formatHeaderDate = (date: Date) => {
-    const locale = language === 'bn' ? 'bn-BD' : language === 'de' ? 'de-DE' : 'en-BD';
+    const locale = language === 'bn' ? 'bn-BD' : 'en-BD';
     return date.toLocaleDateString(locale, {
       weekday: 'short',
       year: 'numeric',
@@ -198,12 +320,12 @@ export default function App() {
   };
 
   const formatHeaderTime = (date: Date) => {
-    const locale = language === 'bn' ? 'bn-BD' : language === 'de' ? 'de-DE' : 'en-BD';
+    const locale = language === 'bn' ? 'bn-BD' : 'en-BD';
     return date.toLocaleTimeString(locale, {
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit',
-      hour12: language !== 'de'
+      hour12: true
     });
   };
 
@@ -214,6 +336,31 @@ export default function App() {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
+
+  const handleToggleLangDropdown = useCallback(() => {
+    setLangOpen(prev => !prev);
+  }, []);
+
+  const handleSelectEnglish = useCallback(() => {
+    setLanguage('en');
+    setLangOpen(false);
+  }, []);
+
+  const handleSelectBangla = useCallback(() => {
+    setLanguage('bn');
+    setLangOpen(false);
+  }, []);
+
+  const handleToggleSidebar = useCallback(() => {
+    setSidebarCollapsed(prev => !prev);
+  }, []);
+
+  const handleLogout = useCallback(() => {
+    if (confirm(translations[language].sidebar.userSessionConfirm)) {
+      localStorage.clear();
+      window.location.reload();
+    }
+  }, [language]);
 
   // Global PDF Generator utility using jsPDF
   const handleDownloadPDF = (view: 'dashboard' | 'procurement' | 'accounting') => {
@@ -235,7 +382,7 @@ export default function App() {
 
     // Helper functions for drawing clean, styled PDFs
     const drawHeader = (title: string) => {
-      // Background Accent Bar (BanglaChain Dark Navy)
+      // Background Accent Bar (Samir Enterprise Dark Navy)
       doc.setFillColor(15, 23, 42); // slate-900
       doc.rect(0, 0, 210, 40, 'F');
 
@@ -243,12 +390,12 @@ export default function App() {
       doc.setTextColor(255, 255, 255);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(22);
-      doc.text('BanglaChain ERP', 15, 20);
+      doc.text('Samir Enterprise', 15, 20);
 
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(10);
       doc.setTextColor(194, 205, 217);
-      doc.text('CHITTAGONG & DHAKA LOGISTICS CENTERS', 15, 28);
+      doc.text('ADMIN OS & DISTRIBUTION CENTERS', 15, 28);
 
       doc.setTextColor(255, 255, 255);
       doc.setFont('helvetica', 'bold');
@@ -269,7 +416,7 @@ export default function App() {
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8);
       doc.setTextColor(100, 116, 139);
-      doc.text('© 2026 BanglaChain ERP. All rights reserved. Dhaka & Chittagong regional warehouses.', 15, 286);
+      doc.text('© 2026 Samir Enterprise. All rights reserved. Dhaka & Chittagong regional warehouses.', 15, 286);
       doc.text('Page 1 of 1', 195 - doc.getTextWidth('Page 1 of 1'), 286);
     };
 
@@ -458,7 +605,7 @@ export default function App() {
       });
 
       drawFooter();
-      doc.save(`BanglaChain_Executive_Dashboard_${todayStr}.pdf`);
+      doc.save(`Samir_Enterprise_Executive_Dashboard_${todayStr}.pdf`);
 
     } else if (view === 'procurement') {
       drawHeader('Procurement Register Ledger');
@@ -526,7 +673,7 @@ export default function App() {
       });
 
       drawFooter();
-      doc.save(`BanglaChain_Procurement_Ledger_${new Date().toISOString().split('T')[0]}.pdf`);
+      doc.save(`Samir_Enterprise_Procurement_Ledger_${new Date().toISOString().split('T')[0]}.pdf`);
 
     } else if (view === 'accounting') {
       drawHeader('Operating Expense & Profit Ledger');
@@ -591,7 +738,7 @@ export default function App() {
       });
 
       drawFooter();
-      doc.save(`BanglaChain_Accounting_Ledger_${new Date().toISOString().split('T')[0]}.pdf`);
+      doc.save(`Samir_Enterprise_Accounting_Ledger_${new Date().toISOString().split('T')[0]}.pdf`);
     }
   };
 
@@ -605,6 +752,7 @@ export default function App() {
             challans={challans}
             procurements={procurements}
             expenses={expenses}
+            srs={srs}
             onNavigate={handleNavigate}
             onDownloadPDF={handleDownloadPDF}
             language={language}
@@ -616,8 +764,8 @@ export default function App() {
             products={products}
             setProducts={setProducts}
             attributes={attributes}
-            srs={INITIAL_SRS}
-            customers={INITIAL_CUSTOMERS}
+            srs={srs}
+            customers={customers}
             deliveryMen={INITIAL_DELIVERY_MEN}
             setChallans={setChallans}
             onNavigate={handleNavigate}
@@ -629,15 +777,14 @@ export default function App() {
           <ChallanModule
             challans={challans}
             setChallans={setChallans}
-            srs={INITIAL_SRS}
-            customers={INITIAL_CUSTOMERS}
+            srs={srs}
+            customers={customers}
             deliveryMen={INITIAL_DELIVERY_MEN}
             products={products}
             attributes={attributes}
             language={language}
           />
         );
-      case 'product-list':
       case 'stock-adjustment':
         return (
           <StockAdjustmentModule
@@ -662,7 +809,6 @@ export default function App() {
           />
         );
       case 'accounting':
-      case 'reports':
         return (
           <AccountingModule
             categories={categories}
@@ -672,6 +818,18 @@ export default function App() {
             challans={challans}
             procurements={procurements}
             onDownloadPDF={handleDownloadPDF}
+            language={language}
+          />
+        );
+      case 'directory':
+        return (
+          <DirectoryModule
+            products={products}
+            setProducts={setProducts}
+            srs={srs}
+            setSrs={setSrs}
+            customers={customers}
+            setCustomers={setCustomers}
             language={language}
           />
         );
@@ -687,8 +845,23 @@ export default function App() {
   // Count low stock alert count for alert badge
   const lowStockCount = products.filter(p => p.currentStock < 600).length;
 
+  if (!mounted) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-[#fafafa]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-4 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-xs font-semibold text-slate-500 font-sans tracking-wide">Loading DMS Workspace...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <LoginPage onLogin={handleLogin} />;
+  }
+
   return (
-    <div className={`flex bg-slate-50 min-h-screen ${language === 'bn' ? 'font-bengali' : 'font-sans'} text-slate-800 selection:bg-indigo-500 selection:text-white`}>
+    <div className={`admin-dashboard flex bg-[#fbfbfc] min-h-screen ${language === 'bn' ? 'font-bengali' : 'font-gotham'} text-slate-800 selection:bg-blue-600 selection:text-white`}>
       
       {/* Sidebar Navigation */}
       <Sidebar 
@@ -703,177 +876,82 @@ export default function App() {
       <div className="flex-1 flex flex-col min-w-0">
         
         {/* Top Header Bar */}
-        <header className="h-16 border-b border-slate-200 bg-white sticky top-0 z-30 flex items-center justify-between px-6 shadow-sm shadow-slate-100/50">
+        <header className="h-16 border-b border-slate-200 bg-white sticky top-0 z-30 flex items-center justify-between px-6 shadow-sm">
           
-          {/* Hamburger Menu & Global Search */}
+          {/* Hamburger Menu & Brand Name */}
           <div className="flex items-center gap-4 flex-1">
             <button
               id="header-sidebar-toggle"
-              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-              className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors block md:hidden"
+              onClick={handleToggleSidebar}
+              className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors block md:hidden cursor-pointer"
               title="Toggle Navigation Menu"
             >
               <Menu className="w-5 h-5" />
             </button>
-
-            {/* Quick Global Search input */}
-            <div className="relative w-full max-w-xs hidden md:block">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                id="global-search-input"
-                type="text"
-                placeholder={translations[language].header.searchPlaceholder}
-                value={globalSearch}
-                onChange={(e) => {
-                  setGlobalSearch(e.target.value);
-                  // Quick shortcut: if they search e.g. "procure" or "sell", jump to tab!
-                  const query = e.target.value.toLowerCase();
-                  if (query === 'sell' || query === 'pos') handleNavigate('sell');
-                  if (query === 'procure' || query === 'supplier') handleNavigate('procurement');
-                  if (query === 'challan' || query === 'sheet') handleNavigate('challan');
-                  if (query === 'profit' || query === 'report') handleNavigate('reports');
-                }}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50/40 pl-9 pr-4 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all"
-              />
-            </div>
+            <h1 className="text-sm font-semibold text-slate-805 font-sans tracking-wide">
+              {translations[language].sidebar.brand} &bull; Admin Console
+            </h1>
           </div>
 
-          {/* Clock Tracker & Profile Control Group */}
-          <div className="flex items-center gap-5">
+          {/* User profile & Language switcher indicator */}
+          <div className="flex items-center gap-4">
             
-            {/* Live Bangladesh Standard Clock */}
-            <div className="hidden lg:flex items-center gap-2 bg-slate-100/80 px-3 py-1.5 rounded-xl border border-slate-200/50">
-              <Clock className="w-4 h-4 text-indigo-500" />
-              <div className="text-left font-mono leading-tight">
-                <span className="text-[10px] text-slate-400 font-bold font-sans uppercase tracking-wider block">{translations[language].header.localServer}</span>
-                <span className="text-xs font-extrabold text-slate-700">
-                  {formatHeaderDate(currentDateTime)} &bull; {formatHeaderTime(currentDateTime)}
-                </span>
-              </div>
-            </div>
-
             {/* Language Switcher Dropdown */}
             <div className="relative">
               <button
-                id="header-lang-switcher-btn"
-                onClick={() => setLangOpen(!langOpen)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-slate-100 active:scale-95 transition-all text-xs font-semibold text-slate-700 border border-slate-200 cursor-pointer"
-                title="Switch Language / ভাষা পরিবর্তন করুন"
+                id="header-lang-switch-btn"
+                type="button"
+                onClick={handleToggleLangDropdown}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 hover:border-slate-350 hover:bg-slate-55 text-xs font-semibold text-slate-700 transition-all cursor-pointer bg-white"
               >
-                <Globe className="w-4 h-4 text-indigo-500" />
-                <span>{language === 'en' ? 'English' : language === 'bn' ? 'বাংলা' : 'Deutsch'}</span>
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                <Globe className="w-3.5 h-3.5 text-slate-500" />
+                {language === 'bn' ? 'বাংলা' : 'English'}
+                <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform ${langOpen ? 'rotate-180' : ''}`} />
               </button>
+
               {langOpen && (
-                <div className="absolute right-0 mt-2 w-32 bg-white rounded-xl border border-slate-150 shadow-xl p-1 z-50 animate-scale-up text-xs font-medium">
-                  <button type="button" onClick={() => { setLanguage('en'); setLangOpen(false); }} className={`w-full text-left px-3 py-2 hover:bg-slate-50 rounded-lg ${language === 'en' ? 'text-indigo-600 font-bold bg-indigo-50/50' : 'text-slate-700'}`}>English</button>
-                  <button type="button" onClick={() => { setLanguage('bn'); setLangOpen(false); }} className={`w-full text-left px-3 py-2 hover:bg-slate-50 rounded-lg ${language === 'bn' ? 'text-indigo-600 font-bold bg-indigo-50/50' : 'text-slate-700'}`}>বাংলা</button>
-                  <button type="button" onClick={() => { setLanguage('de'); setLangOpen(false); }} className={`w-full text-left px-3 py-2 hover:bg-slate-50 rounded-lg ${language === 'de' ? 'text-indigo-600 font-bold bg-indigo-50/50' : 'text-slate-700'}`}>Deutsch</button>
+                <div className="absolute right-0 mt-1.5 w-32 bg-white rounded-lg border border-slate-200 shadow-lg py-1 z-50 text-xs font-semibold">
+                  <button
+                    type="button"
+                    onClick={handleSelectEnglish}
+                    className={`w-full text-left px-3 py-2 hover:bg-slate-50 transition-colors flex items-center justify-between cursor-pointer ${
+                      language === 'en' ? 'text-slate-900 bg-slate-50/50' : 'text-slate-500'
+                    }`}
+                  >
+                    English
+                    {language === 'en' && <Check className="w-3.5 h-3.5 text-slate-800" />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSelectBangla}
+                    className={`w-full text-left px-3 py-2 hover:bg-slate-50 transition-colors flex items-center justify-between cursor-pointer ${
+                      language === 'bn' ? 'text-slate-900 bg-slate-50/50' : 'text-slate-500'
+                    }`}
+                  >
+                    বাংলা
+                    {language === 'bn' && <Check className="w-3.5 h-3.5 text-slate-800" />}
+                  </button>
                 </div>
               )}
             </div>
 
-            {/* Notifications Alert Bell */}
-            <div className="relative">
-              <button
-                id="header-notifications-toggle"
-                onClick={() => setNotificationsOpen(!notificationsOpen)}
-                className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors relative"
-                title="View stock warnings & notifications"
-              >
-                <Bell className="w-5 h-5" />
-                {lowStockCount > 0 && (
-                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full animate-pulse" />
-                )}
-              </button>
-
-              {/* Notification dropdown modal */}
-              {notificationsOpen && (
-                <div className="absolute right-0 mt-3 w-80 bg-white rounded-2xl border border-slate-100 shadow-2xl p-4.5 z-50 space-y-3.5 animate-scale-up text-xs">
-                  <div className="flex items-center justify-between border-b border-slate-50 pb-2">
-                    <span className="font-bold text-slate-800">{translations[language].header.notifications}</span>
-                    <button onClick={() => setNotificationsOpen(false)} className="text-[10px] text-indigo-600 font-bold hover:underline">{translations[language].common.clearAll}</button>
-                  </div>
-                  <div className="space-y-2.5 max-h-60 overflow-y-auto">
-                    {lowStockCount > 0 ? (
-                      <div className="p-2.5 bg-rose-50 text-rose-800 rounded-xl border border-rose-100 space-y-1">
-                        <p className="font-bold">Low Stock Warning!</p>
-                        <p className="text-[11px] text-rose-600 leading-normal">
-                          {translations[language].header.lowStockCount.replace('{count}', String(lowStockCount))}
-                        </p>
-                      </div>
-                    ) : (
-                      <p className="text-center text-slate-400 py-4 font-medium">{translations[language].header.noNotifications}</p>
-                    )}
-                    <div className="p-2.5 bg-indigo-50 text-indigo-800 rounded-xl border border-indigo-100 space-y-0.5">
-                      <p className="font-bold">{translations[language].header.dataPersistent}</p>
-                      <p className="text-[11px] text-indigo-600 leading-normal">
-                        {translations[language].header.dataPersistentDesc}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
+            <div className="flex items-center gap-2 border-l border-slate-200 pl-4">
+              <span className="text-xs font-semibold text-slate-500 hidden sm:block">
+                {translations[language].header.profileTitle}
+              </span>
+              <div className="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center font-semibold text-white text-sm shadow-sm select-none">
+                S
+              </div>
             </div>
 
-            {/* Interactive User profile dropdown */}
-            <div className="relative">
-              <button
-                id="header-profile-dropdown-btn"
-                onClick={() => setProfileOpen(!profileOpen)}
-                className="flex items-center gap-1.5 p-1 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
-                title="Open user menu"
-              >
-                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center font-black text-white text-sm shadow-md">
-                  M
-                </div>
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400 hidden sm:block" />
-              </button>
-
-              {/* Profile dropdown dialog */}
-              {profileOpen && (
-                <div className="absolute right-0 mt-3 w-56 bg-white rounded-2xl border border-slate-100 shadow-2xl p-2 z-50 animate-scale-up">
-                  <div className="p-3 border-b border-slate-100 text-xs">
-                    <p className="font-bold text-slate-800">{translations[language].header.profileTitle}</p>
-                    <p className="text-[10px] text-slate-400 mt-0.5">{translations[language].header.profileSub}</p>
-                  </div>
-                  <div className="p-1 space-y-0.5 text-xs">
-                    <button
-                      id="profile-action-dash"
-                      onClick={() => { handleNavigate('dashboard'); setProfileOpen(false); }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-lg text-left"
-                    >
-                      <Briefcase className="w-4 h-4 text-slate-400" />
-                      {translations[language].header.hqHub}
-                    </button>
-                    <button
-                      id="profile-action-sell"
-                      onClick={() => { handleNavigate('sell'); setProfileOpen(false); }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-lg text-left"
-                    >
-                      <Settings className="w-4 h-4 text-slate-400" />
-                      {translations[language].header.posSetting}
-                    </button>
-                  </div>
-                  <div className="p-1 border-t border-slate-100">
-                    <button
-                      id="profile-action-logout"
-                      onClick={() => {
-                        if (confirm(translations[language].sidebar.userSessionConfirm)) {
-                          localStorage.clear();
-                          window.location.reload();
-                        }
-                      }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-rose-600 hover:bg-rose-50 rounded-lg text-left text-xs font-bold"
-                    >
-                      <LogOut className="w-4 h-4 text-rose-400" />
-                      {translations[language].header.logout}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
+            <button
+              id="header-profile-logout"
+              onClick={handleLogout}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-950 transition-colors cursor-pointer"
+              title={translations[language].header.logout}
+            >
+              <LogOut className="w-4.5 h-4.5" />
+            </button>
           </div>
 
         </header>
