@@ -197,9 +197,9 @@ export default function StockAdjustmentModule({
         <div>
           <h2 className="text-2xl font-semibold text-slate-800 tracking-tight flex items-center gap-2">
             <Sliders className="w-6 h-6 text-slate-650" />
-            Stock & Attributes Workspace
+            {translations[language].stockAdjustment.title}
           </h2>
-          <p className="text-sm text-slate-500">Configure sizing structures and log manual stock reconciliation vouchers</p>
+          <p className="text-sm text-slate-500">{translations[language].stockAdjustment.subtitle}</p>
         </div>
 
         <div className="flex bg-slate-105 p-1 rounded-lg border border-slate-200 shadow-sm shrink-0">
@@ -213,7 +213,7 @@ export default function StockAdjustmentModule({
             }`}
           >
             <Layers className="w-4 h-4 text-blue-600" />
-            Attributes Engine
+            {language === 'bn' ? 'পণ্যের ভ্যারিয়েন্ট' : 'Product Variants'}
           </button>
           
           <button
@@ -226,7 +226,7 @@ export default function StockAdjustmentModule({
             }`}
           >
             <ArrowRightLeft className="w-4 h-4 text-blue-600" />
-            Stock Adjustments Log
+            {language === 'bn' ? 'স্টক সমন্বয় লগ' : 'Stock Corrections'}
           </button>
         </div>
       </div>

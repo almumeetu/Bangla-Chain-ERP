@@ -1,5 +1,40 @@
 // Types & Mock Data for FMCG Dealer (Diller) Management System
 
+export interface CompanyBrand {
+  id: string;
+  name: string;
+  contactPerson?: string;
+  phone?: string;
+  address?: string;
+}
+
+export interface Category {
+  id: string;
+  name: string;
+  description?: string;
+}
+
+export interface UnitOfMeasure {
+  id: string;
+  name: string;      // e.g., "Pcs", "Carton", "Case"
+  multiplier: number; // e.g., 24 (means 1 carton = 24 pcs)
+}
+
+export interface Godown {
+  id: string;
+  name: string;
+  location?: string;
+  isDamageGodown?: boolean;
+}
+
+export interface Route {
+  id: string;
+  name: string;
+  area: string;
+  territory: string;
+  assignedSRId?: string; // Mapped SR
+}
+
 export interface SR {
   id: string;
   name: string;
@@ -12,6 +47,9 @@ export interface Customer {
   market: string;
   phone: string;
   assignedSR: string; // e.g., "Rakib", "Rahman", "Rahim"
+  routeId?: string;
+  creditLimit?: number;
+  creditDays?: number;
 }
 
 export interface DeliveryMan {
@@ -24,7 +62,10 @@ export interface Product {
   id: string;
   name: string;
   sku: string;
-  company: 'Pran' | 'Olympic' | 'Haque'; // Brand / Manufacturer Company
+  company: string; // Brand / Manufacturer Company
+  categoryId?: string;
+  uomId?: string;
+  defaultGodownId?: string;
   defaultPP: number;  // Import Price / Purchase Price in BDT
   defaultMRP: number; // Retail Market Price in BDT
   defaultWSP: number; // Wholesale Supply Price in BDT
@@ -70,7 +111,7 @@ export interface ProcurementItem {
 
 export interface Procurement {
   id: string;
-  supplierName: 'Pran' | 'Olympic' | 'Haque'; // Company supplied from
+  supplierName: string; // Company supplied from (Dynamic string)
   procurementName: string;
   invoiceRef: string;
   invoiceDate: string;
@@ -305,4 +346,34 @@ export const INITIAL_EXPENSES: ExpenseRecord[] = [
     notes: 'Rakib, Rahman, Rahim monthly commissions payment',
     paidTo: 'SR Team Cash Payout',
   }
+];
+
+export const INITIAL_COMPANIES: CompanyBrand[] = [
+  { id: 'comp-1', name: 'Pran', contactPerson: 'Kamal Ahmed', phone: '01711122233', address: 'Pran Center, Badda, Dhaka' },
+  { id: 'comp-2', name: 'Olympic', contactPerson: 'Rafiqul Islam', phone: '01811122233', address: 'Olympic House, Tejgaon, Dhaka' },
+  { id: 'comp-3', name: 'Haque', contactPerson: 'Zakir Hasan', phone: '01911122233', address: 'Haque Chamber, Motijheel, Dhaka' }
+];
+
+export const INITIAL_CATEGORIES: Category[] = [
+  { id: 'cat-1', name: 'Juice', description: 'Fresh fruit juices and nectars' },
+  { id: 'cat-2', name: 'Biscuit', description: 'Sweet and dry biscuits' },
+  { id: 'cat-3', name: 'Toast', description: 'Premium baked toasts' },
+  { id: 'cat-4', name: 'Crackers', description: 'Salted crackers and snacks' }
+];
+
+export const INITIAL_UNITS: UnitOfMeasure[] = [
+  { id: 'uom-1', name: 'Pcs', multiplier: 1 },
+  { id: 'uom-2', name: 'Carton (24)', multiplier: 24 },
+  { id: 'uom-3', name: 'Carton (48)', multiplier: 48 },
+  { id: 'uom-4', name: 'Case (12)', multiplier: 12 }
+];
+
+export const INITIAL_GODOWNS: Godown[] = [
+  { id: 'g-1', name: 'Tongi Mollabari Warehouse', location: 'Tongi Mollabari, Gazipur', isDamageGodown: false }
+];
+
+export const INITIAL_ROUTES: Route[] = [
+  { id: 'route-1', name: 'Elephant Road Beat', area: 'Dhanmondi', territory: 'Dhaka South', assignedSRId: 'sr-1' },
+  { id: 'route-2', name: 'Chawkbazar Beat', area: 'Sadarghat', territory: 'Dhaka South', assignedSRId: 'sr-2' },
+  { id: 'route-3', name: 'Bogura Sadar Beat', area: 'Bogura Sadar', territory: 'Rajshahi Division', assignedSRId: 'sr-3' }
 ];

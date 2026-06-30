@@ -48,7 +48,17 @@ import {
   INITIAL_PROCUREMENTS,
   INITIAL_STOCK_ADJUSTMENTS,
   INITIAL_EXP_CATEGORIES,
-  INITIAL_EXPENSES
+  INITIAL_EXPENSES,
+  CompanyBrand,
+  Category,
+  UnitOfMeasure,
+  Godown,
+  Route,
+  INITIAL_COMPANIES,
+  INITIAL_CATEGORIES,
+  INITIAL_UNITS,
+  INITIAL_GODOWNS,
+  INITIAL_ROUTES
 } from '../../../types';
 import LoginPage from '../../../components/LoginPage';
 
@@ -242,6 +252,46 @@ export default function App() {
     return INITIAL_EXPENSES;
   });
 
+  const [companies, setCompanies] = useState<CompanyBrand[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('erp_companies');
+      return saved ? JSON.parse(saved) : INITIAL_COMPANIES;
+    }
+    return INITIAL_COMPANIES;
+  });
+
+  const [productCategories, setProductCategories] = useState<Category[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('erp_product_categories');
+      return saved ? JSON.parse(saved) : INITIAL_CATEGORIES;
+    }
+    return INITIAL_CATEGORIES;
+  });
+
+  const [units, setUnits] = useState<UnitOfMeasure[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('erp_units');
+      return saved ? JSON.parse(saved) : INITIAL_UNITS;
+    }
+    return INITIAL_UNITS;
+  });
+
+  const [godowns, setGodowns] = useState<Godown[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('erp_godowns');
+      return saved ? JSON.parse(saved) : INITIAL_GODOWNS;
+    }
+    return INITIAL_GODOWNS;
+  });
+
+  const [routes, setRoutes] = useState<Route[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('erp_routes');
+      return saved ? JSON.parse(saved) : INITIAL_ROUTES;
+    }
+    return INITIAL_ROUTES;
+  });
+
   // Global search query inside TopBar (can show feedback or navigate)
   const [globalSearch, setGlobalSearch] = useState('');
 
@@ -299,6 +349,36 @@ export default function App() {
       localStorage.setItem('erp_customers', JSON.stringify(customers));
     }
   }, [customers]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('erp_companies', JSON.stringify(companies));
+    }
+  }, [companies]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('erp_product_categories', JSON.stringify(productCategories));
+    }
+  }, [productCategories]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('erp_units', JSON.stringify(units));
+    }
+  }, [units]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('erp_godowns', JSON.stringify(godowns));
+    }
+  }, [godowns]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('erp_routes', JSON.stringify(routes));
+    }
+  }, [routes]);
 
   // Real-time clock update (every 1 second)
   useEffect(() => {
@@ -742,6 +822,15 @@ export default function App() {
     }
   };
 
+  // Helper to render the DirectoryModule with specific props for each split view
+  const directoryBaseProps = {
+    products, setProducts, srs, setSrs, customers, setCustomers,
+    companies, setCompanies, productCategories, setProductCategories,
+    units, setUnits, godowns, setGodowns, routes, setRoutes, language
+  };
+
+  const t = translations[language];
+
   // Render active module component based on active tab state
   const renderModuleContent = () => {
     switch (activeTab) {
@@ -758,7 +847,7 @@ export default function App() {
             language={language}
           />
         );
-      case 'sell':
+      case 'sales':
         return (
           <SellModule
             products={products}
@@ -772,7 +861,7 @@ export default function App() {
             language={language}
           />
         );
-      case 'challan':
+      case 'delivery':
         return (
           <ChallanModule
             challans={challans}
@@ -785,7 +874,7 @@ export default function App() {
             language={language}
           />
         );
-      case 'stock-adjustment':
+      case 'stock':
         return (
           <StockAdjustmentModule
             attributes={attributes}
@@ -797,7 +886,7 @@ export default function App() {
             language={language}
           />
         );
-      case 'procurement':
+      case 'purchase':
         return (
           <ProcurementModule
             procurements={procurements}
@@ -808,7 +897,7 @@ export default function App() {
             language={language}
           />
         );
-      case 'accounting':
+      case 'accounts':
         return (
           <AccountingModule
             categories={categories}
@@ -821,22 +910,54 @@ export default function App() {
             language={language}
           />
         );
-      case 'directory':
+      case 'companies':
         return (
           <DirectoryModule
-            products={products}
-            setProducts={setProducts}
-            srs={srs}
-            setSrs={setSrs}
-            customers={customers}
-            setCustomers={setCustomers}
-            language={language}
+            key="companies"
+            {...directoryBaseProps}
+            defaultTab="companies"
+            visibleTabs={['companies']}
+            pageTitle={t.companiesPage.title}
+            pageSubtitle={t.companiesPage.subtitle}
+          />
+        );
+      case 'products':
+        return (
+          <DirectoryModule
+            key="products"
+            {...directoryBaseProps}
+            defaultTab="products"
+            visibleTabs={['products', 'categories', 'units']}
+            pageTitle={t.productsPage.title}
+            pageSubtitle={t.productsPage.subtitle}
+          />
+        );
+      case 'shops-routes':
+        return (
+          <DirectoryModule
+            key="shops-routes"
+            {...directoryBaseProps}
+            defaultTab="shops"
+            visibleTabs={['shops', 'routes', 'srs']}
+            pageTitle={t.shopsRoutesPage.title}
+            pageSubtitle={t.shopsRoutesPage.subtitle}
+          />
+        );
+      case 'settings':
+        return (
+          <DirectoryModule
+            key="settings"
+            {...directoryBaseProps}
+            defaultTab="godowns"
+            visibleTabs={['godowns']}
+            pageTitle={language === 'bn' ? 'সেটিংস' : 'Settings'}
+            pageSubtitle={language === 'bn' ? 'গুদাম ও সিস্টেম সেটিংস' : 'Warehouse & system settings'}
           />
         );
       default:
         return (
           <div className="py-20 text-center font-bold text-slate-400">
-            Module under active development. Select another workspace tab.
+            {language === 'bn' ? 'এই পেজ তৈরি হচ্ছে...' : 'Coming soon...'}
           </div>
         );
     }
@@ -850,7 +971,7 @@ export default function App() {
       <div className="flex h-screen w-screen items-center justify-center bg-[#fafafa]">
         <div className="flex flex-col items-center gap-3">
           <div className="w-10 h-10 border-4 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-xs font-semibold text-slate-500 font-sans tracking-wide">Loading DMS Workspace...</p>
+          <p className="text-xs font-semibold text-slate-500 font-sans tracking-wide">Loading...</p>
         </div>
       </div>
     );
@@ -889,7 +1010,7 @@ export default function App() {
               <Menu className="w-5 h-5" />
             </button>
             <h1 className="text-sm font-semibold text-slate-805 font-sans tracking-wide">
-              {translations[language].sidebar.brand} &bull; Admin Console
+              {translations[language].sidebar.brand}
             </h1>
           </div>
 
@@ -963,7 +1084,7 @@ export default function App() {
 
         {/* Minimal professional credit footer */}
         <footer className="py-5 text-center text-[11px] text-slate-400 font-mono border-t border-slate-200 bg-white">
-          <span>&copy; 2026 {translations[language].sidebar.brand} &bull; {translations[language].dashboard.primaryHub} &bull; Version 2.0.0 Stable</span>
+          <span>&copy; 2026 {translations[language].sidebar.brand} &bull; {translations[language].dashboard.primaryHub}</span>
         </footer>
 
       </div>

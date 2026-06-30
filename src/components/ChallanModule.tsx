@@ -189,6 +189,10 @@ export default function ChallanModule({
     }
   };
 
+  const handleStatusChange = (id: string, newStatus: 'Pending' | 'Shipped' | 'Delivered' | 'Returned') => {
+    setChallans(prev => prev.map(ch => ch.id === id ? { ...ch, status: newStatus } : ch));
+  };
+
   // CSV Exporter (Active filtered sheet)
   const downloadCSV = () => {
     const headers = ['#', 'Product Name', 'Attribute', 'Qty', 'Bonus Qty', 'Total Qty', 'Rate (BDT)', 'Total Amount (BDT)', 'SR Name', 'Customers', 'Delivery Man', 'Status'];
@@ -673,17 +677,22 @@ export default function ChallanModule({
                     </td>
 
                     <td className="px-4 py-4 text-center">
-                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold border whitespace-nowrap inline-block ${
-                        c.status === 'Delivered' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                        c.status === 'Shipped' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                        c.status === 'Returned' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                        'bg-amber-50 text-amber-705 border-amber-200'
-                      }`}>
-                        {c.status === 'Delivered' ? tCommon.delivered :
-                         c.status === 'Shipped' ? tCommon.shipped :
-                         c.status === 'Returned' ? tCommon.returned :
-                         tCommon.pending}
-                      </span>
+                      <select
+                        id={`challan-status-select-${c.id}`}
+                        value={c.status}
+                        onChange={(e) => handleStatusChange(c.id, e.target.value as any)}
+                        className={`px-2 py-0.5 rounded-lg text-[10.5px] font-semibold border outline-none cursor-pointer bg-white transition-all ${
+                          c.status === 'Delivered' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                          c.status === 'Shipped' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                          c.status === 'Returned' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                          'bg-amber-50 text-amber-750 border-amber-200'
+                        }`}
+                      >
+                        <option value="Pending">{tCommon.pending}</option>
+                        <option value="Shipped">{tCommon.shipped}</option>
+                        <option value="Delivered">{tCommon.delivered}</option>
+                        <option value="Returned">{tCommon.returned}</option>
+                      </select>
                     </td>
 
                     <td className="px-4 py-4 text-center">

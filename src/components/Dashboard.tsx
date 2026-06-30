@@ -314,7 +314,7 @@ export default function Dashboard({
             <h3 className="text-2xl font-semibold text-slate-900 font-mono tracking-tight">{formatBDT(dueAmount)}</h3>
             <div className="flex items-center gap-1.5 mt-2">
               <span className="w-1.5 h-1.5 rounded-full bg-slate-405 animate-pulse" />
-              <span className="text-xs text-slate-500 font-medium">Outstanding liabilities</span>
+              <span className="text-xs text-slate-500 font-medium">Outstanding dues</span>
             </div>
           </div>
         </div>
@@ -356,21 +356,21 @@ export default function Dashboard({
       {/* DMS Analytics Grid: Brand Stock Asset Value & SR Leaderboard */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        {/* Brand Warehousing Stock Asset Summary */}
+        {/* Stock by Company */}
         <div className="lg:col-span-5 bg-white rounded-xl border border-slate-200 p-6 shadow-sm flex flex-col justify-between hover:border-slate-400 transition-all duration-300">
           <div className="space-y-4">
             <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
               <div>
-                <h4 className="font-semibold text-slate-800 text-sm tracking-tight">Brand Stock Valuation</h4>
-                <p className="text-[11px] text-slate-500 mt-0.5">Dealer inventory assets grouped by brand</p>
+                <h4 className="font-semibold text-slate-800 text-sm tracking-tight">{tDash.stockByCompany}</h4>
+                <p className="text-[11px] text-slate-500 mt-0.5">{tDash.stockByCompanyDesc}</p>
               </div>
               <span className="bg-slate-100 text-slate-800 text-xs px-2.5 py-0.5 rounded-full font-semibold border border-slate-200">
-                In Warehouse
+                {tDash.inWarehouse}
               </span>
             </div>
 
             <div className="space-y-3.5">
-              {['Pran', 'Olympic', 'Haque'].map(brand => {
+              {Array.from(new Set(products.map(p => p.company))).map(brand => {
                 const brandProds = products.filter(p => p.company === brand);
                 const totalUnits = brandProds.reduce((sum, p) => sum + p.currentStock, 0);
                 const totalVal = brandProds.reduce((sum, p) => sum + (p.currentStock * p.defaultPP), 0);
@@ -379,11 +379,11 @@ export default function Dashboard({
                   <div key={brand} className="flex items-center justify-between p-3.5 rounded-xl border border-slate-100 bg-slate-50/30">
                     <div>
                       <span className="font-bold text-slate-900 text-sm block">{brand}</span>
-                      <span className="text-[11px] text-slate-550 font-medium block mt-0.5">{totalUnits.toLocaleString()} units stocked</span>
+                      <span className="text-[11px] text-slate-550 font-medium block mt-0.5">{totalUnits.toLocaleString()} {tDash.unitsStocked}</span>
                     </div>
                     <div className="text-right">
                       <span className="font-semibold text-slate-900 font-mono block text-sm">{formatBDT(totalVal)}</span>
-                      <span className="text-[9px] text-slate-400 uppercase tracking-wider block font-semibold mt-0.5">Import Cost Asset</span>
+                      <span className="text-[9px] text-slate-400 uppercase tracking-wider block font-semibold mt-0.5">{tDash.stockValue}</span>
                     </div>
                   </div>
                 );
@@ -392,16 +392,16 @@ export default function Dashboard({
           </div>
         </div>
 
-        {/* SR Sales Representative Leaderboard */}
+        {/* Top Salesmen Today */}
         <div className="lg:col-span-7 bg-white rounded-xl border border-slate-200 p-6 shadow-sm flex flex-col justify-between hover:border-slate-400 transition-all duration-300">
           <div className="space-y-4">
             <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
               <div>
-                <h4 className="font-semibold text-slate-800 text-sm tracking-tight">Sales Reps (SR) Leaderboard</h4>
-                <p className="text-[11px] text-slate-500 mt-0.5">Wholesale supply performance by Sales Representative</p>
+                <h4 className="font-semibold text-slate-800 text-sm tracking-tight">{tDash.topSalesmenToday}</h4>
+                <p className="text-[11px] text-slate-500 mt-0.5">{tDash.topSalesmenDesc}</p>
               </div>
               <span className="bg-emerald-50 text-emerald-700 text-xs px-2.5 py-0.5 rounded-full font-semibold border border-emerald-200">
-                Active Supplies
+                {tDash.totalSold}
               </span>
             </div>
 
@@ -409,10 +409,10 @@ export default function Dashboard({
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-50 text-slate-700 border-b border-slate-200">
-                    <th className="px-3 py-2 text-xs font-semibold text-slate-700 w-10 text-center">Rank</th>
-                    <th className="px-3 py-2 text-xs font-semibold text-slate-700">Representative Name</th>
-                    <th className="px-3 py-2 text-xs font-semibold text-slate-700 text-center">Supply Trips</th>
-                    <th className="px-3 py-2 text-xs font-semibold text-slate-700 text-right">Total Wholesale Supplied</th>
+                    <th className="px-3 py-2 text-xs font-semibold text-slate-700 w-10 text-center">#</th>
+                    <th className="px-3 py-2 text-xs font-semibold text-slate-700">{tDash.tableSr}</th>
+                    <th className="px-3 py-2 text-xs font-semibold text-slate-700 text-center">{tDash.recentChallans}</th>
+                    <th className="px-3 py-2 text-xs font-semibold text-slate-700 text-right">{tDash.tableValue}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -428,7 +428,7 @@ export default function Dashboard({
                           <p className="font-semibold text-slate-800 text-xs">{sr.name}</p>
                           <p className="text-[10px] text-slate-405 font-mono">{sr.phone}</p>
                         </td>
-                        <td className="py-3 px-3 text-center text-slate-650 font-mono font-medium">{runCount} dispatches</td>
+                        <td className="py-3 px-3 text-center text-slate-650 font-mono font-medium">{runCount} deliveries</td>
                         <td className="py-3 px-3 text-right">
                           <span className="font-semibold text-slate-900 font-mono">{formatBDT(totalAmt)}</span>
                         </td>
@@ -465,7 +465,7 @@ export default function Dashboard({
                 <div key={p.id} className="py-3 flex items-center justify-between group hover:bg-slate-50/50 px-2 rounded-lg transition-all duration-200">
                   <div className="space-y-0.5">
                     <p className="text-xs font-semibold text-slate-700 group-hover:text-slate-900 transition-colors">{p.name}</p>
-                    <p className="text-[10px] text-slate-400 font-mono">SKU: {p.sku}</p>
+                    <p className="text-[10px] text-slate-400 font-mono">{p.sku}</p>
                   </div>
                   <div className="text-right">
                     <p className="text-xs font-semibold text-slate-850 font-mono">{p.currentStock} {tCommon.units}</p>
@@ -482,8 +482,7 @@ export default function Dashboard({
           </div>
 
           <button
-            id="dash-btn-adjust-stock"
-            onClick={() => onNavigate('stock-adjustment')}
+            onClick={() => onNavigate('stock')}
             className="w-full mt-6 py-2.5 px-4 rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer"
           >
             {tDash.adjustInventories}
@@ -500,7 +499,7 @@ export default function Dashboard({
             </div>
             <button
               id="dash-btn-view-challans"
-              onClick={() => onNavigate('challan')}
+              onClick={() => onNavigate('delivery')}
               className="text-slate-800 hover:text-slate-950 text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer underline decoration-slate-300"
             >
               {tDash.manageSheets}
@@ -531,14 +530,14 @@ export default function Dashboard({
                       <span className="text-[10px] text-slate-500 font-mono block mt-0.5">{ch.deliveryManName}</span>
                     </td>
                     <td className="py-4 px-3">
-                      <div className="flex flex-wrap gap-1 max-w-[140px]">
+                      <div className="flex items-center gap-1.5">
                         {ch.customerNames.slice(0, 1).map((c, i) => (
-                          <span key={i} className="px-2 py-0.5 bg-slate-100 text-slate-650 rounded text-[10px] font-semibold truncate block max-w-[110px] border border-slate-200">
+                          <span key={i} className="px-2 py-0.5 bg-slate-100 text-slate-650 rounded text-[10px] font-semibold truncate block max-w-[95px] border border-slate-200" title={c}>
                             {c}
                           </span>
                         ))}
                         {ch.customerNames.length > 1 && (
-                          <span className="px-1.5 py-0.5 bg-slate-200 text-slate-800 rounded text-[10px] font-semibold border border-slate-350">
+                          <span className="px-1.5 py-0.5 bg-slate-200 text-slate-805 rounded text-[10px] font-semibold border border-slate-300 shrink-0">
                             +{ch.customerNames.length - 1}
                           </span>
                         )}
@@ -546,11 +545,11 @@ export default function Dashboard({
                     </td>
                     <td className="py-4 px-3 text-right font-semibold text-slate-700 font-mono">{formatBDT(ch.totalAmount)}</td>
                     <td className="py-4 px-3 text-center">
-                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold border ${
-                        ch.status === 'Delivered' ? 'bg-slate-900 text-white border-slate-950' :
-                        ch.status === 'Shipped' ? 'bg-slate-200 text-slate-800 border-slate-300' :
-                        ch.status === 'Returned' ? 'bg-slate-100 text-slate-500 border-slate-200' :
-                        'bg-slate-100 text-slate-700 border-slate-200'
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold border whitespace-nowrap inline-block ${
+                        ch.status === 'Delivered' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                        ch.status === 'Shipped' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                        ch.status === 'Returned' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                        'bg-amber-50 text-amber-705 border-amber-200'
                       }`}>
                         {ch.status === 'Delivered' ? tCommon.delivered :
                          ch.status === 'Shipped' ? tCommon.shipped :
@@ -592,7 +591,7 @@ export default function Dashboard({
         <div className="flex flex-col justify-center gap-3">
           <button
             id="dash-quick-procure"
-            onClick={() => onNavigate('procurement')}
+            onClick={() => onNavigate('purchase')}
             className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-slate-900 px-5 text-sm font-semibold text-white hover:bg-slate-800 transition-all shadow-sm shrink-0 cursor-pointer border border-slate-950"
           >
             <Plus className="w-4 h-4 text-white" />
@@ -600,7 +599,7 @@ export default function Dashboard({
           </button>
           <button
             id="dash-quick-sell"
-            onClick={() => onNavigate('sell')}
+            onClick={() => onNavigate('sales')}
             className="h-11 rounded-lg border-2 border-slate-200 bg-white px-5 text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm"
           >
             <ShoppingBag className="w-4 h-4 text-slate-550" />

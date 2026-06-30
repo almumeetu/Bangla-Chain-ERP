@@ -415,7 +415,7 @@ export default function SellModule({
     setCart([]);
     setDiscountPercent(0);
     alert('Spot checkout successful! Challan generated, stocks reduced, and financial ledgers synchronized.');
-    onNavigate('challan');
+    onNavigate('delivery');
   }, [cart, selectedSR, selectedCustomer, selectedDeliveryMan, discountPercent, setChallans, setProducts, onNavigate]);
 
   const formatBDT = useCallback((amount: number) => {
@@ -457,9 +457,9 @@ export default function SellModule({
             <div>
               <h3 className="font-semibold text-slate-800 text-sm flex items-center gap-2">
                 <ShoppingBag className="w-5 h-5 text-blue-600" />
-                Spot Wholesale Terminal
+                {translations[language].sell.title}
               </h3>
-              <p className="text-xs text-slate-500 font-semibold">Select batches to load delivery sheets instantly</p>
+              <p className="text-xs text-slate-500 font-semibold">{translations[language].sell.subtitle}</p>
             </div>
             
             <div className="relative w-full sm:w-64 shrink-0">
@@ -467,7 +467,7 @@ export default function SellModule({
               <input
                 id="pos-search-input"
                 type="text"
-                placeholder="Search Pran, Olympic, Haque..."
+                placeholder={translations[language].common.search}
                 value={searchQuery}
                 onChange={handleSearchQueryChange}
                 className="h-10 w-full rounded-lg border border-slate-200 bg-slate-55 pl-9 pr-4 text-xs font-semibold outline-none focus:border-slate-800 focus:bg-white transition-colors"
@@ -486,7 +486,7 @@ export default function SellModule({
             ))}
             {filteredProducts.length === 0 && (
               <div className="col-span-2 py-16 text-center text-slate-400 font-semibold text-xs">
-                No matching products found.
+                {language === 'bn' ? 'কোনো পণ্য পাওয়া যায়নি।' : 'No products found.'}
               </div>
             )}
           </div>
@@ -501,16 +501,18 @@ export default function SellModule({
           
           <div className="p-5 border-b border-slate-150 bg-slate-50/40 space-y-4.5 shrink-0">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Active Spot Cart</span>
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                {language === 'bn' ? 'সক্রিয় কার্ট' : 'Active Cart'}
+              </span>
               <span className="bg-slate-100 text-slate-800 text-[11px] font-semibold px-3 py-0.5 rounded-full border border-slate-200 shadow-sm">
-                {cart.length} item{cart.length !== 1 ? 's' : ''}
+                {cart.length} {language === 'bn' ? 'টি পণ্য' : `item${cart.length !== 1 ? 's' : ''}`}
               </span>
             </div>
 
             {/* Logistics mapping fields */}
             <div className="grid grid-cols-2 gap-3.5">
               <div>
-                <label className="mb-2 block text-xs font-semibold text-slate-700">Sales Rep (SR) *</label>
+                <label className="mb-2 block text-xs font-semibold text-slate-700">{translations[language].challan.srSelectLabel}</label>
                 <select
                   id="pos-form-sr"
                   value={selectedSR}
@@ -524,7 +526,7 @@ export default function SellModule({
               </div>
 
               <div>
-                <label className="mb-2 block text-xs font-semibold text-slate-700">Assigned Customer Shop *</label>
+                <label className="mb-2 block text-xs font-semibold text-slate-700">{language === 'bn' ? 'দোকান *' : 'Shop *'}</label>
                 <select
                   id="pos-form-customer"
                   value={selectedCustomer}
@@ -559,7 +561,9 @@ export default function SellModule({
             {cart.length === 0 && (
               <div className="py-16 text-center text-slate-400 text-xs font-semibold flex flex-col items-center justify-center gap-3">
                 <Sparkles className="w-8 h-8 text-slate-400 animate-pulse" />
-                <span className="max-w-[200px] leading-normal font-semibold">Choose wholesale products on the catalogue to load cart.</span>
+                <span className="max-w-[200px] leading-normal font-semibold">
+                  {language === 'bn' ? 'কার্ট লোড করতে পণ্যসমূহ নির্বাচন করুন।' : 'Choose products to load cart.'}
+                </span>
               </div>
             )}
           </div>
@@ -568,7 +572,7 @@ export default function SellModule({
           <div className="p-5 border-t border-slate-150 bg-slate-50/50 space-y-4 shrink-0">
             <div className="space-y-2 text-xs">
               <div className="flex justify-between text-slate-500 font-medium">
-                <span>Subtotal Value:</span>
+                <span>{translations[language].procurement.subtotalItems}</span>
                 <span className="font-mono text-slate-705">{formatBDT(cartSubtotal)}</span>
               </div>
 
@@ -576,7 +580,7 @@ export default function SellModule({
               <div className="flex items-center justify-between text-slate-500 font-medium">
                 <span className="flex items-center gap-1.5">
                   <TicketPercent className="w-4 h-4 text-slate-500" />
-                  Apply Discount:
+                  {translations[language].procurement.colDiscType}:
                 </span>
                 <select
                   id="pos-discount-select"
@@ -584,21 +588,21 @@ export default function SellModule({
                   onChange={handleDiscountChange}
                   className="rounded-lg border border-slate-200 px-2 py-1 bg-white text-[11px] font-mono font-semibold text-slate-800 outline-none focus:border-blue-500"
                 >
-                  <option value={0}>0% Discount</option>
-                  <option value={5}>5% Flat Off</option>
-                  <option value={10}>10% Special Off</option>
-                  <option value={15}>15% Ramadan Promo</option>
-                  <option value={20}>20% Distributor Off</option>
+                  <option value={0}>0% {language === 'bn' ? 'ছাড়' : 'Discount'}</option>
+                  <option value={5}>5% {language === 'bn' ? 'ছাড়' : 'Flat Off'}</option>
+                  <option value={10}>10% {language === 'bn' ? 'বিশেষ ছাড়' : 'Special Off'}</option>
+                  <option value={15}>15% {language === 'bn' ? 'রমজান অফার' : 'Ramadan Promo'}</option>
+                  <option value={20}>20% {language === 'bn' ? 'ডিস্ট্রিবিউটর ছাড়' : 'Distributor Off'}</option>
                 </select>
               </div>
 
               <div className="flex justify-between text-slate-500 font-medium">
-                <span>Total Discount:</span>
+                <span>{translations[language].procurement.colDiscVal}:</span>
                 <span className="font-mono text-rose-600 font-semibold">-{formatBDT(discountAmt)}</span>
               </div>
 
               <div className="flex items-center justify-between">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Assigned Agent *</label>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{translations[language].challan.deliverySelectLabel}</label>
                 <select
                   id="pos-form-delivery"
                   value={selectedDeliveryMan}
@@ -612,7 +616,7 @@ export default function SellModule({
               </div>
 
               <div className="border-t border-slate-200/80 pt-3 flex justify-between items-center">
-                <span className="font-semibold text-slate-800 text-sm">Ledger Net Amount:</span>
+                <span className="font-semibold text-slate-800 text-sm">{translations[language].challan.aggregateBillable}:</span>
                 <span className="text-xl font-semibold text-emerald-600 font-mono">{formatBDT(netTotal)}</span>
               </div>
             </div>
@@ -628,7 +632,7 @@ export default function SellModule({
               }`}
             >
               <Check className="w-4 h-4" />
-              CONFIRM SPOT SALE & GENERATE CHALLAN
+              {translations[language].challan.dispatchBtn}
             </button>
           </div>
 

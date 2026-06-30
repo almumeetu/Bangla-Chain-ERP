@@ -528,7 +528,7 @@ export default function ProcurementModule({
                         <button
                           id={`proc-btn-view-${p.id}`}
                           onClick={() => setSelectedProcurement(p)}
-                          className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                          className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer whitespace-nowrap"
                         >
                           <Eye className="w-3.5 h-3.5" />
                           {tProc.viewItems}
