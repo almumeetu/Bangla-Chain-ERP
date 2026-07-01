@@ -57,27 +57,10 @@ export default function Sidebar({ activeTab, setActiveTab, collapsed, setCollaps
 
   const sections: MenuSection[] = [
     {
-      label: 'DAILY WORK',
-      labelBn: 'দৈনিক কাজ',
+      label: 'OVERVIEW',
+      labelBn: 'পর্যবেক্ষণ',
       items: [
         { id: 'dashboard', icon: LayoutDashboard },
-        { id: 'sales', icon: ShoppingCart },
-        { id: 'delivery', icon: Truck },
-      ]
-    },
-    {
-      label: 'INVENTORY',
-      labelBn: 'ইনভেন্টরি',
-      items: [
-        { id: 'purchase', icon: PackagePlus },
-        { id: 'stock', icon: Package },
-      ]
-    },
-    {
-      label: 'MONEY',
-      labelBn: 'টাকা-পয়সা',
-      items: [
-        { id: 'accounts', icon: Wallet },
       ]
     },
     {
@@ -89,7 +72,29 @@ export default function Sidebar({ activeTab, setActiveTab, collapsed, setCollaps
         { id: 'shops-routes', icon: Store },
       ]
     },
-
+    {
+      label: 'INVENTORY',
+      labelBn: 'ইনভেন্টরি',
+      items: [
+        { id: 'purchase', icon: PackagePlus },
+        { id: 'stock', icon: Package },
+      ]
+    },
+    {
+      label: 'DAILY OPERATIONS',
+      labelBn: 'দৈনিক লেনদেন',
+      items: [
+        { id: 'sales', icon: ShoppingCart },
+        { id: 'delivery', icon: Truck },
+      ]
+    },
+    {
+      label: 'FINANCIALS',
+      labelBn: 'হিসাব-নিকাশ',
+      items: [
+        { id: 'accounts', icon: Wallet },
+      ]
+    },
   ];
 
   const getMenuItemName = (id: TabID): string => {
@@ -176,7 +181,7 @@ export default function Sidebar({ activeTab, setActiveTab, collapsed, setCollaps
                     id={`sidebar-tab-${item.id}`}
                     key={item.id}
                     onClick={() => setActiveTab(item.id)}
-                    className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all duration-300 group relative cursor-pointer ${
+                    className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl transition-all duration-300 group relative cursor-pointer ${
                       isActive 
                         ? 'bg-slate-900 text-white border border-slate-800 shadow-sm font-semibold' 
                         : 'text-slate-400 hover:text-slate-100 hover:bg-slate-900/60'

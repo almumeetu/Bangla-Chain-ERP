@@ -441,50 +441,54 @@ export default function ChallanModule({
     if (newSelectedCustomers.includes(name)) {
       setNewSelectedCustomers(prev => prev.filter(c => c !== name));
     } else {
-      setNewSelectedCustomers(prev => [...prev, name]);
+  setNewSelectedCustomers(prev => [...prev, name]);
     }
   };
 
   return (
     <div className="space-y-6">
       
-      {/* Module Title / Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-semibold text-slate-800 tracking-tight flex items-center gap-2">
-            <FileText className="w-6 h-6 text-slate-650" />
+      {/* Page Header - Consistent with Dashboard */}
+      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-2xl p-5 md:p-6 text-white border border-slate-800 shadow-md flex flex-col md:flex-row md:items-center md:justify-between gap-6 relative overflow-hidden group">
+        <div className="absolute -right-20 -top-20 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="space-y-1 relative z-10">
+          <h2 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+            <FileText className="w-5 h-5 text-indigo-300" />
             {tChallan.title}
           </h2>
-          <p className="text-sm text-slate-500">{tChallan.subtitle}</p>
+          <p className="text-slate-350 text-xs">{tChallan.subtitle}</p>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 shrink-0 z-10 relative">
           <button
             id="challan-btn-download-csv"
+            type="button"
             onClick={downloadCSV}
-            className="inline-flex h-11 items-center gap-2 rounded-lg border border-slate-350 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-all cursor-pointer"
+            className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 px-4 text-xs font-semibold text-white transition-all cursor-pointer"
             title="Export to CSV"
           >
-            <Download className="w-4 h-4 text-slate-500" />
+            <Download className="w-4 h-4 text-slate-300" />
             {tChallan.exportCsv}
           </button>
           
           <button
             id="challan-btn-download-pdf"
+            type="button"
             onClick={triggerPrintPDF}
-            className="inline-flex h-11 items-center gap-2 rounded-lg border border-slate-350 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-all cursor-pointer"
+            className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 px-4 text-xs font-semibold text-white transition-all cursor-pointer"
             title="Download/Print PDF"
           >
-            <FileText className="w-4 h-4 text-slate-500" />
+            <FileText className="w-4 h-4 text-slate-300" />
             {tChallan.downloadPrint}
           </button>
 
           <button
             id="challan-btn-add"
+            type="button"
             onClick={() => setShowAddModal(true)}
-            className="inline-flex h-11 items-center gap-2 rounded-lg bg-slate-900 px-5 text-sm font-semibold text-white hover:bg-slate-800 transition-all shrink-0 cursor-pointer border border-slate-950"
+            className="inline-flex h-10 items-center gap-2 rounded-xl bg-white px-4 text-xs font-bold text-slate-950 hover:bg-slate-100 transition-all shrink-0 cursor-pointer active:scale-95 shadow-lg"
           >
-            <Plus className="w-4.5 h-4.5 text-white" />
+            <Plus className="w-4 h-4 text-slate-900" />
             {tChallan.createBtn}
           </button>
         </div>

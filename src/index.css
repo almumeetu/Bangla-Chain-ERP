@@ -58,19 +58,14 @@
   background: #94a3b8;
 }
 
-/* 1. MANDATORY Font Weight Override Reset for Admin Dashboard */
-.admin-dashboard .font-black,
-.admin-dashboard .font-extrabold,
-.admin-dashboard .font-bold,
-.admin-dashboard th,
+/* 1. Font weight reset rules that allow typography hierarchies (semibold/bold) for headers and numbers */
+.admin-dashboard th {
+  font-weight: 600 !important;
+}
 .admin-dashboard h1,
 .admin-dashboard h2,
-.admin-dashboard h3,
-.admin-dashboard button,
-.admin-dashboard select,
-.admin-dashboard input,
-.admin-dashboard label {
-  font-weight: 500 !important;
+.admin-dashboard h3 {
+  font-weight: 600;
 }
 
 /* Custom modal body thin scrollbar style */

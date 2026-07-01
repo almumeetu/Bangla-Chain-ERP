@@ -70,6 +70,126 @@ export default function App() {
     if (typeof window !== 'undefined') {
       const auth = localStorage.getItem('erp_auth');
       setIsAuthenticated(auth === 'true');
+
+      // Hydrate core ERP states from localStorage safely
+      const savedLang = localStorage.getItem('erp_language');
+      if (savedLang) {
+        setLanguage(savedLang as Language);
+      }
+
+      const savedProducts = localStorage.getItem('erp_products');
+      let migrationNeeded = false;
+      if (savedProducts) {
+        try {
+          const parsed = JSON.parse(savedProducts);
+          if (parsed.length > 0 && !parsed[0].company) {
+            migrationNeeded = true;
+            localStorage.removeItem('erp_products');
+            localStorage.removeItem('erp_challans');
+            localStorage.removeItem('erp_procurements');
+            localStorage.removeItem('erp_adjustments');
+            localStorage.removeItem('erp_expenses');
+            localStorage.removeItem('erp_categories');
+            localStorage.removeItem('erp_attributes');
+          } else {
+            setProducts(parsed);
+          }
+        } catch (e) {}
+      }
+
+      if (!migrationNeeded) {
+        const savedSrs = localStorage.getItem('erp_srs');
+        if (savedSrs) {
+          try { setSrs(JSON.parse(savedSrs)); } catch (e) {}
+        }
+
+        const savedCustomers = localStorage.getItem('erp_customers');
+        if (savedCustomers) {
+          try { setCustomers(JSON.parse(savedCustomers)); } catch (e) {}
+        }
+
+        const savedAttributes = localStorage.getItem('erp_attributes');
+        if (savedAttributes) {
+          try {
+            const parsed = JSON.parse(savedAttributes);
+            if (!(parsed.length > 0 && parsed[0].type !== 'Packaging')) {
+              setAttributes(parsed);
+            }
+          } catch (e) {}
+        }
+
+        const savedChallans = localStorage.getItem('erp_challans');
+        if (savedChallans) {
+          try {
+            const parsed = JSON.parse(savedChallans);
+            if (!(parsed.length > 0 && parsed[0].productName.includes('Apex'))) {
+              setChallans(parsed);
+            }
+          } catch (e) {}
+        }
+
+        const savedProcurements = localStorage.getItem('erp_procurements');
+        if (savedProcurements) {
+          try {
+            const parsed = JSON.parse(savedProcurements);
+            if (!(parsed.length > 0 && parsed[0].supplierName !== 'Pran' && parsed[0].supplierName !== 'Olympic' && parsed[0].supplierName !== 'Haque')) {
+              setProcurements(parsed);
+            }
+          } catch (e) {}
+        }
+
+        const savedAdjustments = localStorage.getItem('erp_adjustments');
+        if (savedAdjustments) {
+          try { setAdjustments(JSON.parse(savedAdjustments)); } catch (e) {}
+        }
+
+        const savedCategories = localStorage.getItem('erp_categories');
+        if (savedCategories) {
+          try {
+            const parsed = JSON.parse(savedCategories);
+            if (!(parsed.length > 0 && parsed[0].name.includes('Office Rent'))) {
+              setCategories(parsed);
+            }
+          } catch (e) {}
+        }
+
+        const savedExpenses = localStorage.getItem('erp_expenses');
+        if (savedExpenses) {
+          try {
+            const parsed = JSON.parse(savedExpenses);
+            if (!(parsed.length > 0 && parsed[0].notes.includes('Van Fuel'))) {
+              setExpenses(parsed);
+            }
+          } catch (e) {}
+        }
+
+        const savedCompanies = localStorage.getItem('erp_companies');
+        if (savedCompanies) {
+          try { setCompanies(JSON.parse(savedCompanies)); } catch (e) {}
+        }
+
+        const savedProdCategories = localStorage.getItem('erp_product_categories');
+        if (savedProdCategories) {
+          try { setProductCategories(JSON.parse(savedProdCategories)); } catch (e) {}
+        }
+
+        const savedUnits = localStorage.getItem('erp_units');
+        if (savedUnits) {
+          try { setUnits(JSON.parse(savedUnits)); } catch (e) {}
+        }
+
+        const savedGodowns = localStorage.getItem('erp_godowns');
+        if (savedGodowns) {
+          try { setGodowns(JSON.parse(savedGodowns)); } catch (e) {}
+        }
+
+        const savedRoutes = localStorage.getItem('erp_routes');
+        if (savedRoutes) {
+          try { setRoutes(JSON.parse(savedRoutes)); } catch (e) {}
+        }
+      }
+
+      setIsLoaded(true);
     }
     setMounted(true);
   }, []);
@@ -83,20 +203,8 @@ export default function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // Multi-language state
-  const [language, setLanguage] = useState<Language>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('erp_language');
-      return (saved as Language) || 'en';
-    }
-    return 'en';
-  });
+  const [language, setLanguage] = useState<Language>('bn');
   const [langOpen, setLangOpen] = useState(false);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('erp_language', language);
-    }
-  }, [language]);
 
   // Real-time local Date & Time State formatted for Bangladesh / Local context
   const [currentDateTime, setCurrentDateTime] = useState(new Date());
@@ -105,280 +213,118 @@ export default function App() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
 
-  // Global Core Reactive States with localStorage hydration
-  const [products, setProducts] = useState<Product[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('erp_products');
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          if (parsed.length > 0 && !parsed[0].company) {
-            localStorage.removeItem('erp_products');
-            localStorage.removeItem('erp_challans');
-            localStorage.removeItem('erp_procurements');
-            localStorage.removeItem('erp_adjustments');
-            localStorage.removeItem('erp_expenses');
-            localStorage.removeItem('erp_categories');
-            localStorage.removeItem('erp_attributes');
-            return INITIAL_PRODUCTS;
-          }
-          return parsed;
-        } catch (e) {
-          return INITIAL_PRODUCTS;
-        }
-      }
-      return INITIAL_PRODUCTS;
-    }
-    return INITIAL_PRODUCTS;
-  });
+  // Global Core Reactive States
+  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
+  const [srs, setSrs] = useState<SR[]>(INITIAL_SRS);
+  const [customers, setCustomers] = useState<Customer[]>(INITIAL_CUSTOMERS);
+  const [attributes, setAttributes] = useState<ProductAttribute[]>(INITIAL_ATTRIBUTES);
+  const [challans, setChallans] = useState<ChallanItem[]>(INITIAL_CHALLAN_ITEMS);
+  const [procurements, setProcurements] = useState<Procurement[]>(INITIAL_PROCUREMENTS);
+  const [adjustments, setAdjustments] = useState<StockAdjustment[]>(INITIAL_STOCK_ADJUSTMENTS);
+  const [categories, setCategories] = useState<ExpenseCategory[]>(INITIAL_EXP_CATEGORIES);
+  const [expenses, setExpenses] = useState<ExpenseRecord[]>(INITIAL_EXPENSES);
+  const [companies, setCompanies] = useState<CompanyBrand[]>(INITIAL_COMPANIES);
+  const [productCategories, setProductCategories] = useState<Category[]>(INITIAL_CATEGORIES);
+  const [units, setUnits] = useState<UnitOfMeasure[]>(INITIAL_UNITS);
+  const [godowns, setGodowns] = useState<Godown[]>(INITIAL_GODOWNS);
+  const [routes, setRoutes] = useState<Route[]>(INITIAL_ROUTES);
 
-  const [srs, setSrs] = useState<SR[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('erp_srs');
-      return saved ? JSON.parse(saved) : INITIAL_SRS;
-    }
-    return INITIAL_SRS;
-  });
-
-  const [customers, setCustomers] = useState<Customer[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('erp_customers');
-      return saved ? JSON.parse(saved) : INITIAL_CUSTOMERS;
-    }
-    return INITIAL_CUSTOMERS;
-  });
-
-  const [attributes, setAttributes] = useState<ProductAttribute[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('erp_attributes');
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          if (parsed.length > 0 && parsed[0].type !== 'Packaging') {
-            return INITIAL_ATTRIBUTES;
-          }
-          return parsed;
-        } catch (e) {
-          return INITIAL_ATTRIBUTES;
-        }
-      }
-      return INITIAL_ATTRIBUTES;
-    }
-    return INITIAL_ATTRIBUTES;
-  });
-
-  const [challans, setChallans] = useState<ChallanItem[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('erp_challans');
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          // If product is Apex Sandal, reload INITIAL_CHALLAN_ITEMS
-          if (parsed.length > 0 && parsed[0].productName.includes('Apex')) {
-            return INITIAL_CHALLAN_ITEMS;
-          }
-          return parsed;
-        } catch (e) {
-          return INITIAL_CHALLAN_ITEMS;
-        }
-      }
-      return INITIAL_CHALLAN_ITEMS;
-    }
-    return INITIAL_CHALLAN_ITEMS;
-  });
-
-  const [procurements, setProcurements] = useState<Procurement[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('erp_procurements');
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          if (parsed.length > 0 && parsed[0].supplierName !== 'Pran' && parsed[0].supplierName !== 'Olympic' && parsed[0].supplierName !== 'Haque') {
-            return INITIAL_PROCUREMENTS;
-          }
-          return parsed;
-        } catch (e) {
-          return INITIAL_PROCUREMENTS;
-        }
-      }
-      return INITIAL_PROCUREMENTS;
-    }
-    return INITIAL_PROCUREMENTS;
-  });
-
-  const [adjustments, setAdjustments] = useState<StockAdjustment[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('erp_adjustments');
-      return saved ? JSON.parse(saved) : INITIAL_STOCK_ADJUSTMENTS;
-    }
-    return INITIAL_STOCK_ADJUSTMENTS;
-  });
-
-  const [categories, setCategories] = useState<ExpenseCategory[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('erp_categories');
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          if (parsed.length > 0 && parsed[0].name.includes('Office Rent')) {
-            return INITIAL_EXP_CATEGORIES;
-          }
-          return parsed;
-        } catch (e) {
-          return INITIAL_EXP_CATEGORIES;
-        }
-      }
-      return INITIAL_EXP_CATEGORIES;
-    }
-    return INITIAL_EXP_CATEGORIES;
-  });
-
-  const [expenses, setExpenses] = useState<ExpenseRecord[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('erp_expenses');
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          if (parsed.length > 0 && parsed[0].notes.includes('Van Fuel')) {
-            return INITIAL_EXPENSES;
-          }
-          return parsed;
-        } catch (e) {
-          return INITIAL_EXPENSES;
-        }
-      }
-      return INITIAL_EXPENSES;
-    }
-    return INITIAL_EXPENSES;
-  });
-
-  const [companies, setCompanies] = useState<CompanyBrand[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('erp_companies');
-      return saved ? JSON.parse(saved) : INITIAL_COMPANIES;
-    }
-    return INITIAL_COMPANIES;
-  });
-
-  const [productCategories, setProductCategories] = useState<Category[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('erp_product_categories');
-      return saved ? JSON.parse(saved) : INITIAL_CATEGORIES;
-    }
-    return INITIAL_CATEGORIES;
-  });
-
-  const [units, setUnits] = useState<UnitOfMeasure[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('erp_units');
-      return saved ? JSON.parse(saved) : INITIAL_UNITS;
-    }
-    return INITIAL_UNITS;
-  });
-
-  const [godowns, setGodowns] = useState<Godown[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('erp_godowns');
-      return saved ? JSON.parse(saved) : INITIAL_GODOWNS;
-    }
-    return INITIAL_GODOWNS;
-  });
-
-  const [routes, setRoutes] = useState<Route[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('erp_routes');
-      return saved ? JSON.parse(saved) : INITIAL_ROUTES;
-    }
-    return INITIAL_ROUTES;
-  });
+  // Flag to track client hydration from localStorage
+  const [isLoaded, setIsLoaded] = useState(false);
 
   // Global search query inside TopBar (can show feedback or navigate)
   const [globalSearch, setGlobalSearch] = useState('');
 
-  // Sync state with local storage on updates
+  // Sync state with local storage on updates (only when fully hydrated)
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (isLoaded && typeof window !== 'undefined') {
+      localStorage.setItem('erp_language', language);
+    }
+  }, [language, isLoaded]);
+
+  useEffect(() => {
+    if (isLoaded && typeof window !== 'undefined') {
       localStorage.setItem('erp_products', JSON.stringify(products));
     }
-  }, [products]);
+  }, [products, isLoaded]);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (isLoaded && typeof window !== 'undefined') {
       localStorage.setItem('erp_attributes', JSON.stringify(attributes));
     }
-  }, [attributes]);
+  }, [attributes, isLoaded]);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (isLoaded && typeof window !== 'undefined') {
       localStorage.setItem('erp_challans', JSON.stringify(challans));
     }
-  }, [challans]);
+  }, [challans, isLoaded]);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (isLoaded && typeof window !== 'undefined') {
       localStorage.setItem('erp_procurements', JSON.stringify(procurements));
     }
-  }, [procurements]);
+  }, [procurements, isLoaded]);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (isLoaded && typeof window !== 'undefined') {
       localStorage.setItem('erp_adjustments', JSON.stringify(adjustments));
     }
-  }, [adjustments]);
+  }, [adjustments, isLoaded]);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (isLoaded && typeof window !== 'undefined') {
       localStorage.setItem('erp_categories', JSON.stringify(categories));
     }
-  }, [categories]);
+  }, [categories, isLoaded]);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (isLoaded && typeof window !== 'undefined') {
       localStorage.setItem('erp_expenses', JSON.stringify(expenses));
     }
-  }, [expenses]);
+  }, [expenses, isLoaded]);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (isLoaded && typeof window !== 'undefined') {
       localStorage.setItem('erp_srs', JSON.stringify(srs));
     }
-  }, [srs]);
+  }, [srs, isLoaded]);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (isLoaded && typeof window !== 'undefined') {
       localStorage.setItem('erp_customers', JSON.stringify(customers));
     }
-  }, [customers]);
+  }, [customers, isLoaded]);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (isLoaded && typeof window !== 'undefined') {
       localStorage.setItem('erp_companies', JSON.stringify(companies));
     }
-  }, [companies]);
+  }, [companies, isLoaded]);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (isLoaded && typeof window !== 'undefined') {
       localStorage.setItem('erp_product_categories', JSON.stringify(productCategories));
     }
-  }, [productCategories]);
+  }, [productCategories, isLoaded]);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (isLoaded && typeof window !== 'undefined') {
       localStorage.setItem('erp_units', JSON.stringify(units));
     }
-  }, [units]);
+  }, [units, isLoaded]);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (isLoaded && typeof window !== 'undefined') {
       localStorage.setItem('erp_godowns', JSON.stringify(godowns));
     }
-  }, [godowns]);
+  }, [godowns, isLoaded]);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (isLoaded && typeof window !== 'undefined') {
       localStorage.setItem('erp_routes', JSON.stringify(routes));
     }
-  }, [routes]);
+  }, [routes, isLoaded]);
 
   // Real-time clock update (every 1 second)
   useEffect(() => {

@@ -169,113 +169,175 @@ export default function Dashboard({
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Welcome Banner - Monochrome Minimalist Layout */}
-      <div className="bg-white rounded-xl p-6 md:p-8 border border-slate-205 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-6 transition-all duration-300 relative overflow-hidden">
-        <div className="space-y-2 flex-1 relative z-10">
-          <span className="inline-flex items-center gap-1.5 bg-slate-100 text-slate-800 text-[11px] font-semibold tracking-wider uppercase px-3 py-1 rounded-full border border-slate-200">
-            <span className="w-1.5 h-1.5 rounded-full bg-slate-500 animate-pulse" />
+      {/* Welcome Banner - Premium Modern Dark Gradient */}
+      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-2xl p-6 md:p-8 shadow-md border border-slate-800 flex flex-col md:flex-row md:items-center md:justify-between gap-6 transition-all duration-300 relative overflow-hidden group">
+        {/* Subtle decorative background glow */}
+        <div className="absolute -right-24 -top-24 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl group-hover:bg-indigo-500/20 transition-all duration-500 pointer-events-none" />
+        <div className="absolute -left-12 -bottom-24 w-80 h-80 bg-teal-500/5 rounded-full blur-3xl pointer-events-none" />
+        
+        <div className="space-y-3 flex-1 relative z-10">
+          <span className="inline-flex items-center gap-1.5 bg-indigo-500/15 text-indigo-300 text-[10px] font-bold tracking-wider uppercase px-3 py-1 rounded-full border border-indigo-500/20">
+            <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
             {tCommon.systemOperational}
           </span>
-          <h2 className="text-2xl font-semibold tracking-tight text-slate-900">{tDash.welcomeTitle}</h2>
-          <p className="text-slate-500 text-sm max-w-2xl leading-relaxed">
+          <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-white">{tDash.welcomeTitle}</h2>
+          <p className="text-slate-350 text-sm max-w-2xl leading-relaxed">
             {tDash.welcomeSub}
           </p>
         </div>
         <div className="shrink-0 relative z-10">
           <button
             onClick={() => onDownloadPDF('dashboard')}
-            className="inline-flex h-11 items-center gap-2 rounded-lg bg-slate-900 px-5 text-sm font-semibold text-white hover:bg-slate-800 transition-all shadow-sm shrink-0 cursor-pointer border border-slate-950"
+            className="inline-flex h-11 items-center gap-2 rounded-xl bg-white px-5 text-sm font-semibold text-slate-950 hover:bg-slate-100 hover:shadow-lg active:scale-95 transition-all cursor-pointer"
           >
-            <FileText className="w-4 h-4 text-white" />
+            <FileText className="w-4 h-4 text-slate-850" />
             {tDash.downloadReport}
           </button>
         </div>
+      </div>      {/* 🚀 চার্টটি প্রধান কাজের সহজ বোতাম (Quick Action Launcher) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        
+        {/* Button 1: New Sales */}
+        <button
+          id="quick-action-sales"
+          onClick={() => onNavigate('sales')}
+          className="flex items-center gap-4 p-5 rounded-2xl bg-emerald-50/60 border-2 border-emerald-200 hover:bg-emerald-50 hover:border-emerald-500 hover:shadow-md active:scale-98 transition-all text-left cursor-pointer group"
+        >
+          <div className="p-3 bg-emerald-600 text-white rounded-xl group-hover:scale-110 transition-transform shadow-md">
+            <ShoppingBag className="w-6 h-6" />
+          </div>
+          <div>
+            <h4 className="font-bold text-slate-850 text-sm">{language === 'bn' ? '১. মেমো তৈরি (বিক্রয়)' : '1. Create Sales Memo'}</h4>
+            <p className="text-[11px] text-slate-500 font-medium mt-0.5">{language === 'bn' ? 'দোকানে মাল বিক্রির রশিদ করুন' : 'Record client order & cash memo'}</p>
+          </div>
+        </button>
+
+        {/* Button 2: Company Purchase */}
+        <button
+          id="quick-action-purchase"
+          onClick={() => onNavigate('purchase')}
+          className="flex items-center gap-4 p-5 rounded-2xl bg-blue-50/60 border-2 border-blue-200 hover:bg-blue-50 hover:border-blue-500 hover:shadow-md active:scale-98 transition-all text-left cursor-pointer group"
+        >
+          <div className="p-3 bg-blue-600 text-white rounded-xl group-hover:scale-110 transition-transform shadow-md">
+            <Box className="w-6 h-6" />
+          </div>
+          <div>
+            <h4 className="font-bold text-slate-850 text-sm">{language === 'bn' ? '২. কোম্পানি থেকে ক্রয় (স্টক)' : '2. Purchase from Company'}</h4>
+            <p className="text-[11px] text-slate-500 font-medium mt-0.5">{language === 'bn' ? 'কোম্পানি থেকে স্টক বুঝে নিন' : 'Inward stock from supplier'}</p>
+          </div>
+        </button>
+
+        {/* Button 3: Delivery Challan */}
+        <button
+          id="quick-action-delivery"
+          onClick={() => onNavigate('delivery')}
+          className="flex items-center gap-4 p-5 rounded-2xl bg-amber-50/60 border-2 border-amber-200 hover:bg-amber-50 hover:border-amber-500 hover:shadow-md active:scale-98 transition-all text-left cursor-pointer group"
+        >
+          <div className="p-3 bg-amber-600 text-white rounded-xl group-hover:scale-110 transition-transform shadow-md">
+            <Plus className="w-6 h-6" />
+          </div>
+          <div>
+            <h4 className="font-bold text-slate-850 text-sm">{language === 'bn' ? '৩. ডেলিভারি চালান' : '3. Delivery Challan'}</h4>
+            <p className="text-[11px] text-slate-500 font-medium mt-0.5">{language === 'bn' ? 'সেলস অফিসারের চালান করুন' : 'Generate salesman delivery'}</p>
+          </div>
+        </button>
+
+        {/* Button 4: Accounts Expenses */}
+        <button
+          id="quick-action-accounts"
+          onClick={() => onNavigate('accounts')}
+          className="flex items-center gap-4 p-5 rounded-2xl bg-rose-50/60 border-2 border-rose-200 hover:bg-rose-50 hover:border-rose-500 hover:shadow-md active:scale-98 transition-all text-left cursor-pointer group"
+        >
+          <div className="p-3 bg-rose-600 text-white rounded-xl group-hover:scale-110 transition-transform shadow-md">
+            <DollarSign className="w-6 h-6" />
+          </div>
+          <div>
+            <h4 className="font-bold text-slate-850 text-sm">{language === 'bn' ? '৪. দৈনিক খরচ লিখুন' : '4. Record Daily Expenses'}</h4>
+            <p className="text-[11px] text-slate-500 font-medium mt-0.5">{language === 'bn' ? 'অফিস বা যাতায়াত খরচ লিখুন' : 'Track daily transport/office costs'}</p>
+          </div>
+        </button>
+
       </div>
 
       {/* Today's Quick Pulse & Operations Report */}
-      <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm space-y-6">
+      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
           <div className="flex items-center gap-2">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-slate-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-slate-900"></span>
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-indigo-650"></span>
             </span>
-            <h3 className="font-semibold text-slate-800 text-xs tracking-wider uppercase">
-              {tDash.quickReportTitle}
+            <h3 className="font-semibold text-slate-855 text-xs tracking-wider uppercase font-sans">
+              {language === 'bn' ? 'আজকের ব্যবসার সারসংক্ষেপ (খুব সহজে)' : "Today's Business Summary"}
             </h3>
           </div>
-          <span className="text-[11px] font-semibold text-slate-400 font-mono tracking-wide">
+          <span className="text-[11px] font-bold text-slate-400 font-mono tracking-wide">
             {tDash.periodLabel}: {todayStr} &bull; {tDash.compareYesterday} ({yesterdayStr})
           </span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Today's Sales */}
-          <div className="bg-slate-50/50 rounded-xl p-5 border border-slate-200 flex flex-col justify-between hover:bg-white hover:border-slate-350 hover:shadow-sm transition-all duration-300">
-            <div className="space-y-1">
-              <span className="text-[11px] font-semibold text-slate-450 uppercase tracking-wider block">{tDash.todaySales}</span>
+          <div className="bg-slate-50/40 rounded-2xl p-5 border border-slate-200 flex flex-col justify-between border-t-4 border-t-blue-500 hover:bg-white hover:shadow-md hover:-translate-y-1 transition-all duration-300">
+            <div className="space-y-1.5">
+              <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider block">{tDash.todaySales}</span>
               <div className="flex items-baseline justify-between gap-2">
-                <span className="text-2xl font-semibold text-slate-900 font-mono">{formatBDT(todaysSales)}</span>
+                <span className="text-2xl font-bold text-slate-900 font-mono">{formatBDT(todaysSales)}</span>
                 {salesChangePercent !== 0 ? (
-                  <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-800 border border-slate-200">
+                  <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md text-[10px] font-bold border ${
+                    salesChangePercent >= 0 
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                      : 'bg-rose-50 text-rose-700 border-rose-200'
+                  }`}>
                     {salesChangePercent >= 0 ? '+' : ''}{salesChangePercent.toFixed(1)}%
                   </span>
                 ) : (
-                  <span className="text-[11px] font-semibold text-slate-400">{tCommon.stable}</span>
+                  <span className="text-[10px] font-semibold text-slate-400">{tCommon.stable}</span>
                 )}
               </div>
             </div>
             <div className="text-[11px] text-slate-400 mt-4 border-t border-slate-100 pt-3 flex justify-between items-center">
               <span>{tDash.yesterdaySales}</span>
-              <span className="font-mono font-semibold text-slate-600">{formatBDT(yesterdaysSales)}</span>
+              <span className="font-mono font-semibold text-slate-655">{formatBDT(yesterdaysSales)}</span>
+            </div>
+          </div>
+
+          {/* Today's Expenses */}
+          <div className="bg-slate-50/40 rounded-2xl p-5 border border-slate-200 flex flex-col justify-between border-t-4 border-t-rose-500 hover:bg-white hover:shadow-md hover:-translate-y-1 transition-all duration-300">
+            <div className="space-y-1.5">
+              <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider block">{language === 'bn' ? 'আজকের খরচ' : "Today's Expenses"}</span>
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="text-2xl font-bold text-slate-900 font-mono">{formatBDT(todaysExpensesTotal)}</span>
+              </div>
+            </div>
+            <div className="text-[11px] text-slate-400 mt-4 border-t border-slate-100 pt-3 flex justify-between items-center">
+              <span>{language === 'bn' ? 'দৈনিক যাতায়াত ও অফিস বিল' : 'Daily office and transport bills'}</span>
             </div>
           </div>
 
           {/* Today's Net Profit */}
-          <div className="bg-slate-50/50 rounded-xl p-5 border border-slate-200 flex flex-col justify-between hover:bg-white hover:border-slate-350 hover:shadow-sm transition-all duration-300">
-            <div className="space-y-1">
-              <span className="text-[11px] font-semibold text-slate-450 uppercase tracking-wider block">{tDash.todayProfit}</span>
+          <div className="bg-slate-50/40 rounded-2xl p-5 border border-slate-200 flex flex-col justify-between border-t-4 border-t-emerald-500 hover:bg-white hover:shadow-md hover:-translate-y-1 transition-all duration-300">
+            <div className="space-y-1.5">
+              <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider block">{tDash.todayProfit}</span>
               <div className="flex items-baseline justify-between gap-2">
-                <span className="text-2xl font-semibold font-mono text-slate-900">
+                <span className="text-2xl font-bold font-mono text-slate-900">
                   {formatBDT(todaysNetProfit)}
                 </span>
                 {profitChangePercent !== 0 ? (
-                  <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-800 border border-slate-200">
+                  <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md text-[10px] font-bold border ${
+                    profitChangePercent >= 0 
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                      : 'bg-rose-50 text-rose-700 border-rose-200'
+                  }`}>
                     {profitChangePercent >= 0 ? '+' : ''}{profitChangePercent.toFixed(1)}%
                   </span>
                 ) : (
-                  <span className="text-[11px] font-semibold text-slate-400">{tCommon.stable}</span>
+                  <span className="text-[10px] font-semibold text-slate-400">{tCommon.stable}</span>
                 )}
               </div>
             </div>
             <div className="text-[11px] text-slate-400 mt-4 border-t border-slate-100 pt-3 flex justify-between items-center">
-              <span>{tDash.estMargin}</span>
-              <span className="font-semibold text-slate-600">
-                {todaysSales > 0 ? `${((todaysNetProfit / todaysSales) * 100).toFixed(1)}%` : '0%'}
-              </span>
-            </div>
-          </div>
-
-          {/* Inventory Turnover */}
-          <div className="bg-slate-50/50 rounded-xl p-5 border border-slate-200 flex flex-col justify-between hover:bg-white hover:border-slate-350 hover:shadow-sm transition-all duration-300">
-            <div className="space-y-1">
-              <span className="text-[11px] font-semibold text-slate-455 uppercase tracking-wider block">{tDash.todayTurnover}</span>
-              <div className="flex items-baseline justify-between gap-2">
-                <span className="text-2xl font-semibold text-slate-900 font-mono">
-                  {todaysTurnoverRate.toFixed(3)}%
-                </span>
-                {turnoverChangePercent !== 0 ? (
-                  <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-800 border border-slate-200">
-                    {turnoverChangePercent >= 0 ? '+' : ''}{turnoverChangePercent.toFixed(1)}%
-                  </span>
-                ) : (
-                  <span className="text-[11px] font-semibold text-slate-400">{tCommon.stable}</span>
-                )}
-              </div>
-            </div>
-            <div className="text-[11px] text-slate-400 mt-4 border-t border-slate-100 pt-3 flex justify-between items-center">
-              <span>{tDash.projectedAnnual}</span>
-              <span className="font-mono font-semibold text-slate-600">{todaysTurnoverAnnualized.toFixed(2)}x / Year</span>
+              <span>{language === 'bn' ? 'বিক্রি থেকে কেনার খরচ বাদ দিয়ে লাভ' : 'Estimated daily profit margin'}</span>
             </div>
           </div>
         </div>
@@ -285,67 +347,67 @@ export default function Dashboard({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         
         {/* Total Yield / Profit */}
-        <div className="bg-white rounded-xl p-6 border border-slate-200 flex flex-col justify-between hover:border-slate-400 hover:shadow-sm transition-all duration-300 group">
+        <div className="bg-white rounded-2xl p-6 border border-slate-200 border-l-4 border-l-emerald-500 flex flex-col justify-between hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 group">
           <div className="flex items-center justify-between mb-5">
-            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">{tDash.calculatedYield}</span>
-            <div className="p-3 rounded-lg transition-transform group-hover:scale-110 bg-slate-100 text-slate-805 border border-slate-200">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{tDash.calculatedYield}</span>
+            <div className="p-2.5 rounded-xl transition-transform group-hover:scale-110 bg-emerald-50 text-emerald-650 border border-emerald-100">
               <TrendingUp className="w-5 h-5" />
             </div>
           </div>
           <div>
-            <h3 className="text-2xl font-semibold font-mono tracking-tight text-slate-900">
+            <h3 className="text-2xl font-bold font-mono tracking-tight text-slate-900">
               {formatBDT(netProfit)}
             </h3>
-            <p className="text-xs text-slate-500 mt-2 font-medium">
+            <p className="text-xs text-slate-505 mt-2 font-medium">
               {tDash.yieldDescription}
             </p>
           </div>
         </div>
 
         {/* Due Amount */}
-        <div className="bg-white rounded-xl p-6 border border-slate-200 flex flex-col justify-between hover:border-slate-400 hover:shadow-sm transition-all duration-300 group">
+        <div className="bg-white rounded-2xl p-6 border border-slate-200 border-l-4 border-l-amber-500 flex flex-col justify-between hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 group">
           <div className="flex items-center justify-between mb-5">
-            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Due Amount</span>
-            <div className="p-3 bg-slate-100 text-slate-800 border border-slate-200 rounded-lg transition-transform group-hover:scale-110">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Due Amount</span>
+            <div className="p-2.5 bg-amber-50 text-amber-600 border border-amber-100 rounded-xl transition-transform group-hover:scale-110">
               <AlertTriangle className="w-5 h-5" />
             </div>
           </div>
           <div>
-            <h3 className="text-2xl font-semibold text-slate-900 font-mono tracking-tight">{formatBDT(dueAmount)}</h3>
+            <h3 className="text-2xl font-bold text-slate-900 font-mono tracking-tight">{formatBDT(dueAmount)}</h3>
             <div className="flex items-center gap-1.5 mt-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-slate-405 animate-pulse" />
-              <span className="text-xs text-slate-500 font-medium">Outstanding dues</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+              <span className="text-xs text-slate-505 font-medium">Outstanding dues</span>
             </div>
           </div>
         </div>
 
         {/* Active Wholesale Revenue */}
-        <div className="bg-white rounded-xl p-6 border border-slate-200 flex flex-col justify-between hover:border-slate-400 hover:shadow-sm transition-all duration-300 group">
+        <div className="bg-white rounded-2xl p-6 border border-slate-200 border-l-4 border-l-blue-500 flex flex-col justify-between hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 group">
           <div className="flex items-center justify-between mb-5">
-            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">{tDash.activeRevenue}</span>
-            <div className="p-3 bg-slate-100 text-slate-800 border border-slate-200 rounded-lg transition-transform group-hover:scale-110">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{tDash.activeRevenue}</span>
+            <div className="p-2.5 bg-blue-50 text-blue-650 border border-blue-100 rounded-xl transition-transform group-hover:scale-110">
               <ShoppingBag className="w-5 h-5" />
             </div>
           </div>
           <div>
-            <h3 className="text-2xl font-semibold text-slate-900 font-mono tracking-tight">{formatBDT(totalSales)}</h3>
-            <p className="text-xs text-slate-500 mt-2 font-medium">
+            <h3 className="text-2xl font-bold text-slate-900 font-mono tracking-tight">{formatBDT(totalSales)}</h3>
+            <p className="text-xs text-slate-550 mt-2 font-medium">
               {tDash.activeChallansCount.replace('{count}', String(challans.filter(c => c.status !== 'Returned').length))}
             </p>
           </div>
         </div>
 
         {/* Total Expenses */}
-        <div className="bg-white rounded-xl p-6 border border-slate-200 flex flex-col justify-between hover:border-slate-400 hover:shadow-sm transition-all duration-300 group">
+        <div className="bg-white rounded-2xl p-6 border border-slate-200 border-l-4 border-l-rose-500 flex flex-col justify-between hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 group">
           <div className="flex items-center justify-between mb-5">
-            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">{tDash.operatingExpenses}</span>
-            <div className="p-3 bg-slate-100 text-slate-800 border border-slate-200 rounded-lg transition-transform group-hover:scale-110">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{tDash.operatingExpenses}</span>
+            <div className="p-2.5 bg-rose-50 text-rose-650 border border-rose-100 rounded-xl transition-transform group-hover:scale-110">
               <DollarSign className="w-5 h-5" />
             </div>
           </div>
           <div>
-            <h3 className="text-2xl font-semibold text-slate-900 font-mono tracking-tight">{formatBDT(totalExpensesCost)}</h3>
-            <p className="text-xs text-slate-500 mt-2 font-medium">
+            <h3 className="text-2xl font-bold text-slate-900 font-mono tracking-tight">{formatBDT(totalExpensesCost)}</h3>
+            <p className="text-xs text-slate-550 mt-2 font-medium">
               {tDash.expensesCount.replace('{count}', String(expenses.length))}
             </p>
           </div>

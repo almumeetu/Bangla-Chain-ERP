@@ -942,18 +942,19 @@ export default function DirectoryModule({
   return (
     <div className="space-y-6">
       
-      {/* Page Header */}
-      <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-            <Layers className="w-5 h-5 text-slate-800" />
+      {/* Page Header - Consistent with Dashboard */}
+      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-2xl p-5 md:p-6 text-white border border-slate-800 shadow-md flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 relative overflow-hidden group">
+        <div className="absolute -right-20 -top-20 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="space-y-1 relative z-10">
+          <h2 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+            <Layers className="w-5 h-5 text-indigo-300" />
             {pageTitle || tDir.title}
           </h2>
-          <p className="text-xs text-slate-500 font-semibold mt-0.5">{pageSubtitle || tDir.subtitle}</p>
+          <p className="text-slate-350 text-xs">{pageSubtitle || tDir.subtitle}</p>
         </div>
 
         {/* Tab Selectors — filtered by visibleTabs if provided */}
-        <div className="flex flex-wrap bg-slate-105 p-1 rounded-lg border border-slate-200 shadow-sm gap-1 shrink-0">
+        <div className="flex flex-wrap bg-white/5 p-1 rounded-xl border border-white/10 shadow-sm gap-1 shrink-0 z-10 relative">
           {[
             { id: 'products', label: tDir.tabProducts, icon: Package },
             { id: 'srs', label: tDir.tabSrs, icon: UserCheck },
@@ -967,18 +968,19 @@ export default function DirectoryModule({
           .filter(tab => !visibleTabs || visibleTabs.includes(tab.id as DirectoryTab))
           .map(tab => {
             const Icon = tab.icon;
+            const isActive = activeSubTab === tab.id;
             return (
               <button
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveSubTab(tab.id as DirectoryTab)}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
-                  activeSubTab === tab.id 
-                    ? 'bg-slate-900 text-white shadow-sm' 
-                    : 'text-slate-550 hover:text-slate-900 hover:bg-slate-50'
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+                  isActive 
+                    ? 'bg-white text-slate-950 shadow-md font-bold' 
+                    : 'text-slate-300 hover:text-white hover:bg-white/5'
                 }`}
               >
-                <Icon className="w-3.5 h-3.5" />
+                <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-slate-900' : 'text-slate-400'}`} />
                 {tab.label}
               </button>
             );

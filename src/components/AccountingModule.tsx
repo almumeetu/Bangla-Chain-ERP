@@ -231,28 +231,28 @@ export default function AccountingModule({
 
   return (
     <div className="space-y-6 animate-fade-in">
-      
-      {/* Title & Internal tab switch */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-semibold text-slate-800 tracking-tight flex items-center gap-2">
-            <DollarSign className="w-6 h-6 text-slate-600" />
+           {/* Page Header - Consistent with Dashboard */}
+      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-2xl p-5 md:p-6 text-white border border-slate-800 shadow-md flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 relative overflow-hidden group">
+        <div className="absolute -right-20 -top-20 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="space-y-1 relative z-10">
+          <h2 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+            <DollarSign className="w-5 h-5 text-indigo-300" />
             {tAcc.title}
           </h2>
-          <p className="text-sm text-slate-500">{tAcc.subtitle}</p>
+          <p className="text-slate-350 text-xs">{tAcc.subtitle}</p>
         </div>
 
-        <div className="flex bg-slate-105 p-1 rounded-lg border border-slate-200 shadow-sm shrink-0">
+        <div className="flex bg-white/5 p-1 rounded-xl border border-white/10 shadow-sm shrink-0 z-10 relative">
           <button
             id="accounting-tab-exp"
             onClick={() => setActiveTab('expenses')}
-            className={`px-4.5 py-2 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
+            className={`px-4.5 py-2 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
               activeTab === 'expenses' 
-                ? 'bg-white text-slate-900 shadow-sm' 
-                : 'text-slate-500 hover:text-slate-800'
+                ? 'bg-white text-slate-950 shadow-md font-bold' 
+                : 'text-slate-300 hover:text-white hover:bg-white/5'
             }`}
           >
-            <DollarSign className="w-4 h-4 text-slate-700" />
+            <DollarSign className={`w-4 h-4 ${activeTab === 'expenses' ? 'text-slate-900' : 'text-slate-400'}`} />
             {tAcc.expensesTab}
           </button>
           
@@ -262,13 +262,13 @@ export default function AccountingModule({
               setActiveTab('profit-report');
               setTimeout(() => handleCalculateReport(), 50);
             }}
-            className={`px-4.5 py-2 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
+            className={`px-4.5 py-2 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
               activeTab === 'profit-report' 
-                ? 'bg-white text-slate-900 shadow-sm' 
-                : 'text-slate-500 hover:text-slate-800'
+                ? 'bg-white text-slate-950 shadow-md font-bold' 
+                : 'text-slate-300 hover:text-white hover:bg-white/5'
             }`}
           >
-            <PieChart className="w-4 h-4 text-slate-700" />
+            <PieChart className={`w-4 h-4 ${activeTab === 'profit-report' ? 'text-slate-900' : 'text-slate-400'}`} />
             {tAcc.profitReportTab}
           </button>
         </div>

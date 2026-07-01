@@ -444,36 +444,40 @@ export default function SellModule({
 
   const handleDeliveryManChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedDeliveryMan(e.target.value);
-  }, []);
+  }, []);  return (
+    <div className="space-y-6 animate-fade-in">
+      {/* Page Header - Consistent with Dashboard */}
+      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-2xl p-5 md:p-6 text-white border border-slate-800 shadow-md flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 relative overflow-hidden group">
+        <div className="absolute -right-20 -top-20 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="space-y-1 relative z-10">
+          <h2 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+            <ShoppingBag className="w-5.5 h-5.5 text-indigo-300" />
+            {translations[language].sell.title}
+          </h2>
+          <p className="text-slate-350 text-xs">{translations[language].sell.subtitle}</p>
+        </div>
+      </div>
 
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-fade-in">
-      
-      {/* Product catalogue layout */}
-      <div className="lg:col-span-7 space-y-4">
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
-          
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-100 pb-4">
-            <div>
-              <h3 className="font-semibold text-slate-800 text-sm flex items-center gap-2">
-                <ShoppingBag className="w-5 h-5 text-blue-600" />
-                {translations[language].sell.title}
-              </h3>
-              <p className="text-xs text-slate-500 font-semibold">{translations[language].sell.subtitle}</p>
-            </div>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        {/* Product catalogue layout */}
+        <div className="lg:col-span-7 space-y-4">
+          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
             
-            <div className="relative w-full sm:w-64 shrink-0">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                id="pos-search-input"
-                type="text"
-                placeholder={translations[language].common.search}
-                value={searchQuery}
-                onChange={handleSearchQueryChange}
-                className="h-10 w-full rounded-lg border border-slate-200 bg-slate-55 pl-9 pr-4 text-xs font-semibold outline-none focus:border-slate-800 focus:bg-white transition-colors"
-              />
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{translations[language].sidebar.productList}</span>
+              <div className="relative w-full sm:w-64 shrink-0">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  id="pos-search-input"
+                  type="text"
+                  placeholder={translations[language].common.search}
+                  value={searchQuery}
+                  onChange={handleSearchQueryChange}
+                  className="h-10 w-full rounded-lg border border-slate-200 bg-slate-55 pl-9 pr-4 text-xs font-semibold outline-none focus:border-slate-800 focus:bg-white transition-colors"
+                />
+              </div>
             </div>
-          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[580px] overflow-y-auto pr-1 modal-body">
             {filteredProducts.map(p => (
@@ -638,7 +642,7 @@ export default function SellModule({
 
         </form>
       </div>
-
+    </div>
     </div>
   );
 }

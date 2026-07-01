@@ -52,20 +52,25 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
   const [focusedField, setFocusedField] = useState<'email' | 'password' | null>(null);
   
   // Language Switcher State
-  const [language, setLanguage] = useState<Language>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('erp_language');
-      return (saved as Language) || 'en';
-    }
-    return 'en';
-  });
+  const [language, setLanguage] = useState<Language>('bn');
   const [langOpen, setLangOpen] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('erp_language');
+      if (saved) {
+        setLanguage(saved as Language);
+      }
+      setIsLoaded(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isLoaded && typeof window !== 'undefined') {
       localStorage.setItem('erp_language', language);
     }
-  }, [language]);
+  }, [language, isLoaded]);
 
   const handleTogglePassword = useCallback(() => {
     setShowPassword(prev => !prev);

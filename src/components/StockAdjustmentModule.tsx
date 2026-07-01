@@ -192,41 +192,41 @@ export default function StockAdjustmentModule({
   return (
     <div className="space-y-6 animate-fade-in">
       
-      {/* Title & Sub Tabs */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-semibold text-slate-800 tracking-tight flex items-center gap-2">
-            <Sliders className="w-6 h-6 text-slate-650" />
+      {/* Page Header - Consistent with Dashboard */}
+      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-2xl p-5 md:p-6 text-white border border-slate-800 shadow-md flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 relative overflow-hidden group">
+        <div className="absolute -right-20 -top-20 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="space-y-1 relative z-10">
+          <h2 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+            <Sliders className="w-5 h-5 text-indigo-300" />
             {translations[language].stockAdjustment.title}
           </h2>
-          <p className="text-sm text-slate-500">{translations[language].stockAdjustment.subtitle}</p>
+          <p className="text-slate-350 text-xs">{translations[language].stockAdjustment.subtitle}</p>
         </div>
 
-        <div className="flex bg-slate-105 p-1 rounded-lg border border-slate-200 shadow-sm shrink-0">
+        <div className="flex bg-white/5 p-1 rounded-xl border border-white/10 shadow-sm shrink-0 z-10 relative">
           <button
             id="stock-tab-attrs"
             onClick={() => setSubTab('attributes')}
-            className={`px-4 py-2.5 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
+            className={`px-4 py-2.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
               subTab === 'attributes' 
-                ? 'bg-white text-slate-900 shadow-sm' 
-                : 'text-slate-500 hover:text-slate-800'
+                ? 'bg-white text-slate-950 shadow-md font-bold' 
+                : 'text-slate-300 hover:text-white hover:bg-white/5'
             }`}
           >
-            <Layers className="w-4 h-4 text-blue-600" />
+            <Layers className={`w-4 h-4 ${subTab === 'attributes' ? 'text-slate-900' : 'text-slate-400'}`} />
             {language === 'bn' ? 'পণ্যের ভ্যারিয়েন্ট' : 'Product Variants'}
           </button>
           
           <button
             id="stock-tab-adj"
             onClick={() => setSubTab('adjustments')}
-            className={`px-4 py-2.5 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
+            className={`px-4 py-2.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
               subTab === 'adjustments' 
-                ? 'bg-white text-slate-900 shadow-sm' 
-                : 'text-slate-500 hover:text-slate-800'
+                ? 'bg-white text-slate-950 shadow-md font-bold' 
+                : 'text-slate-300 hover:text-white hover:bg-white/5'
             }`}
           >
-            <ArrowRightLeft className="w-4 h-4 text-blue-600" />
-            {language === 'bn' ? 'স্টক সমন্বয় লগ' : 'Stock Corrections'}
+            <ArrowRightLeft className={`w-4 h-4 ${subTab === 'adjustments' ? 'text-slate-900' : 'text-slate-400'}`} />
           </button>
         </div>
       </div>
