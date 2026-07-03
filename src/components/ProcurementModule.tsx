@@ -16,7 +16,7 @@ import {
   Info,
   Printer
 } from 'lucide-react';
-import { Procurement, ProcurementItem, Product } from '../types';
+import { Procurement, ProcurementItem, Product, CompanyBrand } from '../types';
 import { translations, Language } from '../translations';
 
 interface ProcurementModuleProps {
@@ -24,6 +24,7 @@ interface ProcurementModuleProps {
   setProcurements: React.Dispatch<React.SetStateAction<Procurement[]>>;
   products: Product[];
   setProducts: React.Dispatch<React.SetStateAction<Product[]>>;
+  companies: CompanyBrand[];
   onDownloadPDF: (view: 'dashboard' | 'procurement' | 'accounting') => void;
   language: Language;
 }
@@ -33,6 +34,7 @@ export default function ProcurementModule({
   setProcurements,
   products,
   setProducts,
+  companies,
   onDownloadPDF,
   language
 }: ProcurementModuleProps) {
@@ -192,14 +194,12 @@ export default function ProcurementModule({
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
 
-  const suppliers = [
-    'Pran',
-    'Olympic',
-    'Haque'
-  ];
+  const suppliers = companies && companies.length > 0
+    ? companies.map(c => c.name)
+    : ['Pran', 'Olympic', 'Haque'];
 
   // Create Form State
-  const [supplierName, setSupplierName] = useState(suppliers[0]);
+  const [supplierName, setSupplierName] = useState('');
   const [procurementName, setProcurementName] = useState('');
   const [invoiceRef, setInvoiceRef] = useState('');
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0]);
@@ -213,19 +213,33 @@ export default function ProcurementModule({
   };
 
   // Dynamic Item Rows
-  const [formItems, setFormItems] = useState<Omit<ProcurementItem, 'id' | 'productName'>[]>([
-    {
-      productId: getInitialProductForSupplier(suppliers[0])?.id || '',
-      purchasePrice: getInitialProductForSupplier(suppliers[0])?.defaultPP || 0,
-      mrp: getInitialProductForSupplier(suppliers[0])?.defaultMRP || 0,
-      wsp: getInitialProductForSupplier(suppliers[0])?.defaultWSP || 0,
-      qty: 100,
-      bonusQty: 5,
-      discountType: 'Percentage',
-      discountValue: 0,
-      totalPrice: (getInitialProductForSupplier(suppliers[0])?.defaultPP || 0) * 100,
+  const [formItems, setFormItems] = useState<Omit<ProcurementItem, 'id' | 'productName'>[]>([]);
+
+  // Sync supplierName and initial product rows with dynamic suppliers list
+  React.useEffect(() => {
+    if (suppliers.length > 0 && (!supplierName || !suppliers.includes(supplierName))) {
+      const defaultSup = suppliers[0];
+      setSupplierName(defaultSup);
+      const initProd = products.find(p => p.company === defaultSup) || products[0];
+      if (initProd) {
+        setFormItems([
+          {
+            productId: initProd.id,
+            purchasePrice: initProd.defaultPP,
+            mrp: initProd.defaultMRP,
+            wsp: initProd.defaultWSP,
+            qty: 100,
+            bonusQty: 5,
+            discountType: 'Percentage',
+            discountValue: 0,
+            totalPrice: initProd.defaultPP * 100,
+          }
+        ]);
+      } else {
+        setFormItems([]);
+      }
     }
-  ]);
+  }, [companies]);
 
   // Recalculate row total price: Sub-Total = (PP * Regular Qty) - Discount
   const calculateRowTotal = (
@@ -434,7 +448,7 @@ export default function ProcurementModule({
             <Box className="w-5.5 h-5.5 text-indigo-300" />
             {tProc.title}
           </h2>
-          <p className="text-slate-350 text-xs">{tProc.subtitle}</p>
+          <p className="text-slate-300 text-xs">{tProc.subtitle}</p>
         </div>
 
         <div className="flex bg-white/5 p-1 rounded-xl border border-white/10 shadow-sm shrink-0 z-10 relative">
@@ -467,92 +481,124 @@ export default function ProcurementModule({
 
       {/* RENDER TAB: Procurement Invoice History List */}
       {activeSubTab === 'list' && (
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="px-5 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between bg-slate-50/50 gap-3">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{tProc.historicalInvoices}</span>
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-white p-4.5 border border-slate-200 rounded-2xl shadow-sm gap-4">
+            <div className="space-y-0.5">
+              <h3 className="text-sm font-bold text-slate-800">
+                {tProc.historicalInvoices}
+              </h3>
+              <p className="text-[11px] text-slate-400 font-semibold">
+                {language === 'bn' ? 'ক্রয় রশিদ ও সরবরাহ চালানের পূর্ববর্তী রেকর্ডসমূহ' : 'Historical records of imported products, costs, and payment updates'}
+              </p>
+            </div>
+            
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
               <button
                 onClick={() => onDownloadPDF('procurement')}
-                className="inline-flex h-11 items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-all shadow-sm cursor-pointer"
+                className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-sm cursor-pointer"
               >
                 <FileText className="w-3.5 h-3.5 text-slate-400" />
                 {tProc.downloadLedger}
               </button>
-              <div className="flex items-center gap-1.5 text-[11px] text-slate-450 bg-slate-100/60 px-3 py-2 rounded-lg border border-slate-200">
+              <div className="flex items-center gap-1.5 text-[11px] text-slate-450 bg-slate-100/60 px-3 py-2 rounded-xl border border-slate-200">
                 <Info className="w-3.5 h-3.5 text-blue-500 shrink-0" />
                 <span>{tProc.updateNotice}</span>
               </div>
             </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm border-collapse min-w-[1100px]">
-              <thead>
-                <tr className="bg-slate-50 text-slate-700 border-b border-slate-200">
-                  <th className="px-4 py-4 text-sm font-semibold text-slate-700 w-12 text-center">#</th>
-                  <th className="px-4 py-4 text-sm font-semibold text-slate-700">{tProc.supplierName}</th>
-                  <th className="px-4 py-4 text-sm font-semibold text-slate-700">{tProc.procurementName}</th>
-                  <th className="px-4 py-4 text-sm font-semibold text-slate-700">{tProc.invoiceRef}</th>
-                  <th className="px-4 py-4 text-sm font-semibold text-slate-700 text-center">{tProc.invoiceDate}</th>
-                  <th className="px-4 py-4 text-sm font-semibold text-slate-700 text-center">{tProc.deliveryDate}</th>
-                  <th className="px-4 py-4 text-sm font-semibold text-slate-700 text-center">{tProc.itemsCount}</th>
-                  <th className="px-4 py-4 text-sm font-semibold text-slate-700 text-right">{tProc.additionalCost}</th>
-                  <th className="px-4 py-4 text-sm font-semibold text-slate-700 text-right">{tProc.globalTotal}</th>
-                  <th className="px-4 py-4 text-sm font-semibold text-slate-700 text-center">{tProc.paymentStatusLabel.replace(' *', '')}</th>
-                  <th className="px-4 py-4 text-sm font-semibold text-slate-700 text-center w-24">{tProc.actions}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {paginatedProcurements.map((p, index) => {
-                  const globalIndex = startIndex + index + 1;
-                  return (
-                    <tr key={p.id} className="hover:bg-slate-100/40 transition-all duration-200">
-                      <td className="px-4 py-4 text-center text-slate-400 font-mono font-medium">{globalIndex}</td>
-                      <td className="px-4 py-4 font-semibold text-slate-800">{p.supplierName}</td>
-                      <td className="px-4 py-4 text-slate-600 font-semibold">{p.procurementName}</td>
-                      <td className="px-4 py-4 text-slate-605 font-mono font-medium">{p.invoiceRef}</td>
-                      <td className="px-4 py-4 text-center text-slate-500 font-mono">{p.invoiceDate}</td>
-                      <td className="px-4 py-4 text-center text-slate-500 font-mono">{p.deliveryDate}</td>
-                      <td className="px-4 py-4 text-center font-semibold text-blue-600">{p.items.length} lots</td>
-                      <td className="px-4 py-4 text-right text-slate-500 font-mono">{formatBDT(p.additionalCost)}</td>
-                      <td className="px-4 py-4 text-right font-semibold text-slate-950 font-mono">{formatBDT(p.globalTotal)}</td>
-                      <td className="px-4 py-4 text-center">
-                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
-                          p.paymentStatus === 'Paid' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                          p.paymentStatus === 'Partial' ? 'bg-amber-50 text-amber-705 border-amber-200' :
-                          'bg-rose-50 text-rose-700 border-rose-200'
-                        }`}>
-                          {p.paymentStatus === 'Paid' ? tCommon.paid : p.paymentStatus === 'Partial' ? tCommon.partial : tCommon.pending}
+          {/* Cards Grid */}
+          {procurements.length === 0 ? (
+            <div className="bg-white rounded-3xl border border-slate-200 p-8 text-center text-slate-400 font-semibold shadow-sm">
+              No procurements recorded yet.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              {paginatedProcurements.map((p, index) => {
+                const globalIndex = startIndex + index + 1;
+                
+                let supplierGradient = "from-purple-500 to-indigo-600";
+                if (p.supplierName.toLowerCase() === 'pran') {
+                  supplierGradient = "from-orange-500 to-red-500";
+                } else if (p.supplierName.toLowerCase() === 'olympic') {
+                  supplierGradient = "from-blue-500 to-indigo-600";
+                } else if (p.supplierName.toLowerCase() === 'haque') {
+                  supplierGradient = "from-emerald-500 to-teal-600";
+                }
+
+                return (
+                  <div 
+                    key={p.id}
+                    className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm hover:shadow-md hover:border-slate-800 transition-all duration-300 flex flex-col justify-between space-y-4 group relative overflow-hidden"
+                  >
+                    <div className="absolute -right-20 -top-20 w-36 h-36 rounded-full bg-slate-50 group-hover:bg-slate-100/50 transition-all duration-500 pointer-events-none" />
+                    
+                    <div className="space-y-3 relative z-10">
+                      <div className="flex items-center justify-between">
+                        <span className={`w-8 h-8 rounded-xl bg-gradient-to-br ${supplierGradient} flex items-center justify-center font-bold text-white text-xs shadow-sm`}>
+                          {p.supplierName[0].toUpperCase()}
                         </span>
-                      </td>
-                      <td className="px-4 py-4 text-center">
-                        <button
-                          id={`proc-btn-view-${p.id}`}
-                          onClick={() => setSelectedProcurement(p)}
-                          className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer whitespace-nowrap"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                          {tProc.viewItems}
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-                {procurements.length === 0 && (
-                  <tr>
-                    <td colSpan={11} className="py-12 text-center text-slate-400 font-semibold">
-                      No procurements recorded yet.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                        <span className="font-mono text-[9px] font-bold text-slate-455 uppercase tracking-wide">
+                          Ref: {p.invoiceRef}
+                        </span>
+                      </div>
+
+                      <div className="space-y-1">
+                        <h4 className="font-bold text-slate-800 group-hover:text-slate-900 transition-colors text-sm sm:text-base leading-snug line-clamp-1">
+                          {p.procurementName}
+                        </h4>
+                        <div className="flex flex-wrap gap-1.5 text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+                          <span>Date: {p.invoiceDate}</span>
+                          <span>•</span>
+                          <span>Delivery: {p.deliveryDate}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Cost Summary grid */}
+                    <div className="bg-slate-50 rounded-2xl p-3 border border-slate-150 flex items-center justify-between relative z-10 text-center">
+                      <div className="space-y-0.5">
+                        <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider block">Lots Count</span>
+                        <span className="font-mono text-xs font-bold text-slate-800">{p.items.length} Items</span>
+                      </div>
+                      <div className="space-y-0.5">
+                        <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider block">Carriage Cost</span>
+                        <span className="font-mono text-xs font-semibold text-slate-505">{formatBDT(p.additionalCost)}</span>
+                      </div>
+                      <div className="space-y-0.5">
+                        <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider block">Net Total</span>
+                        <span className="font-mono text-xs font-extrabold text-slate-900">{formatBDT(p.globalTotal)}</span>
+                      </div>
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-100 flex items-center justify-between relative z-10">
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider ${
+                        p.paymentStatus === 'Paid' ? 'bg-emerald-50 text-emerald-705 border-emerald-200' :
+                        p.paymentStatus === 'Partial' ? 'bg-amber-50 text-amber-705 border-amber-200' :
+                        'bg-rose-50 text-rose-700 border-rose-200'
+                      }`}>
+                        {p.paymentStatus === 'Paid' ? tCommon.paid : p.paymentStatus === 'Partial' ? tCommon.partial : tCommon.pending}
+                      </span>
+
+                      <button
+                        id={`proc-btn-view-${p.id}`}
+                        onClick={() => setSelectedProcurement(p)}
+                        className="inline-flex h-9 items-center gap-2 rounded-xl border border-slate-350 bg-white px-3.5 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:border-slate-800 cursor-pointer transition-all active:scale-95 shadow-sm"
+                      >
+                        <Eye className="w-3.5 h-3.5 text-slate-500" />
+                        {tProc.viewItems}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="px-5 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 text-xs">
-              <span className="text-slate-505 font-semibold">
+            <div className="px-5 py-4 bg-white border border-slate-200 rounded-2xl flex items-center justify-between text-xs shadow-sm">
+              <span className="text-slate-500 font-semibold">
                 {tProc.showingLabel
                   .replace('{start}', String(startIndex + 1))
                   .replace('{end}', String(Math.min(startIndex + itemsPerPage, totalProcurements)))
@@ -596,351 +642,429 @@ export default function ProcurementModule({
       )}
 
       {/* RENDER TAB: Create Procurement Invoice */}
-      {activeSubTab === 'create' && (
-        <form onSubmit={handleSubmitProcurement} className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm space-y-6">
-          <div className="border-b border-slate-100 pb-4">
-            <h3 className="font-semibold text-slate-800 text-base">{tProc.formTitle}</h3>
-            <p className="text-xs text-slate-450 mt-1">{tProc.formSub}</p>
-          </div>
+      {activeSubTab === 'create' && (() => {
+        // Derive dynamic theme based on selected brand
+        const getBrandTheme = (name: string) => {
+          const lName = name.toLowerCase();
+          if (lName.includes('pran')) {
+            return {
+              border: 'border-t-orange-500',
+              text: 'text-orange-600',
+              bg: 'bg-orange-50/50',
+              focus: 'focus:border-orange-500 focus:ring-orange-100',
+              badge: 'bg-orange-50 text-orange-700 border-orange-100',
+              btn: 'bg-orange-600 hover:bg-orange-700 focus:ring-orange-100'
+            };
+          }
+          if (lName.includes('olympic')) {
+            return {
+              border: 'border-t-blue-500',
+              text: 'text-blue-600',
+              bg: 'bg-blue-50/50',
+              focus: 'focus:border-blue-500 focus:ring-blue-100',
+              badge: 'bg-blue-50 text-blue-700 border-blue-100',
+              btn: 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-100'
+            };
+          }
+          if (lName.includes('haque')) {
+            return {
+              border: 'border-t-emerald-500',
+              text: 'text-emerald-600',
+              bg: 'bg-emerald-50/50',
+              focus: 'focus:border-emerald-500 focus:ring-emerald-100',
+              badge: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+              btn: 'bg-emerald-600 hover:bg-emerald-700 focus:ring-emerald-100'
+            };
+          }
+          return {
+            border: 'border-t-indigo-500',
+            text: 'text-indigo-600',
+            bg: 'bg-indigo-50/50',
+            focus: 'focus:border-indigo-500 focus:ring-indigo-100',
+            badge: 'bg-indigo-50 text-indigo-700 border-indigo-100',
+            btn: 'bg-slate-900 hover:bg-slate-800 focus:ring-slate-100'
+          };
+        };
 
-          {/* Form Header info */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-slate-700">{tProc.supplierLabel}</label>
-              <select
-                id="proc-form-supplier"
-                value={supplierName}
-                onChange={(e) => {
-                  const newSup = e.target.value;
-                  setSupplierName(newSup);
-                  // Reset form items to show first product of new supplier
-                  const initProd = getInitialProductForSupplier(newSup);
-                  if (initProd) {
-                    setFormItems([
-                      {
-                        productId: initProd.id,
-                        purchasePrice: initProd.defaultPP,
-                        mrp: initProd.defaultMRP,
-                        wsp: initProd.defaultWSP,
-                        qty: 100,
-                        bonusQty: 5,
-                        discountType: 'Percentage',
-                        discountValue: 0,
-                        totalPrice: initProd.defaultPP * 100,
-                      }
-                    ]);
-                  }
-                }}
-                className="h-11 w-full rounded-lg border-2 border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all"
-              >
-                {suppliers.map(s => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
+        const theme = getBrandTheme(supplierName);
+
+        return (
+          <form onSubmit={handleSubmitProcurement} className={`bg-white rounded-2xl border border-slate-200 border-t-4 ${theme.border} p-6 shadow-md space-y-6 animate-fade-in`}>
+            {/* Header info */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-4.5 gap-4">
+              <div>
+                <h3 className="font-extrabold text-slate-900 text-base">{tProc.formTitle}</h3>
+                <p className="text-xs text-slate-500 font-medium mt-1">{tProc.formSub}</p>
+              </div>
+              <span className={`px-3.5 py-1.5 rounded-full text-xs font-bold border ${theme.badge}`}>
+                {language === 'bn' ? `${supplierName} ব্র্যান্ড এর ক্রয়` : `Sourced from ${supplierName}`}
+              </span>
             </div>
 
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-slate-700">{tProc.procNameLabel}</label>
-              <input
-                id="proc-form-name"
-                type="text"
-                required
-                placeholder="e.g., Pran Mango Juice Bulk Import"
-                value={procurementName}
-                onChange={(e) => setProcurementName(e.target.value)}
-                className="h-11 w-full rounded-lg border-2 border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-slate-800 transition-all"
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-slate-700">{tProc.invRefLabel}</label>
-              <input
-                id="proc-form-ref"
-                type="text"
-                required
-                placeholder="e.g., APX-INV-2026-99"
-                value={invoiceRef}
-                onChange={(e) => setInvoiceRef(e.target.value)}
-                className="h-11 w-full rounded-lg border-2 border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all"
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-slate-700">{tProc.invDateLabel}</label>
-              <input
-                id="proc-form-inv-date"
-                type="date"
-                required
-                value={invoiceDate}
-                onChange={(e) => setInvoiceDate(e.target.value)}
-                className="h-11 w-full rounded-lg border-2 border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all"
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-slate-700">{tProc.delDateLabel}</label>
-              <input
-                id="proc-form-del-date"
-                type="date"
-                required
-                value={deliveryDate}
-                onChange={(e) => setDeliveryDate(e.target.value)}
-                className="h-11 w-full rounded-lg border-2 border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all"
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-slate-700">{tProc.paymentStatusLabel}</label>
-              <select
-                id="proc-form-status"
-                value={paymentStatus}
-                onChange={(e) => setPaymentStatus(e.target.value as any)}
-                className="h-11 w-full rounded-lg border-2 border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all"
-              >
-                <option value="Paid">{tCommon.paid}</option>
-                <option value="Partial">{tCommon.partial}</option>
-                <option value="Pending">{tCommon.pending}</option>
-              </select>
-            </div>
-
-          </div>
-
-          {/* Sub-table: Dynamic Product Row Adder - Designed as Digital Invoice */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{tProc.subVoucherTitle}</span>
-              <div className="flex items-center gap-2">
-                <button
-                  id="proc-btn-add-row"
-                  type="button"
-                  onClick={handleAddProductRow}
-                  className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+            {/* Form Fields Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
+              <div>
+                <label className="mb-1.5 block text-xs font-bold text-slate-700 uppercase tracking-wide">{tProc.supplierLabel}</label>
+                <select
+                  id="proc-form-supplier"
+                  value={supplierName}
+                  onChange={(e) => {
+                    const newSup = e.target.value;
+                    setSupplierName(newSup);
+                    const initProd = getInitialProductForSupplier(newSup);
+                    if (initProd) {
+                      setFormItems([
+                        {
+                          productId: initProd.id,
+                          purchasePrice: initProd.defaultPP,
+                          mrp: initProd.defaultMRP,
+                          wsp: initProd.defaultWSP,
+                          qty: 100,
+                          bonusQty: 5,
+                          discountType: 'Percentage',
+                          discountValue: 0,
+                          totalPrice: initProd.defaultPP * 100,
+                        }
+                      ]);
+                    }
+                  }}
+                  className={`h-11 w-full rounded-xl border-2 border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:ring-4 transition-all ${theme.focus}`}
                 >
-                  <Plus className="w-4 h-4" />
-                  {tProc.addProductBtn}
-                </button>
-                <button
-                  id="proc-btn-load-all-brand"
-                  type="button"
-                  onClick={handleLoadAllBrandProducts}
-                  className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-900 text-white px-3 text-xs font-semibold hover:bg-slate-800 cursor-pointer shadow-sm active:scale-95 transition-all"
-                  title={`Pre-fill all products registered under ${supplierName}`}
+                  {suppliers.map(s => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-bold text-slate-700 uppercase tracking-wide">{tProc.procNameLabel}</label>
+                <input
+                  id="proc-form-name"
+                  type="text"
+                  required
+                  placeholder="e.g., Pran Mango Juice Bulk Import"
+                  value={procurementName}
+                  onChange={(e) => setProcurementName(e.target.value)}
+                  className={`h-11 w-full rounded-xl border-2 border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:ring-4 transition-all ${theme.focus}`}
+                />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-bold text-slate-700 uppercase tracking-wide">{tProc.invRefLabel}</label>
+                <input
+                  id="proc-form-ref"
+                  type="text"
+                  required
+                  placeholder="e.g., APX-INV-2026-99"
+                  value={invoiceRef}
+                  onChange={(e) => setInvoiceRef(e.target.value)}
+                  className={`h-11 w-full rounded-xl border-2 border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:ring-4 transition-all ${theme.focus}`}
+                />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-bold text-slate-700 uppercase tracking-wide">{tProc.invDateLabel}</label>
+                <input
+                  id="proc-form-inv-date"
+                  type="date"
+                  required
+                  value={invoiceDate}
+                  onChange={(e) => setInvoiceDate(e.target.value)}
+                  className={`h-11 w-full rounded-xl border-2 border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:ring-4 transition-all ${theme.focus}`}
+                />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-bold text-slate-700 uppercase tracking-wide">{tProc.delDateLabel}</label>
+                <input
+                  id="proc-form-del-date"
+                  type="date"
+                  required
+                  value={deliveryDate}
+                  onChange={(e) => setDeliveryDate(e.target.value)}
+                  className={`h-11 w-full rounded-xl border-2 border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:ring-4 transition-all ${theme.focus}`}
+                />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-bold text-slate-700 uppercase tracking-wide">{tProc.paymentStatusLabel}</label>
+                <select
+                  id="proc-form-status"
+                  value={paymentStatus}
+                  onChange={(e) => setPaymentStatus(e.target.value as any)}
+                  className={`h-11 w-full rounded-xl border-2 border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:ring-4 transition-all ${theme.focus}`}
                 >
-                  Load All {supplierName} Products
-                </button>
+                  <option value="Paid">{tCommon.paid}</option>
+                  <option value="Partial">{tCommon.partial}</option>
+                  <option value="Pending">{tCommon.pending}</option>
+                </select>
               </div>
             </div>
 
-            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm p-1">
-              <table className="w-full text-left text-xs border-collapse min-w-[950px]">
-                <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-705 font-semibold">
-                    <th className="py-3.5 px-3 w-[240px] text-sm">{tProc.colProduct}</th>
-                    <th className="py-3.5 px-3 text-center w-[120px] text-sm">{tProc.colPP}</th>
-                    <th className="py-3.5 px-3 text-center w-[110px] text-sm">{tProc.colWSP}</th>
-                    <th className="py-3.5 px-3 text-center w-[110px] text-sm">{tProc.colMRP}</th>
-                    <th className="py-3.5 px-3 text-center w-[100px] text-sm">{tProc.colQty}</th>
-                    <th className="py-3.5 px-3 text-center w-[90px] text-sm">{tProc.colBonus}</th>
-                    <th className="py-3.5 px-3 text-center w-[110px] text-sm">{tProc.colDiscType}</th>
-                    <th className="py-3.5 px-3 text-center w-[100px] text-sm">{tProc.colDiscVal}</th>
-                    <th className="py-3.5 px-3 text-right w-[120px] text-sm">{tProc.colSubtotal}</th>
-                    <th className="py-3.5 px-3 text-center w-[60px] text-sm">{tProc.actions}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {formItems.map((item, idx) => {
-                    const totalQtyCalculated = Number(item.qty || 0) + Number(item.bonusQty || 0);
-                    return (
-                      <tr key={idx} className="hover:bg-slate-100/30 transition-all">
-                        
-                        {/* Product Selection */}
-                        <td className="py-3 px-3">
-                          <select
-                            id={`proc-row-${idx}-product`}
-                            value={item.productId}
-                            onChange={(e) => handleRowChange(idx, 'productId', e.target.value)}
-                            className="h-10 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold outline-none focus:border-blue-500"
-                          >
-                            {products.filter(p => p.company === supplierName).map(p => (
-                              <option key={p.id} value={p.id}>{p.name}</option>
-                            ))}
-                          </select>
-                        </td>
+            {/* Sub-table: Dynamic Product Row Adder */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2 gap-4">
+                <span className="text-xs font-extrabold text-slate-500 uppercase tracking-wider">{tProc.subVoucherTitle}</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    id="proc-btn-add-row"
+                    type="button"
+                    onClick={handleAddProductRow}
+                    className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer transition-all active:scale-95 shadow-sm"
+                  >
+                    <Plus className="w-4 h-4 text-slate-500" />
+                    {tProc.addProductBtn}
+                  </button>
+                  <button
+                    id="proc-btn-load-all-brand"
+                    type="button"
+                    onClick={handleLoadAllBrandProducts}
+                    className={`inline-flex h-9 items-center gap-1.5 rounded-xl px-3.5 text-xs font-bold cursor-pointer transition-all active:scale-95 shadow-sm ${theme.btn}`}
+                    title={`Pre-fill all products registered under ${supplierName}`}
+                  >
+                    Load All {supplierName} Products
+                  </button>
+                </div>
+              </div>
 
-                        {/* Purchase Price PP */}
-                        <td className="py-3 px-3">
-                          <div className="relative">
-                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-[10px]">৳</span>
-                            <input
-                              id={`proc-row-${idx}-pp`}
-                              type="number"
-                              min="0"
-                              value={item.purchasePrice}
-                              onChange={(e) => handleRowChange(idx, 'purchasePrice', Number(e.target.value))}
-                              className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-6 pr-2 text-center text-xs font-semibold text-slate-805 font-mono outline-none focus:border-blue-500"
-                            />
-                          </div>
-                        </td>
-
-                        {/* WSP */}
-                        <td className="py-3 px-3">
-                          <input
-                            id={`proc-row-${idx}-wsp`}
-                            type="number"
-                            min="0"
-                            value={item.wsp}
-                            onChange={(e) => handleRowChange(idx, 'wsp', Number(e.target.value))}
-                            className="h-10 w-full rounded-lg border border-slate-200 bg-white px-1.5 text-center text-xs font-semibold text-slate-700 font-mono outline-none focus:border-blue-500"
-                          />
-                        </td>
-
-                        {/* MRP */}
-                        <td className="py-3 px-3">
-                          <input
-                            id={`proc-row-${idx}-mrp`}
-                            type="number"
-                            min="0"
-                            value={item.mrp}
-                            onChange={(e) => handleRowChange(idx, 'mrp', Number(e.target.value))}
-                            className="h-10 w-full rounded-lg border border-slate-200 bg-white px-1.5 text-center text-xs font-semibold text-slate-700 font-mono outline-none focus:border-blue-500"
-                          />
-                        </td>
-
-                        {/* Regular Qty */}
-                        <td className="py-3 px-3">
-                          <input
-                            id={`proc-row-${idx}-qty`}
-                            type="number"
-                            min="1"
-                            value={item.qty}
-                            onChange={(e) => handleRowChange(idx, 'qty', Number(e.target.value))}
-                            className="h-10 w-full rounded-lg border border-slate-200 bg-white px-2 text-center text-xs font-semibold text-slate-900 font-mono outline-none focus:border-blue-500"
-                          />
-                        </td>
-
-                        {/* Bonus Qty */}
-                        <td className="py-3 px-3">
-                          <input
-                            id={`proc-row-${idx}-bonus`}
-                            type="number"
-                            min="0"
-                            value={item.bonusQty}
-                            onChange={(e) => handleRowChange(idx, 'bonusQty', Number(e.target.value))}
-                            className="h-10 w-full rounded-lg border border-slate-200 bg-white px-1.5 text-center text-xs font-semibold text-slate-400 font-mono outline-none focus:border-blue-500"
-                          />
-                          <span className="text-[10px] text-slate-400 text-center block mt-1 font-mono">Lot: {totalQtyCalculated}</span>
-                        </td>
-
-                        {/* Discount Type */}
-                        <td className="py-3 px-3">
-                          <select
-                            id={`proc-row-${idx}-disctype`}
-                            value={item.discountType}
-                            onChange={(e) => handleRowChange(idx, 'discountType', e.target.value)}
-                            className="h-10 w-full rounded-lg border border-slate-200 bg-white px-1 py-1 text-xs font-semibold text-slate-650 outline-none focus:border-blue-500"
-                          >
-                            <option value="Percentage">{tProc.percentage}</option>
-                            <option value="Flat">{tProc.flat}</option>
-                          </select>
-                        </td>
-
-                        {/* Discount value */}
-                        <td className="py-3 px-3">
-                          <input
-                            id={`proc-row-${idx}-discval`}
-                            type="number"
-                            min="0"
-                            value={item.discountValue}
-                            onChange={(e) => handleRowChange(idx, 'discountValue', Number(e.target.value))}
-                            className="h-10 w-full rounded-lg border border-slate-200 bg-white px-1.5 text-center text-xs font-semibold text-slate-700 font-mono outline-none focus:border-blue-500"
-                          />
-                        </td>
-
-                        {/* Total price subtotal */}
-                        <td className="py-3 px-3 text-right font-semibold font-mono text-slate-800 text-xs">
-                          {formatBDT(item.totalPrice)}
-                        </td>
-
-                        {/* Delete Action */}
-                        <td className="py-3 px-3 text-center">
-                          <button
-                            id={`proc-row-delete-btn-${idx}`}
-                            type="button"
-                            onClick={() => handleDeleteRow(idx)}
-                            className="grid h-8 w-8 place-items-center rounded-lg border border-red-100 text-red-500 hover:bg-red-50 transition-colors cursor-pointer mx-auto"
-                          >
-                            <Trash2 className="w-4.5 h-4.5" />
-                          </button>
-                        </td>
-
+              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse min-w-[1000px]">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[10px]">
+                        <th className="py-3 px-4 w-[280px]">{tProc.colProduct}</th>
+                        <th className="py-3 px-3 text-center w-[120px]">{tProc.colPP}</th>
+                        <th className="py-3 px-3 text-center w-[110px]">{tProc.colWSP}</th>
+                        <th className="py-3 px-3 text-center w-[110px]">{tProc.colMRP}</th>
+                        <th className="py-3 px-3 text-center w-[100px]">{tProc.colQty}</th>
+                        <th className="py-3 px-3 text-center w-[110px]">{tProc.colBonus}</th>
+                        <th className="py-3 px-3 text-center w-[120px]">{tProc.colDiscType}</th>
+                        <th className="py-3 px-3 text-center w-[100px]">{tProc.colDiscVal}</th>
+                        <th className="py-3 px-4 text-right w-[120px]">{tProc.colSubtotal}</th>
+                        <th className="py-3 px-3 text-center w-[50px]"></th>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {formItems.map((item, idx) => {
+                        const totalQtyCalculated = Number(item.qty || 0) + Number(item.bonusQty || 0);
+                        
+                        // Live Margin Math
+                        const pp = Number(item.purchasePrice || 0);
+                        const mrp = Number(item.mrp || 0);
+                        const marginVal = mrp - pp;
+                        const marginPercent = mrp > 0 ? Math.round((marginVal / mrp) * 100) : 0;
 
-          {/* Additional Cost, Items Sum, Global Grand Total */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-6 rounded-xl border border-slate-200">
-            <div className="space-y-3">
-              <h4 className="text-xs font-semibold text-slate-505 uppercase tracking-wider">{tProc.localCarrying}</h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div>
-                  <input
-                    id="proc-additional-cost"
-                    type="number"
-                    min="0"
-                    placeholder="e.g., 3500"
-                    value={additionalCost || ''}
-                    onChange={(e) => setAdditionalCost(Number(e.target.value))}
-                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-blue-500 font-mono"
-                  />
+                        return (
+                          <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                            {/* Product Selection */}
+                            <td className="py-3 px-4 space-y-1.5">
+                              <select
+                                id={`proc-row-${idx}-product`}
+                                value={item.productId}
+                                onChange={(e) => handleRowChange(idx, 'productId', e.target.value)}
+                                className="h-10 w-full rounded-xl border border-slate-200 bg-white px-2.5 text-xs font-semibold outline-none focus:border-slate-800 transition-all"
+                              >
+                                {products.filter(p => p.company === supplierName).map(p => (
+                                  <option key={p.id} value={p.id}>{p.name}</option>
+                                ))}
+                              </select>
+
+                              {/* Dynamic Profit Margin / Loss Warning Badge */}
+                              <div className="flex items-center gap-1.5 px-0.5">
+                                {marginVal < 0 ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-rose-50 text-rose-700 border border-rose-100">
+                                    ⚠️ {language === 'bn' ? 'লোকসান' : 'Loss'}: {formatBDT(Math.abs(marginVal))}
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-teal-50 text-teal-700 border border-teal-100">
+                                    📈 {language === 'bn' ? 'মুনাফা' : 'Margin'}: {formatBDT(marginVal)} ({marginPercent}%)
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+
+                            {/* Purchase Price PP */}
+                            <td className="py-3 px-3">
+                              <div className="relative">
+                                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-[10px]">৳</span>
+                                <input
+                                  id={`proc-row-${idx}-pp`}
+                                  type="number"
+                                  min="0"
+                                  value={item.purchasePrice || ''}
+                                  onChange={(e) => handleRowChange(idx, 'purchasePrice', Number(e.target.value))}
+                                  className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-6 pr-2 text-center text-xs font-bold text-slate-800 font-mono outline-none focus:border-slate-800 transition-all"
+                                />
+                              </div>
+                            </td>
+
+                            {/* WSP */}
+                            <td className="py-3 px-3">
+                              <div className="relative">
+                                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-[10px]">৳</span>
+                                <input
+                                  id={`proc-row-${idx}-wsp`}
+                                  type="number"
+                                  min="0"
+                                  value={item.wsp || ''}
+                                  onChange={(e) => handleRowChange(idx, 'wsp', Number(e.target.value))}
+                                  className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-6 pr-2 text-center text-xs font-semibold text-slate-700 font-mono outline-none focus:border-slate-800 transition-all"
+                                />
+                              </div>
+                            </td>
+
+                            {/* MRP */}
+                            <td className="py-3 px-3">
+                              <div className="relative">
+                                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-[10px]">৳</span>
+                                <input
+                                  id={`proc-row-${idx}-mrp`}
+                                  type="number"
+                                  min="0"
+                                  value={item.mrp || ''}
+                                  onChange={(e) => handleRowChange(idx, 'mrp', Number(e.target.value))}
+                                  className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-6 pr-2 text-center text-xs font-semibold text-slate-700 font-mono outline-none focus:border-slate-800 transition-all"
+                                />
+                              </div>
+                            </td>
+
+                            {/* Regular Qty */}
+                            <td className="py-3 px-3">
+                              <input
+                                id={`proc-row-${idx}-qty`}
+                                type="number"
+                                min="1"
+                                value={item.qty || ''}
+                                onChange={(e) => handleRowChange(idx, 'qty', Number(e.target.value))}
+                                className="h-10 w-full rounded-xl border border-slate-200 bg-white px-2 text-center text-xs font-bold text-slate-900 font-mono outline-none focus:border-slate-800 transition-all"
+                              />
+                            </td>
+
+                            {/* Bonus Qty */}
+                            <td className="py-3 px-3 space-y-1 text-center">
+                              <input
+                                id={`proc-row-${idx}-bonus`}
+                                type="number"
+                                min="0"
+                                value={item.bonusQty || ''}
+                                onChange={(e) => handleRowChange(idx, 'bonusQty', Number(e.target.value))}
+                                className="h-10 w-full rounded-xl border border-slate-200 bg-white px-1.5 text-center text-xs font-semibold text-slate-400 font-mono outline-none focus:border-slate-800 transition-all"
+                              />
+                              <span className="inline-block px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-slate-100 text-slate-500 font-mono">
+                                Lot: {totalQtyCalculated}
+                              </span>
+                            </td>
+
+                            {/* Discount Type */}
+                            <td className="py-3 px-3">
+                              <select
+                                id={`proc-row-${idx}-disctype`}
+                                value={item.discountType}
+                                onChange={(e) => handleRowChange(idx, 'discountType', e.target.value)}
+                                className="h-10 w-full rounded-xl border border-slate-200 bg-white px-1 py-1 text-xs font-semibold text-slate-600 outline-none focus:border-slate-800 transition-all"
+                              >
+                                <option value="Percentage">{tProc.percentage}</option>
+                                <option value="Flat">{tProc.flat}</option>
+                              </select>
+                            </td>
+
+                            {/* Discount value */}
+                            <td className="py-3 px-3">
+                              <input
+                                id={`proc-row-${idx}-discval`}
+                                type="number"
+                                min="0"
+                                value={item.discountValue || ''}
+                                onChange={(e) => handleRowChange(idx, 'discountValue', Number(e.target.value))}
+                                className="h-10 w-full rounded-xl border border-slate-200 bg-white px-1.5 text-center text-xs font-semibold text-slate-700 font-mono outline-none focus:border-slate-800 transition-all"
+                              />
+                            </td>
+
+                            {/* Total price subtotal */}
+                            <td className="py-3 px-4 text-right font-extrabold font-mono text-slate-900 text-xs">
+                              {formatBDT(item.totalPrice)}
+                            </td>
+
+                            {/* Delete Action */}
+                            <td className="py-3 px-3 text-center">
+                              <button
+                                id={`proc-row-delete-btn-${idx}`}
+                                type="button"
+                                onClick={() => handleDeleteRow(idx)}
+                                className="grid h-8 w-8 place-items-center rounded-xl border border-rose-100 text-rose-500 hover:bg-rose-50 hover:text-rose-700 transition-all cursor-pointer mx-auto active:scale-95"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
-                <div className="flex items-center text-[11px] text-slate-400 leading-normal font-semibold">
-                  <span>{tProc.localCarryingDesc}</span>
+              </div>
+            </div>
+
+            {/* Invoice Totals Summary card */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-6 rounded-2xl border border-slate-200 shadow-inner">
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">{tProc.localCarrying}</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-xs">৳</span>
+                    <input
+                      id="proc-additional-cost"
+                      type="number"
+                      min="0"
+                      placeholder="e.g., 3500"
+                      value={additionalCost || ''}
+                      onChange={(e) => setAdditionalCost(Number(e.target.value))}
+                      className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-7 pr-3 text-sm font-bold outline-none focus:border-slate-800 transition-all font-mono"
+                    />
+                  </div>
+                  <div className="flex items-center text-[10px] text-slate-400 leading-normal font-semibold">
+                    <span>{tProc.localCarryingDesc}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col justify-center items-end space-y-2 text-right">
+                <div className="text-xs">
+                  <span className="text-slate-400 font-semibold uppercase tracking-wider">{tProc.subtotalItems}</span>
+                  <span className="font-mono font-extrabold text-slate-700 ml-2">{formatBDT(itemsSum)}</span>
+                </div>
+                <div className="text-xs">
+                  <span className="text-slate-400 font-semibold uppercase tracking-wider">{tProc.carriageCost}</span>
+                  <span className="font-mono text-slate-600 ml-2 font-bold">+{formatBDT(additionalCost)}</span>
+                </div>
+                <div className="border-t border-slate-200 pt-3 mt-1.5 w-full max-w-[280px]">
+                  <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block">{tProc.grandTotalLedger}</span>
+                  <span className={`font-mono text-2xl font-black ${theme.text} block mt-1`}>{formatBDT(globalTotalSum)}</span>
                 </div>
               </div>
             </div>
 
-            <div className="flex flex-col justify-center items-end space-y-2 text-right">
-              <div>
-                <span className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider">{tProc.subtotalItems}</span>
-                <span className="font-mono font-semibold text-slate-700 ml-2">{formatBDT(itemsSum)}</span>
-              </div>
-              <div>
-                <span className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider">{tProc.carriageCost}</span>
-                <span className="font-mono text-slate-550 ml-2">+{formatBDT(additionalCost)}</span>
-              </div>
-              <div className="border-t border-slate-200 pt-3 mt-1.5 w-full max-w-[280px]">
-                <span className="text-xs font-semibold text-slate-450 uppercase tracking-wider block">{tProc.grandTotalLedger}</span>
-                <span className="font-mono text-xl font-semibold text-blue-600 block mt-1">{formatBDT(globalTotalSum)}</span>
-              </div>
+            {/* Action buttons */}
+            <div className="flex items-center justify-end gap-3 border-t border-slate-100 pt-4">
+              <button
+                id="proc-create-cancel"
+                type="button"
+                onClick={() => setActiveSubTab('list')}
+                className="h-11 rounded-xl border border-slate-200 bg-white px-5 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all cursor-pointer active:scale-95"
+              >
+                {tCommon.cancel}
+              </button>
+              <button
+                id="proc-create-submit"
+                type="submit"
+                className={`inline-flex h-11 items-center gap-2 rounded-xl px-5 text-xs font-bold text-white transition-all shrink-0 cursor-pointer active:scale-95 shadow-md ${theme.btn}`}
+              >
+                {tProc.commitStoreBtn}
+              </button>
             </div>
-          </div>
-
-          {/* Action buttons */}
-          <div className="flex items-center justify-end gap-3 border-t border-slate-100 pt-4">
-            <button
-              id="proc-create-cancel"
-              type="button"
-              onClick={() => setActiveSubTab('list')}
-              className="h-11 rounded-lg border-2 border-slate-200 bg-white px-5 text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all cursor-pointer"
-            >
-              {tCommon.cancel}
-            </button>
-            <button
-              id="proc-create-submit"
-              type="submit"
-              className="inline-flex h-11 items-center gap-2 rounded-lg bg-slate-900 px-5 text-sm font-semibold text-white hover:bg-slate-800 transition-all border border-slate-950 shrink-0 cursor-pointer"
-            >
-              {tProc.commitStoreBtn}
-            </button>
-          </div>
-
-        </form>
-      )}
+          </form>
+        );
+      })()}
 
       {/* Modal: View Procurement details */}
       {selectedProcurement && (

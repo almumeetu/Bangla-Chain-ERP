@@ -51,45 +51,78 @@ function ProductCard({ product, onAddToCart, formatBDT }: ProductCardProps) {
     onAddToCart(product);
   }, [product, onAddToCart]);
 
+  let brandStyle = "bg-purple-50 text-purple-700 border-purple-150";
+  if (product.company.toLowerCase() === 'pran') {
+    brandStyle = "bg-orange-50 text-orange-700 border-orange-150";
+  } else if (product.company.toLowerCase() === 'olympic') {
+    brandStyle = "bg-blue-50 text-blue-700 border-blue-150";
+  } else if (product.company.toLowerCase() === 'haque') {
+    brandStyle = "bg-emerald-50 text-emerald-700 border-emerald-150";
+  }
+
   return (
     <div 
-      className={`bg-white rounded-xl p-4.5 border transition-all duration-300 flex flex-col justify-between space-y-4 relative overflow-hidden group ${
-        isLowStock 
-          ? 'border-slate-200 bg-slate-50 hover:border-slate-300 hover:shadow-sm' 
-          : 'border-slate-200 hover:border-slate-800 hover:shadow-sm'
-      }`}
+      className={`bg-white rounded-3xl p-5 border transition-all duration-300 flex flex-col justify-between space-y-4 relative overflow-hidden group border-slate-200 hover:border-slate-800 shadow-sm hover:shadow-md`}
     >
-      <div className="space-y-1">
-        <div className="flex items-start justify-between gap-2">
-          <span className="font-semibold text-slate-805 text-xs sm:text-sm group-hover:text-slate-900 transition-colors">
-            {product.name}
+      <div className="absolute -right-20 -top-20 w-36 h-36 rounded-full bg-slate-50 group-hover:bg-slate-100/50 transition-all duration-500 pointer-events-none" />
+      
+      <div className="space-y-2.5 relative z-10">
+        <div className="flex items-center justify-between">
+          <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold border uppercase tracking-wider ${brandStyle}`}>
+            {product.company}
           </span>
-          <span className="font-mono text-[10px] font-semibold uppercase text-slate-400">
+          <span className="font-mono text-[9px] font-bold text-slate-400 uppercase tracking-wide">
             {product.sku}
           </span>
         </div>
-        <p className="text-xs text-slate-500 font-semibold">
-          Wholesale: <b className="text-slate-700 font-mono font-semibold">{formatBDT(product.defaultWSP)}</b> &bull; Retail: <span className="font-mono">{formatBDT(product.defaultMRP)}</span>
-        </p>
+
+        <h4 className="font-bold text-slate-800 text-sm group-hover:text-slate-900 transition-colors line-clamp-1 leading-snug">
+          {product.name}
+        </h4>
+
+        {/* Pricing tag list */}
+        <div className="flex items-center gap-3 text-xs text-slate-500 font-semibold pt-0.5">
+          <div>
+            <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider block">Wholesale WSP</span>
+            <span className="font-mono text-xs font-bold text-slate-800">{formatBDT(product.defaultWSP)}</span>
+          </div>
+          <div className="h-6 w-px bg-slate-200" />
+          <div>
+            <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider block">Retail MRP</span>
+            <span className="font-mono text-xs font-bold text-slate-600">{formatBDT(product.defaultMRP)}</span>
+          </div>
+        </div>
       </div>
 
-      <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-        <div>
-          <span className="text-[9px] text-slate-400 uppercase font-semibold tracking-wider block">Available Stock</span>
-          <span className={`font-mono text-xs font-semibold ${isLowStock ? 'text-slate-500' : 'text-slate-850'}`}>
+      {/* Stock status indicator */}
+      <div className="space-y-1.5 pt-1 relative z-10">
+        <div className="flex items-center justify-between text-[10px] font-bold text-slate-500">
+          <span>Available Stock</span>
+          <span className={isLowStock ? "text-amber-600 animate-pulse font-extrabold" : "text-slate-700"}>
             {product.currentStock} Units
           </span>
         </div>
-        
+        <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+          <div 
+            style={{ width: `${Math.min(100, (product.currentStock / 5000) * 100)}%` }} 
+            className={`h-full rounded-full transition-all duration-500 ${
+              isLowStock ? 'bg-amber-500' : 'bg-emerald-500'
+            }`}
+          />
+        </div>
+      </div>
+
+      {/* Action button */}
+      <div className="pt-3 border-t border-slate-100 flex items-center justify-end relative z-10">
         <button
           id={`pos-add-to-cart-${product.id}`}
           type="button"
           onClick={handleAddClick}
           disabled={product.currentStock <= 0}
-          className={`inline-flex h-9 items-center gap-1.5 rounded-lg px-3.5 text-xs font-semibold transition-all active:scale-95 cursor-pointer ${
+          className={`inline-flex h-9 items-center gap-1.5 rounded-xl px-4 text-xs font-bold transition-all active:scale-95 cursor-pointer w-full justify-center ${
             product.currentStock <= 0 
-              ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200' 
-              : 'bg-slate-900 hover:bg-slate-800 text-white border border-slate-950 shadow-sm'
+              ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200 font-bold' 
+              : 'bg-slate-900 hover:bg-slate-800 text-white border border-slate-950 shadow-sm font-bold'
           }`}
         >
           <Plus className="w-3.5 h-3.5" />
@@ -297,12 +330,18 @@ export default function SellModule({
   const [selectedDeliveryMan, setSelectedDeliveryMan] = useState(deliveryMen[0]?.name || '');
   const [discountPercent, setDiscountPercent] = useState<number>(0);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCompany, setSelectedCompany] = useState('All');
 
-  // Search filtered products
-  const filteredProducts = products.filter(p => 
-    p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    p.sku.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Extract unique companies dynamically from current products
+  const uniqueCompanies = Array.from(new Set(products.map(p => p.company).filter(Boolean)));
+
+  // Search & company filtered products
+  const filteredProducts = products.filter(p => {
+    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          p.sku.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCompany = selectedCompany === 'All' || p.company === selectedCompany;
+    return matchesSearch && matchesCompany;
+  });
 
   // Core functions
   const handleAddToCart = useCallback((product: Product) => {
@@ -454,7 +493,7 @@ export default function SellModule({
             <ShoppingBag className="w-5.5 h-5.5 text-indigo-300" />
             {translations[language].sell.title}
           </h2>
-          <p className="text-slate-350 text-xs">{translations[language].sell.subtitle}</p>
+          <p className="text-slate-300 text-xs">{translations[language].sell.subtitle}</p>
         </div>
       </div>
 
@@ -464,18 +503,64 @@ export default function SellModule({
         <div className="lg:col-span-7 space-y-4">
           <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
             
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{translations[language].sidebar.productList}</span>
-              <div className="relative w-full sm:w-64 shrink-0">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  id="pos-search-input"
-                  type="text"
-                  placeholder={translations[language].common.search}
-                  value={searchQuery}
-                  onChange={handleSearchQueryChange}
-                  className="h-10 w-full rounded-lg border border-slate-200 bg-slate-55 pl-9 pr-4 text-xs font-semibold outline-none focus:border-slate-800 focus:bg-white transition-colors"
-                />
+            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider shrink-0">
+                {translations[language].sidebar.productList}
+              </span>
+              
+              <div className="flex flex-wrap items-center gap-2.5 w-full xl:w-auto xl:justify-end">
+                {/* Company Filter Dropdown */}
+                <div className="relative w-full sm:w-auto min-w-[130px] shrink-0">
+                  <select
+                    value={selectedCompany}
+                    onChange={(e) => setSelectedCompany(e.target.value)}
+                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold outline-none focus:border-slate-800 transition-colors cursor-pointer"
+                  >
+                    <option value="All">{language === 'bn' ? 'সব কোম্পানি' : 'All Companies'}</option>
+                    {uniqueCompanies.map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Search Input */}
+                <div className="relative w-full sm:w-44 shrink-0">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    id="pos-search-input"
+                    type="text"
+                    placeholder={translations[language].common.search}
+                    value={searchQuery}
+                    onChange={handleSearchQueryChange}
+                    className="h-10 w-full rounded-lg border border-slate-200 bg-slate-55 pl-9 pr-4 text-xs font-semibold outline-none focus:border-slate-800 focus:bg-white transition-colors"
+                  />
+                </div>
+
+                {/* Direct Add Select */}
+                <div className="relative w-full sm:w-56 shrink-0">
+                  <select
+                    value=""
+                    onChange={(e) => {
+                      const prodId = e.target.value;
+                      if (prodId) {
+                        const prod = products.find(p => p.id === prodId);
+                        if (prod) {
+                          handleAddToCart(prod);
+                        }
+                      }
+                    }}
+                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold outline-none focus:border-slate-800 transition-colors cursor-pointer"
+                  >
+                    <option value="" disabled>
+                      {language === 'bn' ? 'পণ্য সরাসরি যোগ' : 'Direct add product...'}
+                    </option>
+                    {filteredProducts.map(p => (
+                      <option key={p.id} value={p.id} disabled={p.currentStock <= 0}>
+                        {p.name} ({p.sku})
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
 

@@ -55,8 +55,8 @@ export const translations = {
       userSessionConfirm: 'Are you sure you want to log out?',
       directory: 'Business Setup',
       companies: 'Companies & Brands',
-      products: 'Product List',
-      shopsRoutes: 'Shops & Routes',
+      products: 'Products',
+      shopsRoutes: 'Retail Outlets & Beat',
       settings: 'Settings',
       // Section headers
       sectionOverview: 'OVERVIEW',
@@ -305,6 +305,7 @@ export const translations = {
       tabProducts: 'Products',
       tabSrs: 'Sales Team',
       tabShops: 'Shops',
+      tabDamage: 'Damage List',
       tabCompanies: 'Companies',
       tabCategories: 'Categories',
       tabUnits: 'Units',
@@ -313,6 +314,7 @@ export const translations = {
       registerProduct: '+ Add Product',
       registerSr: '+ Add Salesman',
       registerShop: '+ Add Shop',
+      registerDamage: '+ Log Damage',
       registerCompany: '+ Add Company',
       registerCategory: '+ Add Category',
       registerUnit: '+ Add Unit',
@@ -370,8 +372,8 @@ export const translations = {
       subtitle: 'Manage products, categories, and units'
     },
     shopsRoutesPage: {
-      title: 'Shops & Routes',
-      subtitle: 'Manage retail shops, delivery routes, and sales team'
+      title: 'Damage & Routes',
+      subtitle: 'Manage product damage list, delivery routes, and sales team'
     },
     stockAdjustment: {
       title: 'Stock',
@@ -434,7 +436,7 @@ export const translations = {
       directory: 'ব্যবসা সেটআপ',
       companies: 'কোম্পানি ও ব্র্যান্ড',
       products: 'পণ্য তালিকা',
-      shopsRoutes: 'দোকান ও রুট',
+      shopsRoutes: 'খুচরা দোকান ও রুট',
       settings: 'সেটিংস',
       sectionOverview: 'পর্যবেক্ষণ',
       sectionSetup: 'ব্যবসা সেটআপ',
@@ -681,6 +683,7 @@ export const translations = {
       tabProducts: 'পণ্য',
       tabSrs: 'সেলস টিম',
       tabShops: 'দোকান',
+      tabDamage: 'ড্যামেজ লিস্ট',
       tabCompanies: 'কোম্পানি',
       tabCategories: 'ক্যাটাগরি',
       tabUnits: 'ইউনিট',
@@ -689,6 +692,7 @@ export const translations = {
       registerProduct: '+ পণ্য যোগ',
       registerSr: '+ সেলসম্যান যোগ',
       registerShop: '+ দোকান যোগ',
+      registerDamage: '+ ড্যামেজ সমন্বয়',
       registerCompany: '+ কোম্পানি যোগ',
       registerCategory: '+ ক্যাটাগরি যোগ',
       registerUnit: '+ ইউনিট যোগ',
@@ -745,8 +749,8 @@ export const translations = {
       subtitle: 'পণ্য, ক্যাটাগরি ও ইউনিট ম্যানেজ করুন'
     },
     shopsRoutesPage: {
-      title: 'দোকান ও রুট',
-      subtitle: 'খুচরা দোকান, ডেলিভারি রুট ও সেলস টিম ম্যানেজ করুন'
+      title: 'ড্যামেজ ও রুট',
+      subtitle: 'পণ্যের ড্যামেজ তালিকা, ডেলিভারি রুট ও সেলস টিম ম্যানেজ করুন'
     },
     stockAdjustment: {
       title: 'স্টক',

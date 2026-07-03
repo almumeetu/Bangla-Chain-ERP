@@ -456,7 +456,7 @@ export default function ChallanModule({
             <FileText className="w-5 h-5 text-indigo-300" />
             {tChallan.title}
           </h2>
-          <p className="text-slate-350 text-xs">{tChallan.subtitle}</p>
+          <p className="text-slate-300 text-xs">{tChallan.subtitle}</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 shrink-0 z-10 relative">
@@ -610,10 +610,10 @@ export default function ChallanModule({
       </form>
 
       {/* Table Section */}
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="px-5 py-4.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-          <h4 className="font-semibold text-slate-800 text-sm">{tChallan.tableTitle}</h4>
-          <span className="bg-slate-100 text-slate-800 text-xs font-semibold px-3 py-0.5 rounded-full border border-slate-200 shadow-sm">
+      <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm hover:shadow-md hover:border-slate-850 transition-all duration-300">
+        <div className="px-6 py-5 border-b border-slate-150 flex items-center justify-between bg-slate-50/50">
+          <h4 className="font-extrabold text-slate-800 text-sm tracking-tight">{tChallan.tableTitle}</h4>
+          <span className="bg-slate-900 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm">
             {tChallan.recordsFound.replace('{count}', String(filteredChallans.length))}
           </span>
         </div>
@@ -621,45 +621,59 @@ export default function ChallanModule({
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm border-collapse min-w-[1300px]">
             <thead>
-              <tr className="bg-slate-50 text-slate-700 border-b border-slate-200">
-                <th className="px-4 py-4 text-sm font-semibold text-slate-700 w-12 text-center">#</th>
-                <th className="px-4 py-4 text-sm font-semibold text-slate-700">{tDash.tableName}</th>
-                <th className="px-4 py-4 text-sm font-semibold text-slate-700">{tChallan.specHeader}</th>
-                <th className="px-4 py-4 text-sm font-semibold text-slate-700 text-center">{tChallan.primaryQty.replace('*', '')}</th>
-                <th className="px-4 py-4 text-sm font-semibold text-slate-700 text-center">{tChallan.bonusQty}</th>
-                <th className="px-4 py-4 text-sm font-semibold text-slate-700 text-center">{tChallan.totalCalculatedQty}</th>
-                <th className="px-4 py-4 text-sm font-semibold text-slate-700 text-right">{tDash.tableValue}</th>
-                <th className="px-4 py-4 text-sm font-semibold text-slate-700">{tChallan.srLabel}</th>
-                <th className="px-4 py-4 text-sm font-semibold text-slate-700">{tChallan.custHeader}</th>
-                <th className="px-4 py-4 text-sm font-semibold text-slate-700">{tChallan.deliveryLabel}</th>
-                <th className="px-4 py-4 text-sm font-semibold text-slate-700 text-center">{tDash.tableStatus}</th>
-                <th className="px-4 py-4 text-sm font-semibold text-slate-700 text-center w-24">{tCommon.actions}</th>
+              <tr className="bg-slate-900 text-white border-b border-slate-955">
+                <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-wider w-14 text-center">#</th>
+                <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-wider">{tDash.tableName}</th>
+                <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-wider">{tChallan.specHeader}</th>
+                <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-wider text-center">{tChallan.primaryQty.replace('*', '')}</th>
+                <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-wider text-center">{tChallan.bonusQty}</th>
+                <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-wider text-center">{tChallan.totalCalculatedQty}</th>
+                <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-wider text-right">{tDash.tableValue}</th>
+                <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-wider">{tChallan.srLabel}</th>
+                <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-wider">{tChallan.custHeader}</th>
+                <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-wider">{tChallan.deliveryLabel}</th>
+                <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-wider text-center">{tDash.tableStatus}</th>
+                <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-wider text-center w-28">{tCommon.actions}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {paginatedChallans.map((c, index) => {
                 const globalIndex = startIndex + index + 1;
+                
+                let statusStyle = "bg-amber-50 text-amber-750 border-amber-250";
+                if (c.status === 'Delivered') {
+                  statusStyle = "bg-emerald-50 text-emerald-705 border-emerald-250";
+                } else if (c.status === 'Shipped') {
+                  statusStyle = "bg-blue-50 text-blue-700 border-blue-200";
+                } else if (c.status === 'Returned') {
+                  statusStyle = "bg-rose-50 text-rose-700 border-rose-250";
+                }
+
                 return (
-                  <tr key={c.id} className="hover:bg-blue-50/30 transition-all duration-200">
-                    <td className="px-4 py-4 text-center text-slate-400 font-mono font-medium whitespace-nowrap">{globalIndex}</td>
-                    <td className="px-4 py-4 font-semibold text-slate-800 max-w-[200px] truncate whitespace-nowrap" title={c.productName}>{c.productName}</td>
-                    <td className="px-4 py-4 max-w-[220px] truncate">
-                      <span className="px-2.5 py-1 bg-slate-50 text-slate-600 rounded-lg text-xs font-mono border border-slate-200 whitespace-nowrap truncate max-w-[200px] inline-block" title={c.attribute}>
+                  <tr key={c.id} className="hover:bg-slate-50/50 transition-colors duration-250 group">
+                    <td className="px-5 py-4 text-center text-slate-400 font-mono font-bold whitespace-nowrap">{globalIndex}</td>
+                    <td className="px-5 py-4 font-bold text-slate-800 max-w-[200px] truncate whitespace-nowrap group-hover:text-slate-955 transition-colors" title={c.productName}>
+                      {c.productName}
+                    </td>
+                    <td className="px-5 py-4 max-w-[220px] truncate">
+                      <span className="px-2.5 py-1 bg-slate-50 text-slate-600 rounded-xl text-[11px] font-bold border border-slate-200 whitespace-nowrap truncate max-w-[200px] inline-block" title={c.attribute}>
                         {c.attribute}
                       </span>
                     </td>
-                    <td className="px-4 py-4 text-center text-slate-600 font-mono font-medium whitespace-nowrap">{c.qty}</td>
-                    <td className="px-4 py-4 text-center text-slate-400 font-mono whitespace-nowrap">{c.bonusQty || 0}</td>
-                    <td className="px-4 py-4 text-center font-semibold text-slate-700 font-mono bg-slate-50/30 whitespace-nowrap">{c.totalQty}</td>
-                    <td className="px-4 py-4 text-right font-semibold text-slate-900 font-mono whitespace-nowrap">
+                    <td className="px-5 py-4 text-center text-slate-700 font-mono font-semibold whitespace-nowrap">{c.qty}</td>
+                    <td className="px-5 py-4 text-center text-slate-450 font-mono whitespace-nowrap">+{c.bonusQty || 0}</td>
+                    <td className="px-5 py-4 text-center font-bold text-slate-800 font-mono bg-slate-50/30 whitespace-nowrap">{c.totalQty}</td>
+                    <td className="px-5 py-4 text-right font-mono font-extrabold text-slate-900 whitespace-nowrap">
                       ৳{c.totalAmount.toLocaleString('en-BD')}
                     </td>
-                    <td className="px-4 py-4 font-medium text-slate-600 max-w-[120px] truncate whitespace-nowrap" title={c.srName}>{c.srName}</td>
+                    <td className="px-5 py-4 font-bold text-slate-605 max-w-[120px] truncate whitespace-nowrap" title={c.srName}>
+                      {c.srName}
+                    </td>
                     
                     {/* Consolidated Customer BADGE */}
-                    <td className="px-4 py-4">
+                    <td className="px-5 py-4">
                       <div className="flex items-center gap-1.5">
-                        <span className="px-2 py-0.5 bg-slate-100 text-slate-800 rounded-md text-[11px] font-semibold border border-slate-200 truncate block max-w-[180px] whitespace-nowrap" title={c.customerNames[0]}>
+                        <span className="px-2.5 py-0.5 bg-slate-100 text-slate-850 rounded-lg text-xs font-bold border border-slate-200 truncate block max-w-[180px] whitespace-nowrap" title={c.customerNames[0]}>
                           {c.customerNames[0]}
                         </span>
                         {c.customerNames.length > 1 && (
@@ -667,7 +681,7 @@ export default function ChallanModule({
                             id={`challan-badge-cust-more-${c.id}`}
                             type="button"
                             onClick={() => setCustomerModalList({ title: tChallan.consolidatedClientList || 'Consolidated Client List', list: c.customerNames })}
-                            className="px-2 py-0.5 bg-slate-900 text-white rounded-md text-[11px] font-semibold hover:bg-slate-800 cursor-pointer active:scale-95 transition-all shadow-sm whitespace-nowrap"
+                            className="px-2 py-0.5 bg-slate-950 hover:bg-slate-850 text-white rounded-md text-[10px] font-bold cursor-pointer active:scale-95 transition-all shadow-sm whitespace-nowrap"
                             title="Show Clients Details"
                           >
                             +{c.customerNames.length - 1} {tCommon.details}
@@ -676,21 +690,16 @@ export default function ChallanModule({
                       </div>
                     </td>
                     
-                    <td className="px-4 py-4 font-semibold text-slate-700 text-sm max-w-[155px] truncate whitespace-nowrap" title={c.deliveryManName}>
+                    <td className="px-5 py-4 font-bold text-slate-700 text-sm max-w-[155px] truncate whitespace-nowrap" title={c.deliveryManName}>
                       {c.deliveryManName}
                     </td>
 
-                    <td className="px-4 py-4 text-center">
+                    <td className="px-5 py-4 text-center">
                       <select
                         id={`challan-status-select-${c.id}`}
                         value={c.status}
                         onChange={(e) => handleStatusChange(c.id, e.target.value as any)}
-                        className={`px-2 py-0.5 rounded-lg text-[10.5px] font-semibold border outline-none cursor-pointer bg-white transition-all ${
-                          c.status === 'Delivered' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                          c.status === 'Shipped' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                          c.status === 'Returned' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                          'bg-amber-50 text-amber-750 border-amber-200'
-                        }`}
+                        className={`px-3 py-1 rounded-full text-[10px] font-bold border outline-none cursor-pointer bg-white transition-all uppercase tracking-wider ${statusStyle}`}
                       >
                         <option value="Pending">{tCommon.pending}</option>
                         <option value="Shipped">{tCommon.shipped}</option>
@@ -699,20 +708,20 @@ export default function ChallanModule({
                       </select>
                     </td>
 
-                    <td className="px-4 py-4 text-center">
+                    <td className="px-5 py-4 text-center">
                       <div className="flex items-center justify-center gap-1.5">
                         <button
                           id={`challan-action-view-${c.id}`}
                           onClick={() => setViewingChallan(c)}
-                          className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-300 bg-white px-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-350 bg-white text-slate-650 hover:bg-slate-100 cursor-pointer hover:border-slate-800 shadow-sm active:scale-95 transition-all"
                           title={tChallan.viewVoucher}
                         >
-                          <Eye className="w-4 h-4 text-slate-500" />
+                          <Eye className="w-4 h-4" />
                         </button>
                         <button
                           id={`challan-action-delete-${c.id}`}
                           onClick={() => handleDeleteChallan(c.id)}
-                          className="grid h-8 w-8 place-items-center rounded-lg border border-red-100 text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-rose-100 bg-rose-50 text-rose-600 hover:bg-rose-100 cursor-pointer shadow-sm active:scale-95 transition-all"
                           title={tChallan.deleteRecord}
                         >
                           <Trash2 className="w-4 h-4" />
@@ -724,13 +733,13 @@ export default function ChallanModule({
               })}
               {filteredChallans.length === 0 && (
                 <tr>
-                  <td colSpan={12} className="py-12 text-center text-slate-400 font-medium">
+                  <td colSpan={12} className="py-16 text-center text-slate-400 font-semibold bg-white">
                     <p className="text-sm">{tChallan.noChallans}</p>
                     <button
                       id="challan-btn-reset-table"
                       type="button"
                       onClick={handleReset}
-                      className="mt-3 inline-flex items-center gap-1 text-blue-600 hover:underline font-semibold text-sm cursor-pointer"
+                      className="mt-3 inline-flex h-9 items-center gap-1 bg-slate-900 px-4 rounded-xl text-white text-xs font-bold hover:bg-slate-800 border border-slate-955 cursor-pointer transition-all active:scale-95"
                     >
                       {tChallan.resetShowAll}
                     </button>

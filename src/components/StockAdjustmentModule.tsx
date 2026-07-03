@@ -200,7 +200,7 @@ export default function StockAdjustmentModule({
             <Sliders className="w-5 h-5 text-indigo-300" />
             {translations[language].stockAdjustment.title}
           </h2>
-          <p className="text-slate-350 text-xs">{translations[language].stockAdjustment.subtitle}</p>
+          <p className="text-slate-300 text-xs">{translations[language].stockAdjustment.subtitle}</p>
         </div>
 
         <div className="flex bg-white/5 p-1 rounded-xl border border-white/10 shadow-sm shrink-0 z-10 relative">
@@ -227,6 +227,7 @@ export default function StockAdjustmentModule({
             }`}
           >
             <ArrowRightLeft className={`w-4 h-4 ${subTab === 'adjustments' ? 'text-slate-900' : 'text-slate-400'}`} />
+            {language === 'bn' ? 'স্টক অ্যাডজাস্টমেন্ট' : 'Stock Adjustment'}
           </button>
         </div>
       </div>
@@ -249,59 +250,92 @@ export default function StockAdjustmentModule({
               </button>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm border-collapse min-w-[800px]">
-                <thead>
-                  <tr className="bg-slate-50 text-slate-700 border-b border-slate-200">
-                    <th className="px-4 py-4 text-sm font-semibold text-slate-700 w-12 text-center">#</th>
-                    <th className="px-4 py-4 text-sm font-semibold text-slate-700">Full Identifier Tag</th>
-                    <th className="px-4 py-4 text-sm font-semibold text-slate-700">Type</th>
-                    <th className="px-4 py-4 text-sm font-semibold text-slate-700">Stored Value</th>
-                    <th className="px-4 py-4 text-sm font-semibold text-slate-700 text-center">Active Status</th>
-                    <th className="px-4 py-4 text-sm font-semibold text-slate-700 text-center w-24">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {attributes.map((attr, idx) => (
-                    <tr key={attr.id} className="hover:bg-slate-100/40 transition-all duration-200">
-                      <td className="px-4 py-4 text-center text-slate-400 font-mono font-medium">{idx + 1}</td>
-                      <td className="px-4 py-4">
-                        <span className="px-2.5 py-1 bg-slate-100 text-slate-800 rounded-lg text-xs font-mono border border-slate-200 font-semibold shadow-sm animate-fade-in">
-                          {attr.name}
+            {/* Cards Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-5">
+              {attributes.map((attr, idx) => {
+                const colorGradients = [
+                  'from-violet-500 to-indigo-600',
+                  'from-emerald-500 to-teal-600',
+                  'from-amber-500 to-orange-600',
+                  'from-sky-500 to-blue-600'
+                ];
+                const gradient = colorGradients[idx % colorGradients.length];
+
+                let typeBadgeStyle = "bg-purple-50 text-purple-700 border-purple-200";
+                if (attr.type.toLowerCase() === 'size') {
+                  typeBadgeStyle = "bg-indigo-50 text-indigo-700 border-indigo-200";
+                } else if (attr.type.toLowerCase() === 'color') {
+                  typeBadgeStyle = "bg-purple-50 text-purple-700 border-purple-250";
+                } else if (attr.type.toLowerCase() === 'flavor') {
+                  typeBadgeStyle = "bg-amber-50 text-amber-705 border-amber-200";
+                } else if (attr.type.toLowerCase() === 'packaging') {
+                  typeBadgeStyle = "bg-orange-50 text-orange-700 border-orange-200";
+                } else if (attr.type.toLowerCase() === 'weight') {
+                  typeBadgeStyle = "bg-blue-50 text-blue-700 border-blue-200";
+                }
+
+                return (
+                  <div 
+                    key={attr.id}
+                    className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm hover:shadow-md hover:border-slate-800 transition-all duration-300 flex flex-col justify-between space-y-4 group relative overflow-hidden"
+                  >
+                    <div className="absolute -right-20 -top-20 w-36 h-36 rounded-full bg-slate-50 group-hover:bg-slate-100/50 transition-all duration-500 pointer-events-none" />
+                    
+                    <div className="space-y-3 relative z-10">
+                      <div className="flex items-center justify-between">
+                        <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold border uppercase tracking-wider ${typeBadgeStyle}`}>
+                          {attr.type}
                         </span>
-                      </td>
-                      <td className="px-4 py-4 text-slate-650 font-semibold">{attr.type}</td>
-                      <td className="px-4 py-4 font-mono font-medium text-slate-700">{attr.value}</td>
-                      <td className="px-4 py-4 text-center">
-                        <div className="flex items-center justify-center">
-                          <button
-                            id={`attr-toggle-status-${attr.id}`}
-                            onClick={() => handleToggleStatus(attr.id)}
-                            className={`w-11 h-6 rounded-full p-1 transition-all duration-200 cursor-pointer ${
-                              attr.status === 'Active' ? 'bg-slate-900 shadow-inner border border-slate-800' : 'bg-slate-300'
-                            }`}
-                            title={`Toggle ${attr.status}`}
-                          >
-                            <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ${
-                              attr.status === 'Active' ? 'translate-x-5' : 'translate-x-0'
-                            }`} />
-                          </button>
+                        <span className="font-mono text-[9px] font-bold text-slate-400 uppercase tracking-wide">
+                          #{idx + 1}
+                        </span>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <h4 className="font-bold text-slate-800 group-hover:text-slate-900 transition-colors text-sm sm:text-base leading-snug">
+                          {attr.name}
+                        </h4>
+                        
+                        <div className="flex items-center gap-1.5 pt-0.5 text-xs text-slate-500">
+                          <span className="font-semibold text-slate-450 uppercase text-[9px] tracking-wide">Spec Value:</span>
+                          <code className="bg-slate-50 border border-slate-200 px-2 py-0.5 rounded font-mono text-[10px] font-bold text-slate-800">
+                            {attr.value}
+                          </code>
                         </div>
-                      </td>
-                      <td className="px-4 py-4 text-center">
+                      </div>
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-100 flex items-center justify-between relative z-10">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                          {attr.status === 'Active' ? (language === 'bn' ? 'সক্রিয়' : 'Active') : (language === 'bn' ? 'নিষ্ক্রিয়' : 'Inactive')}
+                        </span>
                         <button
-                          id={`attr-action-edit-${attr.id}`}
-                          onClick={() => setEditingAttr(attr)}
-                          className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                          id={`attr-toggle-status-${attr.id}`}
+                          onClick={() => handleToggleStatus(attr.id)}
+                          className={`w-11 h-6 rounded-full p-1 transition-all duration-200 cursor-pointer ${
+                            attr.status === 'Active' ? 'bg-slate-900 shadow-inner border border-slate-800' : 'bg-slate-300'
+                          }`}
+                          title={`Toggle ${attr.status}`}
                         >
-                          <Edit2 className="w-3 h-3 text-slate-550" />
-                          Edit
+                          <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ${
+                            attr.status === 'Active' ? 'translate-x-5' : 'translate-x-0'
+                          }`} />
                         </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      </div>
+
+                      <button
+                        id={`attr-action-edit-${attr.id}`}
+                        onClick={() => setEditingAttr(attr)}
+                        className="inline-flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:border-slate-800 cursor-pointer transition-all active:scale-95 shadow-sm"
+                      >
+                        <Edit2 className="w-3 h-3 text-slate-500" />
+                        {language === 'bn' ? 'সম্পাদনা' : 'Edit'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
@@ -360,12 +394,12 @@ export default function StockAdjustmentModule({
             ) : (
               <div className="bg-slate-900 text-white rounded-xl p-6 border border-slate-950 shadow-md space-y-4 relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-slate-800/20 rounded-full blur-2xl pointer-events-none" />
-                <span className="inline-block bg-slate-850 text-slate-350 text-[10px] font-mono font-semibold tracking-wider uppercase px-2.5 py-0.5 rounded-full border border-slate-800">
+                <span className="inline-block bg-slate-850 text-slate-300 text-[10px] font-mono font-semibold tracking-wider uppercase px-2.5 py-0.5 rounded-full border border-slate-800">
                   SYSTEM HANDBOOK
                 </span>
                 <h4 className="font-semibold text-base leading-tight">Interactive Attribute Syncing</h4>
                 <p className="text-xs text-slate-300 leading-relaxed font-semibold">
-                  Toggling an attribute to <b className="text-rose-350">Inactive</b> instantly locks and filters it out from the active dropdown selections across Challan creators and Sales Point terminals to prevent operational entry errors.
+                  Toggling an attribute to <b className="text-rose-400">Inactive</b> instantly locks and filters it out from the active dropdown selections across Challan creators and Sales Point terminals to prevent operational entry errors.
                 </p>
                 <div className="pt-2 relative z-10">
                   <button
@@ -464,73 +498,93 @@ export default function StockAdjustmentModule({
             </div>
           </form>
 
-          {/* Historical Logs Table */}
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm p-2">
-            <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50">
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Historical Reconciliation Audit Trail</span>
+          {/* Historical Logs Cards */}
+          <div className="space-y-4">
+            <div className="flex justify-between items-center bg-white p-4 border border-slate-200 rounded-2xl shadow-sm">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                Historical Reconciliation Audit Trail
+              </span>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm border-collapse min-w-[1100px]">
-                <thead>
-                  <tr className="bg-slate-50 text-slate-700 border-b border-slate-200">
-                    <th className="px-4 py-4 text-sm font-semibold text-slate-700 w-12 text-center">#</th>
-                    <th className="px-4 py-4 text-sm font-semibold text-slate-700">Date-Time Timestamp</th>
-                    <th className="px-4 py-4 text-sm font-semibold text-slate-700">Target Product</th>
-                    <th className="px-4 py-4 text-sm font-semibold text-slate-700 text-center">Specs Involved</th>
-                    <th className="px-4 py-4 text-sm font-semibold text-slate-700 text-center">Old Stock Level</th>
-                    <th className="px-4 py-4 text-sm font-semibold text-slate-700 text-center">New Reconciled Stock</th>
-                    <th className="px-4 py-4 text-sm font-semibold text-slate-700 text-center">Quantity Changed</th>
-                    <th className="px-4 py-4 text-sm font-semibold text-slate-700">Authorized Agent</th>
-                    <th className="px-4 py-4 text-sm font-semibold text-slate-700">Justification Reason</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {paginatedAdjustments.map((adj, index) => {
-                    const globalIndex = startIndex + index + 1;
-                    const isIncrease = adj.qtyChanged > 0;
-                    return (
-                      <tr key={adj.id} className="hover:bg-slate-100/40 transition-all duration-200">
-                        <td className="px-4 py-4 text-center text-slate-400 font-mono font-medium">{globalIndex}</td>
-                        <td className="px-4 py-4 text-slate-500 font-mono">
-                          {new Date(adj.date).toLocaleString('en-BD')}
-                        </td>
-                        <td className="px-4 py-4 font-semibold text-slate-800">{adj.productName}</td>
-                        <td className="px-4 py-4 text-center">
-                          <span className="px-2.5 py-1 bg-slate-50 text-slate-650 rounded-lg text-xs font-mono border border-slate-200 whitespace-nowrap inline-block">
-                            {adj.attributeValue}
+            {adjustments.length === 0 ? (
+              <div className="bg-white rounded-3xl border border-slate-200 p-8 text-center text-slate-400 font-semibold shadow-sm">
+                No manual stock adjustments recorded. All stocks align with ledger.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {paginatedAdjustments.map((adj, index) => {
+                  const globalIndex = startIndex + index + 1;
+                  const isIncrease = adj.qtyChanged > 0;
+
+                  return (
+                    <div 
+                      key={adj.id}
+                      className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm hover:shadow-md hover:border-slate-800 transition-all duration-300 flex flex-col justify-between space-y-4 group relative overflow-hidden"
+                    >
+                      <div className="absolute -right-20 -top-20 w-36 h-36 rounded-full bg-slate-50 group-hover:bg-slate-100/50 transition-all duration-500 pointer-events-none" />
+                      
+                      <div className="space-y-2.5 relative z-10">
+                        <div className="flex items-center justify-between">
+                          <span className="font-mono text-[9px] font-bold text-slate-400">
+                            {new Date(adj.date).toLocaleString('en-BD')}
                           </span>
-                        </td>
-                        <td className="px-4 py-4 text-center text-slate-450 font-mono">{adj.oldQty}</td>
-                        <td className="px-4 py-4 text-center text-slate-700 font-mono font-semibold">{adj.newQty}</td>
-                        <td className="px-4 py-4 text-center">
-                          <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold font-mono border ${
+                          <span className="font-mono text-[9px] font-bold text-slate-400 uppercase tracking-wide">
+                            #{globalIndex}
+                          </span>
+                        </div>
+
+                        <h4 className="font-bold text-slate-800 group-hover:text-slate-900 transition-colors text-sm sm:text-base leading-snug line-clamp-1">
+                          {adj.productName}
+                        </h4>
+
+                        <div className="flex flex-wrap items-center gap-1.5 text-[9px] font-bold text-slate-500 uppercase tracking-wide">
+                          <span className="bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                            Specs: {adj.attributeValue}
+                          </span>
+                          <span className="bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                            Agent: {adj.adjustedBy.split(' ')[0]}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Stock Change comparison */}
+                      <div className="bg-slate-50 rounded-2xl p-3 border border-slate-200 flex items-center justify-between relative z-10 text-center">
+                        <div className="space-y-0.5">
+                          <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider block">Old Qty</span>
+                          <span className="font-mono text-xs font-semibold text-slate-500">{adj.oldQty} Pcs</span>
+                        </div>
+                        <div className="text-slate-400 flex items-center justify-center">
+                          <ArrowRightLeft className="w-3.5 h-3.5" />
+                        </div>
+                        <div className="space-y-0.5">
+                          <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider block">New Qty</span>
+                          <span className="font-mono text-xs font-bold text-slate-800">{adj.newQty} Pcs</span>
+                        </div>
+                        <div className="space-y-0.5">
+                          <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider block">Change</span>
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold font-mono border inline-block ${
                             isIncrease 
                               ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
                               : 'bg-rose-50 text-rose-700 border-rose-200'
                           }`}>
                             {isIncrease ? `+${adj.qtyChanged}` : adj.qtyChanged}
                           </span>
-                        </td>
-                        <td className="px-4 py-4 text-slate-600 font-semibold">{adj.adjustedBy}</td>
-                        <td className="px-4 py-4 text-slate-500 italic max-w-xs truncate font-medium" title={adj.reason}>{adj.reason}</td>
-                      </tr>
-                    );
-                  })}
-                  {adjustments.length === 0 && (
-                    <tr>
-                      <td colSpan={9} className="py-12 text-center text-slate-400 font-semibold">
-                        No manual stock adjustments recorded. All stocks align with ledger.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                        </div>
+                      </div>
+
+                      {/* Justification block */}
+                      <div className="pt-2.5 relative z-10 text-[11px] text-slate-500 italic bg-slate-50 p-2.5 rounded-xl border border-slate-200/60 leading-relaxed font-semibold">
+                        &ldquo;{adj.reason}&rdquo;
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="px-5 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/20 text-xs">
+              <div className="px-5 py-4 bg-white border border-slate-200 rounded-2xl flex items-center justify-between text-xs shadow-sm">
                 <span className="text-slate-500 font-semibold">
                   Showing <span className="font-semibold text-slate-700">{startIndex + 1}</span> to <span className="font-semibold text-slate-700">{Math.min(startIndex + itemsPerPage, totalAdjustments)}</span> of <span className="font-semibold text-slate-700">{totalAdjustments}</span> records
                 </span>
@@ -549,9 +603,9 @@ export default function StockAdjustmentModule({
                       key={page}
                       onClick={() => setCurrentPage(page)}
                       className={`px-3 py-1.5 rounded-lg border font-semibold cursor-pointer ${
-                        currentPage === page 
-                          ? 'bg-slate-900 text-white border-slate-900' 
-                          : 'border-slate-200 text-slate-655 hover:bg-slate-55'
+                          currentPage === page 
+                            ? 'bg-slate-900 text-white border-slate-900' 
+                            : 'border-slate-200 text-slate-600 hover:bg-slate-100'
                       }`}
                     >
                       {page}
@@ -568,7 +622,6 @@ export default function StockAdjustmentModule({
                 </div>
               </div>
             )}
-
           </div>
 
         </div>

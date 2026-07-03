@@ -70,6 +70,7 @@ export interface Product {
   defaultMRP: number; // Retail Market Price in BDT
   defaultWSP: number; // Wholesale Supply Price in BDT
   currentStock: number;
+  damagedStock?: number;
 }
 
 export interface ProductAttribute {
@@ -183,17 +184,17 @@ export const INITIAL_DELIVERY_MEN: DeliveryMan[] = [
 // Products categorized by Company: Pran, Olympic, Haque
 export const INITIAL_PRODUCTS: Product[] = [
   // PRAN Products
-  { id: 'prod-1', name: 'Pran Mango Juice 250ml', sku: 'PRN-MJ-250', company: 'Pran', defaultPP: 22, defaultMRP: 30, defaultWSP: 25, currentStock: 2500 },
-  { id: 'prod-2', name: 'Pran UP Lemon Drink 250ml', sku: 'PRN-UP-250', company: 'Pran', defaultPP: 21, defaultMRP: 30, defaultWSP: 24, currentStock: 1800 },
-  { id: 'prod-3', name: 'Pran Premium Toast Biscuit 350g', sku: 'PRN-TB-350', company: 'Pran', defaultPP: 55, defaultMRP: 80, defaultWSP: 65, currentStock: 1200 },
+  { id: 'prod-1', name: 'Pran Mango Juice 250ml', sku: 'PRN-MJ-250', company: 'Pran', defaultPP: 22, defaultMRP: 30, defaultWSP: 25, currentStock: 2500, damagedStock: 15 },
+  { id: 'prod-2', name: 'Pran UP Lemon Drink 250ml', sku: 'PRN-UP-250', company: 'Pran', defaultPP: 21, defaultMRP: 30, defaultWSP: 24, currentStock: 1800, damagedStock: 8 },
+  { id: 'prod-3', name: 'Pran Premium Toast Biscuit 350g', sku: 'PRN-TB-350', company: 'Pran', defaultPP: 55, defaultMRP: 80, defaultWSP: 65, currentStock: 1200, damagedStock: 0 },
 
   // OLYMPIC Products
-  { id: 'prod-4', name: 'Olympic Energy Plus Biscuit 60g', sku: 'OLY-EP-60', company: 'Olympic', defaultPP: 8, defaultMRP: 15, defaultWSP: 10, currentStock: 5000 },
-  { id: 'prod-5', name: 'Olympic Lexus Vegetable Cracker', sku: 'OLY-LX-120', company: 'Olympic', defaultPP: 32, defaultMRP: 50, defaultWSP: 40, currentStock: 3200 },
+  { id: 'prod-4', name: 'Olympic Energy Plus Biscuit 60g', sku: 'OLY-EP-60', company: 'Olympic', defaultPP: 8, defaultMRP: 15, defaultWSP: 10, currentStock: 5000, damagedStock: 25 },
+  { id: 'prod-5', name: 'Olympic Lexus Vegetable Cracker', sku: 'OLY-LX-120', company: 'Olympic', defaultPP: 32, defaultMRP: 50, defaultWSP: 40, currentStock: 3200, damagedStock: 12 },
 
   // HAQUE Products
-  { id: 'prod-6', name: 'Haque Mr. Cookie Biscuit 150g', sku: 'HAQ-MC-150', company: 'Haque', defaultPP: 25, defaultMRP: 40, defaultWSP: 32, currentStock: 2100 },
-  { id: 'prod-7', name: 'Haque Bourbon Chocolate Biscuit', sku: 'HAQ-BB-100', company: 'Haque', defaultPP: 15, defaultMRP: 25, defaultWSP: 19, currentStock: 1500 },
+  { id: 'prod-6', name: 'Haque Mr. Cookie Biscuit 150g', sku: 'HAQ-MC-150', company: 'Haque', defaultPP: 25, defaultMRP: 40, defaultWSP: 32, currentStock: 2100, damagedStock: 5 },
+  { id: 'prod-7', name: 'Haque Bourbon Chocolate Biscuit', sku: 'HAQ-BB-100', company: 'Haque', defaultPP: 15, defaultMRP: 25, defaultWSP: 19, currentStock: 1500, damagedStock: 0 },
 ];
 
 export const INITIAL_ATTRIBUTES: ProductAttribute[] = [

@@ -239,7 +239,7 @@ export default function AccountingModule({
             <DollarSign className="w-5 h-5 text-indigo-300" />
             {tAcc.title}
           </h2>
-          <p className="text-slate-350 text-xs">{tAcc.subtitle}</p>
+          <p className="text-slate-300 text-xs">{tAcc.subtitle}</p>
         </div>
 
         <div className="flex bg-white/5 p-1 rounded-xl border border-white/10 shadow-sm shrink-0 z-10 relative">
@@ -279,10 +279,10 @@ export default function AccountingModule({
         <div className="space-y-6">
           
           {/* Main Controls & Category Management header */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-2">
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{tAcc.expenseListTitle}</span>
-              <span className="bg-slate-100 text-slate-850 text-[11px] font-semibold px-2.5 py-0.5 rounded-full border border-slate-200 shadow-sm">
+              <span className="bg-slate-100 text-slate-700 text-[11px] font-semibold px-2.5 py-0.5 rounded-full border border-slate-200 shadow-sm">
                 {expenses.length} Voucher Logs
               </span>
             </div>
@@ -299,7 +299,7 @@ export default function AccountingModule({
               <button
                 id="exp-add-expense-modal-trigger"
                 onClick={() => setShowAddExpenseModal(true)}
-                className="inline-flex h-11 items-center gap-2 rounded-lg bg-slate-900 px-5 text-sm font-semibold text-white hover:bg-slate-800 transition-all border border-slate-950 shrink-0 cursor-pointer"
+                className="inline-flex h-11 items-center gap-2 rounded-xl bg-slate-900 px-5 text-xs font-bold text-white hover:bg-slate-800 transition-all border border-slate-950 shrink-0 cursor-pointer active:scale-95"
               >
                 <Plus className="w-4 h-4 text-white" />
                 {tAcc.addExpenseBtn}
@@ -307,49 +307,89 @@ export default function AccountingModule({
             </div>
           </div>
 
-          {/* Full-width Expense Log Table */}
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-            <div>
-              <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between gap-3">
-                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{tAcc.historicalLog}</span>
-                <button
-                  onClick={() => onDownloadPDF('accounting')}
-                  className="inline-flex h-11 items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-55 transition-all shadow-sm cursor-pointer"
-                >
-                  <FileText className="w-3.5 h-3.5 text-slate-400" />
-                  {tAcc.downloadPdf}
-                </button>
+          {/* Expense History Table */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between p-5 border-b border-slate-100 gap-4">
+              <div className="space-y-0.5">
+                <h3 className="text-sm font-bold text-slate-800">
+                  {tAcc.historicalLog}
+                </h3>
+                <p className="text-[11px] text-slate-500 font-semibold">
+                  {language === 'bn' ? 'ব্যবসায়িক খরচ এবং ক্যাশ আউট রসিদ সমূহের পূর্ববর্তী রেকর্ড' : 'Historical records of logged operations, rent, utilities, and wages payout'}
+                </p>
               </div>
+              
+              <button
+                onClick={() => onDownloadPDF('accounting')}
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-sm cursor-pointer active:scale-95"
+              >
+                <FileText className="w-3.5 h-3.5 text-slate-400" />
+                {tAcc.downloadPdf}
+              </button>
+            </div>
 
+            {expenses.length === 0 ? (
+              <div className="p-8 text-center text-slate-400 font-semibold">
+                {tAcc.noExpenses}
+              </div>
+            ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm border-collapse">
+                <table className="w-full text-xs">
                   <thead>
-                    <tr className="bg-slate-50 text-slate-700 border-b border-slate-200">
-                      <th className="px-4 py-4 text-sm font-semibold text-slate-700 w-12 text-center">#</th>
-                      <th className="px-4 py-4 text-sm font-semibold text-slate-700">Date</th>
-                      <th className="px-4 py-4 text-sm font-semibold text-slate-700">{tCommon.category || 'Category'}</th>
-                      <th className="px-4 py-4 text-sm font-semibold text-slate-700 text-right">Amount (BDT)</th>
-                      <th className="px-4 py-4 text-sm font-semibold text-slate-700">Paid To (Receiver)</th>
-                      <th className="px-4 py-4 text-sm font-semibold text-slate-700">Voucher Notes</th>
-                      <th className="px-4 py-4 text-sm font-semibold text-slate-700 text-center w-16">Actions</th>
+                    <tr className="bg-slate-50 border-b border-slate-100">
+                      <th className="px-5 py-3 text-left font-bold text-slate-500 uppercase tracking-wider text-[10px]">#</th>
+                      <th className="px-5 py-3 text-left font-bold text-slate-500 uppercase tracking-wider text-[10px]">{language === 'bn' ? 'তারিখ' : 'Date'}</th>
+                      <th className="px-5 py-3 text-left font-bold text-slate-500 uppercase tracking-wider text-[10px]">{language === 'bn' ? 'ক্যাটাগরি' : 'Category'}</th>
+                      <th className="px-5 py-3 text-right font-bold text-slate-500 uppercase tracking-wider text-[10px]">{language === 'bn' ? 'পরিমাণ' : 'Amount'}</th>
+                      <th className="px-5 py-3 text-left font-bold text-slate-500 uppercase tracking-wider text-[10px]">{language === 'bn' ? 'প্রাপক' : 'Paid To'}</th>
+                      <th className="px-5 py-3 text-left font-bold text-slate-500 uppercase tracking-wider text-[10px]">{language === 'bn' ? 'নোট' : 'Notes'}</th>
+                      <th className="px-5 py-3 text-center font-bold text-slate-500 uppercase tracking-wider text-[10px]">{language === 'bn' ? 'অ্যাকশন' : 'Actions'}</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-50">
                     {paginatedExpenses.map((exp, index) => {
                       const globalIndex = startIndex + index + 1;
+                      
+                      let badgeBg = 'bg-purple-50 text-purple-700 border-purple-200';
+                      const catLower = exp.categoryName.toLowerCase();
+                      if (catLower.includes('fuel') || catLower.includes('carriage') || catLower.includes('transport')) {
+                        badgeBg = 'bg-orange-50 text-orange-700 border-orange-200';
+                      } else if (catLower.includes('salary') || catLower.includes('sr') || catLower.includes('commission')) {
+                        badgeBg = 'bg-blue-50 text-blue-700 border-blue-200';
+                      } else if (catLower.includes('warehouse') || catLower.includes('rent') || catLower.includes('electric')) {
+                        badgeBg = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                      }
+
                       return (
-                        <tr key={exp.id} className="hover:bg-slate-100/40 transition-all duration-200">
-                          <td className="px-4 py-4 text-center text-slate-400 font-mono font-medium">{globalIndex}</td>
-                          <td className="px-4 py-4 text-slate-505 font-mono">{exp.expenseDate}</td>
-                          <td className="px-4 py-4 font-semibold text-slate-800">{exp.categoryName}</td>
-                          <td className="px-4 py-4 text-right font-mono font-semibold text-slate-900">{formatBDT(exp.amount)}</td>
-                          <td className="px-4 py-4 font-semibold text-slate-700">{exp.paidTo}</td>
-                          <td className="px-4 py-4 text-slate-450 italic max-w-xs truncate font-medium" title={exp.notes}>{exp.notes || '-'}</td>
-                          <td className="px-4 py-4 text-center">
+                        <tr key={exp.id} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="px-5 py-3.5 text-slate-400 font-mono font-medium">{globalIndex}</td>
+                          <td className="px-5 py-3.5">
+                            <span className="font-semibold text-slate-700">{exp.expenseDate}</span>
+                          </td>
+                          <td className="px-5 py-3.5">
+                            <span className={`inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${badgeBg}`}>
+                              {exp.categoryName}
+                            </span>
+                          </td>
+                          <td className="px-5 py-3.5 text-right">
+                            <span className="font-extrabold text-slate-900">{formatBDT(exp.amount)}</span>
+                          </td>
+                          <td className="px-5 py-3.5">
+                            <span className="font-semibold text-slate-600">{exp.paidTo}</span>
+                          </td>
+                          <td className="px-5 py-3.5 max-w-[200px]">
+                            {exp.notes ? (
+                              <span className="text-slate-500 italic text-[11px] line-clamp-1" title={exp.notes}>"{exp.notes}"</span>
+                            ) : (
+                              <span className="text-slate-300">—</span>
+                            )}
+                          </td>
+                          <td className="px-5 py-3.5 text-center">
                             <button
                               id={`exp-btn-delete-${exp.id}`}
                               onClick={() => handleDeleteExpense(exp.id)}
-                              className="p-1.5 text-rose-500 hover:text-rose-900 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                              className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                              title="Delete"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -357,30 +397,23 @@ export default function AccountingModule({
                         </tr>
                       );
                     })}
-                    {expenses.length === 0 && (
-                      <tr>
-                        <td colSpan={7} className="py-12 text-center text-slate-400 font-semibold">
-                          {tAcc.noExpenses}
-                        </td>
-                      </tr>
-                    )}
                   </tbody>
                 </table>
               </div>
-            </div>
+            )}
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="px-5 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 text-xs">
+              <div className="px-5 py-3.5 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between text-xs">
                 <span className="text-slate-500 font-semibold">
-                  Showing <span className="font-semibold text-slate-750">{startIndex + 1}</span> to <span className="font-semibold text-slate-750">{Math.min(startIndex + itemsPerPage, totalExpenses)}</span> of <span className="font-semibold text-slate-750">{totalExpenses}</span> records
+                  Showing <span className="font-bold text-slate-700">{startIndex + 1}</span> to <span className="font-bold text-slate-700">{Math.min(startIndex + itemsPerPage, totalExpenses)}</span> of <span className="font-bold text-slate-700">{totalExpenses}</span>
                 </span>
                 <div className="flex items-center gap-1.5">
                   <button
                     id="exp-page-prev"
                     onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                     disabled={currentPage === 1}
-                    className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-55 disabled:opacity-40 transition-all cursor-pointer"
+                    className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-40 transition-all cursor-pointer"
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
@@ -392,7 +425,7 @@ export default function AccountingModule({
                       className={`px-3 py-1.5 rounded-lg border font-semibold cursor-pointer ${
                         currentPage === page 
                           ? 'bg-slate-900 text-white border-slate-900' 
-                          : 'border-slate-200 text-slate-655 hover:bg-slate-50'
+                          : 'border-slate-200 text-slate-600 hover:bg-slate-100'
                       }`}
                     >
                       {page}
@@ -402,36 +435,70 @@ export default function AccountingModule({
                     id="exp-page-next"
                     onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                     disabled={currentPage === totalPages}
-                    className="p-1.5 rounded-lg border border-slate-200 text-slate-655 hover:bg-slate-55 disabled:opacity-40 transition-all cursor-pointer"
+                    className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-40 transition-all cursor-pointer"
                   >
                     <ChevronRight className="w-4 h-4" />
                   </button>
                 </div>
               </div>
             )}
-
           </div>
 
           {/* Categories Setup Panel */}
-          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm space-y-5">
-            <h4 className="font-semibold text-slate-800 text-sm tracking-tight">{tAcc.categoriesTitle}</h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {categories.map(c => (
-                <div key={c.id} className="p-4 bg-slate-50/50 rounded-xl border border-slate-200 flex justify-between items-start group hover:bg-white transition-all duration-200">
-                  <div className="space-y-1">
-                    <p className="text-xs font-semibold text-slate-805">{c.name}</p>
-                    <p className="text-[11px] text-slate-400 leading-normal font-medium">{c.description || 'No description'}</p>
-                  </div>
-                  <button
-                    id={`cat-btn-edit-${c.id}`}
-                    onClick={() => setEditingCat(c)}
-                    className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-slate-800 transition-all cursor-pointer"
-                    title={tCommon.edit}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between bg-white p-4.5 border border-slate-200 rounded-2xl shadow-sm">
+              <h4 className="font-bold text-slate-800 text-sm">{tAcc.categoriesTitle}</h4>
+              <span className="bg-slate-100 text-slate-800 text-xs font-semibold px-3 py-0.5 rounded-full border border-slate-200 shadow-sm">
+                {categories.length} {language === 'bn' ? 'ক্যাটাগরি' : 'Expense Types'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {categories.map((c, index) => {
+                
+                const colorGradients = [
+                  'from-blue-500 to-indigo-600',
+                  'from-emerald-500 to-teal-600',
+                  'from-violet-500 to-purple-600',
+                  'from-orange-500 to-red-500'
+                ];
+                const gradient = colorGradients[index % colorGradients.length];
+
+                return (
+                  <div 
+                    key={c.id} 
+                    className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm hover:shadow-md hover:border-slate-800 transition-all duration-300 flex flex-col justify-between space-y-4 group relative overflow-hidden"
                   >
-                    <Edit3 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ))}
+                    <div className="absolute -right-20 -top-20 w-36 h-36 rounded-full bg-slate-50 group-hover:bg-slate-100/50 transition-all duration-500 pointer-events-none" />
+                    
+                    <div className="space-y-3 relative z-10">
+                      <div className="flex items-center justify-between">
+                        <span className={`w-8 h-8 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center font-bold text-white text-xs shadow-sm`}>
+                          {c.name[0].toUpperCase()}
+                        </span>
+                        
+                        <button
+                          id={`cat-btn-edit-${c.id}`}
+                          onClick={() => setEditingCat(c)}
+                          className="opacity-0 group-hover:opacity-100 p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-50 rounded-xl transition-all border border-transparent hover:border-slate-200 cursor-pointer"
+                          title={tCommon.edit}
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      <div className="space-y-1">
+                        <h4 className="font-bold text-slate-800 text-sm leading-snug line-clamp-1">
+                          {c.name}
+                        </h4>
+                        <p className="text-[11px] text-slate-500 font-semibold leading-normal line-clamp-2">
+                          {c.description || 'No description provided.'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
 

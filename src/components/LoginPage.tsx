@@ -269,7 +269,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                   onBlur={() => setFocusedField(null)}
                   placeholder="admin@samir.com"
                   autoComplete="email"
-                  className={`w-full h-11 px-4 rounded-lg border bg-white text-xs font-semibold text-slate-900 outline-none transition-all placeholder:text-slate-350 ${
+                  className={`w-full h-11 px-4 rounded-lg border bg-white text-xs font-semibold text-slate-900 outline-none transition-all placeholder:text-slate-400 ${
                     focusedField === 'email'
                       ? 'border-slate-900 ring-2 ring-slate-900/5'
                       : 'border-slate-200 hover:border-slate-300'
@@ -297,7 +297,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                     onBlur={() => setFocusedField(null)}
                     placeholder="••••••••"
                     autoComplete="current-password"
-                    className={`w-full h-11 px-4 pr-11 rounded-lg border bg-white text-xs font-semibold text-slate-900 outline-none transition-all placeholder:text-slate-350 ${
+                    className={`w-full h-11 px-4 pr-11 rounded-lg border bg-white text-xs font-semibold text-slate-900 outline-none transition-all placeholder:text-slate-400 ${
                       focusedField === 'password'
                         ? 'border-slate-900 ring-2 ring-slate-900/5'
                         : 'border-slate-200 hover:border-slate-300'

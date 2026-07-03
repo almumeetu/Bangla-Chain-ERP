@@ -27,6 +27,8 @@ import StockAdjustmentModule from '../../../components/StockAdjustmentModule';
 import AccountingModule from '../../../components/AccountingModule';
 import SellModule from '../../../components/SellModule';
 import DirectoryModule from '../../../components/DirectoryModule';
+import SettingsModule from '../../../components/SettingsModule';
+import HelpGuideModule from '../../../components/HelpGuideModule';
 
 // Raw Types & seed arrays
 import { 
@@ -187,6 +189,14 @@ export default function App() {
         if (savedRoutes) {
           try { setRoutes(JSON.parse(savedRoutes)); } catch (e) {}
         }
+        const savedShopName = localStorage.getItem('erp_settings_shop_name');
+        if (savedShopName) setShopName(savedShopName);
+
+        const savedShopSubBrand = localStorage.getItem('erp_settings_shop_subbrand');
+        if (savedShopSubBrand) setShopSubBrand(savedShopSubBrand);
+
+        const savedShopLogo = localStorage.getItem('erp_settings_shop_logo');
+        if (savedShopLogo) setShopLogo(savedShopLogo);
       }
 
       setIsLoaded(true);
@@ -201,6 +211,11 @@ export default function App() {
   // Navigation State
   const [activeTab, setActiveTab] = useState<TabID>('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  // Branding Customization States
+  const [shopName, setShopName] = useState('Samir Enterprise');
+  const [shopSubBrand, setShopSubBrand] = useState('Dhaka & Chittagong Regional Hub');
+  const [shopLogo, setShopLogo] = useState('');
 
   // Multi-language state
   const [language, setLanguage] = useState<Language>('bn');
@@ -396,69 +411,152 @@ export default function App() {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
+    });
+    const timeStr = now.toLocaleTimeString('en-BD', {
       hour: '2-digit',
       minute: '2-digit',
-      second: '2-digit',
       hour12: true
     });
+
+    const brandName = shopName || 'Bangla-Chain ERP';
+    const brandSub = shopSubBrand || 'Distribution Management System';
 
     const formatBDTVal = (amount: number) => {
       return `TK ${amount.toLocaleString('en-BD')}`;
     };
 
-    // Helper functions for drawing clean, styled PDFs
-    const drawHeader = (title: string) => {
-      // Background Accent Bar (Samir Enterprise Dark Navy)
-      doc.setFillColor(15, 23, 42); // slate-900
-      doc.rect(0, 0, 210, 40, 'F');
+    // ═══════════════════════════════════════════════════════════════
+    // Premium PDF Helper Functions
+    // ═══════════════════════════════════════════════════════════════
 
-      // Brand Logo / Title
+    const drawHeader = (title: string, subtitle: string) => {
+      // Dark navy header bar
+      doc.setFillColor(15, 23, 42);
+      doc.rect(0, 0, 210, 38, 'F');
+
+      // Subtle accent line at bottom of header
+      doc.setFillColor(99, 102, 241); // indigo-500
+      doc.rect(0, 38, 210, 1.5, 'F');
+
+      // Brand name (left)
       doc.setTextColor(255, 255, 255);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(22);
-      doc.text('Samir Enterprise', 15, 20);
+      doc.setFontSize(18);
+      doc.text(brandName, 14, 16);
 
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(10);
-      doc.setTextColor(194, 205, 217);
-      doc.text('ADMIN OS & DISTRIBUTION CENTERS', 15, 28);
-
-      doc.setTextColor(255, 255, 255);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(14);
-      doc.text(title, 210 - 15 - doc.getTextWidth(title), 20);
-
-      doc.setFont('helvetica', 'italic');
-      doc.setFontSize(9);
-      doc.setTextColor(194, 205, 217);
-      const rightSubText = `Generated: ${dateStr} BST`;
-      doc.text(rightSubText, 210 - 15 - doc.getTextWidth(rightSubText), 28);
-    };
-
-    const drawFooter = () => {
-      doc.setDrawColor(226, 232, 240);
-      doc.line(15, 280, 195, 280);
-
+      // Brand subtitle
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8);
-      doc.setTextColor(100, 116, 139);
-      doc.text('© 2026 Samir Enterprise. All rights reserved. Dhaka & Chittagong regional warehouses.', 15, 286);
-      doc.text('Page 1 of 1', 195 - doc.getTextWidth('Page 1 of 1'), 286);
+      doc.setTextColor(148, 163, 184); // slate-400
+      doc.text(brandSub.toUpperCase(), 14, 23);
+
+      // Document badge (right side)
+      doc.setFillColor(99, 102, 241); // indigo-500
+      const badgeWidth = doc.getTextWidth(title) + 12;
+      doc.roundedRect(196 - badgeWidth, 8, badgeWidth, 10, 2, 2, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.text(title, 196 - badgeWidth + 6, 14.5);
+
+      // Subtitle + date (right side)
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7);
+      doc.setTextColor(148, 163, 184);
+      const dateText = `${dateStr} • ${timeStr}`;
+      doc.text(dateText, 196 - doc.getTextWidth(dateText), 28);
+      doc.text(subtitle, 196 - doc.getTextWidth(subtitle), 33);
     };
 
-    if (view === 'dashboard') {
-      drawHeader('Executive Operations Report');
-
-      // Section 1: Today's Quick Metrics
-      doc.setFillColor(248, 250, 252);
-      doc.rect(15, 50, 180, 45, 'F');
+    const drawSectionTitle = (title: string, y: number) => {
+      doc.setFillColor(248, 250, 252); // slate-50
+      doc.rect(14, y - 5, 182, 9, 'F');
       doc.setDrawColor(226, 232, 240);
-      doc.rect(15, 50, 180, 45, 'D');
+      doc.line(14, y + 4, 196, y + 4);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(71, 85, 105); // slate-500
+      doc.text(title, 17, y + 1);
+      return y + 10;
+    };
 
+    const drawMetricCard = (x: number, y: number, w: number, label: string, value: string, colorR: number, colorG: number, colorB: number) => {
+      // Card background
+      doc.setFillColor(255, 255, 255);
+      doc.setDrawColor(226, 232, 240);
+      doc.roundedRect(x, y, w, 22, 2, 2, 'FD');
+
+      // Color accent bar on top
+      doc.setFillColor(colorR, colorG, colorB);
+      doc.rect(x, y, w, 3, 'F');
+
+      // Value
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(11);
+      doc.setTextColor(15, 23, 42);
+      doc.text(value, x + 5, y + 12);
+
+      // Label
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7);
+      doc.setTextColor(100, 116, 139);
+      doc.text(label, x + 5, y + 18);
+    };
+
+    const drawTableHeader = (columns: { label: string; x: number }[], y: number) => {
+      doc.setFillColor(248, 250, 252);
+      doc.rect(14, y - 4, 182, 8, 'F');
+      doc.setDrawColor(203, 213, 225);
+      doc.line(14, y + 4, 196, y + 4);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.5);
       doc.setTextColor(71, 85, 105);
-      doc.text("TODAY'S INSTANT LOGISTICS PULSE", 20, 58);
+      columns.forEach(col => doc.text(col.label.toUpperCase(), col.x, y + 1));
+      return y + 9;
+    };
+
+    const drawTableRow = (cells: { text: string; x: number; bold?: boolean; color?: [number, number, number] }[], y: number, isEven: boolean) => {
+      if (isEven) {
+        doc.setFillColor(248, 250, 252);
+        doc.rect(14, y - 3.5, 182, 7, 'F');
+      }
+      doc.setFontSize(8);
+      cells.forEach(cell => {
+        doc.setFont('helvetica', cell.bold ? 'bold' : 'normal');
+        if (cell.color) {
+          doc.setTextColor(cell.color[0], cell.color[1], cell.color[2]);
+        } else {
+          doc.setTextColor(30, 41, 59);
+        }
+        doc.text(cell.text, cell.x, y);
+      });
+      return y + 7;
+    };
+
+    const drawFooter = (pageNum: number = 1, totalPages: number = 1) => {
+      doc.setDrawColor(226, 232, 240);
+      doc.line(14, 278, 196, 278);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7);
+      doc.setTextColor(148, 163, 184);
+      doc.text(`© ${now.getFullYear()} ${brandName} — Generated by Bangla-Chain ERP`, 14, 283);
+
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(6.5);
+      doc.setTextColor(148, 163, 184);
+      doc.text('Created by Al Mumeetu Saikat • almumeetusaikat.me', 14, 288);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7);
+      doc.text(`Page ${pageNum} of ${totalPages}`, 196 - doc.getTextWidth(`Page ${pageNum} of ${totalPages}`), 283);
+    };
+
+    // ═══════════════════════════════════════════════════════════════
+    // DASHBOARD PDF
+    // ═══════════════════════════════════════════════════════════════
+    if (view === 'dashboard') {
+      drawHeader('EXECUTIVE REPORT', 'Daily Operations & Financial Summary');
 
       const getChallanDate = (id: string) => {
         if (id === 'ch-1') return '2026-06-12';
@@ -469,302 +567,237 @@ export default function App() {
         if (id.startsWith('ch-')) {
           const parts = id.split('-');
           const ms = Number(parts[1]);
-          if (!isNaN(ms)) {
-            return new Date(ms).toISOString().split('T')[0];
-          }
+          if (!isNaN(ms)) return new Date(ms).toISOString().split('T')[0];
         }
         return new Date().toISOString().split('T')[0];
       };
-
       const getLocalDateString = (dateObj: Date) => {
         const offset = dateObj.getTimezoneOffset();
         const localDate = new Date(dateObj.getTime() - (offset * 60 * 1000));
         return localDate.toISOString().split('T')[0];
       };
-
       const todayStr = getLocalDateString(new Date());
 
+      // Calculate metrics
       const todaysChallans = challans.filter(ch => getChallanDate(ch.id) === todayStr && ch.status !== 'Returned');
       const todaysSales = todaysChallans.reduce((sum, ch) => sum + ch.totalAmount, 0);
-
       const todaysCOGS = todaysChallans.reduce((sum, ch) => {
         const prod = products.find(p => p.name === ch.productName);
         const purchasePrice = prod ? prod.defaultPP : (ch.rate * 0.65);
         return sum + (ch.qty * purchasePrice);
       }, 0);
-
-      const todaysExpensesTotal = expenses
-        .filter(exp => exp.expenseDate === todayStr)
-        .reduce((sum, exp) => sum + exp.amount, 0);
-
+      const todaysExpensesTotal = expenses.filter(exp => exp.expenseDate === todayStr).reduce((sum, exp) => sum + exp.amount, 0);
       const todaysNetProfit = todaysSales - todaysCOGS - todaysExpensesTotal;
       const totalStockValue = products.reduce((sum, p) => sum + (p.currentStock * p.defaultPP), 0);
-      const todaysTurnoverRate = totalStockValue > 0 ? (todaysCOGS / totalStockValue) * 100 : 0;
-
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(10);
-      doc.setTextColor(30, 41, 59);
-
-      doc.text(`Today's Sales Total:`, 20, 68);
-      doc.setFont('helvetica', 'bold');
-      doc.text(formatBDTVal(todaysSales), 80, 68);
-
-      doc.setFont('helvetica', 'normal');
-      doc.text(`Today's Operating Profit:`, 20, 76);
-      doc.setFont('helvetica', 'bold');
-      if (todaysNetProfit >= 0) {
-        doc.setTextColor(16, 124, 65);
-      } else {
-        doc.setTextColor(185, 28, 28);
-      }
-      doc.text(formatBDTVal(todaysNetProfit), 80, 76);
-
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(30, 41, 59);
-      doc.text(`Today's Stock Turnover:`, 20, 84);
-      doc.setFont('helvetica', 'bold');
-      doc.text(`${todaysTurnoverRate.toFixed(3)}%`, 80, 84);
-
-      // Section 2: Global Financial Indicators
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(11);
-      doc.setTextColor(71, 85, 105);
-      doc.text("CUMULATIVE LEDGER PERFORMANCE INDICATORS", 15, 110);
 
       const cumulativeSales = challans.reduce((sum, ch) => ch.status !== 'Returned' ? sum + ch.totalAmount : sum, 0);
       const cumulativeProcurement = procurements.reduce((sum, pr) => sum + pr.globalTotal, 0);
       const cumulativeExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
       const cumulativeNetProfit = cumulativeSales - cumulativeProcurement - cumulativeExpenses;
 
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(10);
-      doc.setTextColor(30, 41, 59);
+      // Section 1: Today's Metrics Cards
+      let y = drawSectionTitle("Today's Business Snapshot", 48);
+      drawMetricCard(14, y, 58, "Today's Sales", formatBDTVal(todaysSales), 99, 102, 241);
+      drawMetricCard(76, y, 58, "Today's Profit", formatBDTVal(todaysNetProfit), todaysNetProfit >= 0 ? 16 : 185, todaysNetProfit >= 0 ? 185 : 28, todaysNetProfit >= 0 ? 129 : 28);
+      drawMetricCard(138, y, 58, "Stock Value", formatBDTVal(totalStockValue), 245, 158, 11);
 
-      doc.text(`Cumulative Sales Revenue:`, 15, 120);
-      doc.setFont('helvetica', 'bold');
-      doc.text(formatBDTVal(cumulativeSales), 110, 120);
+      // Section 2: Cumulative Metrics
+      y = drawSectionTitle("Cumulative Financial Summary", y + 32);
+      drawMetricCard(14, y, 44, "Total Sales", formatBDTVal(cumulativeSales), 99, 102, 241);
+      drawMetricCard(62, y, 44, "Procurement", formatBDTVal(cumulativeProcurement), 245, 158, 11);
+      drawMetricCard(110, y, 44, "Expenses", formatBDTVal(cumulativeExpenses), 239, 68, 68);
+      drawMetricCard(158, y, 38, "Net Profit", formatBDTVal(cumulativeNetProfit), cumulativeNetProfit >= 0 ? 16 : 185, cumulativeNetProfit >= 0 ? 185 : 28, cumulativeNetProfit >= 0 ? 129 : 28);
 
-      doc.setFont('helvetica', 'normal');
-      doc.text(`Cumulative Procurement Spending:`, 15, 128);
-      doc.setFont('helvetica', 'bold');
-      doc.text(formatBDTVal(cumulativeProcurement), 110, 128);
-
-      doc.setFont('helvetica', 'normal');
-      doc.text(`Cumulative OPEX (Operating Expenses):`, 15, 136);
-      doc.setFont('helvetica', 'bold');
-      doc.text(formatBDTVal(cumulativeExpenses), 110, 136);
-
-      doc.setFont('helvetica', 'normal');
-      doc.text(`Cumulative Dynamic Net Yield:`, 15, 144);
-      doc.setFont('helvetica', 'bold');
-      doc.text(formatBDTVal(cumulativeNetProfit), 110, 144);
-
-      // Section 3: Stock Status Highlights
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(11);
-      doc.setTextColor(71, 85, 105);
-      doc.text("STOCK HIGHLIGHTS & CRITICAL LEVEL WARNS (< 600 units)", 15, 160);
-
+      // Section 3: Low Stock Warning Table
       const lowStockList = products.filter(p => p.currentStock < 600);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9);
-      doc.setTextColor(15, 23, 42);
-      doc.text("SKU", 15, 170);
-      doc.text("Product Item", 45, 170);
-      doc.text("Wholesale Price", 115, 170);
-      doc.text("MRP", 150, 170);
-      doc.text("Current Stock", 175, 170);
+      y = drawSectionTitle(`Stock Alerts (${lowStockList.length > 0 ? lowStockList.length + ' items below 600 units' : 'All healthy'})`, y + 32);
 
-      doc.setDrawColor(203, 213, 225);
-      doc.line(15, 172, 195, 172);
+      const stockColumns = [
+        { label: 'SKU', x: 15 },
+        { label: 'Product Name', x: 38 },
+        { label: 'Trade Price', x: 110 },
+        { label: 'MRP', x: 142 },
+        { label: 'Stock', x: 170 }
+      ];
+      y = drawTableHeader(stockColumns, y);
 
-      let stockY = 177;
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
-      doc.setTextColor(51, 65, 85);
-      
-      const displayStock = lowStockList.length > 0 ? lowStockList.slice(0, 6) : products.slice(0, 6);
-      displayStock.forEach((p) => {
-        doc.text(p.sku, 15, stockY);
-        doc.text(p.name.length > 30 ? p.name.substring(0, 28) + '...' : p.name, 45, stockY);
-        doc.text(formatBDTVal(p.defaultWSP), 115, stockY);
-        doc.text(formatBDTVal(p.defaultMRP), 150, stockY);
-        doc.text(`${p.currentStock} Units`, 175, stockY);
-        stockY += 7;
+      const displayStock = lowStockList.length > 0 ? lowStockList.slice(0, 5) : products.slice(0, 5);
+      displayStock.forEach((p, i) => {
+        const isLow = p.currentStock < 600;
+        y = drawTableRow([
+          { text: p.sku, x: 15 },
+          { text: p.name.length > 32 ? p.name.substring(0, 30) + '...' : p.name, x: 38 },
+          { text: formatBDTVal(p.defaultWSP), x: 110 },
+          { text: formatBDTVal(p.defaultMRP), x: 142 },
+          { text: `${p.currentStock}`, x: 170, bold: true, color: isLow ? [185, 28, 28] : [16, 185, 129] }
+        ], y, i % 2 === 0);
       });
 
-      if (lowStockList.length > displayStock.length) {
-        doc.setFont('helvetica', 'italic');
-        doc.text(`* And ${lowStockList.length - displayStock.length} other stock warn items in critical queue.`, 15, stockY);
-      }
+      // Section 4: Recent Deliveries
+      y = drawSectionTitle("Recent Delivery Challans", y + 6);
+      const challanCols = [
+        { label: 'ID', x: 15 },
+        { label: 'Product', x: 38 },
+        { label: 'Qty', x: 110 },
+        { label: 'SR Agent', x: 130 },
+        { label: 'Amount', x: 170 }
+      ];
+      y = drawTableHeader(challanCols, y);
 
-      // Section 4: Recent Delivery Sheets (Challans)
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(11);
-      doc.setTextColor(71, 85, 105);
-      doc.text("RECENT DESPATCH CHALLANS & TRADE SHEETS", 15, 225);
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9);
-      doc.setTextColor(15, 23, 42);
-      doc.text("Challan ID", 15, 235);
-      doc.text("Product / Lot", 45, 235);
-      doc.text("Qty Ordered", 115, 235);
-      doc.text("SR Agent", 140, 235);
-      doc.text("Total Value", 170, 235);
-
-      doc.line(15, 237, 195, 237);
-
-      let challanY = 242;
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
-      doc.setTextColor(51, 65, 85);
-
-      const recentItems = [...challans].reverse().slice(0, 4);
-      recentItems.forEach((ch) => {
-        doc.text(ch.id, 15, challanY);
-        doc.text(ch.productName.length > 30 ? ch.productName.substring(0, 28) + '...' : ch.productName, 45, challanY);
-        doc.text(`${ch.qty} units`, 115, challanY);
-        doc.text(ch.srName, 140, challanY);
-        doc.text(formatBDTVal(ch.totalAmount), 170, challanY);
-        challanY += 7;
+      const recentItems = [...challans].reverse().slice(0, 5);
+      recentItems.forEach((ch, i) => {
+        y = drawTableRow([
+          { text: ch.id, x: 15 },
+          { text: ch.productName.length > 32 ? ch.productName.substring(0, 30) + '...' : ch.productName, x: 38 },
+          { text: `${ch.qty}`, x: 110 },
+          { text: ch.srName, x: 130 },
+          { text: formatBDTVal(ch.totalAmount), x: 170, bold: true }
+        ], y, i % 2 === 0);
       });
 
       drawFooter();
-      doc.save(`Samir_Enterprise_Executive_Dashboard_${todayStr}.pdf`);
+      doc.save(`${brandName.replace(/\s+/g, '_')}_Dashboard_Report_${todayStr}.pdf`);
 
+    // ═══════════════════════════════════════════════════════════════
+    // PROCUREMENT PDF
+    // ═══════════════════════════════════════════════════════════════
     } else if (view === 'procurement') {
-      drawHeader('Procurement Register Ledger');
-
-      // Summary
-      doc.setFillColor(248, 250, 252);
-      doc.rect(15, 50, 180, 25, 'F');
-      doc.setDrawColor(226, 232, 240);
-      doc.rect(15, 50, 180, 25, 'D');
-
       const totalProcurementCost = procurements.reduce((sum, pr) => sum + pr.globalTotal, 0);
-      
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(10);
-      doc.setTextColor(71, 85, 105);
-      doc.text(`TOTAL INBOUND BILLING / PROCUREMENT ORDERS: ${procurements.length}`, 20, 58);
-      doc.text(`AGGREGATE INBOUND PROCUREMENT SPENDING: ${formatBDTVal(totalProcurementCost)}`, 20, 66);
+      const totalPages = Math.ceil((procurements.length * 7 + 90) / 230) || 1;
+      let currentPage = 1;
 
-      // Procurement table
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(11);
-      doc.setTextColor(71, 85, 105);
-      doc.text("COMPREHENSIVE PROCUREMENT LEDGER", 15, 90);
+      drawHeader('PROCUREMENT LEDGER', 'Purchase Orders & Inbound Stock Register');
 
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9);
-      doc.setTextColor(15, 23, 42);
-      doc.text("Inv Ref #", 15, 100);
-      doc.text("Supplier", 40, 100);
-      doc.text("Procurement Title", 85, 100);
-      doc.text("Invoice Date", 135, 100);
-      doc.text("Status", 160, 100);
-      doc.text("Total Cost", 175, 100);
+      // Summary cards
+      let y = drawSectionTitle("Procurement Overview", 48);
+      drawMetricCard(14, y, 58, "Total Orders", `${procurements.length}`, 99, 102, 241);
+      drawMetricCard(76, y, 58, "Total Spending", formatBDTVal(totalProcurementCost), 245, 158, 11);
+      drawMetricCard(138, y, 58, "Avg Order Value", formatBDTVal(procurements.length > 0 ? Math.round(totalProcurementCost / procurements.length) : 0), 16, 185, 129);
 
-      doc.line(15, 102, 195, 102);
+      // Table
+      y = drawSectionTitle("Detailed Procurement Records", y + 32);
+      const procCols = [
+        { label: 'Ref #', x: 15 },
+        { label: 'Supplier', x: 38 },
+        { label: 'Purchase Title', x: 78 },
+        { label: 'Date', x: 128 },
+        { label: 'Status', x: 154 },
+        { label: 'Amount', x: 178 }
+      ];
+      y = drawTableHeader(procCols, y);
 
-      let procY = 108;
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
-      doc.setTextColor(51, 65, 85);
-
-      procurements.forEach((pr) => {
-        if (procY > 260) {
+      procurements.forEach((pr, i) => {
+        if (y > 265) {
+          drawFooter(currentPage, totalPages);
           doc.addPage();
-          drawHeader('Procurement Register Ledger');
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(9);
-          doc.setTextColor(15, 23, 42);
-          doc.text("Inv Ref #", 15, 47);
-          doc.text("Supplier", 40, 47);
-          doc.text("Procurement Title", 85, 47);
-          doc.text("Invoice Date", 135, 47);
-          doc.text("Status", 160, 47);
-          doc.text("Total Cost", 175, 47);
-          doc.line(15, 49, 195, 49);
-          procY = 55;
+          currentPage++;
+          drawHeader('PROCUREMENT LEDGER', 'Purchase Orders & Inbound Stock Register');
+          y = drawSectionTitle("Detailed Procurement Records (continued)", 48);
+          y = drawTableHeader(procCols, y);
         }
-        doc.text(pr.invoiceRef, 15, procY);
-        doc.text(pr.supplierName, 40, procY);
-        doc.text(pr.procurementName.length > 25 ? pr.procurementName.substring(0, 23) + '...' : pr.procurementName, 85, procY);
-        doc.text(pr.invoiceDate, 135, procY);
-        doc.text(pr.paymentStatus, 160, procY);
-        doc.text(formatBDTVal(pr.globalTotal), 175, procY);
-        procY += 8;
+        y = drawTableRow([
+          { text: pr.invoiceRef, x: 15, bold: true },
+          { text: pr.supplierName.length > 18 ? pr.supplierName.substring(0, 16) + '..' : pr.supplierName, x: 38 },
+          { text: pr.procurementName.length > 22 ? pr.procurementName.substring(0, 20) + '..' : pr.procurementName, x: 78 },
+          { text: pr.invoiceDate, x: 128 },
+          { text: pr.paymentStatus, x: 154, color: pr.paymentStatus === 'Paid' ? [16, 185, 129] : [245, 158, 11] },
+          { text: formatBDTVal(pr.globalTotal), x: 178, bold: true }
+        ], y, i % 2 === 0);
       });
 
-      drawFooter();
-      doc.save(`Samir_Enterprise_Procurement_Ledger_${new Date().toISOString().split('T')[0]}.pdf`);
+      drawFooter(currentPage, totalPages);
+      doc.save(`${brandName.replace(/\s+/g, '_')}_Procurement_Ledger_${new Date().toISOString().split('T')[0]}.pdf`);
 
+    // ═══════════════════════════════════════════════════════════════
+    // ACCOUNTING / EXPENSES PDF
+    // ═══════════════════════════════════════════════════════════════
     } else if (view === 'accounting') {
-      drawHeader('Operating Expense & Profit Ledger');
+      const totalExpensesAmt = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+      const totalPages = Math.ceil((expenses.length * 7 + 90) / 230) || 1;
+      let currentPage = 1;
 
-      const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+      drawHeader('EXPENSE STATEMENT', 'Operating Costs & Voucher Ledger');
 
-      // Summary
-      doc.setFillColor(248, 250, 252);
-      doc.rect(15, 50, 180, 25, 'F');
-      doc.setDrawColor(226, 232, 240);
-      doc.rect(15, 50, 180, 25, 'D');
+      // Summary cards
+      let y = drawSectionTitle("Expense Summary", 48);
+      drawMetricCard(14, y, 58, "Total Expenses", formatBDTVal(totalExpensesAmt), 239, 68, 68);
+      drawMetricCard(76, y, 58, "Voucher Logs", `${expenses.length} Records`, 99, 102, 241);
+      drawMetricCard(138, y, 58, "Categories", `${categories.length} Types`, 16, 185, 129);
 
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(10);
-      doc.setTextColor(71, 85, 105);
-      doc.text(`TOTAL OPERATING EXPENSES LOGGED: ${formatBDTVal(totalExpenses)}`, 20, 58);
-      doc.text(`DISTINCT EXPENDITURE RECORDS IN ARCHIVE: ${expenses.length} Voucher Logs`, 20, 66);
+      // Category breakdown
+      y = drawSectionTitle("Expense by Category", y + 32);
+      const catBreakdown: Record<string, number> = {};
+      expenses.forEach(exp => {
+        catBreakdown[exp.categoryName] = (catBreakdown[exp.categoryName] || 0) + exp.amount;
+      });
+      const catEntries = Object.entries(catBreakdown).sort((a, b) => b[1] - a[1]);
+
+      const catColors: [number, number, number][] = [
+        [99, 102, 241], [16, 185, 129], [245, 158, 11], [239, 68, 68], [168, 85, 247]
+      ];
+      catEntries.forEach((entry, i) => {
+        const barWidth = totalExpensesAmt > 0 ? (entry[1] / totalExpensesAmt) * 130 : 0;
+        const color = catColors[i % catColors.length];
+
+        doc.setFillColor(color[0], color[1], color[2]);
+        doc.roundedRect(15, y - 3, Math.max(barWidth, 4), 5, 1, 1, 'F');
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7.5);
+        doc.setTextColor(30, 41, 59);
+        doc.text(entry[0], 150, y);
+
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(100, 116, 139);
+        doc.text(formatBDTVal(entry[1]), 150, y + 5);
+        y += 12;
+      });
 
       // Expenses table
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(11);
-      doc.setTextColor(71, 85, 105);
-      doc.text("HISTORICAL OPERATING EXPENDITURE LOGS (OPEX)", 15, 90);
+      y = drawSectionTitle("Detailed Expense Records", y + 2);
+      const expCols = [
+        { label: '#', x: 15 },
+        { label: 'Date', x: 22 },
+        { label: 'Category', x: 52 },
+        { label: 'Paid To', x: 100 },
+        { label: 'Amount', x: 145 },
+        { label: 'Notes', x: 170 }
+      ];
+      y = drawTableHeader(expCols, y);
 
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9);
-      doc.setTextColor(15, 23, 42);
-      doc.text("Date", 15, 100);
-      doc.text("Ledger Category", 45, 100);
-      doc.text("Paid To (Receiver)", 85, 100);
-      doc.text("Amount (BDT)", 135, 100);
-      doc.text("Voucher Specifics", 160, 100);
-
-      doc.line(15, 102, 195, 102);
-
-      let expY = 108;
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
-      doc.setTextColor(51, 65, 85);
-
-      expenses.forEach((exp) => {
-        if (expY > 260) {
+      expenses.forEach((exp, i) => {
+        if (y > 265) {
+          drawFooter(currentPage, totalPages);
           doc.addPage();
-          drawHeader('Operating Expense & Profit Ledger');
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(9);
-          doc.setTextColor(15, 23, 42);
-          doc.text("Date", 15, 47);
-          doc.text("Ledger Category", 45, 47);
-          doc.text("Paid To (Receiver)", 85, 47);
-          doc.text("Amount (BDT)", 135, 47);
-          doc.text("Voucher Specifics", 160, 47);
-          doc.line(15, 49, 195, 49);
-          expY = 55;
+          currentPage++;
+          drawHeader('EXPENSE STATEMENT', 'Operating Costs & Voucher Ledger');
+          y = drawSectionTitle("Detailed Expense Records (continued)", 48);
+          y = drawTableHeader(expCols, y);
         }
-        doc.text(exp.expenseDate, 15, expY);
-        doc.text(exp.categoryName, 45, expY);
-        doc.text(exp.paidTo, 85, expY);
-        doc.text(formatBDTVal(exp.amount), 135, expY);
-        doc.text(exp.notes ? (exp.notes.length > 20 ? exp.notes.substring(0, 18) + '...' : exp.notes) : '-', 160, expY);
-        expY += 8;
+        y = drawTableRow([
+          { text: `${i + 1}`, x: 15, color: [148, 163, 184] },
+          { text: exp.expenseDate, x: 22 },
+          { text: exp.categoryName.length > 22 ? exp.categoryName.substring(0, 20) + '..' : exp.categoryName, x: 52 },
+          { text: exp.paidTo.length > 20 ? exp.paidTo.substring(0, 18) + '..' : exp.paidTo, x: 100 },
+          { text: formatBDTVal(exp.amount), x: 145, bold: true },
+          { text: exp.notes ? (exp.notes.length > 18 ? exp.notes.substring(0, 16) + '..' : exp.notes) : '—', x: 170 }
+        ], y, i % 2 === 0);
       });
 
-      drawFooter();
-      doc.save(`Samir_Enterprise_Accounting_Ledger_${new Date().toISOString().split('T')[0]}.pdf`);
+      // Grand total bar
+      if (y < 260) {
+        y += 4;
+        doc.setFillColor(15, 23, 42);
+        doc.roundedRect(14, y - 3, 182, 9, 2, 2, 'F');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8.5);
+        doc.setTextColor(255, 255, 255);
+        doc.text('GRAND TOTAL', 18, y + 3);
+        doc.text(formatBDTVal(totalExpensesAmt), 170, y + 3);
+      }
+
+      drawFooter(currentPage, totalPages);
+      doc.save(`${brandName.replace(/\s+/g, '_')}_Expense_Statement_${new Date().toISOString().split('T')[0]}.pdf`);
     }
   };
 
@@ -839,6 +872,7 @@ export default function App() {
             setProcurements={setProcurements}
             products={products}
             setProducts={setProducts}
+            companies={companies}
             onDownloadPDF={handleDownloadPDF}
             language={language}
           />
@@ -884,21 +918,27 @@ export default function App() {
             key="shops-routes"
             {...directoryBaseProps}
             defaultTab="shops"
-            visibleTabs={['shops', 'routes', 'srs']}
-            pageTitle={t.shopsRoutesPage.title}
-            pageSubtitle={t.shopsRoutesPage.subtitle}
+            visibleTabs={['shops', 'routes', 'srs', 'damage']}
+            pageTitle={language === 'bn' ? 'খুচরা দোকান ও রুট' : 'Retail Outlets & Route Beat'}
+            pageSubtitle={language === 'bn' ? 'খুচরা বিক্রয় কেন্দ্র, রুট ম্যাপ, এসআর এবং পণ্যের ক্ষয়ক্ষতি নির্ধারণ' : 'Manage retail outlets, credit thresholds, route beat allocation, agent mapping, and damaged stock logs'}
           />
         );
       case 'settings':
         return (
-          <DirectoryModule
-            key="settings"
-            {...directoryBaseProps}
-            defaultTab="godowns"
-            visibleTabs={['godowns']}
-            pageTitle={language === 'bn' ? 'সেটিংস' : 'Settings'}
-            pageSubtitle={language === 'bn' ? 'গুদাম ও সিস্টেম সেটিংস' : 'Warehouse & system settings'}
+          <SettingsModule
+            shopName={shopName}
+            setShopName={setShopName}
+            shopSubBrand={shopSubBrand}
+            setShopSubBrand={setShopSubBrand}
+            shopLogo={shopLogo}
+            setShopLogo={setShopLogo}
+            language={language}
+            directoryBaseProps={directoryBaseProps}
           />
+        );
+      case 'help':
+        return (
+          <HelpGuideModule language={language} />
         );
       default:
         return (
@@ -937,6 +977,9 @@ export default function App() {
         collapsed={sidebarCollapsed} 
         setCollapsed={setSidebarCollapsed} 
         language={language}
+        shopName={shopName}
+        shopSubBrand={shopSubBrand}
+        shopLogo={shopLogo}
       />
 
       {/* Main ERP Layout Panel */}
@@ -955,8 +998,8 @@ export default function App() {
             >
               <Menu className="w-5 h-5" />
             </button>
-            <h1 className="text-sm font-semibold text-slate-805 font-sans tracking-wide">
-              {translations[language].sidebar.brand}
+            <h1 className="text-sm font-bold text-slate-805 font-sans tracking-wide">
+              {shopName}
             </h1>
           </div>
 
