@@ -1,12 +1,11 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Hind+Siliguri:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;1,14..32,400&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+Bengali:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Gotham", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
-  --font-bengali: "Hind Siliguri", "Noto Sans Bengali", sans-serif;
-  --font-gotham: "Gotham", "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-bembo: "Bembo Std", "Georgia", serif;
+  --font-bengali: "Noto Sans Bengali", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-gotham: "Inter", ui-sans-serif, system-ui, sans-serif;
   
   --color-brand-primary: #000000;
   --color-brand-color-2: #334155;
@@ -56,6 +55,29 @@
 
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
+}
+
+/* Bengali (Noto Sans Bengali) typography tuning
+   — slightly larger line-height and letter-spacing for readability */
+.font-bengali,
+.font-bengali * {
+  font-family: "Noto Sans Bengali", "Inter", ui-sans-serif, system-ui, sans-serif;
+  line-height: 1.7;
+  word-spacing: 0.02em;
+}
+
+/* Bengali headings — tighten line-height a bit */
+.font-bengali h1,
+.font-bengali h2,
+.font-bengali h3,
+.font-bengali h4 {
+  line-height: 1.45;
+}
+
+/* Bengali numbers rendered with Bengali-UI font but keep mono for data tables */
+.font-bengali .font-mono {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  line-height: inherit;
 }
 
 /* 1. Font weight reset rules that allow typography hierarchies (semibold/bold) for headers and numbers */

@@ -1,5 +1,9 @@
 'use client';
 
+// Force dynamic rendering — this page requires runtime env vars (Supabase)
+// and must never be statically prerendered.
+export const dynamic = 'force-dynamic';
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { jsPDF } from 'jspdf';
 import { 
@@ -31,7 +35,7 @@ import SettingsModule from '../../../components/SettingsModule';
 import HelpGuideModule from '../../../components/HelpGuideModule';
 import ReportsModule from '../../../components/ReportsModule';
 
-// Raw Types & seed arrays
+// Types
 import { 
   Product, 
   ProductAttribute, 
@@ -63,200 +67,373 @@ import {
 } from '../../../types';
 import LoginPage from '../../../components/LoginPage';
 
+// Supabase
+import { supabase } from '../../../lib/supabase';
+import {
+  loadAllData, seedInitialData,
+  upsertProduct, deleteProduct,
+  upsertSR, deleteSR,
+  upsertDeliveryMan, deleteDeliveryMan,
+  upsertCompany, deleteCompany,
+  upsertProductCategory, deleteProductCategory,
+  upsertUnit, deleteUnit,
+  upsertGodown, deleteGodown,
+  upsertRoute, deleteRoute,
+  upsertAttribute, deleteAttribute,
+  upsertChallan, deleteChallan,
+  upsertProcurement, deleteProcurement,
+  insertStockAdjustment,
+  upsertExpenseCategory, deleteExpenseCategory,
+  upsertExpense, deleteExpense,
+  upsertCustomer, deleteCustomer,
+  upsertSettings,
+} from '../../../lib/db';
+
 export default function App() {
   const [mounted, setMounted] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userRole, setUserRole] = useState<'admin' | 'sr'>('admin');
+  const [dbLoading, setDbLoading] = useState(false);
 
+  // ── Boot: check Supabase session OR SR sessionStorage ──────────
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      // ── Auth check: support both old key (erp_auth_role) and new key (erp_user_role) ──
-      const auth = localStorage.getItem('erp_auth');
-      const role = (localStorage.getItem('erp_user_role') || localStorage.getItem('erp_auth_role')) as 'admin' | 'sr' | null;
-
-      if (auth === 'true' && role) {
+    async function boot() {
+      // Check SR session (stored in sessionStorage, no Supabase Auth)
+      const srId = typeof window !== 'undefined' ? sessionStorage.getItem('erp_sr_id') : null;
+      if (srId) {
         setIsAuthenticated(true);
-        setUserRole(role);
-      }
-
-      const savedTab = localStorage.getItem('erp_active_tab');
-      if (role === 'sr') {
+        setUserRole('sr');
         setActiveTab('sales');
-      } else if (savedTab) {
-        setActiveTab(savedTab as TabID);
+        const savedLang = localStorage.getItem('erp_language');
+        if (savedLang) setLanguage(savedLang as Language);
+        const savedCollapsed = localStorage.getItem('erp_sidebar_collapsed');
+        if (savedCollapsed) setSidebarCollapsed(savedCollapsed === 'true');
+        setIsLoaded(true);
+        setMounted(true);
+        return;
       }
 
-      // ── Sidebar collapsed state ──
-      const savedCollapsed = localStorage.getItem('erp_sidebar_collapsed');
-      if (savedCollapsed !== null) {
-        setSidebarCollapsed(savedCollapsed === 'true');
+      // Check Supabase Auth session (admin)
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        setIsAuthenticated(true);
+        setUserRole('admin');
+        await loadErpData();
       }
 
-      // Hydrate core ERP states from localStorage safely
       const savedLang = localStorage.getItem('erp_language');
-      if (savedLang) {
-        setLanguage(savedLang as Language);
-      }
-
-      const savedProducts = localStorage.getItem('erp_products');
-      let migrationNeeded = false;
-      if (savedProducts) {
-        try {
-          const parsed = JSON.parse(savedProducts);
-          if (parsed.length > 0 && !parsed[0].company) {
-            migrationNeeded = true;
-            localStorage.removeItem('erp_products');
-            localStorage.removeItem('erp_challans');
-            localStorage.removeItem('erp_procurements');
-            localStorage.removeItem('erp_adjustments');
-            localStorage.removeItem('erp_expenses');
-            localStorage.removeItem('erp_categories');
-            localStorage.removeItem('erp_attributes');
-          } else {
-            setProducts(parsed);
-          }
-        } catch (e) {}
-      }
-
-      if (!migrationNeeded) {
-        const savedSrs = localStorage.getItem('erp_srs');
-        if (savedSrs) {
-          try { setSrs(JSON.parse(savedSrs)); } catch (e) {}
-        }
-
-        const savedDeliveryMen = localStorage.getItem('erp_delivery_men');
-        if (savedDeliveryMen) {
-          try { setDeliveryMen(JSON.parse(savedDeliveryMen)); } catch (e) {}
-        }
-
-        const savedAttributes = localStorage.getItem('erp_attributes');
-        if (savedAttributes) {
-          try {
-            const parsed = JSON.parse(savedAttributes);
-            if (!(parsed.length > 0 && parsed[0].type !== 'Packaging')) {
-              setAttributes(parsed);
-            }
-          } catch (e) {}
-        }
-
-        const savedChallans = localStorage.getItem('erp_challans');
-        if (savedChallans) {
-          try {
-            const parsed = JSON.parse(savedChallans);
-            if (!(parsed.length > 0 && parsed[0].productName.includes('Apex'))) {
-              setChallans(parsed);
-            }
-          } catch (e) {}
-        }
-
-        const savedProcurements = localStorage.getItem('erp_procurements');
-        if (savedProcurements) {
-          try {
-            const parsed = JSON.parse(savedProcurements);
-            if (!(parsed.length > 0 && parsed[0].supplierName !== 'Pran' && parsed[0].supplierName !== 'Olympic' && parsed[0].supplierName !== 'Haque')) {
-              setProcurements(parsed);
-            }
-          } catch (e) {}
-        }
-
-        const savedAdjustments = localStorage.getItem('erp_adjustments');
-        if (savedAdjustments) {
-          try { setAdjustments(JSON.parse(savedAdjustments)); } catch (e) {}
-        }
-
-        const savedCategories = localStorage.getItem('erp_categories');
-        if (savedCategories) {
-          try {
-            const parsed = JSON.parse(savedCategories);
-            if (!(parsed.length > 0 && parsed[0].name.includes('Office Rent'))) {
-              setCategories(parsed);
-            }
-          } catch (e) {}
-        }
-
-        const savedExpenses = localStorage.getItem('erp_expenses');
-        if (savedExpenses) {
-          try {
-            const parsed = JSON.parse(savedExpenses);
-            if (!(parsed.length > 0 && parsed[0].notes.includes('Van Fuel'))) {
-              setExpenses(parsed);
-            }
-          } catch (e) {}
-        }
-
-        const savedCustomers = localStorage.getItem('erp_customers');
-        if (savedCustomers) {
-          try { setCustomers(JSON.parse(savedCustomers)); } catch (e) {}
-        }
-
-        const savedCompanies = localStorage.getItem('erp_companies');
-        if (savedCompanies) {
-          try { setCompanies(JSON.parse(savedCompanies)); } catch (e) {}
-        }
-
-        const savedProdCategories = localStorage.getItem('erp_product_categories');
-        if (savedProdCategories) {
-          try { setProductCategories(JSON.parse(savedProdCategories)); } catch (e) {}
-        }
-
-        const savedUnits = localStorage.getItem('erp_units');
-        if (savedUnits) {
-          try { setUnits(JSON.parse(savedUnits)); } catch (e) {}
-        }
-
-        const savedGodowns = localStorage.getItem('erp_godowns');
-        if (savedGodowns) {
-          try { setGodowns(JSON.parse(savedGodowns)); } catch (e) {}
-        }
-
-        const savedRoutes = localStorage.getItem('erp_routes');
-        if (savedRoutes) {
-          try { setRoutes(JSON.parse(savedRoutes)); } catch (e) {}
-        }
-
-        const savedShopName = localStorage.getItem('erp_settings_shop_name');
-        if (savedShopName) setShopName(savedShopName);
-
-        const savedShopSubBrand = localStorage.getItem('erp_settings_shop_subbrand');
-        if (savedShopSubBrand) setShopSubBrand(savedShopSubBrand);
-
-        const savedShopLogo = localStorage.getItem('erp_settings_shop_logo');
-        if (savedShopLogo) setShopLogo(savedShopLogo);
-      }
+      if (savedLang) setLanguage(savedLang as Language);
+      const savedCollapsed = localStorage.getItem('erp_sidebar_collapsed');
+      if (savedCollapsed) setSidebarCollapsed(savedCollapsed === 'true');
+      const savedTab = localStorage.getItem('erp_active_tab');
+      if (savedTab) setActiveTab(savedTab as TabID);
 
       setIsLoaded(true);
+      setMounted(true);
     }
-    setMounted(true);
+    boot();
+
+    // Listen for auth changes (sign-in / sign-out from other tabs)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        setIsAuthenticated(true);
+        setUserRole('admin');
+        await loadErpData();
+      } else if (event === 'SIGNED_OUT') {
+        setIsAuthenticated(false);
+      }
+    });
+    return () => subscription.unsubscribe();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Navigation State
+  // ── Load all ERP data from Supabase ───────────────────────────
+  async function loadErpData() {
+    setDbLoading(true);
+    try {
+      const data = await loadAllData();
+
+      // If this admin has no data yet, seed with initial demo data
+      const isEmpty = data.products.length === 0 && data.challans.length === 0;
+      if (isEmpty) {
+        await seedInitialData();
+        const seeded = await loadAllData();
+        applyLoadedData(seeded);
+      } else {
+        applyLoadedData(data);
+      }
+    } catch (err) {
+      console.error('Failed to load ERP data from Supabase:', err);
+      // Fallback to INITIAL data so UI is never blank
+      applyLoadedData({
+        products: INITIAL_PRODUCTS, srs: INITIAL_SRS,
+        deliveryMen: INITIAL_DELIVERY_MEN, companies: INITIAL_COMPANIES,
+        productCategories: INITIAL_CATEGORIES, units: INITIAL_UNITS,
+        godowns: INITIAL_GODOWNS, routes: INITIAL_ROUTES,
+        attributes: INITIAL_ATTRIBUTES, challans: INITIAL_CHALLAN_ITEMS,
+        procurements: INITIAL_PROCUREMENTS, adjustments: INITIAL_STOCK_ADJUSTMENTS,
+        categories: INITIAL_EXP_CATEGORIES, expenses: INITIAL_EXPENSES,
+        customers: [], settings: { shopName: 'Samir Enterprise', shopSubBrand: 'Dhaka & Chittagong Regional Hub', shopLogo: '', language: 'en' },
+      });
+    }
+    setDbLoading(false);
+  }
+
+  function applyLoadedData(data: Awaited<ReturnType<typeof loadAllData>>) {
+    setProducts(data.products);
+    setSrs(data.srs);
+    setDeliveryMen(data.deliveryMen);
+    setCompanies(data.companies);
+    setProductCategories(data.productCategories);
+    setUnits(data.units);
+    setGodowns(data.godowns);
+    setRoutes(data.routes);
+    setAttributes(data.attributes);
+    setChallans(data.challans);
+    setProcurements(data.procurements);
+    setAdjustments(data.adjustments);
+    setCategories(data.categories);
+    setExpenses(data.expenses);
+    setCustomers(data.customers);
+    if (data.settings.shopName)     setShopName(data.settings.shopName);
+    if (data.settings.shopSubBrand) setShopSubBrand(data.settings.shopSubBrand);
+    if (data.settings.shopLogo)     setShopLogo(data.settings.shopLogo);
+    if (data.settings.language)     setLanguage(data.settings.language as Language);
+  }
+
+  // ── Supabase sync helpers — called by setter wrappers ─────────
+  // Each setter wrapper: update React state immediately (optimistic), then sync to DB.
+
+  function makeProductSetter(prev: Product[]) { return prev; } // placeholder, see wrappers below
+
+  // We create "syncing" versions of the setters used by child components.
+  // Pattern: setXxx(newVal) → setState + upsert/delete to Supabase
+
+  function syncProducts(updater: (prev: Product[]) => Product[]) {
+    setProducts(prev => {
+      const next = updater(prev);
+      const added   = next.filter(n => !prev.find(p => p.id === n.id));
+      const updated = next.filter(n => prev.find(p => p.id === n.id && JSON.stringify(p) !== JSON.stringify(n)));
+      const removed = prev.filter(p => !next.find(n => n.id === p.id));
+      added.concat(updated).forEach(p => upsertProduct(p).catch(console.error));
+      removed.forEach(p => deleteProduct(p.id).catch(console.error));
+      return next;
+    });
+  }
+
+  function syncSrs(updater: (prev: SR[]) => SR[]) {
+    setSrs(prev => {
+      const next = updater(prev);
+      const added   = next.filter(n => !prev.find(p => p.id === n.id));
+      const updated = next.filter(n => prev.find(p => p.id === n.id && JSON.stringify(p) !== JSON.stringify(n)));
+      const removed = prev.filter(p => !next.find(n => n.id === p.id));
+      added.concat(updated).forEach(s => upsertSR(s).catch(console.error));
+      removed.forEach(s => deleteSR(s.id).catch(console.error));
+      return next;
+    });
+  }
+
+  function syncChallans(updater: (prev: ChallanItem[]) => ChallanItem[]) {
+    setChallans(prev => {
+      const next = updater(prev);
+      const added   = next.filter(n => !prev.find(p => p.id === n.id));
+      const updated = next.filter(n => prev.find(p => p.id === n.id && JSON.stringify(p) !== JSON.stringify(n)));
+      const removed = prev.filter(p => !next.find(n => n.id === p.id));
+      added.concat(updated).forEach(c => upsertChallan(c).catch(console.error));
+      removed.forEach(c => deleteChallan(c.id).catch(console.error));
+      return next;
+    });
+  }
+
+  function syncProcurements(updater: (prev: Procurement[]) => Procurement[]) {
+    setProcurements(prev => {
+      const next = updater(prev);
+      const added   = next.filter(n => !prev.find(p => p.id === n.id));
+      const updated = next.filter(n => prev.find(p => p.id === n.id && JSON.stringify(p) !== JSON.stringify(n)));
+      const removed = prev.filter(p => !next.find(n => n.id === p.id));
+      added.concat(updated).forEach(p => upsertProcurement(p).catch(console.error));
+      removed.forEach(p => deleteProcurement(p.id).catch(console.error));
+      return next;
+    });
+  }
+
+  function syncAdjustments(updater: (prev: StockAdjustment[]) => StockAdjustment[]) {
+    setAdjustments(prev => {
+      const next = updater(prev);
+      const added = next.filter(n => !prev.find(p => p.id === n.id));
+      added.forEach(a => insertStockAdjustment(a).catch(console.error));
+      return next;
+    });
+  }
+
+  function syncAttributes(updater: (prev: ProductAttribute[]) => ProductAttribute[]) {
+    setAttributes(prev => {
+      const next = updater(prev);
+      const added   = next.filter(n => !prev.find(p => p.id === n.id));
+      const updated = next.filter(n => prev.find(p => p.id === n.id && JSON.stringify(p) !== JSON.stringify(n)));
+      const removed = prev.filter(p => !next.find(n => n.id === p.id));
+      added.concat(updated).forEach(a => upsertAttribute(a).catch(console.error));
+      removed.forEach(a => deleteAttribute(a.id).catch(console.error));
+      return next;
+    });
+  }
+
+  function syncExpenseCategories(updater: (prev: ExpenseCategory[]) => ExpenseCategory[]) {
+    setCategories(prev => {
+      const next = updater(prev);
+      const added   = next.filter(n => !prev.find(p => p.id === n.id));
+      const updated = next.filter(n => prev.find(p => p.id === n.id && JSON.stringify(p) !== JSON.stringify(n)));
+      const removed = prev.filter(p => !next.find(n => n.id === p.id));
+      added.concat(updated).forEach(c => upsertExpenseCategory(c).catch(console.error));
+      removed.forEach(c => deleteExpenseCategory(c.id).catch(console.error));
+      return next;
+    });
+  }
+
+  function syncExpenses(updater: (prev: ExpenseRecord[]) => ExpenseRecord[]) {
+    setExpenses(prev => {
+      const next = updater(prev);
+      const added   = next.filter(n => !prev.find(p => p.id === n.id));
+      const updated = next.filter(n => prev.find(p => p.id === n.id && JSON.stringify(p) !== JSON.stringify(n)));
+      const removed = prev.filter(p => !next.find(n => n.id === p.id));
+      added.concat(updated).forEach(e => upsertExpense(e).catch(console.error));
+      removed.forEach(e => deleteExpense(e.id).catch(console.error));
+      return next;
+    });
+  }
+
+  function syncCompanies(updater: (prev: CompanyBrand[]) => CompanyBrand[]) {
+    setCompanies(prev => {
+      const next = updater(prev);
+      const added   = next.filter(n => !prev.find(p => p.id === n.id));
+      const updated = next.filter(n => prev.find(p => p.id === n.id && JSON.stringify(p) !== JSON.stringify(n)));
+      const removed = prev.filter(p => !next.find(n => n.id === p.id));
+      added.concat(updated).forEach(c => upsertCompany(c).catch(console.error));
+      removed.forEach(c => deleteCompany(c.id).catch(console.error));
+      return next;
+    });
+  }
+
+  function syncProductCategories(updater: (prev: Category[]) => Category[]) {
+    setProductCategories(prev => {
+      const next = updater(prev);
+      const added   = next.filter(n => !prev.find(p => p.id === n.id));
+      const updated = next.filter(n => prev.find(p => p.id === n.id && JSON.stringify(p) !== JSON.stringify(n)));
+      const removed = prev.filter(p => !next.find(n => n.id === p.id));
+      added.concat(updated).forEach(c => upsertProductCategory(c).catch(console.error));
+      removed.forEach(c => deleteProductCategory(c.id).catch(console.error));
+      return next;
+    });
+  }
+
+  function syncUnits(updater: (prev: UnitOfMeasure[]) => UnitOfMeasure[]) {
+    setUnits(prev => {
+      const next = updater(prev);
+      const added   = next.filter(n => !prev.find(p => p.id === n.id));
+      const updated = next.filter(n => prev.find(p => p.id === n.id && JSON.stringify(p) !== JSON.stringify(n)));
+      const removed = prev.filter(p => !next.find(n => n.id === p.id));
+      added.concat(updated).forEach(u => upsertUnit(u).catch(console.error));
+      removed.forEach(u => deleteUnit(u.id).catch(console.error));
+      return next;
+    });
+  }
+
+  function syncGodowns(updater: (prev: Godown[]) => Godown[]) {
+    setGodowns(prev => {
+      const next = updater(prev);
+      const added   = next.filter(n => !prev.find(p => p.id === n.id));
+      const updated = next.filter(n => prev.find(p => p.id === n.id && JSON.stringify(p) !== JSON.stringify(n)));
+      const removed = prev.filter(p => !next.find(n => n.id === p.id));
+      added.concat(updated).forEach(g => upsertGodown(g).catch(console.error));
+      removed.forEach(g => deleteGodown(g.id).catch(console.error));
+      return next;
+    });
+  }
+
+  function syncRoutes(updater: (prev: Route[]) => Route[]) {
+    setRoutes(prev => {
+      const next = updater(prev);
+      const added   = next.filter(n => !prev.find(p => p.id === n.id));
+      const updated = next.filter(n => prev.find(p => p.id === n.id && JSON.stringify(p) !== JSON.stringify(n)));
+      const removed = prev.filter(p => !next.find(n => n.id === p.id));
+      added.concat(updated).forEach(r => upsertRoute(r).catch(console.error));
+      removed.forEach(r => deleteRoute(r.id).catch(console.error));
+      return next;
+    });
+  }
+
+  function syncDeliveryMen(updater: (prev: typeof INITIAL_DELIVERY_MEN) => typeof INITIAL_DELIVERY_MEN) {
+    setDeliveryMen(prev => {
+      const next = updater(prev);
+      const added   = next.filter(n => !prev.find(p => p.id === n.id));
+      const updated = next.filter(n => prev.find(p => p.id === n.id && JSON.stringify(p) !== JSON.stringify(n)));
+      const removed = prev.filter(p => !next.find(n => n.id === p.id));
+      added.concat(updated).forEach(d => upsertDeliveryMan(d).catch(console.error));
+      removed.forEach(d => deleteDeliveryMan(d.id).catch(console.error));
+      return next;
+    });
+  }
+
+  function syncCustomers(updater: (prev: any[]) => any[]) {
+    setCustomers(prev => {
+      const next = updater(prev);
+      const added   = next.filter(n => !prev.find(p => p.id === n.id));
+      const updated = next.filter(n => prev.find(p => p.id === n.id && JSON.stringify(p) !== JSON.stringify(n)));
+      const removed = prev.filter(p => !next.find(n => n.id === p.id));
+      added.concat(updated).forEach(c => upsertCustomer(c).catch(console.error));
+      removed.forEach(c => deleteCustomer(c.id).catch(console.error));
+      return next;
+    });
+  }
+
+  // Settings sync helpers (called directly from SettingsModule setters)
+  function syncShopName(val: string | ((prev: string) => string)) {
+    setShopName(prev => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      upsertSettings({ shopName: next, shopSubBrand, shopLogo, language }).catch(console.error);
+      return next;
+    });
+  }
+  function syncShopSubBrand(val: string | ((prev: string) => string)) {
+    setShopSubBrand(prev => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      upsertSettings({ shopName, shopSubBrand: next, shopLogo, language }).catch(console.error);
+      return next;
+    });
+  }
+  function syncShopLogo(val: string | ((prev: string) => string)) {
+    setShopLogo(prev => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      upsertSettings({ shopName, shopSubBrand, shopLogo: next, language }).catch(console.error);
+      return next;
+    });
+  }
+
+  // ── Navigation State ──────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<TabID>('dashboard');
 
-  const handleLogin = useCallback(() => {
-    if (typeof window !== 'undefined') {
-      // erp_user_role is set by LoginPage; normalize to erp_auth + erp_user_role
-      const role = (localStorage.getItem('erp_user_role') || 'admin') as 'admin' | 'sr';
-      localStorage.setItem('erp_auth', 'true');
-      localStorage.setItem('erp_user_role', role);
-      setIsAuthenticated(true);
-      setUserRole(role);
-      if (role === 'sr') {
-        setActiveTab('sales');
-      } else {
-        const savedTab = localStorage.getItem('erp_active_tab');
-        setActiveTab((savedTab as TabID) || 'dashboard');
-      }
+  const handleLogin = useCallback(async (role: 'admin' | 'sr') => {
+    setIsAuthenticated(true);
+    setUserRole(role);
+    if (role === 'sr') {
+      setActiveTab('sales');
+    } else {
+      const savedTab = localStorage.getItem('erp_active_tab');
+      setActiveTab((savedTab as TabID) || 'dashboard');
+      await loadErpData();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // Branding Customization States
-  const [shopName, setShopName] = useState('Samir Enterprise');
+  const [shopName,     setShopName]     = useState('Samir Enterprise');
   const [shopSubBrand, setShopSubBrand] = useState('Dhaka & Chittagong Regional Hub');
-  const [shopLogo, setShopLogo] = useState('');
+  const [shopLogo,     setShopLogo]     = useState('');
 
   // Multi-language state
-  const [language, setLanguage] = useState<Language>('bn');
+  const [language, setLanguage] = useState<Language>('en');
   const [langOpen, setLangOpen] = useState(false);
 
   // Real-time local Date & Time State formatted for Bangladesh / Local context
@@ -266,149 +443,38 @@ export default function App() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
 
-  // Global Core Reactive States
-  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
-  const [srs, setSrs] = useState<SR[]>(INITIAL_SRS);
-  const [deliveryMen, setDeliveryMen] = useState(INITIAL_DELIVERY_MEN);
-  const [customers, setCustomers] = useState<any[]>([]);
-  const [attributes, setAttributes] = useState<ProductAttribute[]>(INITIAL_ATTRIBUTES);
-  const [challans, setChallans] = useState<ChallanItem[]>(INITIAL_CHALLAN_ITEMS);
-  const [procurements, setProcurements] = useState<Procurement[]>(INITIAL_PROCUREMENTS);
-  const [adjustments, setAdjustments] = useState<StockAdjustment[]>(INITIAL_STOCK_ADJUSTMENTS);
-  const [categories, setCategories] = useState<ExpenseCategory[]>(INITIAL_EXP_CATEGORIES);
-  const [expenses, setExpenses] = useState<ExpenseRecord[]>(INITIAL_EXPENSES);
-  const [companies, setCompanies] = useState<CompanyBrand[]>(INITIAL_COMPANIES);
-  const [productCategories, setProductCategories] = useState<Category[]>(INITIAL_CATEGORIES);
-  const [units, setUnits] = useState<UnitOfMeasure[]>(INITIAL_UNITS);
-  const [godowns, setGodowns] = useState<Godown[]>(INITIAL_GODOWNS);
-  const [routes, setRoutes] = useState<Route[]>(INITIAL_ROUTES);
+  // Global Core Reactive States (start empty; filled from Supabase on boot)
+  const [products,          setProducts]          = useState<Product[]>([]);
+  const [srs,               setSrs]               = useState<SR[]>([]);
+  const [deliveryMen,       setDeliveryMen]       = useState([] as typeof INITIAL_DELIVERY_MEN);
+  const [customers,         setCustomers]         = useState<any[]>([]);
+  const [attributes,        setAttributes]        = useState<ProductAttribute[]>([]);
+  const [challans,          setChallans]          = useState<ChallanItem[]>([]);
+  const [procurements,      setProcurements]      = useState<Procurement[]>([]);
+  const [adjustments,       setAdjustments]       = useState<StockAdjustment[]>([]);
+  const [categories,        setCategories]        = useState<ExpenseCategory[]>([]);
+  const [expenses,          setExpenses]          = useState<ExpenseRecord[]>([]);
+  const [companies,         setCompanies]         = useState<CompanyBrand[]>([]);
+  const [productCategories, setProductCategories] = useState<Category[]>([]);
+  const [units,             setUnits]             = useState<UnitOfMeasure[]>([]);
+  const [godowns,           setGodowns]           = useState<Godown[]>([]);
+  const [routes,            setRoutes]            = useState<Route[]>([]);
 
-  // Flag to track client hydration from localStorage
+  // isLoaded: true once Supabase data has been fetched (or boot check done)
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // Global search query inside TopBar (can show feedback or navigate)
+  // Global search query inside TopBar
   const [globalSearch, setGlobalSearch] = useState('');
 
-  // Sync state with local storage on updates (only when fully hydrated)
+  // Sidebar collapsed → persist to localStorage (UI preference only)
   useEffect(() => {
-    if (isLoaded && typeof window !== 'undefined') {
-      localStorage.setItem('erp_language', language);
-    }
-  }, [language, isLoaded]);
-
-  useEffect(() => {
-    if (isLoaded && typeof window !== 'undefined') {
-      localStorage.setItem('erp_products', JSON.stringify(products));
-    }
-  }, [products, isLoaded]);
-
-  useEffect(() => {
-    if (isLoaded && typeof window !== 'undefined') {
-      localStorage.setItem('erp_attributes', JSON.stringify(attributes));
-    }
-  }, [attributes, isLoaded]);
-
-  useEffect(() => {
-    if (isLoaded && typeof window !== 'undefined') {
-      localStorage.setItem('erp_challans', JSON.stringify(challans));
-    }
-  }, [challans, isLoaded]);
-
-  useEffect(() => {
-    if (isLoaded && typeof window !== 'undefined') {
-      localStorage.setItem('erp_procurements', JSON.stringify(procurements));
-    }
-  }, [procurements, isLoaded]);
-
-  useEffect(() => {
-    if (isLoaded && typeof window !== 'undefined') {
-      localStorage.setItem('erp_adjustments', JSON.stringify(adjustments));
-    }
-  }, [adjustments, isLoaded]);
-
-  useEffect(() => {
-    if (isLoaded && typeof window !== 'undefined') {
-      localStorage.setItem('erp_categories', JSON.stringify(categories));
-    }
-  }, [categories, isLoaded]);
-
-  useEffect(() => {
-    if (isLoaded && typeof window !== 'undefined') {
-      localStorage.setItem('erp_expenses', JSON.stringify(expenses));
-    }
-  }, [expenses, isLoaded]);
-
-  useEffect(() => {
-    if (isLoaded && typeof window !== 'undefined') {
-      localStorage.setItem('erp_srs', JSON.stringify(srs));
-    }
-  }, [srs, isLoaded]);
-
-  useEffect(() => {
-    if (isLoaded && typeof window !== 'undefined') {
-      localStorage.setItem('erp_customers', JSON.stringify(customers));
-    }
-  }, [customers, isLoaded]);
-
-  useEffect(() => {
-    if (isLoaded && typeof window !== 'undefined') {
-      localStorage.setItem('erp_companies', JSON.stringify(companies));
-    }
-  }, [companies, isLoaded]);
-
-  useEffect(() => {
-    if (isLoaded && typeof window !== 'undefined') {
-      localStorage.setItem('erp_product_categories', JSON.stringify(productCategories));
-    }
-  }, [productCategories, isLoaded]);
-
-  useEffect(() => {
-    if (isLoaded && typeof window !== 'undefined') {
-      localStorage.setItem('erp_units', JSON.stringify(units));
-    }
-  }, [units, isLoaded]);
-
-  useEffect(() => {
-    if (isLoaded && typeof window !== 'undefined') {
-      localStorage.setItem('erp_godowns', JSON.stringify(godowns));
-    }
-  }, [godowns, isLoaded]);
-
-  useEffect(() => {
-    if (isLoaded && typeof window !== 'undefined') {
-      localStorage.setItem('erp_routes', JSON.stringify(routes));
-    }
-  }, [routes, isLoaded]);
-
-  useEffect(() => {
-    if (isLoaded && typeof window !== 'undefined') {
-      localStorage.setItem('erp_delivery_men', JSON.stringify(deliveryMen));
-    }
-  }, [deliveryMen, isLoaded]);
-
-  useEffect(() => {
-    if (isLoaded && typeof window !== 'undefined') {
-      localStorage.setItem('erp_settings_shop_name', shopName);
-    }
-  }, [shopName, isLoaded]);
-
-  useEffect(() => {
-    if (isLoaded && typeof window !== 'undefined') {
-      localStorage.setItem('erp_settings_shop_subbrand', shopSubBrand);
-    }
-  }, [shopSubBrand, isLoaded]);
-
-  useEffect(() => {
-    if (isLoaded && typeof window !== 'undefined') {
-      localStorage.setItem('erp_settings_shop_logo', shopLogo);
-    }
-  }, [shopLogo, isLoaded]);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('erp_sidebar_collapsed', String(sidebarCollapsed));
-    }
+    localStorage.setItem('erp_sidebar_collapsed', String(sidebarCollapsed));
   }, [sidebarCollapsed]);
+
+  // Language → persist to localStorage (UI preference only)
+  useEffect(() => {
+    localStorage.setItem('erp_language', language);
+  }, [language]);
 
   // Real-time clock update (every 1 second)
   useEffect(() => {
@@ -466,14 +532,16 @@ export default function App() {
     setSidebarCollapsed(prev => !prev);
   }, []);
 
-  const handleLogout = useCallback(() => {
+  const handleLogout = useCallback(async () => {
     if (confirm(translations[language].sidebar.userSessionConfirm)) {
-      // Only clear auth-related keys — preserve all ERP data
-      localStorage.removeItem('erp_auth');
-      localStorage.removeItem('erp_user_role');
-      localStorage.removeItem('erp_auth_role');
-      localStorage.removeItem('erp_user_email');
+      // Clear SR sessionStorage
+      sessionStorage.removeItem('erp_sr_id');
+      sessionStorage.removeItem('erp_sr_name');
+      // Sign out from Supabase (admin)
+      await supabase.auth.signOut();
+      // Clear UI preferences (keep language)
       localStorage.removeItem('erp_active_tab');
+      localStorage.removeItem('erp_sidebar_collapsed');
       setIsAuthenticated(false);
       setUserRole('admin');
       setActiveTab('dashboard');
@@ -886,9 +954,15 @@ export default function App() {
 
   // Helper to render the DirectoryModule with specific props for each split view
   const directoryBaseProps = {
-    products, setProducts, srs, setSrs, customers, setCustomers,
-    companies, setCompanies, productCategories, setProductCategories,
-    units, setUnits, godowns, setGodowns, routes, setRoutes, language
+    products,          setProducts:          syncProducts,
+    srs,               setSrs:               syncSrs,
+    customers,         setCustomers:         syncCustomers,
+    companies,         setCompanies:         syncCompanies,
+    productCategories, setProductCategories: syncProductCategories,
+    units,             setUnits:             syncUnits,
+    godowns,           setGodowns:           syncGodowns,
+    routes,            setRoutes:            syncRoutes,
+    language,
   };
 
   const t = translations[language];
@@ -913,12 +987,12 @@ export default function App() {
         return (
           <SellModule
             products={products}
-            setProducts={setProducts}
+            setProducts={syncProducts}
             attributes={attributes}
             srs={srs}
             routes={routes}
             deliveryMen={deliveryMen}
-            setChallans={setChallans}
+            setChallans={syncChallans}
             onNavigate={handleNavigate}
             language={language}
           />
@@ -927,7 +1001,7 @@ export default function App() {
         return (
           <ChallanModule
             challans={challans}
-            setChallans={setChallans}
+            setChallans={syncChallans}
             srs={srs}
             routes={routes}
             deliveryMen={deliveryMen}
@@ -940,11 +1014,11 @@ export default function App() {
         return (
           <StockAdjustmentModule
             attributes={attributes}
-            setAttributes={setAttributes}
+            setAttributes={syncAttributes}
             adjustments={adjustments}
-            setAdjustments={setAdjustments}
+            setAdjustments={syncAdjustments}
             products={products}
-            setProducts={setProducts}
+            setProducts={syncProducts}
             language={language}
           />
         );
@@ -952,9 +1026,9 @@ export default function App() {
         return (
           <ProcurementModule
             procurements={procurements}
-            setProcurements={setProcurements}
+            setProcurements={syncProcurements}
             products={products}
-            setProducts={setProducts}
+            setProducts={syncProducts}
             companies={companies}
             onDownloadPDF={handleDownloadPDF}
             language={language}
@@ -964,9 +1038,9 @@ export default function App() {
         return (
           <AccountingModule
             categories={categories}
-            setCategories={setCategories}
+            setCategories={syncExpenseCategories}
             expenses={expenses}
-            setExpenses={setExpenses}
+            setExpenses={syncExpenses}
             challans={challans}
             procurements={procurements}
             onDownloadPDF={handleDownloadPDF}
@@ -1033,15 +1107,15 @@ export default function App() {
         return (
           <SettingsModule
             shopName={shopName}
-            setShopName={setShopName}
+            setShopName={syncShopName}
             shopSubBrand={shopSubBrand}
-            setShopSubBrand={setShopSubBrand}
+            setShopSubBrand={syncShopSubBrand}
             shopLogo={shopLogo}
-            setShopLogo={setShopLogo}
+            setShopLogo={syncShopLogo}
             language={language}
             directoryBaseProps={directoryBaseProps}
             srs={srs}
-            setSrs={setSrs}
+            setSrs={syncSrs}
           />
         );
       case 'help':
