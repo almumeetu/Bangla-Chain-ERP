@@ -15,7 +15,7 @@ import {
   Layers,
   Sparkles
 } from 'lucide-react';
-import { Product, ProductAttribute, SR, Customer, ChallanItem, DeliveryMan } from '../types';
+import { Product, ProductAttribute, SR, Route, ChallanItem, DeliveryMan } from '../types';
 import { translations, Language } from '../translations';
 
 interface SellModuleProps {
@@ -23,7 +23,7 @@ interface SellModuleProps {
   setProducts: React.Dispatch<React.SetStateAction<Product[]>>;
   attributes: ProductAttribute[];
   srs: SR[];
-  customers: Customer[];
+  routes: Route[];
   deliveryMen: DeliveryMan[];
   setChallans: React.Dispatch<React.SetStateAction<ChallanItem[]>>;
   onNavigate: (tab: any) => void;
@@ -40,16 +40,23 @@ interface CartItem {
 // Subcomponent: Product Card inside Catalog Grid
 interface ProductCardProps {
   product: Product;
-  onAddToCart: (p: Product) => void;
+  onAddToCart: (p: Product, q?: number, b?: number) => void;
   formatBDT: (amt: number) => string;
+  language: Language;
 }
 
-function ProductCard({ product, onAddToCart, formatBDT }: ProductCardProps) {
+function ProductCard({ product, onAddToCart, formatBDT, language }: ProductCardProps) {
   const isLowStock = product.currentStock < 600;
 
+  const [qtyInput, setQtyInput] = React.useState('20');
+  const [bonusInput, setBonusInput] = React.useState('1');
+
   const handleAddClick = useCallback(() => {
-    onAddToCart(product);
-  }, [product, onAddToCart]);
+    const q = Number(qtyInput) || 0;
+    const b = Number(bonusInput) || 0;
+    if (q <= 0) return;
+    onAddToCart(product, q, b);
+  }, [product, onAddToCart, qtyInput, bonusInput]);
 
   let brandStyle = "bg-purple-50 text-purple-700 border-purple-150";
   if (product.company.toLowerCase() === 'pran') {
@@ -62,11 +69,11 @@ function ProductCard({ product, onAddToCart, formatBDT }: ProductCardProps) {
 
   return (
     <div 
-      className={`bg-white rounded-3xl p-5 border transition-all duration-300 flex flex-col justify-between space-y-4 relative overflow-hidden group border-slate-200 hover:border-slate-800 shadow-sm hover:shadow-md`}
+      className="bg-white rounded-2xl p-4.5 border border-slate-200 hover:border-slate-800 hover:shadow-md transition-all duration-300 flex flex-col justify-between space-y-4 relative overflow-hidden group shadow-sm"
     >
       <div className="absolute -right-20 -top-20 w-36 h-36 rounded-full bg-slate-50 group-hover:bg-slate-100/50 transition-all duration-500 pointer-events-none" />
       
-      <div className="space-y-2.5 relative z-10">
+      <div className="space-y-2 relative z-10">
         <div className="flex items-center justify-between">
           <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold border uppercase tracking-wider ${brandStyle}`}>
             {product.company}
@@ -83,13 +90,13 @@ function ProductCard({ product, onAddToCart, formatBDT }: ProductCardProps) {
         {/* Pricing tag list */}
         <div className="flex items-center gap-3 text-xs text-slate-500 font-semibold pt-0.5">
           <div>
-            <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider block">Wholesale WSP</span>
+            <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider block">{language === 'bn' ? 'ট্রেড মূল্য (TP)' : 'Trade Price (TP)'}</span>
             <span className="font-mono text-xs font-bold text-slate-800">{formatBDT(product.defaultWSP)}</span>
           </div>
           <div className="h-6 w-px bg-slate-200" />
           <div>
-            <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider block">Retail MRP</span>
-            <span className="font-mono text-xs font-bold text-slate-600">{formatBDT(product.defaultMRP)}</span>
+            <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider block">{language === 'bn' ? 'এমআরপি (MRP)' : 'Retail Price (MRP)'}</span>
+            <span className="font-mono text-xs font-bold text-slate-650">{formatBDT(product.defaultMRP)}</span>
           </div>
         </div>
       </div>
@@ -105,15 +112,70 @@ function ProductCard({ product, onAddToCart, formatBDT }: ProductCardProps) {
         <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
           <div 
             style={{ width: `${Math.min(100, (product.currentStock / 5000) * 100)}%` }} 
-            className={`h-full rounded-full transition-all duration-500 ${
-              isLowStock ? 'bg-amber-500' : 'bg-emerald-500'
-            }`}
+            className="h-full rounded-full transition-all duration-500 bg-emerald-500"
           />
         </div>
       </div>
 
-      {/* Action button */}
-      <div className="pt-3 border-t border-slate-100 flex items-center justify-end relative z-10">
+      {/* Interactive Quick Add inputs & button for desktop operators */}
+      <div className="pt-3 border-t border-slate-100 space-y-2.5 relative z-10">
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <span className="text-[8.5px] text-slate-400 font-bold uppercase tracking-wider block mb-1">{language === 'bn' ? 'পরিমাণ (Qty)' : 'Qty'}</span>
+            <input
+              type="number"
+              min="1"
+              disabled={product.currentStock <= 0}
+              value={qtyInput}
+              onChange={e => setQtyInput(e.target.value)}
+              className="h-8 w-full rounded border border-slate-200 px-2 font-mono text-[11px] font-bold outline-none focus:border-slate-800 focus:bg-slate-50/30 transition-colors"
+            />
+          </div>
+          <div>
+            <span className="text-[8.5px] text-slate-400 font-bold uppercase tracking-wider block mb-1">{language === 'bn' ? 'বোনাস (Bonus)' : 'Bonus'}</span>
+            <input
+              type="number"
+              min="0"
+              disabled={product.currentStock <= 0}
+              value={bonusInput}
+              onChange={e => setBonusInput(e.target.value)}
+              className="h-8 w-full rounded border border-slate-200 px-2 font-mono text-[11px] font-bold outline-none focus:border-slate-800 focus:bg-slate-50/30 transition-colors"
+            />
+          </div>
+        </div>
+
+        {/* Preset increments & Calculated value */}
+        {product.currentStock > 0 && (
+          <div className="flex items-center justify-between text-[10px] text-slate-500 font-semibold bg-slate-50 p-1.5 rounded-lg border border-slate-150">
+            <div className="flex gap-1">
+              <button
+                type="button"
+                onClick={() => setQtyInput(prev => String((Number(prev) || 0) + 10))}
+                className="px-1.5 py-0.5 bg-white border border-slate-200 rounded text-[9px] hover:border-slate-800 transition-colors cursor-pointer"
+              >
+                +10
+              </button>
+              <button
+                type="button"
+                onClick={() => setQtyInput(prev => String((Number(prev) || 0) + 50))}
+                className="px-1.5 py-0.5 bg-white border border-slate-200 rounded text-[9px] hover:border-slate-800 transition-colors cursor-pointer"
+              >
+                +50
+              </button>
+              <button
+                type="button"
+                onClick={() => setQtyInput(prev => String((Number(prev) || 0) + 100))}
+                className="px-1.5 py-0.5 bg-white border border-slate-200 rounded text-[9px] hover:border-slate-800 transition-colors cursor-pointer"
+              >
+                +100
+              </button>
+            </div>
+            <div className="font-mono text-slate-700 font-bold">
+              ৳{((Number(qtyInput) || 0) * product.defaultWSP).toLocaleString('en-BD')}
+            </div>
+          </div>
+        )}
+
         <button
           id={`pos-add-to-cart-${product.id}`}
           type="button"
@@ -122,11 +184,11 @@ function ProductCard({ product, onAddToCart, formatBDT }: ProductCardProps) {
           className={`inline-flex h-9 items-center gap-1.5 rounded-xl px-4 text-xs font-bold transition-all active:scale-95 cursor-pointer w-full justify-center ${
             product.currentStock <= 0 
               ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200 font-bold' 
-              : 'bg-slate-900 hover:bg-slate-800 text-white border border-slate-950 shadow-sm font-bold'
+              : 'bg-slate-900 hover:bg-slate-800 text-white border border-slate-955 shadow-sm font-bold'
           }`}
         >
           <Plus className="w-3.5 h-3.5" />
-          Add to Cart
+          {language === 'bn' ? 'অর্ডার যোগ করুন' : 'Add to Order'}
         </button>
       </div>
     </div>
@@ -312,7 +374,7 @@ export default function SellModule({
   setProducts,
   attributes,
   srs,
-  customers,
+  routes,
   deliveryMen,
   setChallans,
   onNavigate,
@@ -323,9 +385,13 @@ export default function SellModule({
 
   // Logistics states
   const [selectedSR, setSelectedSR] = useState(srs[0]?.name || '');
-  const [selectedCustomer, setSelectedCustomer] = useState(() => {
-    const defaultSR = srs[0]?.name || '';
-    return customers.find(c => c.assignedSR === defaultSR)?.name || '';
+  const [selectedRoute, setSelectedRoute] = useState(() => {
+    const defaultSR = srs[0];
+    if (defaultSR) {
+      const activeRoute = routes.find(r => r.assignedSRId === defaultSR.id);
+      return activeRoute ? activeRoute.name : (routes[0]?.name || '');
+    }
+    return routes[0]?.name || '';
   });
   const [selectedDeliveryMan, setSelectedDeliveryMan] = useState(deliveryMen[0]?.name || '');
   const [discountPercent, setDiscountPercent] = useState<number>(0);
@@ -344,17 +410,21 @@ export default function SellModule({
   });
 
   // Core functions
-  const handleAddToCart = useCallback((product: Product) => {
+  const handleAddToCart = useCallback((product: Product, customQty?: number, customBonus?: number) => {
     const defaultSpec = attributes.filter(a => a.status === 'Active')[0]?.name || 'Size: 42';
     
     const existingIndex = cart.findIndex(
       item => item.product.id === product.id && item.selectedSpec === defaultSpec
     );
 
+    const qtyToAdd = customQty !== undefined ? customQty : 20;
+    const bonusToAdd = customBonus !== undefined ? customBonus : 1;
+
     if (existingIndex > -1) {
       setCart(prev => {
         const updated = [...prev];
-        updated[existingIndex].qty += 10;
+        updated[existingIndex].qty += qtyToAdd;
+        updated[existingIndex].bonusQty += bonusToAdd;
         return updated;
       });
     } else {
@@ -363,8 +433,8 @@ export default function SellModule({
         {
           product,
           selectedSpec: defaultSpec,
-          qty: 20,
-          bonusQty: 1
+          qty: qtyToAdd,
+          bonusQty: bonusToAdd
         }
       ]);
     }
@@ -434,9 +504,13 @@ export default function SellModule({
 
     const newChallans: ChallanItem[] = cart.map((item, idx) => {
       const finalPrice = (item.product.defaultWSP * item.qty) * (1 - discountPercent / 100);
+      const srObj = srs.find(s => s.name.toLowerCase() === selectedSR.toLowerCase());
+      const commissionRate = srObj ? srObj.commissionRate : 5;
+      const commissionAmount = finalPrice * (commissionRate / 100);
       return {
         id: `ch-${Date.now()}-${idx}`,
         productName: item.product.name,
+        company: item.product.company,
         attribute: item.selectedSpec,
         qty: item.qty,
         bonusQty: item.bonusQty,
@@ -444,9 +518,13 @@ export default function SellModule({
         rate: item.product.defaultWSP,
         totalAmount: finalPrice,
         srName: selectedSR,
-        customerNames: [selectedCustomer],
+        routeName: selectedRoute,
         deliveryManName: selectedDeliveryMan,
-        status: 'Delivered'
+        status: 'Delivered',
+        returnedQty: 0,
+        damagedQty: 0,
+        commissionAmount,
+        createdAt: new Date().toISOString()
       };
     });
 
@@ -455,7 +533,7 @@ export default function SellModule({
     setDiscountPercent(0);
     alert('Spot checkout successful! Challan generated, stocks reduced, and financial ledgers synchronized.');
     onNavigate('delivery');
-  }, [cart, selectedSR, selectedCustomer, selectedDeliveryMan, discountPercent, setChallans, setProducts, onNavigate]);
+  }, [cart, selectedSR, selectedRoute, selectedDeliveryMan, discountPercent, setChallans, setProducts, onNavigate, srs]);
 
   const formatBDT = useCallback((amount: number) => {
     return `৳${amount.toLocaleString('en-BD')}`;
@@ -467,14 +545,17 @@ export default function SellModule({
   }, []);
 
   const handleSRChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newSR = e.target.value;
-    setSelectedSR(newSR);
-    const firstCust = customers.find(c => c.assignedSR === newSR);
-    setSelectedCustomer(firstCust ? firstCust.name : '');
-  }, [customers]);
+    const newSRName = e.target.value;
+    setSelectedSR(newSRName);
+    const sr = srs.find(s => s.name === newSRName);
+    if (sr) {
+      const activeRoute = routes.find(r => r.assignedSRId === sr.id);
+      setSelectedRoute(activeRoute ? activeRoute.name : (routes[0]?.name || ''));
+    }
+  }, [routes, srs]);
 
-  const handleCustomerChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedCustomer(e.target.value);
+  const handleRouteChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedRoute(e.target.value);
   }, []);
 
   const handleDiscountChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -571,6 +652,7 @@ export default function SellModule({
                 product={p}
                 onAddToCart={handleAddToCart}
                 formatBDT={formatBDT}
+                language={language}
               />
             ))}
             {filteredProducts.length === 0 && (
@@ -615,17 +697,20 @@ export default function SellModule({
               </div>
 
               <div>
-                <label className="mb-2 block text-xs font-semibold text-slate-700">{language === 'bn' ? 'দোকান *' : 'Shop *'}</label>
+                <label className="mb-2 block text-xs font-semibold text-slate-700">{language === 'bn' ? 'মার্কেট / রুট *' : 'Market / Route *'}</label>
                 <select
-                  id="pos-form-customer"
-                  value={selectedCustomer}
-                  onChange={handleCustomerChange}
+                  id="pos-form-route"
+                  value={selectedRoute}
+                  onChange={handleRouteChange}
                   className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold outline-none focus:border-slate-800 transition-colors"
                 >
-                  {customers
-                    .filter(c => c.assignedSR === selectedSR)
-                    .map(c => (
-                      <option key={c.id} value={c.name}>{c.name}</option>
+                  {routes
+                    .filter(r => {
+                      const srObj = srs.find(s => s.name === selectedSR);
+                      return !srObj || r.assignedSRId === srObj.id;
+                    })
+                    .map(r => (
+                      <option key={r.id} value={r.name}>{r.name}</option>
                     ))}
                 </select>
               </div>

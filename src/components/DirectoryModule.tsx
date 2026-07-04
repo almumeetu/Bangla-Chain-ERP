@@ -22,7 +22,6 @@ import {
 import {
   Product,
   SR,
-  Customer,
   CompanyBrand,
   Category,
   UnitOfMeasure,
@@ -36,8 +35,8 @@ interface DirectoryModuleProps {
   setProducts: React.Dispatch<React.SetStateAction<Product[]>>;
   srs: SR[];
   setSrs: React.Dispatch<React.SetStateAction<SR[]>>;
-  customers: Customer[];
-  setCustomers: React.Dispatch<React.SetStateAction<Customer[]>>;
+  customers: any[];
+  setCustomers: React.Dispatch<React.SetStateAction<any[]>>;
   companies: CompanyBrand[];
   setCompanies: React.Dispatch<React.SetStateAction<CompanyBrand[]>>;
   productCategories: Category[];
@@ -178,10 +177,10 @@ function SrRow({ sr, index, onEdit, onDelete }: SrRowProps) {
 
 // --- SUB-COMPONENT: Customer Shop Row ---
 interface ShopRowProps {
-  c: Customer;
+  c: any;
   index: number;
   routes: Route[];
-  onEdit: (c: Customer) => void;
+  onEdit: (c: any) => void;
   onDelete: (id: string) => void;
   formatBDT: (amt: number) => string;
 }
@@ -506,7 +505,7 @@ export default function DirectoryModule({
   // Editing States
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editingSr, setEditingSr] = useState<SR | null>(null);
-  const [editingShop, setEditingShop] = useState<Customer | null>(null);
+  const [editingShop, setEditingShop] = useState<any | null>(null);
   const [editingCompany, setEditingCompany] = useState<CompanyBrand | null>(null);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [editingUnit, setEditingUnit] = useState<UnitOfMeasure | null>(null);
@@ -528,6 +527,10 @@ export default function DirectoryModule({
   // Form Fields: SR
   const [srName, setSrName] = useState('');
   const [srPhone, setSrPhone] = useState('');
+  const [srCommissionRate, setSrCommissionRate] = useState<number>(5);
+  const [srAssignedCompanies, setSrAssignedCompanies] = useState<string[]>([]);
+  const [srLoginUsername, setSrLoginUsername] = useState('');
+  const [srLoginPassword, setSrLoginPassword] = useState('');
 
   // Form Fields: Shop
   const [shopName, setShopName] = useState('');
@@ -620,13 +623,13 @@ export default function DirectoryModule({
     }
 
     if (editingSr) {
-      setSrs(prev => prev.map(s => s.id === editingSr.id ? { ...s, name: srName, phone: srPhone } : s));
+      setSrs(prev => prev.map(s => s.id === editingSr.id ? { ...s, name: srName, phone: srPhone, commissionRate: srCommissionRate, assignedCompanyIds: srAssignedCompanies, loginUsername: srLoginUsername, loginPassword: srLoginPassword } : s));
       setEditingSr(null);
     } else {
-      setSrs(prev => [...prev, { id: `sr-${Date.now()}`, name: srName, phone: srPhone }]);
+      setSrs(prev => [...prev, { id: `sr-${Date.now()}`, name: srName, phone: srPhone, commissionRate: srCommissionRate, assignedCompanyIds: srAssignedCompanies, loginUsername: srLoginUsername, loginPassword: srLoginPassword }]);
     }
     setShowSrModal(false);
-  }, [srName, srPhone, editingSr, setSrs]);
+  }, [srName, srPhone, srCommissionRate, srAssignedCompanies, srLoginUsername, srLoginPassword, editingSr, setSrs]);
 
   // --- SUBMIT: Shop ---
   const handleShopSubmit = useCallback((e: React.FormEvent) => {
@@ -881,7 +884,7 @@ export default function DirectoryModule({
     setShowProductModal(true);
   }, []);
 
-  const startEditShop = useCallback((c: Customer) => {
+  const startEditShop = useCallback((c: any) => {
     setEditingShop(c);
     setShopName(c.name);
     setShopMarket(c.market);
@@ -1178,15 +1181,15 @@ export default function DirectoryModule({
                     {/* Prices Grid */}
                     <div className="grid grid-cols-3 gap-2 relative z-10 pt-1 text-center">
                       <div className="bg-slate-50 rounded-xl p-2 border border-slate-150">
-                        <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider block">Import PP</span>
+                        <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider block">{language === 'bn' ? 'DP' : 'Dealer Price (DP)'}</span>
                         <span className="font-mono text-xs font-bold text-slate-700">{formatBDT(p.defaultPP)}</span>
                       </div>
                       <div className="bg-slate-50 rounded-xl p-2 border border-slate-150">
-                        <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider block">Wholesale</span>
+                        <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider block">{language === 'bn' ? 'TP' : 'Trade Price (TP)'}</span>
                         <span className="font-mono text-xs font-extrabold text-slate-800">{formatBDT(p.defaultWSP)}</span>
                       </div>
                       <div className="bg-slate-50 rounded-xl p-2 border border-slate-150">
-                        <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider block">Retail MRP</span>
+                        <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider block">{language === 'bn' ? 'MRP' : 'MRP'}</span>
                         <span className="font-mono text-xs font-bold text-slate-600">{formatBDT(p.defaultMRP)}</span>
                       </div>
                     </div>
@@ -1359,6 +1362,10 @@ export default function DirectoryModule({
                 setEditingSr(null);
                 setSrName('');
                 setSrPhone('');
+                setSrCommissionRate(5);
+                setSrAssignedCompanies([]);
+                setSrLoginUsername('');
+                setSrLoginPassword('');
                 setShowSrModal(true);
               }}
               className="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-900 px-4 text-xs font-bold text-white hover:bg-slate-800 border border-slate-950 cursor-pointer transition-all active:scale-95 shadow-sm shrink-0"
@@ -1415,6 +1422,10 @@ export default function DirectoryModule({
                         setEditingSr(sr);
                         setSrName(sr.name);
                         setSrPhone(sr.phone);
+                        setSrCommissionRate(sr.commissionRate || 5);
+                        setSrAssignedCompanies(sr.assignedCompanyIds || []);
+                        setSrLoginUsername(sr.loginUsername || '');
+                        setSrLoginPassword(sr.loginPassword || '');
                         setShowSrModal(true);
                       }}
                       className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all border border-transparent hover:border-slate-200 cursor-pointer"
@@ -2024,7 +2035,9 @@ export default function DirectoryModule({
       {activeSubTab === 'routes' && (
         <div className="space-y-4">
           <div className="flex justify-between items-center bg-slate-50/50 p-4 border border-slate-200 rounded-xl">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{routes.length} Active Beats</span>
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              {language === 'bn' ? `${routes.length}টি সক্রিয় মার্কেট ও রুট` : `${routes.length} Active Market Areas`}
+            </span>
             <button
               type="button"
               onClick={handleOpenRoute}
@@ -2040,10 +2053,10 @@ export default function DirectoryModule({
               <thead>
                 <tr className="bg-slate-50 text-slate-700 border-b border-slate-200">
                   <th className="px-4 py-4 text-sm font-semibold w-12 text-center">#</th>
-                  <th className="px-4 py-4 text-sm font-semibold">Beat / Route</th>
-                  <th className="px-4 py-4 text-sm font-semibold">Area Ward</th>
-                  <th className="px-4 py-4 text-sm font-semibold">Territory</th>
-                  <th className="px-4 py-4 text-sm font-semibold">Assigned Representative</th>
+                  <th className="px-4 py-4 text-sm font-semibold">{language === 'bn' ? 'মার্কেট / রুট' : 'Market / Route'}</th>
+                  <th className="px-4 py-4 text-sm font-semibold">{language === 'bn' ? 'থানা / এলাকা' : 'Thana / Area'}</th>
+                  <th className="px-4 py-4 text-sm font-semibold">{language === 'bn' ? 'জেলা / জোন' : 'District / Zone'}</th>
+                  <th className="px-4 py-4 text-sm font-semibold">{language === 'bn' ? 'বরাদ্দকৃত প্রতিনিধি (SR)' : 'Assigned Representative (SR)'}</th>
                   <th className="px-4 py-4 text-sm font-semibold text-center w-24">{tCommon.actions}</th>
                 </tr>
               </thead>
@@ -2092,7 +2105,27 @@ export default function DirectoryModule({
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="mb-2 block text-xs font-semibold text-slate-705">{tDir.formProductSku}</label>
+                  <div className="flex justify-between items-center mb-1.5">
+                    <label className="text-xs font-semibold text-slate-705">{tDir.formProductSku}</label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const companyPart = (prodCompany || 'GEN').slice(0, 3).toUpperCase().replace(/[^A-Z0-9]/g, '');
+                        const namePart = (prodName || 'PD')
+                          .split(/\s+/)
+                          .map(w => w.charAt(0))
+                          .join('')
+                          .toUpperCase()
+                          .slice(0, 4)
+                          .replace(/[^A-Z0-9]/g, '');
+                        const randomNum = Math.floor(100 + Math.random() * 900);
+                        setProdSku(`${companyPart}-${namePart || 'X'}-${randomNum}`);
+                      }}
+                      className="text-[10px] text-blue-600 hover:text-blue-800 hover:underline font-bold tracking-wide uppercase cursor-pointer"
+                    >
+                      {language === 'bn' ? 'অটো তৈরি' : 'Auto Gen'}
+                    </button>
+                  </div>
                   <input
                     type="text"
                     required
@@ -2147,7 +2180,7 @@ export default function DirectoryModule({
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="mb-2 block text-[10px] font-semibold text-slate-705">Import PP (BDT)</label>
+                  <label className="mb-2 block text-[10px] font-semibold text-slate-705">{tDir.formProductPp.replace(' *', '')}</label>
                   <input
                     type="number"
                     min="0"
@@ -2158,7 +2191,7 @@ export default function DirectoryModule({
                   />
                 </div>
                 <div>
-                  <label className="mb-2 block text-[10px] font-semibold text-slate-705">Supply WSP (BDT)</label>
+                  <label className="mb-2 block text-[10px] font-semibold text-slate-705">{tDir.formProductWsp.replace(' *', '')}</label>
                   <input
                     type="number"
                     min="0"
@@ -2169,7 +2202,7 @@ export default function DirectoryModule({
                   />
                 </div>
                 <div>
-                  <label className="mb-2 block text-[10px] font-semibold text-slate-705">Market MRP (BDT)</label>
+                  <label className="mb-2 block text-[10px] font-semibold text-slate-705">{tDir.formProductMrp.replace(' *', '')}</label>
                   <input
                     type="number"
                     min="0"
@@ -2204,7 +2237,7 @@ export default function DirectoryModule({
       {/* MODAL: SR Setup */}
       {showSrModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <form onSubmit={handleSrSubmit} className="bg-white rounded-xl border border-slate-200 w-full max-w-sm shadow-2xl flex flex-col justify-between overflow-hidden">
+          <form onSubmit={handleSrSubmit} className="bg-white rounded-xl border border-slate-200 w-full max-w-md shadow-2xl flex flex-col justify-between overflow-hidden">
             <div className="border-b border-slate-200 px-6 py-4 bg-slate-50 flex items-center justify-between">
               <span className="font-semibold text-slate-800 text-sm flex items-center gap-1.5">
                 <UserCheck className="w-4.5 h-4.5 text-slate-750" />
@@ -2236,6 +2269,69 @@ export default function DirectoryModule({
                   onChange={e => setSrPhone(e.target.value)}
                   className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3.5 font-mono font-semibold outline-none focus:border-slate-800 focus:bg-white"
                 />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-xs font-semibold text-slate-705">Commission Rate (%)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  required
+                  value={srCommissionRate}
+                  onChange={e => setSrCommissionRate(Number(e.target.value))}
+                  className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3.5 font-semibold outline-none focus:border-slate-800 focus:bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-xs font-semibold text-slate-705">Assigned Company Brands</label>
+                <div className="grid grid-cols-2 gap-2 bg-slate-50 p-3 rounded-lg border border-slate-200 max-h-28 overflow-y-auto">
+                  {companies.map(c => {
+                    const isChecked = srAssignedCompanies.includes(c.name);
+                    return (
+                      <label key={c.id} className="flex items-center gap-2 text-[10px] font-semibold text-slate-700 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => {
+                            if (isChecked) {
+                              setSrAssignedCompanies(prev => prev.filter(x => x !== c.name));
+                            } else {
+                              setSrAssignedCompanies(prev => [...prev, c.name]);
+                            }
+                          }}
+                          className="rounded text-slate-900 focus:ring-slate-800"
+                        />
+                        {c.name}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Custom Login Credentials */}
+              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-100">
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold text-slate-705">Login Username</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. selim123"
+                    value={srLoginUsername}
+                    onChange={e => setSrLoginUsername(e.target.value)}
+                    className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 font-semibold outline-none focus:border-slate-800 focus:bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold text-slate-705">Login Password</label>
+                  <input
+                    type="password"
+                    placeholder="••••••••"
+                    value={srLoginPassword}
+                    onChange={e => setSrLoginPassword(e.target.value)}
+                    className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 font-semibold outline-none focus:border-slate-800 focus:bg-white"
+                  />
+                </div>
               </div>
             </div>
 

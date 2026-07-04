@@ -29,6 +29,7 @@ import SellModule from '../../../components/SellModule';
 import DirectoryModule from '../../../components/DirectoryModule';
 import SettingsModule from '../../../components/SettingsModule';
 import HelpGuideModule from '../../../components/HelpGuideModule';
+import ReportsModule from '../../../components/ReportsModule';
 
 // Raw Types & seed arrays
 import { 
@@ -40,9 +41,7 @@ import {
   ExpenseCategory, 
   ExpenseRecord,
   SR,
-  Customer,
   INITIAL_SRS,
-  INITIAL_CUSTOMERS,
   INITIAL_DELIVERY_MEN,
   INITIAL_PRODUCTS,
   INITIAL_ATTRIBUTES,
@@ -67,11 +66,31 @@ import LoginPage from '../../../components/LoginPage';
 export default function App() {
   const [mounted, setMounted] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userRole, setUserRole] = useState<'admin' | 'sr'>('admin');
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      // ── Auth check: support both old key (erp_auth_role) and new key (erp_user_role) ──
       const auth = localStorage.getItem('erp_auth');
-      setIsAuthenticated(auth === 'true');
+      const role = (localStorage.getItem('erp_user_role') || localStorage.getItem('erp_auth_role')) as 'admin' | 'sr' | null;
+
+      if (auth === 'true' && role) {
+        setIsAuthenticated(true);
+        setUserRole(role);
+      }
+
+      const savedTab = localStorage.getItem('erp_active_tab');
+      if (role === 'sr') {
+        setActiveTab('sales');
+      } else if (savedTab) {
+        setActiveTab(savedTab as TabID);
+      }
+
+      // ── Sidebar collapsed state ──
+      const savedCollapsed = localStorage.getItem('erp_sidebar_collapsed');
+      if (savedCollapsed !== null) {
+        setSidebarCollapsed(savedCollapsed === 'true');
+      }
 
       // Hydrate core ERP states from localStorage safely
       const savedLang = localStorage.getItem('erp_language');
@@ -105,9 +124,9 @@ export default function App() {
           try { setSrs(JSON.parse(savedSrs)); } catch (e) {}
         }
 
-        const savedCustomers = localStorage.getItem('erp_customers');
-        if (savedCustomers) {
-          try { setCustomers(JSON.parse(savedCustomers)); } catch (e) {}
+        const savedDeliveryMen = localStorage.getItem('erp_delivery_men');
+        if (savedDeliveryMen) {
+          try { setDeliveryMen(JSON.parse(savedDeliveryMen)); } catch (e) {}
         }
 
         const savedAttributes = localStorage.getItem('erp_attributes');
@@ -165,6 +184,11 @@ export default function App() {
           } catch (e) {}
         }
 
+        const savedCustomers = localStorage.getItem('erp_customers');
+        if (savedCustomers) {
+          try { setCustomers(JSON.parse(savedCustomers)); } catch (e) {}
+        }
+
         const savedCompanies = localStorage.getItem('erp_companies');
         if (savedCompanies) {
           try { setCompanies(JSON.parse(savedCompanies)); } catch (e) {}
@@ -189,6 +213,7 @@ export default function App() {
         if (savedRoutes) {
           try { setRoutes(JSON.parse(savedRoutes)); } catch (e) {}
         }
+
         const savedShopName = localStorage.getItem('erp_settings_shop_name');
         if (savedShopName) setShopName(savedShopName);
 
@@ -204,12 +229,25 @@ export default function App() {
     setMounted(true);
   }, []);
 
-  const handleLogin = useCallback(() => {
-    setIsAuthenticated(true);
-  }, []);
-
   // Navigation State
   const [activeTab, setActiveTab] = useState<TabID>('dashboard');
+
+  const handleLogin = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      // erp_user_role is set by LoginPage; normalize to erp_auth + erp_user_role
+      const role = (localStorage.getItem('erp_user_role') || 'admin') as 'admin' | 'sr';
+      localStorage.setItem('erp_auth', 'true');
+      localStorage.setItem('erp_user_role', role);
+      setIsAuthenticated(true);
+      setUserRole(role);
+      if (role === 'sr') {
+        setActiveTab('sales');
+      } else {
+        const savedTab = localStorage.getItem('erp_active_tab');
+        setActiveTab((savedTab as TabID) || 'dashboard');
+      }
+    }
+  }, []);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // Branding Customization States
@@ -231,7 +269,8 @@ export default function App() {
   // Global Core Reactive States
   const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
   const [srs, setSrs] = useState<SR[]>(INITIAL_SRS);
-  const [customers, setCustomers] = useState<Customer[]>(INITIAL_CUSTOMERS);
+  const [deliveryMen, setDeliveryMen] = useState(INITIAL_DELIVERY_MEN);
+  const [customers, setCustomers] = useState<any[]>([]);
   const [attributes, setAttributes] = useState<ProductAttribute[]>(INITIAL_ATTRIBUTES);
   const [challans, setChallans] = useState<ChallanItem[]>(INITIAL_CHALLAN_ITEMS);
   const [procurements, setProcurements] = useState<Procurement[]>(INITIAL_PROCUREMENTS);
@@ -341,6 +380,36 @@ export default function App() {
     }
   }, [routes, isLoaded]);
 
+  useEffect(() => {
+    if (isLoaded && typeof window !== 'undefined') {
+      localStorage.setItem('erp_delivery_men', JSON.stringify(deliveryMen));
+    }
+  }, [deliveryMen, isLoaded]);
+
+  useEffect(() => {
+    if (isLoaded && typeof window !== 'undefined') {
+      localStorage.setItem('erp_settings_shop_name', shopName);
+    }
+  }, [shopName, isLoaded]);
+
+  useEffect(() => {
+    if (isLoaded && typeof window !== 'undefined') {
+      localStorage.setItem('erp_settings_shop_subbrand', shopSubBrand);
+    }
+  }, [shopSubBrand, isLoaded]);
+
+  useEffect(() => {
+    if (isLoaded && typeof window !== 'undefined') {
+      localStorage.setItem('erp_settings_shop_logo', shopLogo);
+    }
+  }, [shopLogo, isLoaded]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('erp_sidebar_collapsed', String(sidebarCollapsed));
+    }
+  }, [sidebarCollapsed]);
+
   // Real-time clock update (every 1 second)
   useEffect(() => {
     const timer = setInterval(() => {
@@ -374,6 +443,7 @@ export default function App() {
   const handleNavigate = (tab: TabID) => {
     setActiveTab(tab);
     if (typeof window !== 'undefined') {
+      localStorage.setItem('erp_active_tab', tab);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
@@ -398,8 +468,15 @@ export default function App() {
 
   const handleLogout = useCallback(() => {
     if (confirm(translations[language].sidebar.userSessionConfirm)) {
-      localStorage.clear();
-      window.location.reload();
+      // Only clear auth-related keys — preserve all ERP data
+      localStorage.removeItem('erp_auth');
+      localStorage.removeItem('erp_user_role');
+      localStorage.removeItem('erp_auth_role');
+      localStorage.removeItem('erp_user_email');
+      localStorage.removeItem('erp_active_tab');
+      setIsAuthenticated(false);
+      setUserRole('admin');
+      setActiveTab('dashboard');
     }
   }, [language]);
 
@@ -579,18 +656,24 @@ export default function App() {
       const todayStr = getLocalDateString(new Date());
 
       // Calculate metrics
-      const todaysChallans = challans.filter(ch => getChallanDate(ch.id) === todayStr && ch.status !== 'Returned');
-      const todaysSales = todaysChallans.reduce((sum, ch) => sum + ch.totalAmount, 0);
+      const todaysChallans = challans.filter(ch => getChallanDate(ch.id) === todayStr);
+      const todaysSales = todaysChallans.reduce((sum, ch) => {
+        const netAmount = ch.totalAmount - ((ch.returnedQty || 0) * ch.rate);
+        return sum + Math.max(0, netAmount);
+      }, 0);
       const todaysCOGS = todaysChallans.reduce((sum, ch) => {
         const prod = products.find(p => p.name === ch.productName);
         const purchasePrice = prod ? prod.defaultPP : (ch.rate * 0.65);
-        return sum + (ch.qty * purchasePrice);
+        return sum + ((ch.qty - (ch.returnedQty || 0)) * purchasePrice);
       }, 0);
       const todaysExpensesTotal = expenses.filter(exp => exp.expenseDate === todayStr).reduce((sum, exp) => sum + exp.amount, 0);
       const todaysNetProfit = todaysSales - todaysCOGS - todaysExpensesTotal;
       const totalStockValue = products.reduce((sum, p) => sum + (p.currentStock * p.defaultPP), 0);
 
-      const cumulativeSales = challans.reduce((sum, ch) => ch.status !== 'Returned' ? sum + ch.totalAmount : sum, 0);
+      const cumulativeSales = challans.reduce((sum, ch) => {
+        const netAmount = ch.totalAmount - ((ch.returnedQty || 0) * ch.rate);
+        return sum + Math.max(0, netAmount);
+      }, 0);
       const cumulativeProcurement = procurements.reduce((sum, pr) => sum + pr.globalTotal, 0);
       const cumulativeExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
       const cumulativeNetProfit = cumulativeSales - cumulativeProcurement - cumulativeExpenses;
@@ -833,8 +916,8 @@ export default function App() {
             setProducts={setProducts}
             attributes={attributes}
             srs={srs}
-            customers={customers}
-            deliveryMen={INITIAL_DELIVERY_MEN}
+            routes={routes}
+            deliveryMen={deliveryMen}
             setChallans={setChallans}
             onNavigate={handleNavigate}
             language={language}
@@ -846,8 +929,8 @@ export default function App() {
             challans={challans}
             setChallans={setChallans}
             srs={srs}
-            customers={customers}
-            deliveryMen={INITIAL_DELIVERY_MEN}
+            routes={routes}
+            deliveryMen={deliveryMen}
             products={products}
             attributes={attributes}
             language={language}
@@ -912,15 +995,38 @@ export default function App() {
             pageSubtitle={t.productsPage.subtitle}
           />
         );
-      case 'shops-routes':
+      case 'routes':
         return (
           <DirectoryModule
-            key="shops-routes"
+            key="routes"
             {...directoryBaseProps}
-            defaultTab="shops"
-            visibleTabs={['shops', 'routes', 'srs', 'damage']}
-            pageTitle={language === 'bn' ? 'খুচরা দোকান ও রুট' : 'Retail Outlets & Route Beat'}
-            pageSubtitle={language === 'bn' ? 'খুচরা বিক্রয় কেন্দ্র, রুট ম্যাপ, এসআর এবং পণ্যের ক্ষয়ক্ষতি নির্ধারণ' : 'Manage retail outlets, credit thresholds, route beat allocation, agent mapping, and damaged stock logs'}
+            defaultTab="routes"
+            visibleTabs={['routes', 'srs']}
+            pageTitle={language === 'bn' ? 'ডেলিভারি রুট ও এসআর' : 'Delivery Routes & SRs'}
+            pageSubtitle={language === 'bn' ? 'রুট ম্যাপ এবং সেলস অফিসার (SR) তালিকা ম্যানেজ করুন' : 'Manage delivery routes, beat mapping, and Sales Officers (SR)'}
+          />
+        );
+      case 'damage':
+        return (
+          <DirectoryModule
+            key="damage"
+            {...directoryBaseProps}
+            defaultTab="damage"
+            visibleTabs={['damage']}
+            pageTitle={language === 'bn' ? 'ক্ষয়ক্ষতি / ড্যামেজ স্টক' : 'Damage Option / Defective Stock'}
+            pageSubtitle={language === 'bn' ? 'পণ্যের ড্যামেজ এন্ট্রি এবং কোম্পানি ভিত্তিক স্টক ভ্যালুয়েশন তালিকা' : 'Log product damages, calculate waste ratios, and track brand-wise salvage valuation'}
+          />
+        );
+      case 'reports':
+        return (
+          <ReportsModule
+            products={products}
+            challans={challans}
+            srs={srs}
+            companies={companies}
+            expenses={expenses}
+            language={language}
+            userRole={userRole}
           />
         );
       case 'settings':
@@ -934,6 +1040,8 @@ export default function App() {
             setShopLogo={setShopLogo}
             language={language}
             directoryBaseProps={directoryBaseProps}
+            srs={srs}
+            setSrs={setSrs}
           />
         );
       case 'help':
@@ -973,13 +1081,14 @@ export default function App() {
       {/* Sidebar Navigation */}
       <Sidebar 
         activeTab={activeTab} 
-        setActiveTab={setActiveTab} 
+        setActiveTab={(tab) => handleNavigate(tab)} 
         collapsed={sidebarCollapsed} 
         setCollapsed={setSidebarCollapsed} 
         language={language}
         shopName={shopName}
         shopSubBrand={shopSubBrand}
         shopLogo={shopLogo}
+        userRole={userRole}
       />
 
       {/* Main ERP Layout Panel */}

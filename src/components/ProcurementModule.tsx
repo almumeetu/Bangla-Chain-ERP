@@ -482,6 +482,21 @@ export default function ProcurementModule({
       {/* RENDER TAB: Procurement Invoice History List */}
       {activeSubTab === 'list' && (
         <div className="space-y-6">
+          {/* Guide Card for Dealers in List View */}
+          <div className="bg-indigo-50 border border-indigo-150 rounded-xl p-4 flex gap-3 text-indigo-900 leading-relaxed shadow-sm">
+            <Info className="w-5 h-5 text-indigo-500 shrink-0" />
+            <div className="text-xs space-y-1">
+              <p className="font-bold">
+                {language === 'bn' ? 'কোম্পানি চালান রিসিভ (স্টক আপ) কী কাজে লাগে?' : 'What is Company Challan Receipt used for?'}
+              </p>
+              <p className="font-semibold text-indigo-805">
+                {language === 'bn' 
+                  ? 'গুদামে যখনই নতুন স্টক আসবে (যেমন প্রাণ বা অলিম্পিক থেকে মাল ডেলিভারি আসলে), তা এই ট্যাবে রিসিভ করে আপডেট রাখুন। এটি করলে পণ্যের স্টক অটোমেটিক বৃদ্ধি পাবে এবং মুনাফা রিপোর্টে পণ্য ক্রয়ের সঠিক হিসাব নিশ্চিত হবে।' 
+                  : 'Whenever you receive stock shipments from manufacturer companies, log them here. This increments warehouse stock levels automatically and provides cost-of-goods metrics for your profit reports.'}
+              </p>
+            </div>
+          </div>
+
           <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-white p-4.5 border border-slate-200 rounded-2xl shadow-sm gap-4">
             <div className="space-y-0.5">
               <h3 className="text-sm font-bold text-slate-800">
@@ -701,6 +716,21 @@ export default function ProcurementModule({
               </span>
             </div>
 
+            {/* Guide Card for Dealers */}
+            <div className="bg-indigo-50 border border-indigo-150 rounded-xl p-4.5 flex gap-3 text-indigo-900 leading-relaxed shadow-sm">
+              <Info className="w-5 h-5 text-indigo-500 shrink-0 mt-0.5" />
+              <div className="text-xs space-y-1">
+                <p className="font-bold">
+                  {language === 'bn' ? 'কোম্পানি চালান স্টক রিসিভ করার নিয়ম:' : 'How Stock Receiving Works:'}
+                </p>
+                <p className="font-semibold text-indigo-805">
+                  {language === 'bn' 
+                    ? 'কোম্পানি (যেমন প্রাণ বা অলিম্পিক) থেকে যখনই নতুন পণ্য আসবে, তাদের দেওয়া চালানের পণ্য ও রেট এন্ট্রি করুন। এতে সিস্টেমের পণ্য স্টক অটোমেটিক বৃদ্ধি পাবে এবং মুনাফা রিপোর্টে পণ্য ক্রয়ের খরচ সঠিকভাবে হিসাব হবে।' 
+                    : 'Use this form when you receive physical stock from a brand company. Saving it automatically increments warehouse stock levels for each item and updates gross margin cost data.'}
+                </p>
+              </div>
+            </div>
+
             {/* Form Fields Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
               <div>
@@ -750,7 +780,21 @@ export default function ProcurementModule({
               </div>
 
               <div>
-                <label className="mb-1.5 block text-xs font-bold text-slate-700 uppercase tracking-wide">{tProc.invRefLabel}</label>
+                <div className="flex justify-between items-center mb-1.5">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wide">{tProc.invRefLabel}</label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const today = new Date();
+                      const datePart = today.toISOString().split('T')[0].replace(/-/g, '');
+                      const randomNum = Math.floor(100 + Math.random() * 900);
+                      setInvoiceRef(`INV-${datePart}-${randomNum}`);
+                    }}
+                    className="text-[10px] text-blue-600 hover:text-blue-800 hover:underline font-bold tracking-wide uppercase cursor-pointer"
+                  >
+                    {language === 'bn' ? 'অটো তৈরি' : 'Auto Gen'}
+                  </button>
+                </div>
                 <input
                   id="proc-form-ref"
                   type="text"

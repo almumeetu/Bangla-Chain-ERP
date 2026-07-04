@@ -39,17 +39,10 @@ export interface SR {
   id: string;
   name: string;
   phone: string;
-}
-
-export interface Customer {
-  id: string;
-  name: string;
-  market: string;
-  phone: string;
-  assignedSR: string; // e.g., "Rakib", "Rahman", "Rahim"
-  routeId?: string;
-  creditLimit?: number;
-  creditDays?: number;
+  commissionRate: number;      // SR Commission Rate in percentage (e.g. 5)
+  assignedCompanyIds: string[]; // Companies this SR distributes for
+  loginUsername?: string;       // Custom login username
+  loginPassword?: string;       // Custom login password
 }
 
 export interface DeliveryMan {
@@ -84,16 +77,21 @@ export interface ProductAttribute {
 export interface ChallanItem {
   id: string;
   productName: string;
+  company: string;          // Product's brand/manufacturer
   attribute: string; 
   qty: number;
   bonusQty: number;
-  totalQty: number;  // qty + bonusQty
-  rate: number;      // Wholesale Supply Price
-  totalAmount: number; // rate * qty
-  srName: string; // Supplied by SR
-  customerNames: string[]; // Mapped to Shops
+  totalQty: number;         // qty + bonusQty
+  rate: number;             // Trade Price (TP)
+  totalAmount: number;      // rate * qty
+  srName: string;           // Supplied by SR
+  routeName: string;        // Route beat mapped
   deliveryManName: string;
-  status: 'Pending' | 'Shipped' | 'Delivered' | 'Returned';
+  status: 'Pending' | 'Shipped' | 'Delivered';
+  returnedQty: number;
+  damagedQty: number;
+  commissionAmount: number; // SR commission in BDT
+  createdAt: string;        // ISO Date & Time string
 }
 
 export interface ProcurementItem {
@@ -155,24 +153,9 @@ export interface ExpenseRecord {
 
 // Initial Mock Data matching the Diller Management drawing
 export const INITIAL_SRS: SR[] = [
-  { id: 'sr-1', name: 'Rakib', phone: '01711223344' },
-  { id: 'sr-2', name: 'Rahman', phone: '01811223344' },
-  { id: 'sr-3', name: 'Rahim', phone: '01911223344' },
-];
-
-export const INITIAL_CUSTOMERS: Customer[] = [
-  // Rakib's Shops
-  { id: 'cust-1', name: 'Shop-1 (Bismillah Store)', market: 'Elephant Road Market', phone: '01722998877', assignedSR: 'Rakib' },
-  { id: 'cust-2', name: 'Shop-2 (Maa General Store)', market: 'Chawkbazar Lane', phone: '01822998877', assignedSR: 'Rakib' },
-  { id: 'cust-3', name: 'Shop-3 (New Quality Foods)', market: 'Sadarghat Road', phone: '01922998877', assignedSR: 'Rakib' },
-  
-  // Rahman's Shops
-  { id: 'cust-6', name: 'Shop-6 (Chowdhury Mart)', market: 'Bogura Sadar Market', phone: '01522998877', assignedSR: 'Rahman' },
-  { id: 'cust-7', name: 'Shop-7 (Popular Store)', market: 'Zilla School Crossing', phone: '01622998877', assignedSR: 'Rahman' },
-  
-  // Rahim's Shops
-  { id: 'cust-4', name: 'Shop-4 (Rahman Brother Grocers)', market: 'Terribazar Alley', phone: '01622998899', assignedSR: 'Rahim' },
-  { id: 'cust-5', name: 'Shop-5 (Al-Madina Groceries)', market: 'Sarker Tower Bazar', phone: '01622998811', assignedSR: 'Rahim' },
+  { id: 'sr-1', name: 'Rakib', phone: '01711223344', commissionRate: 5, assignedCompanyIds: ['comp-1'], loginUsername: 'rakib', loginPassword: 'rakib123' },
+  { id: 'sr-2', name: 'Rahman', phone: '01811223344', commissionRate: 5, assignedCompanyIds: ['comp-2'], loginUsername: 'rahman', loginPassword: 'rahman123' },
+  { id: 'sr-3', name: 'Rahim', phone: '01911223344', commissionRate: 5, assignedCompanyIds: ['comp-3'], loginUsername: 'rahim', loginPassword: 'rahim123' },
 ];
 
 export const INITIAL_DELIVERY_MEN: DeliveryMan[] = [
@@ -209,6 +192,7 @@ export const INITIAL_CHALLAN_ITEMS: ChallanItem[] = [
   {
     id: 'ch-1',
     productName: 'Pran Mango Juice 250ml',
+    company: 'Pran',
     attribute: 'Pack: Case of 24, Flavor: Mango',
     qty: 240, // 10 cases
     bonusQty: 12,
@@ -216,13 +200,18 @@ export const INITIAL_CHALLAN_ITEMS: ChallanItem[] = [
     rate: 25,
     totalAmount: 6000,
     srName: 'Rakib',
-    customerNames: ['Shop-1 (Bismillah Store)', 'Shop-2 (Maa General Store)'],
+    routeName: 'Elephant Road Beat',
     deliveryManName: 'Abul Kalam',
     status: 'Delivered',
+    returnedQty: 0,
+    damagedQty: 0,
+    commissionAmount: 300, // 6000 * 0.05
+    createdAt: '2026-06-25T11:00:00Z',
   },
   {
     id: 'ch-2',
     productName: 'Olympic Lexus Vegetable Cracker',
+    company: 'Olympic',
     attribute: 'Pack: Carton of 48',
     qty: 96, // 2 cartons
     bonusQty: 4,
@@ -230,13 +219,18 @@ export const INITIAL_CHALLAN_ITEMS: ChallanItem[] = [
     rate: 40,
     totalAmount: 3840,
     srName: 'Rahman',
-    customerNames: ['Shop-6 (Chowdhury Mart)'],
+    routeName: 'Chawkbazar Beat',
     deliveryManName: 'Sujon Mia',
     status: 'Shipped',
+    returnedQty: 0,
+    damagedQty: 0,
+    commissionAmount: 192, // 3840 * 0.05
+    createdAt: '2026-06-26T14:30:00Z',
   },
   {
     id: 'ch-3',
     productName: 'Haque Mr. Cookie Biscuit 150g',
+    company: 'Haque',
     attribute: 'Pack: Case of 24',
     qty: 480, // 20 cases
     bonusQty: 24,
@@ -244,9 +238,13 @@ export const INITIAL_CHALLAN_ITEMS: ChallanItem[] = [
     rate: 32,
     totalAmount: 15360,
     srName: 'Rahim',
-    customerNames: ['Shop-4 (Rahman Brother Grocers)', 'Shop-5 (Al-Madina Groceries)'],
+    routeName: 'Bogura Sadar Beat',
     deliveryManName: 'Khorshed Alam',
     status: 'Pending',
+    returnedQty: 0,
+    damagedQty: 0,
+    commissionAmount: 768, // 15360 * 0.05
+    createdAt: '2026-06-27T09:15:00Z',
   },
 ];
 

@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -10,10 +10,23 @@ import {
   AlertTriangle, 
   Plus, 
   ArrowRight,
+  ArrowUpRight,
   MapPin,
   Clock,
   Briefcase,
-  FileText
+  FileText,
+  Package,
+  Users,
+  BarChart3,
+  Truck,
+  Activity,
+  ChevronRight,
+  Wallet,
+  CircleDollarSign,
+  ReceiptText,
+  Store,
+  ShieldAlert,
+  Layers
 } from 'lucide-react';
 import { Product, ChallanItem, Procurement, ExpenseRecord, SR } from '../types';
 import { translations, Language } from '../translations';
@@ -42,34 +55,24 @@ export default function Dashboard({
   const tCommon = translations[language].common;
   const tDash = translations[language].dashboard;
 
-  // Calculators
+  // ─── Calculations ─────────────────────────────────────────────
   const totalSales = challans.reduce((sum, ch) => {
-    if (ch.status !== 'Returned') {
-      return sum + ch.totalAmount;
-    }
-    return sum;
+    const netAmount = ch.totalAmount - ((ch.returnedQty || 0) * ch.rate);
+    return sum + Math.max(0, netAmount);
   }, 0);
 
-  // Procurements total
   const totalProcurementCost = procurements.reduce((sum, pr) => sum + pr.globalTotal, 0);
-
-  // Expenses total
   const totalExpensesCost = expenses.reduce((sum, exp) => sum + exp.amount, 0);
 
-  // Net Profit: Revenue - Procurements - Expenses
+  const totalDamagedQty = products.reduce((sum, p) => sum + (p.damagedStock || 0), 0);
+  const totalDamagedVal = products.reduce((sum, p) => sum + ((p.damagedStock || 0) * p.defaultPP), 0);
+
   const netProfit = totalSales - totalProcurementCost - totalExpensesCost;
 
-  // Calculate Due Amount from Procurement invoices
-  const dueAmount = procurements.reduce((sum, pr) => {
-    if (pr.paymentStatus === 'Pending') {
-      return sum + pr.globalTotal;
-    } else if (pr.paymentStatus === 'Partial') {
-      return sum + (pr.globalTotal * 0.4); // Assume 40% remains due for partial records
-    }
-    return sum;
-  }, 0);
+  const totalStockUnits = products.reduce((sum, p) => sum + p.currentStock, 0);
+  const totalStockValue = products.reduce((sum, p) => sum + (p.currentStock * p.defaultPP), 0);
 
-  // Today vs Yesterday Quick Report Calculations
+  // ─── Date helpers ─────────────────────────────────────────────
   const getChallanDate = (id: string) => {
     if (id === 'ch-1') return '2026-06-12';
     if (id === 'ch-2') return '2026-06-18';
@@ -100,14 +103,17 @@ export default function Dashboard({
     return getLocalDateString(d);
   })();
 
-  // Today's metrics
-  const todaysChallans = challans.filter(ch => getChallanDate(ch.id) === todayStr && ch.status !== 'Returned');
-  const todaysSales = todaysChallans.reduce((sum, ch) => sum + ch.totalAmount, 0);
+  // ─── Today's metrics ─────────────────────────────────────────
+  const todaysChallans = challans.filter(ch => getChallanDate(ch.id) === todayStr);
+  const todaysSales = todaysChallans.reduce((sum, ch) => {
+    const netAmount = ch.totalAmount - ((ch.returnedQty || 0) * ch.rate);
+    return sum + Math.max(0, netAmount);
+  }, 0);
 
   const todaysCOGS = todaysChallans.reduce((sum, ch) => {
     const prod = products.find(p => p.name === ch.productName);
     const purchasePrice = prod ? prod.defaultPP : (ch.rate * 0.65);
-    return sum + (ch.qty * purchasePrice);
+    return sum + ((ch.qty - (ch.returnedQty || 0)) * purchasePrice);
   }, 0);
 
   const todaysExpensesTotal = expenses
@@ -117,13 +123,16 @@ export default function Dashboard({
   const todaysNetProfit = todaysSales - todaysCOGS - todaysExpensesTotal;
 
   // Yesterday's metrics
-  const yesterdaysChallans = challans.filter(ch => getChallanDate(ch.id) === yesterdayStr && ch.status !== 'Returned');
-  const yesterdaysSales = yesterdaysChallans.reduce((sum, ch) => sum + ch.totalAmount, 0);
+  const yesterdaysChallans = challans.filter(ch => getChallanDate(ch.id) === yesterdayStr);
+  const yesterdaysSales = yesterdaysChallans.reduce((sum, ch) => {
+    const netAmount = ch.totalAmount - ((ch.returnedQty || 0) * ch.rate);
+    return sum + Math.max(0, netAmount);
+  }, 0);
 
   const yesterdaysCOGS = yesterdaysChallans.reduce((sum, ch) => {
     const prod = products.find(p => p.name === ch.productName);
     const purchasePrice = prod ? prod.defaultPP : (ch.rate * 0.65);
-    return sum + (ch.qty * purchasePrice);
+    return sum + ((ch.qty - (ch.returnedQty || 0)) * purchasePrice);
   }, 0);
 
   const yesterdaysExpensesTotal = expenses
@@ -141,568 +150,721 @@ export default function Dashboard({
     ? ((todaysNetProfit - yesterdaysNetProfit) / Math.abs(yesterdaysNetProfit)) * 100 
     : todaysNetProfit > 0 ? 100 : 0;
 
-  // Inventory Turnover Rate (COGS / Total Stock Valuation)
-  const totalStockValue = products.reduce((sum, p) => sum + (p.currentStock * p.defaultPP), 0);
-  const todaysTurnoverRate = totalStockValue > 0 ? (todaysCOGS / totalStockValue) * 100 : 0;
-  const yesterdaysTurnoverRate = totalStockValue > 0 ? (yesterdaysCOGS / totalStockValue) * 100 : 0;
-
-  const turnoverChangePercent = yesterdaysTurnoverRate > 0 
-    ? ((todaysTurnoverRate - yesterdaysTurnoverRate) / yesterdaysTurnoverRate) * 100 
-    : todaysTurnoverRate > 0 ? 100 : 0;
-
-  const todaysTurnoverAnnualized = (todaysTurnoverRate / 100) * 365;
-
   // Stock highlights
   const lowStockProducts = products.filter(p => p.currentStock < 600);
 
   // Recent Challans
-  const recentChallans = [...challans].reverse().slice(0, 4);
+  const recentChallans = [...challans].reverse().slice(0, 5);
+
+  // Company data
+  const companyBrands = useMemo(() => Array.from(new Set(products.map(p => p.company))), [products]);
+  
+  const companyStockData = useMemo(() => {
+    return companyBrands.map(brand => {
+      const brandProds = products.filter(p => p.company === brand);
+      return {
+        brand,
+        units: brandProds.reduce((sum, p) => sum + p.currentStock, 0),
+        value: brandProds.reduce((sum, p) => sum + (p.currentStock * p.defaultPP), 0),
+        damagedUnits: brandProds.reduce((sum, p) => sum + (p.damagedStock || 0), 0),
+        damagedValue: brandProds.reduce((sum, p) => sum + ((p.damagedStock || 0) * p.defaultPP), 0),
+        productCount: brandProds.length
+      };
+    }).sort((a, b) => b.value - a.value);
+  }, [products, companyBrands]);
+
+  const maxCompanyVal = Math.max(...companyStockData.map(c => c.value), 1);
 
   // Format BDT helper
   const formatBDT = (amount: number) => {
     const formatted = new Intl.NumberFormat('en-BD', {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
-    }).format(amount);
-    return `৳${formatted}`;
+    }).format(Math.abs(amount));
+    return `${amount < 0 ? '-' : ''}৳${formatted}`;
   };
 
+  const formatCompact = (n: number) => {
+    if (n >= 100000) return `৳${(n / 100000).toFixed(1)}L`;
+    if (n >= 1000) return `৳${(n / 1000).toFixed(1)}K`;
+    return formatBDT(n);
+  };
+
+  // Trend badge component
+  const TrendBadge = ({ value }: { value: number }) => {
+    if (value === 0) return (
+      <span className="text-[9px] font-bold text-slate-400 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-100">
+        {language === 'bn' ? 'স্থির' : 'Stable'}
+      </span>
+    );
+    const isUp = value > 0;
+    return (
+      <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md text-[9px] font-bold border ${
+        isUp 
+          ? 'bg-emerald-50 text-emerald-700 border-emerald-100' 
+          : 'bg-rose-50 text-rose-600 border-rose-100'
+      }`}>
+        {isUp ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+        {isUp ? '+' : ''}{value.toFixed(1)}%
+      </span>
+    );
+  };
+
+  // Color palette for companies
+  const brandColors = [
+    { bg: 'bg-blue-500', light: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-100' },
+    { bg: 'bg-emerald-500', light: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-100' },
+    { bg: 'bg-violet-500', light: 'bg-violet-50', text: 'text-violet-700', border: 'border-violet-100' },
+    { bg: 'bg-amber-500', light: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-100' },
+    { bg: 'bg-rose-500', light: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-100' },
+    { bg: 'bg-cyan-500', light: 'bg-cyan-50', text: 'text-cyan-700', border: 'border-cyan-100' },
+  ];
+
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Welcome Banner - Premium Modern Dark Gradient */}
-      <div className="bg-gradient-to-r from-slate-900 via-slate-950 to-slate-900 rounded-3xl p-6 md:p-8 shadow-lg border border-slate-800 flex flex-col md:flex-row md:items-center md:justify-between gap-6 transition-all duration-300 relative overflow-hidden group">
-        <div className="absolute -right-24 -top-24 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl group-hover:bg-indigo-500/20 transition-all duration-500 pointer-events-none" />
-        <div className="absolute -left-12 -bottom-24 w-80 h-80 bg-teal-500/5 rounded-full blur-3xl pointer-events-none" />
-        
-        <div className="space-y-3 flex-1 relative z-10">
-          <span className="inline-flex items-center gap-1.5 bg-indigo-500/15 text-indigo-300 text-[10px] font-bold tracking-wider uppercase px-3 py-1 rounded-full border border-indigo-500/20">
-            <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
-            {tCommon.systemOperational}
-          </span>
-          <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white leading-tight">
-            {tDash.welcomeTitle}
-          </h2>
-          <p className="text-slate-300 text-sm max-w-2xl leading-relaxed">
-            Welcome back, Samir. Here is your daily business summary — sales, deliveries, stock, and profit at a glance.
-          </p>
+    <div className="space-y-5 animate-fade-in">
+
+      {/* ═══════════════════════════════════════════════════════════
+          SECTION 1: WELCOME HEADER — Minimal, Informative
+      ═══════════════════════════════════════════════════════════ */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-sm">
+        <div className="flex items-center gap-4">
+          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-slate-800 to-slate-950 flex items-center justify-center shadow-md shrink-0">
+            <BarChart3 className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h2 className="text-base font-extrabold text-slate-900 tracking-tight leading-tight">
+              {language === 'bn' ? 'ড্যাশবোর্ড' : 'Dashboard'}
+            </h2>
+            <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+              {language === 'bn' 
+                ? `আজকের তারিখ: ${new Date().toLocaleDateString('bn-BD', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}` 
+                : `Today: ${new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}`}
+            </p>
+          </div>
         </div>
-        <div className="shrink-0 relative z-10">
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 text-[10px] font-bold px-3 py-1.5 rounded-lg border border-emerald-100">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            {language === 'bn' ? 'সিস্টেম সচল' : 'System Active'}
+          </span>
           <button
             onClick={() => onDownloadPDF('dashboard')}
-            className="inline-flex h-11 items-center gap-2.5 rounded-xl bg-white px-5 text-xs font-bold text-slate-950 hover:bg-slate-100 hover:shadow-lg active:scale-95 transition-all cursor-pointer border border-transparent shadow-md"
+            className="inline-flex h-9 items-center gap-2 rounded-lg bg-slate-900 px-4 text-[11px] font-bold text-white hover:bg-slate-800 active:scale-[0.97] transition-all cursor-pointer shadow-sm"
           >
-            <FileText className="w-4 h-4 text-slate-800" />
-            {tDash.downloadReport}
+            <FileText className="w-3.5 h-3.5" />
+            {language === 'bn' ? 'রিপোর্ট' : 'Report'}
           </button>
         </div>
       </div>
 
-      {/* 🚀 Quick Action Launcher */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        {/* Button 1: New Sales */}
-        <button
-          id="quick-action-sales"
-          onClick={() => onNavigate('sales')}
-          className="flex items-center gap-4 p-4.5 rounded-2xl bg-emerald-50/40 border border-emerald-100 hover:bg-emerald-50 hover:border-emerald-400 hover:shadow-md active:scale-98 transition-all text-left cursor-pointer group"
-        >
-          <div className="p-3 bg-emerald-600 text-white rounded-xl group-hover:scale-115 transition-all shadow-md shadow-emerald-200">
-            <ShoppingBag className="w-5 h-5" />
-          </div>
-          <div>
-            <h4 className="font-extrabold text-slate-800 text-xs sm:text-sm">{language === 'bn' ? '১. মেমো তৈরি (বিক্রয়)' : '1. Create Sales Memo'}</h4>
-            <p className="text-[10px] text-slate-500 font-semibold mt-0.5">{language === 'bn' ? 'দোকানে মাল বিক্রির রশিদ করুন' : 'Record client order & cash memo'}</p>
-          </div>
-        </button>
 
-        {/* Button 2: Company Purchase */}
-        <button
-          id="quick-action-purchase"
-          onClick={() => onNavigate('purchase')}
-          className="flex items-center gap-4 p-4.5 rounded-2xl bg-blue-50/40 border border-blue-100 hover:bg-blue-50 hover:border-blue-400 hover:shadow-md active:scale-98 transition-all text-left cursor-pointer group"
-        >
-          <div className="p-3 bg-blue-600 text-white rounded-xl group-hover:scale-115 transition-all shadow-md shadow-blue-200">
-            <Box className="w-5 h-5" />
-          </div>
-          <div>
-            <h4 className="font-extrabold text-slate-800 text-xs sm:text-sm">{language === 'bn' ? '২. কোম্পানি থেকে ক্রয় (স্টক)' : '2. Purchase from Company'}</h4>
-            <p className="text-[10px] text-slate-500 font-semibold mt-0.5">{language === 'bn' ? 'কোম্পানি থেকে স্টক বুঝে নিন' : 'Inward stock from supplier'}</p>
-          </div>
-        </button>
-
-        {/* Button 3: Delivery Challan */}
-        <button
-          id="quick-action-delivery"
-          onClick={() => onNavigate('delivery')}
-          className="flex items-center gap-4 p-4.5 rounded-2xl bg-amber-50/40 border border-amber-100 hover:bg-amber-50 hover:border-amber-400 hover:shadow-md active:scale-98 transition-all text-left cursor-pointer group"
-        >
-          <div className="p-3 bg-amber-600 text-white rounded-xl group-hover:scale-115 transition-all shadow-md shadow-amber-200">
-            <Plus className="w-5 h-5" />
-          </div>
-          <div>
-            <h4 className="font-extrabold text-slate-800 text-xs sm:text-sm">{language === 'bn' ? '৩. ডেলিভারি চালান' : '3. Delivery Challan'}</h4>
-            <p className="text-[10px] text-slate-500 font-semibold mt-0.5">{language === 'bn' ? 'সেলস অফিসারদের চালান দিন' : 'Generate salesman delivery sheet'}</p>
-          </div>
-        </button>
-
-        {/* Button 4: Accounts Expenses */}
-        <button
-          id="quick-action-accounts"
-          onClick={() => onNavigate('accounts')}
-          className="flex items-center gap-4 p-4.5 rounded-2xl bg-rose-50/40 border border-rose-100 hover:bg-rose-50 hover:border-rose-400 hover:shadow-md active:scale-98 transition-all text-left cursor-pointer group"
-        >
-          <div className="p-3 bg-rose-600 text-white rounded-xl group-hover:scale-115 transition-all shadow-md shadow-rose-200">
-            <DollarSign className="w-5 h-5" />
-          </div>
-          <div>
-            <h4 className="font-extrabold text-slate-800 text-xs sm:text-sm">{language === 'bn' ? '৪. দৈনিক খরচ লিখুন' : '4. Record Daily Expenses'}</h4>
-            <p className="text-[10px] text-slate-500 font-semibold mt-0.5">{language === 'bn' ? 'অফিস বা যাতায়াত খরচ লিখুন' : 'Track daily transport/office costs'}</p>
-          </div>
-        </button>
+      {/* ═══════════════════════════════════════════════════════════
+          SECTION 2: QUICK ACTIONS — 4 Big Buttons
+      ═══════════════════════════════════════════════════════════ */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {[
+          {
+            id: 'quick-action-sales',
+            icon: ShoppingBag,
+            title: language === 'bn' ? 'বিক্রয় মেমো' : 'Sales Memo',
+            desc: language === 'bn' ? 'নতুন বিক্রয় করুন' : 'Create new sale',
+            color: 'emerald',
+            tab: 'sales'
+          },
+          {
+            id: 'quick-action-purchase',
+            icon: Package,
+            title: language === 'bn' ? 'স্টক রিসিভ' : 'Receive Stock',
+            desc: language === 'bn' ? 'কোম্পানি থেকে মাল আনুন' : 'From company',
+            color: 'blue',
+            tab: 'purchase'
+          },
+          {
+            id: 'quick-action-delivery',
+            icon: Truck,
+            title: language === 'bn' ? 'ডেলিভারি চালান' : 'Delivery Challan',
+            desc: language === 'bn' ? 'SR-কে মাল দিন' : 'Send to SR',
+            color: 'amber',
+            tab: 'delivery'
+          },
+          {
+            id: 'quick-action-accounts',
+            icon: Wallet,
+            title: language === 'bn' ? 'খরচ লিখুন' : 'Add Expense',
+            desc: language === 'bn' ? 'দৈনিক খরচ রেকর্ড' : 'Daily expenses',
+            color: 'rose',
+            tab: 'accounts'
+          }
+        ].map(action => {
+          const colorMap: Record<string, { iconBg: string; hoverBorder: string; hoverBg: string; shadow: string }> = {
+            emerald: { iconBg: 'bg-emerald-600', hoverBorder: 'hover:border-emerald-300', hoverBg: 'hover:bg-emerald-50/40', shadow: 'shadow-emerald-100' },
+            blue: { iconBg: 'bg-blue-600', hoverBorder: 'hover:border-blue-300', hoverBg: 'hover:bg-blue-50/40', shadow: 'shadow-blue-100' },
+            amber: { iconBg: 'bg-amber-600', hoverBorder: 'hover:border-amber-300', hoverBg: 'hover:bg-amber-50/40', shadow: 'shadow-amber-100' },
+            rose: { iconBg: 'bg-rose-600', hoverBorder: 'hover:border-rose-300', hoverBg: 'hover:bg-rose-50/40', shadow: 'shadow-rose-100' }
+          };
+          const c = colorMap[action.color];
+          return (
+            <button
+              key={action.id}
+              id={action.id}
+              onClick={() => onNavigate(action.tab)}
+              className={`flex items-center gap-3 p-3.5 rounded-xl bg-white border border-slate-200 ${c.hoverBorder} ${c.hoverBg} hover:shadow-md active:scale-[0.97] transition-all text-left cursor-pointer group`}
+            >
+              <div className={`p-2.5 ${c.iconBg} text-white rounded-lg group-hover:scale-110 transition-transform shadow-sm ${c.shadow}`}>
+                <action.icon className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <h4 className="font-bold text-slate-800 text-xs truncate">{action.title}</h4>
+                <p className="text-[10px] text-slate-400 font-medium truncate">{action.desc}</p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-300 ml-auto shrink-0 group-hover:text-slate-500 transition-colors" />
+            </button>
+          );
+        })}
       </div>
 
-      {/* Today's Quick Pulse & Operations Report */}
-      <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
-          <div className="flex items-center gap-2">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-600"></span>
-            </span>
-            <h3 className="font-bold text-slate-800 text-xs tracking-wider uppercase font-sans">
-              {language === 'bn' ? 'আজকের ব্যবসার সারসংক্ষেপ (খুব সহজে)' : "Today's Business Summary"}
+
+      {/* ═══════════════════════════════════════════════════════════
+          SECTION 3: TODAY'S SNAPSHOT — 3 Clean Cards
+      ═══════════════════════════════════════════════════════════ */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        {/* Section Header */}
+        <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+          <div className="flex items-center gap-2.5">
+            <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+            <h3 className="font-bold text-slate-700 text-xs tracking-wide uppercase">
+              {language === 'bn' ? 'আজকের হিসাব' : "Today's Summary"}
             </h3>
           </div>
-          <span className="text-[10px] font-bold text-slate-400 font-mono tracking-wider">
-            {tDash.periodLabel}: {todayStr} &bull; {tDash.compareYesterday} ({yesterdayStr})
+          <span className="text-[10px] font-medium text-slate-400">
+            {todayStr}
           </span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-slate-100">
           {/* Today's Sales */}
-          <div className="bg-slate-50/30 rounded-2xl p-5 border border-slate-200 flex flex-col justify-between border-t-4 border-t-blue-500 hover:bg-white hover:shadow-md transition-all duration-300 group">
-            <div className="space-y-1.5">
-              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">{tDash.todaySales}</span>
-              <div className="flex items-baseline justify-between gap-2">
-                <span className="text-2xl font-black text-slate-900 font-mono">{formatBDT(todaysSales)}</span>
-                {salesChangePercent !== 0 ? (
-                  <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md text-[9px] font-bold border ${
-                    salesChangePercent >= 0 
-                      ? 'bg-emerald-50 text-emerald-700 border-emerald-100' 
-                      : 'bg-rose-50 text-rose-700 border-rose-100'
-                  }`}>
-                    {salesChangePercent >= 0 ? '+' : ''}{salesChangePercent.toFixed(1)}%
-                  </span>
-                ) : (
-                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">{tCommon.stable}</span>
-                )}
+          <div className="p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center border border-blue-100">
+                  <ShoppingBag className="w-4 h-4 text-blue-600" />
+                </div>
+                <span className="text-[11px] font-semibold text-slate-500">
+                  {language === 'bn' ? 'আজকের বিক্রয়' : "Today's Sales"}
+                </span>
               </div>
+              <TrendBadge value={salesChangePercent} />
             </div>
-            <div className="text-[10px] text-slate-400 mt-4 border-t border-slate-100 pt-3 flex justify-between items-center font-medium">
-              <span>{language === 'bn' ? 'গতকালকের মোট বিক্রি: ' : "Yesterday's Sales:"}</span>
-              <span className="font-mono font-bold text-slate-700">{formatBDT(yesterdaysSales)}</span>
+            <div>
+              <p className="text-2xl font-black text-slate-900 font-mono tracking-tight">{formatBDT(todaysSales)}</p>
+            </div>
+            <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[10px]">
+              <span className="text-slate-400 font-medium">
+                {language === 'bn' ? 'গতকাল' : 'Yesterday'}
+              </span>
+              <span className="font-bold text-slate-600 font-mono">{formatBDT(yesterdaysSales)}</span>
             </div>
           </div>
 
           {/* Today's Expenses */}
-          <div className="bg-slate-50/30 rounded-2xl p-5 border border-slate-200 flex flex-col justify-between border-t-4 border-t-rose-500 hover:bg-white hover:shadow-md transition-all duration-300 group">
-            <div className="space-y-1.5">
-              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">{language === 'bn' ? 'আজকের খরচ' : "Today's Expenses"}</span>
-              <div className="flex items-baseline justify-between gap-2">
-                <span className="text-2xl font-black text-slate-900 font-mono">{formatBDT(todaysExpensesTotal)}</span>
+          <div className="p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-rose-50 flex items-center justify-center border border-rose-100">
+                  <Wallet className="w-4 h-4 text-rose-600" />
+                </div>
+                <span className="text-[11px] font-semibold text-slate-500">
+                  {language === 'bn' ? 'আজকের খরচ' : "Today's Expenses"}
+                </span>
               </div>
             </div>
-            <div className="text-[10px] text-slate-400 mt-4 border-t border-slate-100 pt-3 flex justify-between items-center font-medium">
-              <span>{language === 'bn' ? 'দৈনিক অফিস ও পরিবহন বিল' : 'Daily office and transport bills'}</span>
+            <div>
+              <p className="text-2xl font-black text-slate-900 font-mono tracking-tight">{formatBDT(todaysExpensesTotal)}</p>
+            </div>
+            <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[10px]">
+              <span className="text-slate-400 font-medium">
+                {language === 'bn' ? 'অফিস ও পরিবহন' : 'Office & Transport'}
+              </span>
+              <span className="font-bold text-slate-600 font-mono">{formatBDT(yesterdaysExpensesTotal)}</span>
             </div>
           </div>
 
-          {/* Today's Net Profit */}
-          <div className="bg-slate-50/30 rounded-2xl p-5 border border-slate-200 flex flex-col justify-between border-t-4 border-t-emerald-500 hover:bg-white hover:shadow-md transition-all duration-300 group">
-            <div className="space-y-1.5">
-              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">{tDash.todayProfit}</span>
-              <div className="flex items-baseline justify-between gap-2">
-                <span className="text-2xl font-black font-mono text-slate-900">
-                  {formatBDT(todaysNetProfit)}
+          {/* Today's Profit */}
+          <div className="p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center border ${
+                  todaysNetProfit >= 0 
+                    ? 'bg-emerald-50 border-emerald-100' 
+                    : 'bg-rose-50 border-rose-100'
+                }`}>
+                  <TrendingUp className={`w-4 h-4 ${todaysNetProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`} />
+                </div>
+                <span className="text-[11px] font-semibold text-slate-500">
+                  {language === 'bn' ? 'আজকের লাভ' : "Today's Profit"}
                 </span>
-                {profitChangePercent !== 0 ? (
-                  <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md text-[9px] font-bold border ${
-                    profitChangePercent >= 0 
-                      ? 'bg-emerald-50 text-emerald-700 border-emerald-100' 
-                      : 'bg-rose-50 text-rose-700 border-rose-100'
-                  }`}>
-                    {profitChangePercent >= 0 ? '+' : ''}{profitChangePercent.toFixed(1)}%
-                  </span>
-                ) : (
-                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">{tCommon.stable}</span>
-                )}
               </div>
+              <TrendBadge value={profitChangePercent} />
             </div>
-            <div className="text-[10px] text-slate-400 mt-4 border-t border-slate-100 pt-3 flex justify-between items-center font-medium">
-              <span>{language === 'bn' ? 'আনুমানিক আজকের লাভ' : 'Estimated daily profit margin'}</span>
+            <div>
+              <p className={`text-2xl font-black font-mono tracking-tight ${
+                todaysNetProfit >= 0 ? 'text-emerald-700' : 'text-rose-600'
+              }`}>
+                {formatBDT(todaysNetProfit)}
+              </p>
+            </div>
+            <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[10px]">
+              <span className="text-slate-400 font-medium">
+                {language === 'bn' ? 'গতকালের লাভ' : "Yesterday's Profit"}
+              </span>
+              <span className="font-bold text-slate-600 font-mono">{formatBDT(yesterdaysNetProfit)}</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {/* Total Yield / Profit */}
-        <div className="bg-white rounded-3xl p-5.5 border border-slate-200 border-l-4 border-l-emerald-500 flex flex-col justify-between hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 group">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">{tDash.calculatedYield}</span>
-            <div className="p-2 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-xl transition-transform group-hover:scale-110">
-              <TrendingUp className="w-4.5 h-4.5" />
+
+      {/* ═══════════════════════════════════════════════════════════
+          SECTION 4: OVERALL KPIs — 5 Clean Metric Cards
+      ═══════════════════════════════════════════════════════════ */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+        {/* Net Profit */}
+        <div className="bg-white rounded-xl p-4 border border-slate-200 hover:shadow-md transition-all group relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-emerald-400 to-emerald-600" />
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center border border-emerald-100">
+              <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
             </div>
+            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+              {language === 'bn' ? 'মোট লাভ' : 'Net Profit'}
+            </span>
           </div>
-          <div>
-            <h3 className={`text-xl font-bold font-mono tracking-tight ${netProfit >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-              {formatBDT(netProfit)}
-            </h3>
-            <p className="text-[10px] text-slate-500 mt-1.5 font-semibold">
-              Profit = Sales − Purchase − Expenses
-            </p>
-          </div>
+          <p className={`text-lg font-black font-mono tracking-tight ${netProfit >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
+            {formatBDT(netProfit)}
+          </p>
+          <p className="text-[9px] text-slate-400 font-medium mt-1">
+            {language === 'bn' ? 'বিক্রয় − ক্রয় − খরচ' : 'Sales − Purchase − Expenses'}
+          </p>
         </div>
 
-        {/* Due Amount */}
-        <div className="bg-white rounded-3xl p-5.5 border border-slate-200 border-l-4 border-l-amber-500 flex flex-col justify-between hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 group">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Due Amount</span>
-            <div className="p-2 bg-amber-50 text-amber-600 border border-amber-100 rounded-xl transition-transform group-hover:scale-110">
-              <AlertTriangle className="w-4.5 h-4.5" />
+        {/* Total Sales */}
+        <div className="bg-white rounded-xl p-4 border border-slate-200 hover:shadow-md transition-all group relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-blue-400 to-blue-600" />
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center border border-blue-100">
+              <ShoppingBag className="w-3.5 h-3.5 text-blue-600" />
             </div>
+            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+              {language === 'bn' ? 'মোট বিক্রয়' : 'Total Sales'}
+            </span>
           </div>
-          <div>
-            <h3 className="text-xl font-bold text-slate-900 font-mono tracking-tight">{formatBDT(dueAmount)}</h3>
-            <div className="flex items-center gap-1 mt-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-              <span className="text-[10px] text-slate-500 font-semibold">Outstanding dues</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Active Wholesale Revenue */}
-        <div className="bg-white rounded-3xl p-5.5 border border-slate-200 border-l-4 border-l-blue-500 flex flex-col justify-between hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 group">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">{tDash.activeRevenue}</span>
-            <div className="p-2 bg-blue-50 text-blue-600 border border-blue-100 rounded-xl transition-transform group-hover:scale-110">
-              <ShoppingBag className="w-4.5 h-4.5" />
-            </div>
-          </div>
-          <div>
-            <h3 className="text-xl font-bold text-slate-900 font-mono tracking-tight">{formatBDT(totalSales)}</h3>
-            <p className="text-[10px] text-slate-500 mt-1.5 font-semibold">
-              From {challans.filter(c => c.status !== 'Returned').length} deliveries
-            </p>
-          </div>
+          <p className="text-lg font-black text-slate-900 font-mono tracking-tight">{formatBDT(totalSales)}</p>
+          <p className="text-[9px] text-slate-400 font-medium mt-1">
+            {language === 'bn' ? `${challans.length}টি ডেলিভারি` : `${challans.length} deliveries`}
+          </p>
         </div>
 
         {/* Total Expenses */}
-        <div className="bg-white rounded-3xl p-5.5 border border-slate-200 border-l-4 border-l-rose-500 flex flex-col justify-between hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 group">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">{tDash.operatingExpenses}</span>
-            <div className="p-2 bg-rose-50 text-rose-650 border border-rose-100 rounded-xl transition-transform group-hover:scale-110">
-              <DollarSign className="w-4.5 h-4.5" />
+        <div className="bg-white rounded-xl p-4 border border-slate-200 hover:shadow-md transition-all group relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-rose-400 to-rose-600" />
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-7 h-7 rounded-lg bg-rose-50 flex items-center justify-center border border-rose-100">
+              <DollarSign className="w-3.5 h-3.5 text-rose-600" />
             </div>
+            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+              {language === 'bn' ? 'মোট খরচ' : 'Total Expenses'}
+            </span>
           </div>
-          <div>
-            <h3 className="text-xl font-bold text-slate-900 font-mono tracking-tight">{formatBDT(totalExpensesCost)}</h3>
-            <p className="text-[10px] text-slate-500 mt-1.5 font-semibold">
-              {expenses.length} expense entries
-            </p>
+          <p className="text-lg font-black text-slate-900 font-mono tracking-tight">{formatBDT(totalExpensesCost)}</p>
+          <p className="text-[9px] text-slate-400 font-medium mt-1">
+            {language === 'bn' ? `${expenses.length}টি এন্ট্রি` : `${expenses.length} entries`}
+          </p>
+        </div>
+
+        {/* Total Stock Value */}
+        <div className="bg-white rounded-xl p-4 border border-slate-200 hover:shadow-md transition-all group relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-indigo-400 to-indigo-600" />
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center border border-indigo-100">
+              <Layers className="w-3.5 h-3.5 text-indigo-600" />
+            </div>
+            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+              {language === 'bn' ? 'স্টক মূল্য' : 'Stock Value'}
+            </span>
           </div>
+          <p className="text-lg font-black text-slate-900 font-mono tracking-tight">{formatBDT(totalStockValue)}</p>
+          <p className="text-[9px] text-slate-400 font-medium mt-1">
+            {language === 'bn' ? `${totalStockUnits.toLocaleString()} ইউনিট` : `${totalStockUnits.toLocaleString()} units`}
+          </p>
+        </div>
+
+        {/* Total Damages */}
+        <div className="bg-white rounded-xl p-4 border border-slate-200 hover:shadow-md transition-all group relative overflow-hidden col-span-2 lg:col-span-1">
+          <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-amber-400 to-amber-600" />
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center border border-amber-100">
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+            </div>
+            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+              {language === 'bn' ? 'মোট ড্যামেজ' : 'Damages'}
+            </span>
+          </div>
+          <p className="text-lg font-black text-slate-900 font-mono tracking-tight">{formatBDT(totalDamagedVal)}</p>
+          <p className="text-[9px] text-slate-400 font-medium mt-1">
+            {language === 'bn' ? `${totalDamagedQty}টি পণ্য` : `${totalDamagedQty} items`}
+          </p>
         </div>
       </div>
 
-      {/* DMS Analytics Grid: Brand Stock Asset Value & SR Leaderboard */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Stock by Company */}
-        <div className="lg:col-span-5 bg-white rounded-3xl border border-slate-200 p-6 shadow-sm flex flex-col justify-between hover:border-slate-350 transition-all duration-300">
-          <div className="space-y-4">
-            <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
-              <div>
-                <h4 className="font-bold text-slate-800 text-sm tracking-tight">{tDash.stockByCompany}</h4>
-                <p className="text-[10px] text-slate-500 mt-0.5 font-medium">{tDash.stockByCompanyDesc}</p>
-              </div>
-              <span className="bg-slate-100 text-slate-700 text-[10px] px-2.5 py-0.5 rounded-full font-bold border border-slate-200">
-                {tDash.inWarehouse}
-              </span>
+
+      {/* ═══════════════════════════════════════════════════════════
+          SECTION 5: COMPANY STOCK & DAMAGE — Side by Side
+      ═══════════════════════════════════════════════════════════ */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+
+        {/* Company Stock Summary */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div className="flex items-center gap-2">
+              <Store className="w-4 h-4 text-slate-500" />
+              <h4 className="font-bold text-slate-700 text-xs uppercase tracking-wide">
+                {language === 'bn' ? 'কোম্পানি ভিত্তিক স্টক' : 'Stock by Company'}
+              </h4>
             </div>
+            <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2.5 py-0.5 rounded-md border border-slate-200">
+              {language === 'bn' ? 'গুদামে' : 'In Warehouse'}
+            </span>
+          </div>
 
-            <div className="space-y-3">
-              {Array.from(new Set(products.map(p => p.company))).map((brand, i) => {
-                const brandProds = products.filter(p => p.company === brand);
-                const totalUnits = brandProds.reduce((sum, p) => sum + p.currentStock, 0);
-                const totalVal = brandProds.reduce((sum, p) => sum + (p.currentStock * p.defaultPP), 0);
-                
-                // Color mapping for dynamic progress bars
-                const colors = ['bg-orange-500', 'bg-blue-500', 'bg-emerald-500', 'bg-purple-500', 'bg-indigo-500'];
-                const barColor = colors[i % colors.length];
-
-                // Percentage calculation
-                const maxVal = Math.max(...Array.from(new Set(products.map(p => p.company))).map(b => 
-                  products.filter(p => p.company === b).reduce((sum, p) => sum + (p.currentStock * p.defaultPP), 0)
-                )) || 1;
-                const widthPercent = Math.min(100, Math.max(8, (totalVal / maxVal) * 100));
-
-                return (
-                  <div key={brand} className="p-3 rounded-2xl border border-slate-100 bg-slate-50/50 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="font-extrabold text-slate-800 text-xs block">{brand}</span>
-                        <span className="text-[10px] text-slate-400 font-semibold block mt-0.5">{totalUnits.toLocaleString()} units in stock</span>
-                      </div>
-                      <div className="text-right">
-                        <span className="font-bold text-slate-800 font-mono block text-xs">{formatBDT(totalVal)}</span>
-                        <span className="text-[8px] text-slate-400 uppercase tracking-wider block font-bold mt-0.5">{tDash.stockValue}</span>
-                      </div>
+          <div className="p-4 space-y-2 max-h-[340px] overflow-y-auto">
+            {companyStockData.map((comp, i) => {
+              const pct = (comp.value / maxCompanyVal) * 100;
+              const c = brandColors[i % brandColors.length];
+              return (
+                <div key={comp.brand} className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 bg-slate-50/30 hover:bg-white hover:border-slate-200 transition-all group">
+                  <div className={`w-9 h-9 rounded-lg ${c.bg} flex items-center justify-center text-white font-bold text-[11px] shrink-0 shadow-sm`}>
+                    {comp.brand[0]}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-bold text-slate-800 truncate">{comp.brand}</span>
+                      <span className="text-xs font-black text-slate-800 font-mono shrink-0 ml-2">{formatBDT(comp.value)}</span>
                     </div>
-                    {/* Progress Bar indicator */}
-                    <div className="w-full h-1.5 bg-slate-200/60 rounded-full overflow-hidden">
-                      <div className={`h-full ${barColor} rounded-full transition-all duration-500`} style={{ width: `${widthPercent}%` }} />
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-1.5 bg-slate-200/60 rounded-full overflow-hidden">
+                        <div className={`h-full ${c.bg} rounded-full transition-all duration-700`} style={{ width: `${Math.max(6, pct)}%` }} />
+                      </div>
+                      <span className="text-[9px] font-semibold text-slate-400 shrink-0 w-14 text-right">
+                        {comp.units.toLocaleString()} {language === 'bn' ? 'পিস' : 'pcs'}
+                      </span>
                     </div>
                   </div>
-                );
-              })}
-            </div>
+                </div>
+              );
+            })}
+            {companyStockData.length === 0 && (
+              <p className="text-center text-xs text-slate-400 py-8">{language === 'bn' ? 'কোনো পণ্য নেই' : 'No products found'}</p>
+            )}
           </div>
         </div>
 
-        {/* Top Salesmen Today */}
-        <div className="lg:col-span-7 bg-white rounded-3xl border border-slate-200 p-6 shadow-sm flex flex-col justify-between hover:border-slate-350 transition-all duration-300">
-          <div className="space-y-4">
-            <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
-              <div>
-                <h4 className="font-bold text-slate-800 text-sm tracking-tight">{tDash.topSalesmenToday}</h4>
-                <p className="text-[10px] text-slate-500 mt-0.5 font-medium">{tDash.topSalesmenDesc}</p>
-              </div>
-              <span className="bg-emerald-50 text-emerald-700 text-[10px] px-2.5 py-0.5 rounded-full font-bold border border-emerald-200">
-                {tDash.totalSold}
-              </span>
+        {/* Company Damage Summary */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div className="flex items-center gap-2">
+              <ShieldAlert className="w-4 h-4 text-amber-500" />
+              <h4 className="font-bold text-slate-700 text-xs uppercase tracking-wide">
+                {language === 'bn' ? 'কোম্পানি ভিত্তিক ড্যামেজ' : 'Damages by Company'}
+              </h4>
             </div>
+            <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2.5 py-0.5 rounded-md border border-amber-100">
+              {language === 'bn' ? 'ড্যামেজ' : 'Damage'}
+            </span>
+          </div>
 
-            <div className="overflow-x-auto rounded-xl border border-slate-100 bg-white">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-slate-50 text-slate-500 border-b border-slate-200 uppercase tracking-wider text-[9px] font-bold">
-                    <th className="px-4 py-2.5 w-12 text-center">#</th>
-                    <th className="px-4 py-2.5">{tDash.tableSr}</th>
-                    <th className="px-4 py-2.5 text-center">{tDash.recentChallans}</th>
-                    <th className="px-4 py-2.5 text-right">{tDash.tableValue}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {srs.map((sr, idx) => {
-                    const srChallans = challans.filter(ch => ch.srName === sr.name && ch.status !== 'Returned');
-                    const totalAmt = srChallans.reduce((sum, ch) => sum + ch.totalAmount, 0);
-                    const runCount = srChallans.length;
-                    
-                    const avatarGradients = [
-                      'from-blue-500 to-indigo-600',
-                      'from-purple-500 to-pink-500',
-                      'from-emerald-500 to-teal-500',
-                      'from-amber-500 to-orange-500'
-                    ];
-                    const gradient = avatarGradients[idx % avatarGradients.length];
-
-                    return (
-                      <tr key={sr.id} className="hover:bg-slate-50/50 transition-all duration-150">
-                        <td className="py-3 px-4 text-center">
-                          <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[9px] font-black ${
-                            idx === 0 ? 'bg-amber-100 text-amber-800 border border-amber-200' :
-                            idx === 1 ? 'bg-slate-100 text-slate-700 border border-slate-200' :
-                            'bg-slate-50 text-slate-400'
-                          }`}>
-                            {idx + 1}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="flex items-center gap-3">
-                            <span className={`w-8 h-8 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center font-bold text-white text-[10px] shadow-sm shrink-0`}>
-                              {sr.name[0].toUpperCase()}
-                            </span>
-                            <div>
-                              <p className="font-extrabold text-slate-800 text-xs">{sr.name}</p>
-                              <p className="text-[9px] text-slate-400 font-mono mt-0.5">{sr.phone}</p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4 text-center font-mono font-bold text-slate-600">{runCount} deliveries</td>
-                        <td className="py-3 px-4 text-right">
-                          <span className="font-extrabold text-slate-900 font-mono text-xs">{formatBDT(totalAmt)}</span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+          <div className="p-4 space-y-2 max-h-[340px] overflow-y-auto">
+            {companyStockData.map((comp, i) => {
+              const maxDmg = Math.max(...companyStockData.map(c => c.damagedValue), 1);
+              const pct = comp.damagedValue > 0 ? (comp.damagedValue / maxDmg) * 100 : 0;
+              return (
+                <div key={comp.brand} className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 bg-slate-50/30 hover:bg-white hover:border-slate-200 transition-all">
+                  <div className="w-9 h-9 rounded-lg bg-amber-100 flex items-center justify-center text-amber-700 font-bold text-[11px] shrink-0">
+                    {comp.brand[0]}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-bold text-slate-800 truncate">{comp.brand}</span>
+                      <span className={`text-xs font-black font-mono shrink-0 ml-2 ${comp.damagedValue > 0 ? 'text-rose-600' : 'text-slate-400'}`}>
+                        {comp.damagedValue > 0 ? formatBDT(comp.damagedValue) : '—'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-1.5 bg-slate-200/60 rounded-full overflow-hidden">
+                        <div className="h-full bg-rose-400 rounded-full transition-all duration-700" style={{ width: `${Math.max(pct > 0 ? 6 : 0, pct)}%` }} />
+                      </div>
+                      <span className="text-[9px] font-semibold text-slate-400 shrink-0 w-14 text-right">
+                        {comp.damagedUnits.toLocaleString()} {language === 'bn' ? 'পিস' : 'pcs'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
 
-      {/* Grid: Low Stock Alert & Recent Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+      {/* ═══════════════════════════════════════════════════════════
+          SECTION 6: SR LEADERBOARD & LOW STOCK — Side by Side
+      ═══════════════════════════════════════════════════════════ */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
+        
+        {/* SR Leaderboard */}
+        <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div className="flex items-center gap-2">
+              <Users className="w-4 h-4 text-indigo-500" />
+              <h4 className="font-bold text-slate-700 text-xs uppercase tracking-wide">
+                {language === 'bn' ? 'সেলস অফিসার (SR)' : 'Sales Officers'}
+              </h4>
+            </div>
+            <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2.5 py-0.5 rounded-md border border-indigo-100">
+              {language === 'bn' ? 'মোট বিক্রয়' : 'Total Sales'}
+            </span>
+          </div>
+
+          <div className="p-4 space-y-2 max-h-[300px] overflow-y-auto">
+            {srs.length > 0 ? srs.map((sr, idx) => {
+              const srChallans = challans.filter(ch => ch.srName === sr.name);
+              const totalAmt = srChallans.reduce((sum, ch) => {
+                const netAmount = ch.totalAmount - ((ch.returnedQty || 0) * ch.rate);
+                return sum + Math.max(0, netAmount);
+              }, 0);
+
+              const avatarGradients = [
+                'from-blue-500 to-indigo-600',
+                'from-purple-500 to-pink-500',
+                'from-emerald-500 to-teal-500',
+                'from-amber-500 to-orange-500'
+              ];
+
+              return (
+                <div key={sr.id} className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 bg-slate-50/30 hover:bg-white hover:border-slate-200 transition-all">
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-[9px] font-black text-slate-300 w-4 text-center">#{idx + 1}</span>
+                    <span className={`w-8 h-8 rounded-lg bg-gradient-to-br ${avatarGradients[idx % avatarGradients.length]} flex items-center justify-center font-bold text-white text-[10px] shadow-sm`}>
+                      {sr.name[0].toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-slate-800 truncate">{sr.name}</p>
+                    <p className="text-[9px] text-slate-400 font-mono">{srChallans.length} {language === 'bn' ? 'অর্ডার' : 'orders'}</p>
+                  </div>
+                  <span className="text-xs font-black text-slate-800 font-mono shrink-0">{formatBDT(totalAmt)}</span>
+                </div>
+              );
+            }) : (
+              <p className="text-center text-xs text-slate-400 py-8">{language === 'bn' ? 'কোনো SR নেই' : 'No SRs found'}</p>
+            )}
+          </div>
+        </div>
+
         {/* Low Stock Alerts */}
-        <div className="lg:col-span-5 bg-white rounded-3xl border border-slate-200 p-6 shadow-sm flex flex-col justify-between hover:border-slate-350 transition-all duration-300">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-              <div>
-                <h4 className="font-bold text-slate-800 text-sm tracking-tight">{tDash.lowStockWarnings}</h4>
-                <p className="text-[10px] text-slate-500 mt-0.5 font-medium">{tDash.lowStockDesc}</p>
-              </div>
-              <span className="bg-rose-50 text-rose-700 text-[10px] px-2.5 py-1 rounded-full font-bold border border-rose-100 flex items-center gap-1">
-                <AlertTriangle className="w-3.5 h-3.5 animate-pulse text-rose-500" />
-                {tDash.alertsCount.replace('{count}', String(lowStockProducts.length))}
-              </span>
+        <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-rose-500" />
+              <h4 className="font-bold text-slate-700 text-xs uppercase tracking-wide">
+                {language === 'bn' ? 'স্টক সতর্কতা' : 'Low Stock Alerts'}
+              </h4>
             </div>
-
-            <div className="divide-y divide-slate-100 max-h-80 overflow-y-auto pr-1">
-              {lowStockProducts.map(p => (
-                <div key={p.id} className="py-3 flex items-center justify-between group hover:bg-slate-50/30 px-2 rounded-xl transition-all duration-200">
-                  <div className="space-y-0.5">
-                    <p className="text-xs font-bold text-slate-700 group-hover:text-slate-900 transition-colors">{p.name}</p>
-                    <p className="text-[9px] text-slate-400 font-mono">{p.sku}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs font-bold text-slate-800 font-mono">{p.currentStock} units</p>
-                    <span className="text-[9px] text-rose-600 font-bold bg-rose-50 px-2 py-0.5 rounded-full border border-rose-100 inline-block mt-0.5">Reorder Alert</span>
-                  </div>
-                </div>
-              ))}
-              {lowStockProducts.length === 0 && (
-                <div className="py-12 text-center text-slate-400 text-xs font-semibold">
-                  🎉 All stock counts are healthy.
-                </div>
-              )}
-            </div>
+            <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-2.5 py-0.5 rounded-md border border-rose-100 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+              {lowStockProducts.length} {language === 'bn' ? 'টি সতর্কতা' : 'alerts'}
+            </span>
           </div>
 
-          <button
-            onClick={() => onNavigate('stock')}
-            className="w-full mt-6 py-2.5 px-4 rounded-xl border border-slate-200 bg-white text-slate-750 hover:bg-slate-50 text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm active:scale-98"
-          >
-            {tDash.adjustInventories}
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-
-        {/* Recent Challans Activity */}
-        <div className="lg:col-span-7 bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4 hover:border-slate-350 transition-all duration-300">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-            <div>
-              <h4 className="font-bold text-slate-800 text-sm tracking-tight">{tDash.recentChallans}</h4>
-              <p className="text-[10px] text-slate-500 mt-0.5 font-medium">{tDash.recentChallansDesc}</p>
-            </div>
-            <button
-              id="dash-btn-view-challans"
-              onClick={() => onNavigate('delivery')}
-              className="text-slate-800 hover:text-slate-950 text-xs font-bold flex items-center gap-1 transition-all cursor-pointer underline decoration-slate-300"
-            >
-              {tDash.manageSheets}
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
-          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse min-w-[550px]">
+          <div className="max-h-[260px] overflow-y-auto">
+            {lowStockProducts.length > 0 ? (
+              <table className="w-full text-xs">
                 <thead>
-                  <tr className="bg-slate-50 text-slate-500 border-b border-slate-200 uppercase tracking-wider text-[9px] font-bold">
-                    <th className="px-4 py-3">{tDash.tableName}</th>
-                    <th className="px-4 py-3">{tDash.tableNavSr || tDash.tableSr}</th>
-                    <th className="px-4 py-3">{tDash.tableClients}</th>
-                    <th className="px-4 py-3 text-right">{tDash.tableValue}</th>
-                    <th className="px-4 py-3 text-center">{tDash.tableStatus}</th>
+                  <tr className="text-[9px] text-slate-400 uppercase tracking-wider font-bold border-b border-slate-100 bg-slate-50/30">
+                    <th className="text-left px-5 py-2.5">{language === 'bn' ? 'পণ্য' : 'Product'}</th>
+                    <th className="text-left px-4 py-2.5">{language === 'bn' ? 'কোড' : 'SKU'}</th>
+                    <th className="text-right px-5 py-2.5">{language === 'bn' ? 'বর্তমান স্টক' : 'Stock'}</th>
+                    <th className="text-center px-4 py-2.5">{language === 'bn' ? 'অবস্থা' : 'Status'}</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {recentChallans.map((ch) => (
-                    <tr key={ch.id} className="hover:bg-blue-50/20 transition-all duration-200">
-                      <td className="py-3.5 px-4">
-                        <p className="font-bold text-slate-750 text-xs leading-snug">{ch.productName}</p>
-                        <span className="text-[9px] text-slate-400 font-mono block mt-0.5">{ch.attribute}</span>
+                <tbody className="divide-y divide-slate-50">
+                  {lowStockProducts.map(p => (
+                    <tr key={p.id} className="hover:bg-rose-50/20 transition-colors">
+                      <td className="px-5 py-2.5">
+                        <p className="font-bold text-slate-700 text-xs truncate max-w-[180px]">{p.name}</p>
+                        <p className="text-[9px] text-slate-400">{p.company}</p>
                       </td>
-                      <td className="py-3.5 px-4">
-                        <p className="text-slate-700 font-bold text-xs">{ch.srName}</p>
-                        <span className="text-[9px] text-slate-400 font-mono block mt-0.5">{ch.deliveryManName}</span>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <div className="flex items-center gap-1.5">
-                          {ch.customerNames.slice(0, 1).map((c, i) => (
-                            <span key={i} className="px-2.5 py-0.5 bg-slate-50 text-slate-650 rounded text-[9px] font-bold border border-slate-200 inline-block max-w-[100px] truncate" title={c}>
-                              {c}
-                            </span>
-                          ))}
-                          {ch.customerNames.length > 1 && (
-                            <span className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded text-[9px] font-black border border-slate-200 shrink-0">
-                              +{ch.customerNames.length - 1}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-3.5 px-4 text-right font-extrabold text-slate-800 font-mono">{formatBDT(ch.totalAmount)}</td>
-                      <td className="py-3.5 px-4 text-center">
-                        <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold border whitespace-nowrap inline-block ${
-                          ch.status === 'Delivered' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
-                          ch.status === 'Shipped' ? 'bg-blue-50 text-blue-700 border-blue-100' :
-                          ch.status === 'Returned' ? 'bg-rose-50 text-rose-700 border-rose-100' :
-                          'bg-amber-50 text-amber-700 border-amber-100'
+                      <td className="px-4 py-2.5 font-mono text-[10px] text-slate-500">{p.sku}</td>
+                      <td className="px-5 py-2.5 text-right font-bold text-slate-800 font-mono">{p.currentStock}</td>
+                      <td className="px-4 py-2.5 text-center">
+                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${
+                          p.currentStock < 100 
+                            ? 'bg-rose-50 text-rose-600 border-rose-100' 
+                            : 'bg-amber-50 text-amber-600 border-amber-100'
                         }`}>
-                          {ch.status === 'Delivered' ? tCommon.delivered :
-                           ch.status === 'Shipped' ? tCommon.shipped :
-                           ch.status === 'Returned' ? tCommon.returned :
-                           tCommon.pending}
+                          {p.currentStock < 100 
+                            ? (language === 'bn' ? 'জরুরি' : 'Critical') 
+                            : (language === 'bn' ? 'কম' : 'Low')}
                         </span>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            </div>
+            ) : (
+              <div className="py-10 text-center">
+                <p className="text-xs text-slate-400 font-semibold">🎉 {language === 'bn' ? 'সব স্টক পর্যাপ্ত আছে' : 'All stock levels are healthy'}</p>
+              </div>
+            )}
+          </div>
+
+          <div className="px-5 py-3 border-t border-slate-100">
+            <button
+              onClick={() => onNavigate('stock')}
+              className="w-full py-2 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 hover:bg-slate-50 flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-[0.98]"
+            >
+              {language === 'bn' ? 'স্টক সমন্বয় করুন' : 'Adjust Stock'}
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Quick Launchpad & Hub Distribution */}
-      <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200 grid grid-cols-1 md:grid-cols-3 gap-6 shadow-sm font-sans">
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 text-slate-800 font-bold text-xs uppercase tracking-wide">
-            <MapPin className="w-4 h-4 text-slate-500" />
-            {tDash.primaryHub}
+
+      {/* ═══════════════════════════════════════════════════════════
+          SECTION 7: RECENT DELIVERIES TABLE
+      ═══════════════════════════════════════════════════════════ */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+          <div className="flex items-center gap-2">
+            <ReceiptText className="w-4 h-4 text-slate-500" />
+            <h4 className="font-bold text-slate-700 text-xs uppercase tracking-wide">
+              {language === 'bn' ? 'সাম্প্রতিক ডেলিভারি' : 'Recent Deliveries'}
+            </h4>
           </div>
-          <p className="text-xs text-slate-500 leading-relaxed font-semibold">
-            {tDash.primaryHubDesc}
-          </p>
+          <button
+            id="dash-btn-view-challans"
+            onClick={() => onNavigate('delivery')}
+            className="text-[11px] font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 transition-colors cursor-pointer"
+          >
+            {language === 'bn' ? 'সব দেখুন' : 'View All'}
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
         </div>
 
-        <div className="space-y-2 border-t md:border-t-0 md:border-x border-slate-200/60 px-0 md:px-6 py-4 md:py-0">
-          <div className="flex items-center gap-2 text-slate-800 font-bold text-xs uppercase tracking-wide">
-            <Clock className="w-4 h-4 text-slate-500" />
-            {tDash.autoStockLock}
-          </div>
-          <p className="text-xs text-slate-500 leading-relaxed font-semibold">
-            {tDash.autoStockLockDesc}
-          </p>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs min-w-[600px]">
+            <thead>
+              <tr className="text-[9px] text-slate-400 uppercase tracking-wider font-bold border-b border-slate-100 bg-slate-50/30">
+                <th className="text-left px-5 py-3">{language === 'bn' ? 'পণ্য' : 'Product'}</th>
+                <th className="text-left px-4 py-3">{language === 'bn' ? 'সেলসম্যান' : 'Salesman'}</th>
+                <th className="text-left px-4 py-3">{language === 'bn' ? 'মার্কেট' : 'Market'}</th>
+                <th className="text-right px-4 py-3">{language === 'bn' ? 'পরিমাণ' : 'Amount'}</th>
+                <th className="text-center px-5 py-3">{language === 'bn' ? 'অবস্থা' : 'Status'}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {recentChallans.map(ch => (
+                <tr key={ch.id} className="hover:bg-blue-50/20 transition-colors">
+                  <td className="px-5 py-3">
+                    <p className="font-bold text-slate-700 text-xs truncate max-w-[200px]">{ch.productName}</p>
+                    <p className="text-[9px] text-slate-400 font-mono">{ch.attribute}</p>
+                  </td>
+                  <td className="px-4 py-3">
+                    <p className="font-semibold text-slate-600 text-xs">{ch.srName}</p>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="text-[10px] bg-slate-50 text-slate-600 px-2 py-0.5 rounded border border-slate-200 font-medium">
+                      {ch.routeName || 'N/A'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-right font-black text-slate-800 font-mono">{formatBDT(ch.totalAmount)}</td>
+                  <td className="px-5 py-3 text-center">
+                    <span className={`text-[9px] font-bold px-2.5 py-0.5 rounded-full border whitespace-nowrap ${
+                      ch.status === 'Delivered' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
+                      ch.status === 'Shipped' ? 'bg-blue-50 text-blue-700 border-blue-100' :
+                      'bg-amber-50 text-amber-700 border-amber-100'
+                    }`}>
+                      {ch.status === 'Delivered' ? (language === 'bn' ? 'সম্পন্ন' : 'Delivered') :
+                       ch.status === 'Shipped' ? (language === 'bn' ? 'পাঠানো' : 'Shipped') :
+                       (language === 'bn' ? 'মুলতুবি' : 'Pending')}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+              {recentChallans.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="text-center py-8 text-xs text-slate-400">
+                    {language === 'bn' ? 'কোনো ডেলিভারি নেই' : 'No deliveries yet'}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
+      </div>
 
-        <div className="flex flex-col justify-center gap-3">
-          <button
-            id="dash-quick-procure"
-            onClick={() => onNavigate('purchase')}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 text-xs font-bold text-white hover:bg-slate-800 transition-all shadow-sm shrink-0 cursor-pointer border border-transparent"
-          >
-            <Plus className="w-4 h-4 text-white" />
-            {tDash.newProcInvoice}
-          </button>
-          <button
-            id="dash-quick-sell"
-            onClick={() => onNavigate('sales')}
-            className="h-11 rounded-xl border-2 border-slate-200 bg-white px-5 text-xs font-bold text-slate-655 hover:bg-slate-50 hover:border-slate-300 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm active:scale-98"
-          >
-            <ShoppingBag className="w-4 h-4 text-slate-550" />
-            {tDash.salesTerminal}
-          </button>
+
+      {/* ═══════════════════════════════════════════════════════════
+          SECTION 8: FOOTER — Warehouse Info & Quick Links
+      ═══════════════════════════════════════════════════════════ */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0 border border-slate-200">
+              <MapPin className="w-4 h-4 text-slate-500" />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
+                {language === 'bn' ? 'গুদাম' : 'Warehouse'}
+              </p>
+              <p className="text-xs text-slate-600 font-semibold leading-relaxed">
+                {tDash.primaryHubDesc}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3 md:border-x md:border-slate-100 md:px-4">
+            <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0 border border-slate-200">
+              <Clock className="w-4 h-4 text-slate-500" />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
+                {language === 'bn' ? 'দৈনিক লক' : 'Daily Lock'}
+              </p>
+              <p className="text-xs text-slate-600 font-semibold leading-relaxed">
+                {language === 'bn' ? 'প্রতিদিন রাত ১০:০০ টায় স্বয়ংক্রিয়ভাবে লক' : 'Auto-lock at 10 PM daily'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 justify-end">
+            <button
+              id="dash-quick-procure"
+              onClick={() => onNavigate('purchase')}
+              className="h-9 px-4 rounded-lg bg-slate-900 text-white text-[11px] font-bold hover:bg-slate-800 transition-all cursor-pointer flex items-center gap-2 shadow-sm active:scale-[0.97]"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              {language === 'bn' ? 'নতুন ক্রয়' : 'New Purchase'}
+            </button>
+            <button
+              id="dash-quick-sell"
+              onClick={() => onNavigate('sales')}
+              className="h-9 px-4 rounded-lg border border-slate-200 bg-white text-slate-700 text-[11px] font-bold hover:bg-slate-50 transition-all cursor-pointer flex items-center gap-2 active:scale-[0.97]"
+            >
+              <ShoppingBag className="w-3.5 h-3.5" />
+              {language === 'bn' ? 'বিক্রয়' : 'Sales'}
+            </button>
+          </div>
         </div>
       </div>
     </div>

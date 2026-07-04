@@ -15,7 +15,8 @@ import {
   HelpCircle,
   ChevronLeft, 
   ChevronRight,
-  ClipboardList
+  ClipboardList,
+  MapPin
 } from 'lucide-react';
 import { translations, Language } from '../translations';
 
@@ -28,7 +29,9 @@ export type TabID =
   | 'accounts'
   | 'companies'
   | 'products'
-  | 'shops-routes'
+  | 'routes'
+  | 'damage'
+  | 'reports'
   | 'settings'
   | 'help';
 
@@ -44,6 +47,7 @@ interface SidebarProps {
   shopName: string;
   shopSubBrand: string;
   shopLogo: string;
+  userRole?: 'admin' | 'sr';
 }
 
 interface MenuItem {
@@ -76,11 +80,23 @@ const itemStyles: Record<TabID, { active: string; hover: string; bar: string; ic
     bar: 'bg-emerald-500',
     icon: 'text-emerald-400'
   },
-  'shops-routes': {
+  routes: {
     active: 'bg-amber-500/10 text-amber-300 border border-amber-500/20 font-bold',
     hover: 'hover:text-amber-300 hover:bg-amber-500/5',
     bar: 'bg-amber-500',
     icon: 'text-amber-400'
+  },
+  damage: {
+    active: 'bg-rose-500/10 text-rose-300 border border-rose-500/25 font-bold',
+    hover: 'hover:text-rose-300 hover:bg-rose-500/5',
+    bar: 'bg-rose-500',
+    icon: 'text-rose-400'
+  },
+  reports: {
+    active: 'bg-violet-500/10 text-violet-300 border border-violet-500/20 font-bold',
+    hover: 'hover:text-violet-300 hover:bg-violet-500/5',
+    bar: 'bg-violet-500',
+    icon: 'text-violet-400'
   },
   purchase: {
     active: 'bg-orange-500/10 text-orange-300 border border-orange-500/20 font-bold',
@@ -134,16 +150,27 @@ export default function Sidebar({
   language,
   shopName,
   shopSubBrand,
-  shopLogo
+  shopLogo,
+  userRole = 'admin'
 }: SidebarProps) {
   const s = translations[language].sidebar;
 
-  const sections: MenuSection[] = [
+  const sections: MenuSection[] = userRole === 'sr' ? [
+    {
+      label: 'OPERATIONS',
+      labelBn: 'লেনদেন',
+      items: [
+        { id: 'sales', icon: ShoppingCart },
+        { id: 'reports', icon: ClipboardList },
+      ]
+    }
+  ] : [
     {
       label: 'OVERVIEW',
       labelBn: 'পর্যবেক্ষণ',
       items: [
         { id: 'dashboard', icon: LayoutDashboard },
+        { id: 'reports', icon: ClipboardList },
       ]
     },
     {
@@ -152,7 +179,7 @@ export default function Sidebar({
       items: [
         { id: 'companies', icon: Building2 },
         { id: 'products', icon: BoxesIcon },
-        { id: 'shops-routes', icon: AlertTriangle },
+        { id: 'routes', icon: MapPin },
       ]
     },
     {
@@ -161,6 +188,7 @@ export default function Sidebar({
       items: [
         { id: 'purchase', icon: PackagePlus },
         { id: 'stock', icon: Package },
+        { id: 'damage', icon: AlertTriangle },
       ]
     },
     {
@@ -181,6 +209,10 @@ export default function Sidebar({
   ];
 
   const getMenuItemName = (id: TabID): string => {
+    if (userRole === 'sr') {
+      if (id === 'sales') return language === 'bn' ? 'বিক্রয় অপশন' : 'Sales Report/Sales Option';
+      if (id === 'reports') return language === 'bn' ? 'স্টক রিপোর্ট' : 'Stock Report/Stock Option';
+    }
     switch (id) {
       case 'dashboard': return s.dashboard;
       case 'sales': return s.sell;
@@ -190,7 +222,9 @@ export default function Sidebar({
       case 'accounts': return s.accounting;
       case 'companies': return s.companies;
       case 'products': return s.products;
-      case 'shops-routes': return s.shopsRoutes;
+      case 'routes': return language === 'bn' ? 'মার্কেট ও এসআর' : 'Markets & SRs';
+      case 'damage': return language === 'bn' ? 'ড্যামেজ তালিকা' : 'Damage Option';
+      case 'reports': return language === 'bn' ? 'রিপোর্ট ও বিশ্লেষণ' : 'Reports & Analytics';
       case 'settings': return s.settings;
       default: return id;
     }

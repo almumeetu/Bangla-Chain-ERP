@@ -20,14 +20,14 @@ import {
   Users,
   Printer
 } from 'lucide-react';
-import { ChallanItem, SR, Customer, DeliveryMan, Product, ProductAttribute } from '../types';
+import { ChallanItem, SR, Route, DeliveryMan, Product, ProductAttribute } from '../types';
 import { translations, Language } from '../translations';
 
 interface ChallanModuleProps {
   challans: ChallanItem[];
   setChallans: React.Dispatch<React.SetStateAction<ChallanItem[]>>;
   srs: SR[];
-  customers: Customer[];
+  routes: Route[];
   deliveryMen: DeliveryMan[];
   products: Product[];
   attributes: ProductAttribute[];
@@ -38,7 +38,7 @@ export default function ChallanModule({
   challans,
   setChallans,
   srs,
-  customers,
+  routes,
   deliveryMen,
   products,
   attributes,
@@ -50,7 +50,7 @@ export default function ChallanModule({
 
   // Search & Filters State
   const [filterSR, setFilterSR] = useState('');
-  const [filterCustomer, setFilterCustomer] = useState('');
+  const [filterRoute, setFilterRoute] = useState('');
   const [filterDeliveryMan, setFilterDeliveryMan] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -58,7 +58,7 @@ export default function ChallanModule({
   // Active searched filters
   const [appliedSearch, setAppliedSearch] = useState('');
   const [appliedSR, setAppliedSR] = useState('');
-  const [appliedCustomer, setAppliedCustomer] = useState('');
+  const [appliedRoute, setAppliedRoute] = useState('');
   const [appliedDeliveryMan, setAppliedDeliveryMan] = useState('');
   const [appliedStatus, setAppliedStatus] = useState('');
 
@@ -76,19 +76,28 @@ export default function ChallanModule({
   const [newQty, setNewQty] = useState<number>(10);
   const [newBonusQty, setNewBonusQty] = useState<number>(0);
   const [newSR, setNewSR] = useState('');
-  const [newSelectedCustomers, setNewSelectedCustomers] = useState<string[]>([]);
+  const [newRoute, setNewRoute] = useState('');
   const [newDeliveryMan, setNewDeliveryMan] = useState('');
-  const [newStatus, setNewStatus] = useState<'Pending' | 'Shipped' | 'Delivered' | 'Returned'>('Pending');
+  const [newStatus, setNewStatus] = useState<'Pending' | 'Shipped' | 'Delivered'>('Pending');
 
-  // Customer 'Show More' detailed modal/pill
-  const [customerModalList, setCustomerModalList] = useState<{ title: string; list: string[] } | null>(null);
+  // Editing state for Challan
+  const [editingChallan, setEditingChallan] = useState<ChallanItem | null>(null);
+  const [editQty, setEditQty] = useState<number>(0);
+  const [editBonusQty, setEditBonusQty] = useState<number>(0);
+  const [editRate, setEditRate] = useState<number>(0);
+  const [editSR, setEditSR] = useState('');
+  const [editRoute, setEditRoute] = useState('');
+  const [editDeliveryMan, setEditDeliveryMan] = useState('');
+  const [editStatus, setEditStatus] = useState<'Pending' | 'Shipped' | 'Delivered'>('Pending');
+  const [editReturnedQty, setEditReturnedQty] = useState<number>(0);
+  const [editDamagedQty, setEditDamagedQty] = useState<number>(0);
 
   // Filter application
   const handleSearch = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setAppliedSearch(searchQuery);
     setAppliedSR(filterSR);
-    setAppliedCustomer(filterCustomer);
+    setAppliedRoute(filterRoute);
     setAppliedDeliveryMan(filterDeliveryMan);
     setAppliedStatus(filterStatus);
     setCurrentPage(1);
@@ -97,12 +106,12 @@ export default function ChallanModule({
   const handleReset = () => {
     setSearchQuery('');
     setFilterSR('');
-    setFilterCustomer('');
+    setFilterRoute('');
     setFilterDeliveryMan('');
     setFilterStatus('');
     setAppliedSearch('');
     setAppliedSR('');
-    setAppliedCustomer('');
+    setAppliedRoute('');
     setAppliedDeliveryMan('');
     setAppliedStatus('');
     setCurrentPage(1);
@@ -117,8 +126,8 @@ export default function ChallanModule({
 
     const matchesSR = appliedSR ? item.srName === appliedSR : true;
     
-    const matchesCustomer = appliedCustomer 
-      ? item.customerNames.some(c => c === appliedCustomer) 
+    const matchesRoute = appliedRoute 
+      ? item.routeName === appliedRoute 
       : true;
 
     const matchesDeliveryMan = appliedDeliveryMan 
@@ -127,7 +136,7 @@ export default function ChallanModule({
 
     const matchesStatus = appliedStatus ? item.status === appliedStatus : true;
 
-    return matchesSearch && matchesSR && matchesCustomer && matchesDeliveryMan && matchesStatus;
+    return matchesSearch && matchesSR && matchesRoute && matchesDeliveryMan && matchesStatus;
   });
 
   // Native Sliced Pagination
@@ -145,8 +154,8 @@ export default function ChallanModule({
   // Create Challan Handler
   const handleCreateChallan = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newProduct || !newSR || newSelectedCustomers.length === 0 || !newDeliveryMan) {
-      alert('Please fill out all required fields (Product, SR, at least one Customer, and Delivery Man)');
+    if (!newProduct || !newSR || !newRoute || !newDeliveryMan) {
+      alert('Please fill out all required fields (Product, SR, Route, and Delivery Man)');
       return;
     }
 
@@ -154,9 +163,17 @@ export default function ChallanModule({
     const totalQty = Number(newQty) + Number(newBonusQty);
     const totalAmount = Number(newQty) * rate;
 
+    const prodObj = products.find(p => p.name === newProduct);
+    const company = prodObj ? prodObj.company : 'Pran';
+
+    const srObj = srs.find(s => s.name === newSR);
+    const commissionRate = srObj ? srObj.commissionRate : 5;
+    const commissionAmount = totalAmount * (commissionRate / 100);
+
     const newChallan: ChallanItem = {
       id: `ch-${Date.now()}`,
       productName: newProduct,
+      company,
       attribute: newAttribute || 'None',
       qty: Number(newQty),
       bonusQty: Number(newBonusQty),
@@ -164,9 +181,13 @@ export default function ChallanModule({
       rate,
       totalAmount,
       srName: newSR,
-      customerNames: newSelectedCustomers,
+      routeName: newRoute,
       deliveryManName: newDeliveryMan,
       status: newStatus,
+      returnedQty: 0,
+      damagedQty: 0,
+      commissionAmount,
+      createdAt: new Date().toISOString()
     };
 
     setChallans(prev => [newChallan, ...prev]);
@@ -178,7 +199,7 @@ export default function ChallanModule({
     setNewQty(10);
     setNewBonusQty(0);
     setNewSR('');
-    setNewSelectedCustomers([]);
+    setNewRoute('');
     setNewDeliveryMan('');
     setNewStatus('Pending');
   };
@@ -189,13 +210,84 @@ export default function ChallanModule({
     }
   };
 
-  const handleStatusChange = (id: string, newStatus: 'Pending' | 'Shipped' | 'Delivered' | 'Returned') => {
+  const handleStatusChange = (id: string, newStatus: 'Pending' | 'Shipped' | 'Delivered') => {
     setChallans(prev => prev.map(ch => ch.id === id ? { ...ch, status: newStatus } : ch));
+  };
+
+  const handleOpenEditModal = (challan: ChallanItem) => {
+    setEditingChallan(challan);
+    setEditQty(challan.qty);
+    setEditBonusQty(challan.bonusQty);
+    setEditRate(challan.rate);
+    setEditSR(challan.srName);
+    setEditRoute(challan.routeName);
+    setEditDeliveryMan(challan.deliveryManName);
+    setEditStatus(challan.status);
+    setEditReturnedQty(challan.returnedQty || 0);
+    setEditDamagedQty(challan.damagedQty || 0);
+  };
+
+  const handleSaveEditChallan = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingChallan) return;
+
+    const oldTotalQty = editingChallan.qty + editingChallan.bonusQty;
+    const newTotalQty = Number(editQty) + Number(editBonusQty);
+    const qtyDiff = newTotalQty - oldTotalQty;
+
+    const prod = products.find(p => p.name === editingChallan.productName);
+    if (prod && qtyDiff > 0 && prod.currentStock < qtyDiff) {
+      alert(`Insufficient stock! Product only has ${prod.currentStock} units available.`);
+      return;
+    }
+
+    if (prod) {
+      // 1. Quantity difference (new total qty vs old total qty)
+      prod.currentStock -= qtyDiff;
+
+      // 2. Returns synchronization: returned units go back to currentStock
+      const returnDiff = Number(editReturnedQty) - (editingChallan.returnedQty || 0);
+      prod.currentStock += returnDiff;
+
+      // 3. Damages synchronization: damaged units go to damagedStock
+      const damageDiff = Number(editDamagedQty) - (editingChallan.damagedQty || 0);
+      prod.damagedStock = (prod.damagedStock || 0) + damageDiff;
+    }
+
+    const netQty = Number(editQty) - Number(editReturnedQty) - Number(editDamagedQty);
+    const totalAmount = Math.max(0, netQty) * Number(editRate);
+    const srObj = srs.find(s => s.name === editSR);
+    const commissionRate = srObj ? srObj.commissionRate : 5;
+    const commissionAmount = totalAmount * (commissionRate / 100);
+
+    setChallans(prev => prev.map(ch => {
+      if (ch.id === editingChallan.id) {
+        return {
+          ...ch,
+          qty: Number(editQty),
+          bonusQty: Number(editBonusQty),
+          totalQty: newTotalQty,
+          rate: Number(editRate),
+          totalAmount,
+          srName: editSR,
+          routeName: editRoute,
+          deliveryManName: editDeliveryMan,
+          status: editStatus,
+          returnedQty: Number(editReturnedQty),
+          damagedQty: Number(editDamagedQty),
+          commissionAmount
+        };
+      }
+      return ch;
+    }));
+
+    setEditingChallan(null);
+    alert('Challan updated successfully and stock levels synchronized!');
   };
 
   // CSV Exporter (Active filtered sheet)
   const downloadCSV = () => {
-    const headers = ['#', 'Product Name', 'Attribute', 'Qty', 'Bonus Qty', 'Total Qty', 'Rate (BDT)', 'Total Amount (BDT)', 'SR Name', 'Customers', 'Delivery Man', 'Status'];
+    const headers = ['#', 'Product Name', 'Attribute', 'Qty', 'Bonus Qty', 'Total Qty', 'Rate (BDT)', 'Total Amount (BDT)', 'SR Name', 'Route Beat', 'Delivery Man', 'Status'];
     const rows = filteredChallans.map((c, index) => [
       index + 1,
       `"${c.productName.replace(/"/g, '""')}"`,
@@ -206,7 +298,7 @@ export default function ChallanModule({
       c.rate,
       c.totalAmount,
       `"${c.srName}"`,
-      `"${c.customerNames.join(', ')}"`,
+      `"${c.routeName || ''}"`,
       `"${c.deliveryManName}"`,
       c.status
     ]);
@@ -223,140 +315,168 @@ export default function ChallanModule({
     document.body.removeChild(link);
   };
 
-  // Professional Invoice printing layout for a single Challan
+  // Professional Invoice printing layout for a single Challan (80mm Thermal Printer Friendly)
   const triggerPrintInvoice = (invoice: ChallanItem) => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
+    const netQty = invoice.qty - (invoice.returnedQty || 0) - (invoice.damagedQty || 0);
+
     printWindow.document.write(`
       <html>
         <head>
-          <title>Challan Voucher - ${invoice.id.toUpperCase()}</title>
+          <title>Memo - ${invoice.id.toUpperCase()}</title>
           <style>
-            body { font-family: system-ui, -apple-system, sans-serif; color: #0f172a; margin: 35px; line-height: 1.5; }
-            .header-table { width: 100%; border-collapse: collapse; margin-bottom: 25px; }
-            .header-table td { border: none; padding: 0; }
-            .brand-title { font-size: 20px; font-weight: bold; color: #000; text-transform: uppercase; margin: 0; }
-            .brand-subtitle { font-size: 10px; color: #475569; font-family: monospace; margin: 2px 0 0 0; }
-            .invoice-label { font-size: 16px; font-weight: bold; text-align: right; text-transform: uppercase; letter-spacing: 0.5px; }
-            .invoice-id { font-size: 12px; font-family: monospace; text-align: right; font-weight: bold; color: #334155; }
+            @media print {
+              @page {
+                size: 80mm auto;
+                margin: 0;
+              }
+              body {
+                width: 76mm;
+                margin: 0;
+                padding: 4mm 2mm;
+              }
+            }
+            body {
+              font-family: 'Courier New', Courier, monospace;
+              color: #000;
+              margin: 0 auto;
+              padding: 20px 10px;
+              width: 76mm;
+              font-size: 11px;
+              line-height: 1.4;
+            }
+            .center { text-align: center; }
+            .right { text-align: right; }
+            .brand-title { font-size: 15px; font-weight: bold; margin: 0; text-transform: uppercase; }
+            .brand-subtitle { font-size: 9px; margin: 2px 0 0 0; font-weight: bold; }
+            .divider { border-top: 1px dashed #000; margin: 8px 0; }
+            .meta-grid { font-size: 10px; margin-bottom: 5px; }
+            .meta-row { display: flex; justify-content: space-between; margin-bottom: 3px; }
+            .meta-label { font-weight: bold; text-transform: uppercase; }
             
-            .meta-grid { display: grid; grid-template-cols: 1fr 1fr; gap: 20px; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; background-color: #f8fafc; margin-bottom: 30px; font-size: 11px; }
-            .meta-group { margin-bottom: 6px; }
-            .meta-label { color: #64748b; font-weight: 600; text-transform: uppercase; font-size: 9px; letter-spacing: 0.5px; display: block; margin-bottom: 2px; }
-            .meta-value { font-weight: 600; color: #0f172a; font-size: 11px; }
+            table.items-table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 10px; }
+            table.items-table th { border-bottom: 1px dashed #000; padding: 4px 0; text-align: left; font-weight: bold; }
+            table.items-table td { padding: 6px 0; border-bottom: 1px dotted #ccc; }
             
-            table.items-table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 11px; }
-            table.items-table th { background-color: #0f172a; color: white; padding: 10px 12px; font-weight: 600; text-align: left; text-transform: uppercase; font-size: 10px; }
-            table.items-table td { padding: 12px; border-bottom: 1px solid #e2e8f0; color: #334155; }
+            .summary-table { width: 100%; margin-top: 8px; font-size: 10px; }
+            .summary-table td { padding: 3px 0; }
+            .total-row { font-weight: bold; font-size: 11px; border-top: 1px dashed #000; border-bottom: 1px dashed #000; }
             
-            .summary-box { display: flex; justify-content: flex-end; margin-top: 25px; }
-            .summary-table { width: 300px; border-collapse: collapse; font-size: 11px; }
-            .summary-table td { padding: 8px 12px; border-bottom: 1px solid #e2e8f0; }
-            .summary-table tr.total-row td { border-top: 2px solid #0f172a; border-bottom: 2px double #0f172a; font-weight: bold; font-size: 13px; color: #000; }
-            
-            .footer-notes { margin-top: 60px; font-size: 10px; color: #64748b; border-top: 1px dashed #cbd5e1; padding-top: 15px; }
-            .signature-grid { display: grid; grid-template-cols: 1fr 1fr; gap: 40px; margin-top: 80px; text-align: center; font-size: 11px; }
-            .signature-line { border-top: 1px solid #94a3b8; width: 180px; margin: 0 auto; padding-top: 5px; color: #475569; font-weight: 500; }
+            .signature-box { display: flex; justify-content: space-between; margin-top: 45px; font-size: 8.5px; }
+            .signature-line { border-top: 1px solid #000; width: 33mm; text-align: center; padding-top: 4px; }
+            .footer-notes { margin-top: 25px; text-align: center; font-size: 8px; line-height: 1.3; }
           </style>
         </head>
         <body>
-          <table class="header-table">
-            <tr>
-              <td>
-                <h1 class="brand-title">SAMIR ENTERPRISE</h1>
-                <p class="brand-subtitle">FMCG DEALER & DISTRIBUTOR HUB</p>
-                <p style="font-size: 9px; color: #64748b; margin: 4px 0 0 0;">Dhaka Hub, Bangladesh</p>
-              </td>
-              <td style="vertical-align: top;">
-                <div class="invoice-label">CHALLAN SHEET / INVOICE</div>
-                <div class="invoice-id">VOUCHER: ${invoice.id.toUpperCase()}</div>
-              </td>
-            </tr>
-          </table>
+          <div class="center">
+            <h1 class="brand-title">SAMIR ENTERPRISE</h1>
+            <p class="brand-subtitle">FMCG DEALER & DISTRIBUTOR HUB</p>
+            <p style="font-size: 8px; margin: 2px 0 0 0;">Dhaka Hub, Bangladesh</p>
+          </div>
+
+          <div class="divider"></div>
 
           <div class="meta-grid">
-            <div>
-              <div class="meta-group">
-                <span class="meta-label">SALES REPRESENTATIVE (SR)</span>
-                <span class="meta-value">${invoice.srName}</span>
-              </div>
-              <div class="meta-group">
-                <span class="meta-label">DELIVERY AGENT</span>
-                <span class="meta-value">${invoice.deliveryManName}</span>
-              </div>
+            <div class="meta-row">
+              <span class="meta-label">Voucher ID:</span>
+              <span>${invoice.id.toUpperCase()}</span>
             </div>
-            <div>
-              <div class="meta-group">
-                <span class="meta-label">DISPATCH DATE & TIME</span>
-                <span class="meta-value">${new Date().toLocaleString('en-BD')}</span>
-              </div>
-              <div class="meta-group">
-                <span class="meta-label">RECIPIENT CUSTOMERS</span>
-                <span class="meta-value">${invoice.customerNames.join(', ')}</span>
-              </div>
+            <div class="meta-row">
+              <span class="meta-label">Date/Time:</span>
+              <span>${new Date(invoice.createdAt || Date.now()).toLocaleString('en-BD')}</span>
+            </div>
+            <div class="meta-row">
+              <span class="meta-label">SR Name:</span>
+              <span>${invoice.srName}</span>
+            </div>
+            <div class="meta-row">
+              <span class="meta-label">Market:</span>
+              <span>${invoice.routeName || 'N/A'}</span>
+            </div>
+            <div class="meta-row">
+              <span class="meta-label">Delivery Agent:</span>
+              <span>${invoice.deliveryManName}</span>
+            </div>
+            <div class="meta-row">
+              <span class="meta-label">Status:</span>
+              <span>${invoice.status.toUpperCase()}</span>
             </div>
           </div>
+
+          <div class="divider"></div>
 
           <table class="items-table">
             <thead>
               <tr>
-                <th style="width: 40px; text-align: center;">#</th>
-                <th>PRODUCT DESCRIPTION</th>
-                <th>SPECIFICATIONS</th>
-                <th style="text-align: center; width: 85px;">PRIMARY QTY</th>
-                <th style="text-align: center; width: 85px;">BONUS QTY</th>
-                <th style="text-align: center; width: 95px;">TOTAL DELIVERED</th>
-                <th style="text-align: right; width: 100px;">DISTRIBUTOR RATE</th>
-                <th style="text-align: right; width: 120px;">NET TOTAL (BDT)</th>
+                <th>ITEM DETAIL</th>
+                <th class="center" style="width: 35px;">QTY</th>
+                <th class="right" style="width: 50px;">RATE</th>
+                <th class="right" style="width: 55px;">TOTAL</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td style="text-align: center; font-family: monospace;">1</td>
-                <td><b>${invoice.productName}</b></td>
-                <td><span style="font-family: monospace; background-color: #f1f5f9; padding: 2px 6px; border-radius: 4px;">${invoice.attribute}</span></td>
-                <td style="text-align: center; font-family: monospace;">${invoice.qty} Units</td>
-                <td style="text-align: center; font-family: monospace; color: #64748b;">${invoice.bonusQty || 0} Units</td>
-                <td style="text-align: center; font-family: monospace; font-weight: 600;">${invoice.totalQty} Units</td>
-                <td style="text-align: right; font-family: monospace;">৳${invoice.rate.toFixed(2)}</td>
-                <td style="text-align: right; font-family: monospace; font-weight: 600;">৳${invoice.totalAmount.toFixed(2)}</td>
+                <td>
+                  <b>${invoice.productName}</b>
+                  <div style="font-size: 8px; color: #555;">Spec: ${invoice.attribute}</div>
+                  <div style="font-size: 8.5px; margin-top: 2px; color: #333;">
+                    Grs: ${invoice.qty} | Ret: ${invoice.returnedQty || 0} | Dmg: ${invoice.damagedQty || 0}
+                  </div>
+                </td>
+                <td class="center" style="vertical-align: middle;">${netQty}</td>
+                <td class="right" style="vertical-align: middle;">৳${invoice.rate.toFixed(0)}</td>
+                <td class="right" style="vertical-align: middle;">৳${invoice.totalAmount.toFixed(0)}</td>
               </tr>
             </tbody>
           </table>
 
-          <div class="summary-box">
-            <table class="summary-table">
-              <tr>
-                <td>Subtotal Value:</td>
-                <td style="text-align: right; font-family: monospace;">৳${invoice.totalAmount.toFixed(2)}</td>
-              </tr>
-              <tr>
-                <td>Discount applied:</td>
-                <td style="text-align: right; font-family: monospace; color: #b91c1c;">-৳0.00</td>
-              </tr>
-              <tr class="total-row">
-                <td>AGGREGATE BILL:</td>
-                <td style="text-align: right; font-family: monospace;">৳${invoice.totalAmount.toFixed(2)}</td>
-              </tr>
-            </table>
-          </div>
+          <table class="summary-table">
+            <tr>
+              <td>Delivered Gross Qty:</td>
+              <td class="right">${invoice.qty} Units</td>
+            </tr>
+            <tr>
+              <td>Bonus Quantity:</td>
+              <td class="right">${invoice.bonusQty || 0} Units</td>
+            </tr>
+            <tr>
+              <td>Returned Quantity:</td>
+              <td class="right" style="color: #000;">-${invoice.returnedQty || 0} Units</td>
+            </tr>
+            <tr>
+              <td>Damaged Quantity:</td>
+              <td class="right" style="color: #000;">-${invoice.damagedQty || 0} Units</td>
+            </tr>
+            <tr class="total-row">
+              <td><b>NET PAYABLE:</b></td>
+              <td class="right"><b>৳${invoice.totalAmount.toFixed(0)}</b></td>
+            </tr>
+          </table>
 
-          <div class="signature-grid">
+          <div class="signature-box">
             <div>
-              <div class="signature-line">Verified By (Dealer/Admin)</div>
+              <div class="signature-line">Authorized Sign</div>
             </div>
             <div>
-              <div class="signature-line">Received By (SR/Customer)</div>
+              <div class="signature-line">SR / Customer Sign</div>
             </div>
           </div>
 
           <div class="footer-notes">
-            <p style="margin: 0;"><b>Notes / Term:</b> This document acts as an official supply voucher. All claims regarding stock damage or shortage must be reported to Samir Enterprise Hub within 24 hours of delivery run completion.</p>
-            <p style="margin: 5px 0 0 0; text-align: center; font-size: 8px; color: #94a3b8;">System generated invoice. No signature required. Bangla Chain DMS Hub.</p>
+            <p style="margin: 0; font-weight: bold;">Thank You for Your Business!</p>
+            <p style="margin: 3px 0 0 0;">Report damages within 24 hours.</p>
+            <p style="margin: 5px 0 0 0; color: #777;">System generated by Bangla Chain DMS.</p>
           </div>
 
-          <script>window.print();</script>
+          <script>
+            window.onload = function() {
+              window.print();
+              // Close print window automatically after print dialog close (optional but helpful)
+              // window.close();
+            }
+          </script>
         </body>
       </html>
     `);
@@ -378,7 +498,7 @@ export default function ChallanModule({
         <td style="padding: 12px; text-align: right; font-family: monospace;">৳${c.rate}</td>
         <td style="padding: 12px; text-align: right; font-weight: 500; font-family: monospace; color: #10b981;">৳${c.totalAmount}</td>
         <td style="padding: 12px; color: #475569;">${c.srName}</td>
-        <td style="padding: 12px; color: #475569;">${c.customerNames.join(', ')}</td>
+        <td style="padding: 12px; color: #475569;">${c.routeName || ''}</td>
         <td style="padding: 12px; color: #475569;">${c.deliveryManName}</td>
         <td style="padding: 12px; text-align: center;"><span style="font-size: 10px; font-weight: 500; padding: 4px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569;">${c.status}</span></td>
       </tr>
@@ -416,7 +536,7 @@ export default function ChallanModule({
                 <th style="text-align: right">Rate</th>
                 <th style="text-align: right">Total Amount</th>
                 <th>SR Name</th>
-                <th>Customers Involved</th>
+                <th>Route Beat</th>
                 <th>Delivery Man</th>
                 <th>Status</th>
               </tr>
@@ -437,13 +557,7 @@ export default function ChallanModule({
     printWindow.document.close();
   };
 
-  const toggleCustomerInSelection = (name: string) => {
-    if (newSelectedCustomers.includes(name)) {
-      setNewSelectedCustomers(prev => prev.filter(c => c !== name));
-    } else {
-  setNewSelectedCustomers(prev => [...prev, name]);
-    }
-  };
+
 
   return (
     <div className="space-y-6">
@@ -519,18 +633,18 @@ export default function ChallanModule({
             </select>
           </div>
 
-          {/* Customer Dropdown */}
+          {/* Route Beat Dropdown */}
           <div>
-            <label className="mb-2 block text-sm font-semibold text-slate-700">{tChallan.customerLabel}</label>
+            <label className="mb-2 block text-sm font-semibold text-slate-700">{language === 'bn' ? 'মার্কেট / রুট' : 'Market / Route'}</label>
             <select
-              id="filter-customer-select"
-              value={filterCustomer}
-              onChange={(e) => setFilterCustomer(e.target.value)}
+              id="filter-route-select"
+              value={filterRoute}
+              onChange={(e) => setFilterRoute(e.target.value)}
               className="h-11 w-full rounded-lg border-2 border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all"
             >
-              <option value="">{tChallan.allCustomers}</option>
-              {customers.map(cust => (
-                <option key={cust.id} value={cust.name}>{cust.name}</option>
+              <option value="">{language === 'bn' ? 'সব মার্কেট' : 'All Markets'}</option>
+              {routes.map(r => (
+                <option key={r.id} value={r.name}>{r.name}</option>
               ))}
             </select>
           </div>
@@ -564,7 +678,6 @@ export default function ChallanModule({
               <option value="Pending">{tCommon.pending}</option>
               <option value="Shipped">{tCommon.shipped}</option>
               <option value="Delivered">{tCommon.delivered}</option>
-              <option value="Returned">{tCommon.returned}</option>
             </select>
           </div>
 
@@ -630,10 +743,10 @@ export default function ChallanModule({
                 <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-wider text-center">{tChallan.totalCalculatedQty}</th>
                 <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-wider text-right">{tDash.tableValue}</th>
                 <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-wider">{tChallan.srLabel}</th>
-                <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-wider">{tChallan.custHeader}</th>
+                <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-wider">{language === 'bn' ? 'মার্কেট / রুট' : 'Market / Route'}</th>
                 <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-wider">{tChallan.deliveryLabel}</th>
                 <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-wider text-center">{tDash.tableStatus}</th>
-                <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-wider text-center w-28">{tCommon.actions}</th>
+                <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-wider text-center w-36">{tCommon.actions}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -645,8 +758,6 @@ export default function ChallanModule({
                   statusStyle = "bg-emerald-50 text-emerald-705 border-emerald-250";
                 } else if (c.status === 'Shipped') {
                   statusStyle = "bg-blue-50 text-blue-700 border-blue-200";
-                } else if (c.status === 'Returned') {
-                  statusStyle = "bg-rose-50 text-rose-700 border-rose-250";
                 }
 
                 return (
@@ -670,24 +781,10 @@ export default function ChallanModule({
                       {c.srName}
                     </td>
                     
-                    {/* Consolidated Customer BADGE */}
                     <td className="px-5 py-4">
-                      <div className="flex items-center gap-1.5">
-                        <span className="px-2.5 py-0.5 bg-slate-100 text-slate-850 rounded-lg text-xs font-bold border border-slate-200 truncate block max-w-[180px] whitespace-nowrap" title={c.customerNames[0]}>
-                          {c.customerNames[0]}
-                        </span>
-                        {c.customerNames.length > 1 && (
-                          <button
-                            id={`challan-badge-cust-more-${c.id}`}
-                            type="button"
-                            onClick={() => setCustomerModalList({ title: tChallan.consolidatedClientList || 'Consolidated Client List', list: c.customerNames })}
-                            className="px-2 py-0.5 bg-slate-950 hover:bg-slate-850 text-white rounded-md text-[10px] font-bold cursor-pointer active:scale-95 transition-all shadow-sm whitespace-nowrap"
-                            title="Show Clients Details"
-                          >
-                            +{c.customerNames.length - 1} {tCommon.details}
-                          </button>
-                        )}
-                      </div>
+                      <span className="px-2.5 py-0.5 bg-slate-100 text-slate-850 rounded-lg text-xs font-bold border border-slate-200 truncate block max-w-[180px] whitespace-nowrap" title={c.routeName}>
+                        {c.routeName || 'N/A'}
+                      </span>
                     </td>
                     
                     <td className="px-5 py-4 font-bold text-slate-700 text-sm max-w-[155px] truncate whitespace-nowrap" title={c.deliveryManName}>
@@ -704,7 +801,6 @@ export default function ChallanModule({
                         <option value="Pending">{tCommon.pending}</option>
                         <option value="Shipped">{tCommon.shipped}</option>
                         <option value="Delivered">{tCommon.delivered}</option>
-                        <option value="Returned">{tCommon.returned}</option>
                       </select>
                     </td>
 
@@ -717,6 +813,16 @@ export default function ChallanModule({
                           title={tChallan.viewVoucher}
                         >
                           <Eye className="w-4 h-4" />
+                        </button>
+                        <button
+                          id={`challan-action-edit-${c.id}`}
+                          onClick={() => handleOpenEditModal(c)}
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-indigo-150 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 cursor-pointer shadow-sm active:scale-95 transition-all"
+                          title={language === 'bn' ? 'সম্পাদনা করুন' : 'Edit Order'}
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
                         </button>
                         <button
                           id={`challan-action-delete-${c.id}`}
@@ -904,7 +1010,7 @@ export default function ChallanModule({
                     value={newSR}
                     onChange={(e) => {
                       setNewSR(e.target.value);
-                      setNewSelectedCustomers([]);
+                      setNewRoute('');
                     }}
                     className="h-11 w-full rounded-lg border-2 border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all"
                   >
@@ -933,45 +1039,26 @@ export default function ChallanModule({
               </div>
 
               {/* Status and Customers */}
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-slate-700">{tChallan.selectConsolidatedCust}</label>
-                <p className="text-[11px] text-slate-400">{tChallan.custSubtitle}</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-36 overflow-y-auto border border-slate-200 p-3 rounded-lg bg-slate-50">
-                  {newSR === '' ? (
-                    <div className="col-span-2 py-6 text-center text-slate-400 text-xs font-semibold">
-                      Please select a Sales Rep (SR) first to view their assigned shops.
-                    </div>
-                  ) : (
-                    customers
-                      .filter(c => c.assignedSR === newSR)
-                      .map((c) => {
-                        const isSelected = newSelectedCustomers.includes(c.name);
-                        return (
-                          <button
-                            id={`new-challan-cust-btn-${c.id}`}
-                            key={c.id}
-                            type="button"
-                            onClick={() => toggleCustomerInSelection(c.name)}
-                            className={`flex items-center gap-2.5 p-2 rounded-lg text-left text-xs transition-all border cursor-pointer ${
-                              isSelected 
-                                ? 'bg-slate-100 text-slate-800 border-slate-300 font-semibold' 
-                                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                            }`}
-                          >
-                            <span className={`w-3.5 h-3.5 rounded flex items-center justify-center border text-[9px] ${
-                              isSelected ? 'bg-slate-900 text-white border-slate-900' : 'bg-transparent border-slate-300'
-                            }`}>
-                              {isSelected && '✓'}
-                            </span>
-                            <div>
-                              <p className="truncate max-w-[200px] font-semibold">{c.name}</p>
-                              <p className="text-[10px] text-slate-400 truncate">{c.market}</p>
-                            </div>
-                          </button>
-                        );
-                      })
-                  )}
-                </div>
+              {/* Route Beat Selection */}
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-slate-700">{language === 'bn' ? 'মার্কেট / রুট *' : 'Market / Route *'}</label>
+                <select
+                  id="new-challan-route-select"
+                  required
+                  value={newRoute}
+                  onChange={(e) => setNewRoute(e.target.value)}
+                  className="h-11 w-full rounded-lg border-2 border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all"
+                >
+                  <option value="">{language === 'bn' ? 'মার্কেট / রুট নির্বাচন করুন' : 'Select Market / Route'}</option>
+                  {routes
+                    .filter(r => {
+                      const srObj = srs.find(s => s.name === newSR);
+                      return !srObj || r.assignedSRId === srObj.id;
+                    })
+                    .map(r => (
+                      <option key={r.id} value={r.name}>{r.name}</option>
+                    ))}
+                </select>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -986,7 +1073,6 @@ export default function ChallanModule({
                     <option value="Pending">{tCommon.pending}</option>
                     <option value="Shipped">{tCommon.shipped}</option>
                     <option value="Delivered">{tCommon.delivered}</option>
-                    <option value="Returned">{tCommon.returned}</option>
                   </select>
                 </div>
 
@@ -1055,12 +1141,10 @@ export default function ChallanModule({
                   <span className={`px-2.5 py-0.5 rounded text-xs font-semibold border inline-block ${
                     viewingChallan.status === 'Delivered' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
                     viewingChallan.status === 'Shipped' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                    viewingChallan.status === 'Returned' ? 'bg-rose-50 text-rose-700 border-rose-200' :
                     'bg-amber-50 text-amber-705 border-amber-200'
                   }`}>
                     {viewingChallan.status === 'Delivered' ? tCommon.delivered :
                      viewingChallan.status === 'Shipped' ? tCommon.shipped :
-                     viewingChallan.status === 'Returned' ? tCommon.returned :
                      tCommon.pending}
                   </span>
                 </div>
@@ -1095,9 +1179,9 @@ export default function ChallanModule({
                   <span className="text-slate-455 font-medium">{tChallan.assignedDriverLabel}</span>
                   <span className="font-semibold text-slate-750 text-right">{viewingChallan.deliveryManName}</span>
 
-                  <span className="text-slate-455 font-medium">{tChallan.recipientLabel}</span>
-                  <span className="font-semibold text-blue-605 text-right text-[11px] truncate max-w-[200px]" title={viewingChallan.customerNames.join(', ')}>
-                    {viewingChallan.customerNames.join(', ')}
+                  <span className="text-slate-455 font-medium">{language === 'bn' ? 'মার্কেট / রুট' : 'Market / Route'}</span>
+                  <span className="font-semibold text-blue-605 text-right text-[11px] truncate max-w-[200px]" title={viewingChallan.routeName || ''}>
+                    {viewingChallan.routeName || 'N/A'}
                   </span>
                 </div>
               </div>
@@ -1138,44 +1222,190 @@ export default function ChallanModule({
         </div>
       )}
 
-      {/* Customer List Sub-Modal */}
-      {customerModalList && (
+      {/* Edit Challan Modal */}
+      {editingChallan && (
         <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl border border-slate-200 w-full max-w-sm shadow-2xl flex flex-col justify-between animate-scale-up">
-            <div className="border-b border-slate-200 px-5 py-4 bg-gradient-to-r from-slate-50 to-white flex items-center justify-between shrink-0">
-              <span className="font-semibold text-slate-850 text-sm flex items-center gap-1.5">
-                <Users className="w-4 h-4 text-slate-800" />
-                {customerModalList.title}
-              </span>
+          <div className="bg-white rounded-xl border border-slate-200 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col justify-between animate-scale-up">
+            
+            <div className="border-b border-slate-200 px-6 py-5 bg-gradient-to-r from-slate-50 to-white flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                <h3 className="font-semibold text-slate-800 text-lg">{language === 'bn' ? 'চলান ও বিক্রয় সংশোধন' : 'Edit Delivery Order & Sale'}</h3>
+              </div>
               <button
-                id="customer-modal-close"
-                onClick={() => setCustomerModalList(null)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                id="challan-modal-edit-close"
+                onClick={() => setEditingChallan(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
               >
-                <X className="w-4.5 h-4.5" />
+                <X className="w-5 h-5" />
               </button>
             </div>
-            
-            <div className="modal-body p-5 space-y-2 max-h-48">
-              {customerModalList.list.map((name, idx) => (
-                <div key={idx} className="p-2.5 bg-slate-50 rounded-lg text-xs font-semibold text-slate-700 border border-slate-200 flex items-center gap-2">
-                  <span className="w-5 h-5 rounded bg-slate-200 text-slate-800 flex items-center justify-center text-[10px] border border-slate-350 font-semibold">
-                    {idx + 1}
-                  </span>
-                  {name}
+
+            <form onSubmit={handleSaveEditChallan} className="modal-body p-6 space-y-5">
+              <div className="p-4 bg-slate-50 rounded-lg border border-slate-200 space-y-1">
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Product Description</span>
+                <p className="font-bold text-slate-800 text-sm">{editingChallan.productName} ({editingChallan.attribute})</p>
+                <p className="text-xs text-slate-500 font-medium">Company: {editingChallan.company || 'N/A'}</p>
+              </div>
+
+              {/* Quantities & Price edit */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="mb-2 block text-xs font-semibold text-slate-700">Billing Quantity *</label>
+                  <input
+                    id="edit-challan-qty-input"
+                    type="number"
+                    min="1"
+                    required
+                    value={editQty}
+                    onChange={(e) => setEditQty(Number(e.target.value))}
+                    className="h-10 w-full rounded-lg border border-slate-250 bg-white px-3 text-sm font-semibold outline-none transition-colors focus:border-blue-500"
+                  />
                 </div>
-              ))}
-            </div>
-            
-            <div className="border-t border-slate-200 px-5 py-4 flex items-center justify-end bg-slate-50 rounded-b-xl shrink-0">
-              <button
-                id="customer-modal-btn-dismiss"
-                onClick={() => setCustomerModalList(null)}
-                className="w-full py-2.5 bg-slate-50 border-2 border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-lg transition-all active:scale-95 cursor-pointer"
-              >
-                {tCommon.close}
-              </button>
-            </div>
+                <div>
+                  <label className="mb-2 block text-xs font-semibold text-slate-700">Bonus Quantity *</label>
+                  <input
+                    id="edit-challan-bonus-qty-input"
+                    type="number"
+                    min="0"
+                    required
+                    value={editBonusQty}
+                    onChange={(e) => setEditBonusQty(Number(e.target.value))}
+                    className="h-10 w-full rounded-lg border border-slate-250 bg-white px-3 text-sm font-semibold outline-none transition-colors focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-xs font-semibold text-slate-700">Unit Price (Tk) *</label>
+                  <input
+                    id="edit-challan-rate-input"
+                    type="number"
+                    min="1"
+                    required
+                    value={editRate}
+                    onChange={(e) => setEditRate(Number(e.target.value))}
+                    className="h-10 w-full rounded-lg border border-slate-250 bg-white px-3 text-sm font-semibold outline-none transition-colors focus:border-blue-500"
+                  />
+                </div>
+              </div>
+
+              {/* Returns & Damages */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-rose-50/50 p-4.5 rounded-lg border border-rose-100">
+                <div>
+                  <label className="mb-2 block text-xs font-semibold text-rose-800">Returned Quantity (Returns Log)</label>
+                  <input
+                    id="edit-challan-returned-qty"
+                    type="number"
+                    min="0"
+                    value={editReturnedQty}
+                    onChange={(e) => setEditReturnedQty(Number(e.target.value))}
+                    className="h-10 w-full rounded-lg border border-rose-200 bg-white px-3 text-sm font-semibold outline-none transition-colors focus:border-rose-500"
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-xs font-semibold text-rose-800">Damaged Quantity (Damages Log)</label>
+                  <input
+                    id="edit-challan-damaged-qty"
+                    type="number"
+                    min="0"
+                    value={editDamagedQty}
+                    onChange={(e) => setEditDamagedQty(Number(e.target.value))}
+                    className="h-10 w-full rounded-lg border border-rose-200 bg-white px-3 text-sm font-semibold outline-none transition-colors focus:border-rose-500"
+                  />
+                </div>
+              </div>
+
+              {/* SR & Route & Delivery Agent */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="mb-2 block text-xs font-semibold text-slate-700">Sales Officer (SR)</label>
+                  <select
+                    id="edit-challan-sr-select"
+                    value={editSR}
+                    onChange={(e) => setEditSR(e.target.value)}
+                    className="h-10 w-full rounded-lg border border-slate-250 bg-white px-3 text-xs font-semibold outline-none focus:border-blue-500 transition-colors"
+                  >
+                    {srs.map(sr => (
+                      <option key={sr.id} value={sr.name}>{sr.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-2 block text-xs font-semibold text-slate-700">{language === 'bn' ? 'মার্কেট / রুট' : 'Market / Route'}</label>
+                  <select
+                    id="edit-challan-route-select"
+                    value={editRoute}
+                    onChange={(e) => setEditRoute(e.target.value)}
+                    className="h-10 w-full rounded-lg border border-slate-250 bg-white px-3 text-xs font-semibold outline-none focus:border-blue-500 transition-colors"
+                  >
+                    {routes.map(r => (
+                      <option key={r.id} value={r.name}>{r.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-2 block text-xs font-semibold text-slate-700">Delivery Agent</label>
+                  <select
+                    id="edit-challan-delivery-select"
+                    value={editDeliveryMan}
+                    onChange={(e) => setEditDeliveryMan(e.target.value)}
+                    className="h-10 w-full rounded-lg border border-slate-250 bg-white px-3 text-xs font-semibold outline-none focus:border-blue-500 transition-colors"
+                  >
+                    {deliveryMen.map(dm => (
+                      <option key={dm.id} value={dm.name}>{dm.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Status Selector */}
+              <div>
+                <label className="mb-2 block text-xs font-semibold text-slate-700">Delivery Status</label>
+                <select
+                  id="edit-challan-status"
+                  value={editStatus}
+                  onChange={(e: any) => setEditStatus(e.target.value)}
+                  className="h-10 w-full rounded-lg border border-slate-250 bg-white px-3 text-xs font-semibold outline-none focus:border-blue-500 transition-colors"
+                >
+                  <option value="Pending">Pending</option>
+                  <option value="Shipped">Shipped</option>
+                  <option value="Delivered">Delivered</option>
+                </select>
+              </div>
+
+              {/* Price Calculations Margin */}
+              <div className="flex items-center justify-between border-t border-slate-200 pt-4 bg-slate-50 p-4 rounded-lg">
+                <div>
+                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Estimated Total Value</span>
+                  <span className="font-mono text-xl font-bold text-slate-900">৳{(editQty * editRate).toLocaleString('en-BD')}</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">SR Commission Margin</span>
+                  <span className="font-mono text-lg font-bold text-blue-600">৳{((editQty * editRate) * 0.05).toLocaleString('en-BD')}</span>
+                </div>
+              </div>
+
+              {/* Footer Actions */}
+              <div className="border-t border-slate-200 pt-4 flex items-center justify-end gap-3 bg-slate-50 -mx-6 -mb-6 p-6 rounded-b-xl">
+                <button
+                  id="edit-challan-btn-cancel"
+                  type="button"
+                  onClick={() => setEditingChallan(null)}
+                  className="py-2.5 px-5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold rounded-lg text-sm transition-all shadow-sm cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  id="edit-challan-btn-save"
+                  type="submit"
+                  className="py-2.5 px-6 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-lg text-sm transition-all shadow-md cursor-pointer active:scale-95"
+                >
+                  Save Adjustments
+                </button>
+              </div>
+
+            </form>
           </div>
         </div>
       )}

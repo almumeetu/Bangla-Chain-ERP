@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Settings, ClipboardList } from 'lucide-react';
+import React, { useState, useCallback } from 'react';
+import { Settings, ClipboardList, Users, Lock, Eye, EyeOff, Plus, Trash2, Edit3, Check, X, Shield, KeyRound, UserCheck } from 'lucide-react';
 import DirectoryModule from './DirectoryModule';
+import { SR } from '../types';
 
 interface SettingsModuleProps {
   shopName: string;
@@ -13,6 +14,8 @@ interface SettingsModuleProps {
   setShopLogo: (logo: string) => void;
   language: 'en' | 'bn';
   directoryBaseProps: any;
+  srs: SR[];
+  setSrs: React.Dispatch<React.SetStateAction<SR[]>>;
 }
 
 export default function SettingsModule({
@@ -23,12 +26,37 @@ export default function SettingsModule({
   shopLogo,
   setShopLogo,
   language,
-  directoryBaseProps
+  directoryBaseProps,
+  srs,
+  setSrs
 }: SettingsModuleProps) {
   const [tempName, setTempName] = useState(shopName);
   const [tempSub, setTempSub] = useState(shopSubBrand);
   const [tempLogo, setTempLogo] = useState(shopLogo);
-  const [activeSettingsTab, setActiveSettingsTab] = useState<'branding' | 'godowns'>('branding');
+  const [activeSettingsTab, setActiveSettingsTab] = useState<'branding' | 'accounts' | 'godowns'>('branding');
+
+  // ─── Admin password change ───────────────────────────────────
+  const [adminCurrentPassword, setAdminCurrentPassword] = useState('');
+  const [adminNewPassword, setAdminNewPassword] = useState('');
+  const [adminConfirmPassword, setAdminConfirmPassword] = useState('');
+  const [adminPwError, setAdminPwError] = useState('');
+  const [adminPwSuccess, setAdminPwSuccess] = useState(false);
+  const [showAdminCurrentPw, setShowAdminCurrentPw] = useState(false);
+  const [showAdminNewPw, setShowAdminNewPw] = useState(false);
+
+  // ─── SR inline edit ──────────────────────────────────────────
+  const [editingSrId, setEditingSrId] = useState<string | null>(null);
+  const [editSrUsername, setEditSrUsername] = useState('');
+  const [editSrPassword, setEditSrPassword] = useState('');
+  const [showSrPw, setShowSrPw] = useState<Record<string, boolean>>({});
+
+  // ─── New SR quick-create ─────────────────────────────────────
+  const [showNewSrForm, setShowNewSrForm] = useState(false);
+  const [newSrName, setNewSrName] = useState('');
+  const [newSrPhone, setNewSrPhone] = useState('');
+  const [newSrUsername, setNewSrUsername] = useState('');
+  const [newSrPassword, setNewSrPassword] = useState('');
+  const [newSrError, setNewSrError] = useState('');
 
   const handleSaveBranding = (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,130 +81,270 @@ export default function SettingsModule({
   };
 
   const handleResetDatabase = () => {
-    if (confirm(language === 'bn' ? 'আপনি কি নিশ্চিত যে সমস্ত ডেটা মুছে ফেলে প্রাথমিক অবস্থায় ফিরে যেতে চান?' : 'Are you sure you want to reset all local changes and restore original demo data?')) {
+    if (confirm(language === 'bn' ? 'আপনি কি নিশ্চিত যে সমস্ত ডেটা মুছে ফেলে প্রাথমিক অবস্থায় ফিরে যেতে চান?' : 'Are you sure you want to reset all local changes and restore original demo data?')) {
       localStorage.clear();
       window.location.reload();
     }
   };
 
+  // ─── Admin: change password ────────────────────────────────────
+  const handleAdminPasswordChange = useCallback((e: React.FormEvent) => {
+    e.preventDefault();
+    setAdminPwError('');
+    setAdminPwSuccess(false);
+
+    // Verify current password
+    const currentPw = adminCurrentPassword.trim();
+    const newPw = adminNewPassword.trim();
+    const confirmPw = adminConfirmPassword.trim();
+
+    if (!currentPw || !newPw || !confirmPw) {
+      setAdminPwError(language === 'bn' ? 'সব ফিল্ড পূরণ করুন।' : 'Please fill all fields.');
+      return;
+    }
+
+    if (newPw.length < 3) {
+      setAdminPwError(language === 'bn' ? 'নতুন পাসওয়ার্ড কমপক্ষে ৩ অক্ষর হতে হবে।' : 'New password must be at least 3 characters.');
+      return;
+    }
+
+    if (newPw !== confirmPw) {
+      setAdminPwError(language === 'bn' ? 'নতুন পাসওয়ার্ড দুটি মিলছে না।' : 'New passwords do not match.');
+      return;
+    }
+
+    // Get current admin credentials
+    const loggedEmail = localStorage.getItem('erp_user_email') || 'admin';
+    const isDefault = (loggedEmail === 'admin' || loggedEmail === 'admin@samir.com');
+
+    let verified = false;
+
+    if (isDefault && (currentPw === 'admin')) {
+      verified = true;
+    }
+
+    if (!verified) {
+      try {
+        const saved = localStorage.getItem('erp_admins');
+        if (saved) {
+          const admins = JSON.parse(saved);
+          const found = admins.find((a: any) =>
+            a.email?.toLowerCase() === loggedEmail.toLowerCase() && a.password === currentPw
+          );
+          if (found) verified = true;
+        }
+      } catch (e) {}
+    }
+
+    if (!verified) {
+      setAdminPwError(language === 'bn' ? 'বর্তমান পাসওয়ার্ড সঠিক নয়।' : 'Current password is incorrect.');
+      return;
+    }
+
+    // Save new password
+    try {
+      const saved = localStorage.getItem('erp_admins');
+      const admins = saved ? JSON.parse(saved) : [];
+      // Remove old entry for this email and add/update with new password
+      const filtered = admins.filter((a: any) => a.email?.toLowerCase() !== loggedEmail.toLowerCase());
+      filtered.push({ email: loggedEmail, password: newPw });
+      localStorage.setItem('erp_admins', JSON.stringify(filtered));
+
+      setAdminCurrentPassword('');
+      setAdminNewPassword('');
+      setAdminConfirmPassword('');
+      setAdminPwSuccess(true);
+      setTimeout(() => setAdminPwSuccess(false), 3000);
+    } catch (e) {
+      setAdminPwError(language === 'bn' ? 'সংরক্ষণে সমস্যা হয়েছে।' : 'Failed to save. Please try again.');
+    }
+  }, [adminCurrentPassword, adminNewPassword, adminConfirmPassword, language]);
+
+  // ─── SR: start inline edit ────────────────────────────────────
+  const handleStartSrEdit = (sr: SR) => {
+    setEditingSrId(sr.id);
+    setEditSrUsername(sr.loginUsername || '');
+    setEditSrPassword(sr.loginPassword || '');
+  };
+
+  // ─── SR: save credentials ─────────────────────────────────────
+  const handleSaveSrCredentials = useCallback((srId: string) => {
+    if (!editSrUsername.trim()) {
+      alert(language === 'bn' ? 'ইউজারনেম দিন।' : 'Please enter a username.');
+      return;
+    }
+    setSrs(prev => {
+      const updated = prev.map(s =>
+        s.id === srId
+          ? { ...s, loginUsername: editSrUsername.trim(), loginPassword: editSrPassword.trim() }
+          : s
+      );
+      localStorage.setItem('erp_srs', JSON.stringify(updated));
+      return updated;
+    });
+    setEditingSrId(null);
+  }, [editSrUsername, editSrPassword, setSrs, language]);
+
+  // ─── New SR: create ───────────────────────────────────────────
+  const handleCreateNewSr = useCallback((e: React.FormEvent) => {
+    e.preventDefault();
+    setNewSrError('');
+
+    if (!newSrName.trim() || !newSrPhone.trim()) {
+      setNewSrError(language === 'bn' ? 'নাম এবং ফোন নম্বর আবশ্যক।' : 'Name and phone number are required.');
+      return;
+    }
+    if (!newSrUsername.trim()) {
+      setNewSrError(language === 'bn' ? 'ইউজারনেম দিন।' : 'Please enter a username.');
+      return;
+    }
+    if (!newSrPassword.trim() || newSrPassword.length < 3) {
+      setNewSrError(language === 'bn' ? 'পাসওয়ার্ড কমপক্ষে ৩ অক্ষর হতে হবে।' : 'Password must be at least 3 characters.');
+      return;
+    }
+
+    // Check username duplicate
+    const duplicate = srs.find(s => s.loginUsername?.toLowerCase() === newSrUsername.trim().toLowerCase());
+    if (duplicate) {
+      setNewSrError(language === 'bn' ? 'এই ইউজারনেম ইতিমধ্যে ব্যবহৃত হচ্ছে।' : 'This username is already taken.');
+      return;
+    }
+
+    const newSr: SR = {
+      id: `sr-${Date.now()}`,
+      name: newSrName.trim(),
+      phone: newSrPhone.trim(),
+      commissionRate: 5,
+      assignedCompanyIds: [],
+      loginUsername: newSrUsername.trim(),
+      loginPassword: newSrPassword.trim()
+    };
+
+    setSrs(prev => {
+      const updated = [...prev, newSr];
+      localStorage.setItem('erp_srs', JSON.stringify(updated));
+      return updated;
+    });
+
+    setNewSrName('');
+    setNewSrPhone('');
+    setNewSrUsername('');
+    setNewSrPassword('');
+    setShowNewSrForm(false);
+    setNewSrError('');
+  }, [newSrName, newSrPhone, newSrUsername, newSrPassword, srs, setSrs, language]);
+
+  // ─── SR: delete ──────────────────────────────────────────────
+  const handleDeleteSr = (srId: string, srName: string) => {
+    if (!confirm(language === 'bn' ? `"${srName}" অ্যাকাউন্ট মুছে ফেলবেন?` : `Delete SR account "${srName}"?`)) return;
+    setSrs(prev => {
+      const updated = prev.filter(s => s.id !== srId);
+      localStorage.setItem('erp_srs', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const loggedEmail = typeof window !== 'undefined' ? (localStorage.getItem('erp_user_email') || 'admin') : 'admin';
+
+  const tabBtn = (key: 'branding' | 'accounts' | 'godowns', label: string) => (
+    <button
+      type="button"
+      onClick={() => setActiveSettingsTab(key)}
+      className={`px-4 py-2 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+        activeSettingsTab === key
+          ? 'bg-white text-slate-900 shadow-sm font-bold border border-slate-200/50'
+          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+      }`}
+    >
+      {label}
+    </button>
+  );
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="bg-white rounded-3xl p-5 md:p-6 text-slate-800 border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 relative overflow-hidden">
-        <div className="absolute -right-20 -top-20 w-64 h-64 bg-slate-50 rounded-full blur-3xl pointer-events-none" />
-        <div className="space-y-1 relative z-10">
-          <h2 className="text-lg sm:text-xl font-black tracking-tight text-slate-900 flex items-center gap-2">
-            <Settings className="w-5 h-5 text-slate-800" />
-            {language === 'bn' ? 'সেটিংস এবং কনফিগারেশন' : 'Settings & Configurations'}
+      <div className="bg-white rounded-2xl p-5 text-slate-800 border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="space-y-1">
+          <h2 className="text-base font-black tracking-tight text-slate-900 flex items-center gap-2">
+            <Settings className="w-5 h-5 text-slate-700" />
+            {language === 'bn' ? 'সেটিংস ও কনফিগারেশন' : 'Settings & Configurations'}
           </h2>
-          <p className="text-slate-500 text-xs font-semibold">
-            {language === 'bn' ? 'সিস্টেম ব্র্যান্ডিং, নাম, লোগো এবং গুদাম সেটিংস পরিবর্তন করুন' : 'Change distributor hub branding details, upload logo and manage locations'}
+          <p className="text-slate-500 text-xs font-medium">
+            {language === 'bn' ? 'ব্র্যান্ডিং, ইউজার অ্যাকাউন্ট ও গুদাম ব্যবস্থাপনা' : 'Branding, user accounts and warehouse management'}
           </p>
         </div>
 
-        <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-sm shrink-0 z-10 relative">
-          <button
-            type="button"
-            onClick={() => setActiveSettingsTab('branding')}
-            className={`px-4 py-2 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
-              activeSettingsTab === 'branding' 
-                ? 'bg-white text-slate-900 shadow-sm font-bold border border-slate-200/50' 
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
-            }`}
-          >
-            {language === 'bn' ? 'সিস্টেম ব্র্যান্ডিং' : 'Hub Branding'}
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveSettingsTab('godowns')}
-            className={`px-4 py-2 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
-              activeSettingsTab === 'godowns' 
-                ? 'bg-white text-slate-900 shadow-sm font-bold border border-slate-200/50' 
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
-            }`}
-          >
-            {language === 'bn' ? 'গুদাম তালিকা' : 'Warehouse Godowns'}
-          </button>
+        <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-sm shrink-0">
+          {tabBtn('branding', language === 'bn' ? 'ব্র্যান্ডিং' : 'Branding')}
+          {tabBtn('accounts', language === 'bn' ? 'ইউজার অ্যাকাউন্ট' : 'User Accounts')}
+          {tabBtn('godowns', language === 'bn' ? 'গুদাম' : 'Godowns')}
         </div>
       </div>
 
-      {activeSettingsTab === 'branding' ? (
+      {/* ═══════════════════════════════════════════ BRANDING TAB */}
+      {activeSettingsTab === 'branding' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          
-          {/* Branding form */}
-          <form onSubmit={handleSaveBranding} className="lg:col-span-8 bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-6">
+          <form onSubmit={handleSaveBranding} className="lg:col-span-8 bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-6">
             <div className="space-y-1 border-b border-slate-100 pb-3">
-              <h3 className="text-base font-bold text-slate-800">
+              <h3 className="text-sm font-bold text-slate-800">
                 {language === 'bn' ? 'ব্যবসার বিবরণী ও ব্র্যান্ডিং' : 'Distributor Branding Setup'}
               </h3>
-              <p className="text-xs text-slate-400 font-semibold">
-                {language === 'bn' ? 'আপনার প্রতিষ্ঠানের নাম, লোগো ও বর্ণনা পরিবর্তন করুন যা ইনভয়েস এবং ড্যাশবোর্ডে প্রদর্শিত হবে' : 'Update the organization name, header, and logo displayed on sidebar and invoices'}
+              <p className="text-xs text-slate-400 font-medium">
+                {language === 'bn' ? 'প্রতিষ্ঠানের নাম, লোগো ও বর্ণনা পরিবর্তন করুন' : 'Update the organization name, header, and logo'}
               </p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="mb-1.5 block text-xs font-bold text-slate-700">
-                  {language === 'bn' ? 'প্রতিষ্ঠানের নাম (ইংরেজি/বাংলা)' : 'Shop / Organization Name'}
+                  {language === 'bn' ? 'প্রতিষ্ঠানের নাম' : 'Organization Name'}
                 </label>
                 <input
                   type="text"
                   value={tempName}
                   onChange={(e) => setTempName(e.target.value)}
                   placeholder="e.g. Samir Enterprise"
-                  className="h-11 w-full rounded-xl border border-slate-300 bg-white px-4 text-xs font-semibold outline-none focus:border-slate-800 transition-all font-sans text-slate-800"
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-xs font-semibold outline-none focus:border-slate-800 transition-all text-slate-800"
                 />
               </div>
-
               <div>
                 <label className="mb-1.5 block text-xs font-bold text-slate-700">
-                  {language === 'bn' ? 'উপ-শিরোনাম / ঠিকানা বা হাব' : 'Sub-heading / Hub Location'}
+                  {language === 'bn' ? 'উপ-শিরোনাম / হাব' : 'Sub-heading / Hub'}
                 </label>
                 <input
                   type="text"
                   value={tempSub}
                   onChange={(e) => setTempSub(e.target.value)}
                   placeholder="e.g. Dhaka Hub"
-                  className="h-11 w-full rounded-xl border border-slate-350 bg-white px-4 text-xs font-semibold outline-none focus:border-slate-800 transition-all font-sans text-slate-800"
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-xs font-semibold outline-none focus:border-slate-800 transition-all text-slate-800"
                 />
               </div>
             </div>
 
-            {/* Logo Section */}
             <div className="space-y-3">
               <label className="block text-xs font-bold text-slate-700">
-                {language === 'bn' ? 'ব্র্যান্ড লোগো আপলোড' : 'Brand Logo / Icon'}
+                {language === 'bn' ? 'ব্র্যান্ড লোগো' : 'Brand Logo'}
               </label>
-              <div className="flex flex-col sm:flex-row items-center gap-5 p-4 bg-slate-50 rounded-2xl border border-slate-200">
-                <div className="w-20 h-20 bg-white rounded-2xl border border-slate-200 flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
+              <div className="flex flex-col sm:flex-row items-center gap-5 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                <div className="w-16 h-16 bg-white rounded-xl border border-slate-200 flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
                   {tempLogo ? (
-                    <img src={tempLogo} alt="Uploaded logo" className="w-full h-full object-cover" />
+                    <img src={tempLogo} alt="Logo" className="w-full h-full object-cover" />
                   ) : (
-                    <ClipboardList className="w-8 h-8 text-slate-400" />
+                    <ClipboardList className="w-7 h-7 text-slate-300" />
                   )}
                 </div>
-
-                <div className="space-y-2 text-center sm:text-left flex-1">
-                  <p className="text-[11px] text-slate-500 font-semibold leading-normal">
-                    {language === 'bn' ? 'জেপিজি, পিএনজি ফরম্যাটে সর্বোচ্চ ২এমবি পর্যন্ত ফাইল আপলোড করতে পারবেন।' : 'Select an image file. We will convert it and display on sidebar header immediately.'}
+                <div className="space-y-2 flex-1">
+                  <p className="text-[11px] text-slate-500 font-medium">
+                    {language === 'bn' ? 'JPG, PNG ফরম্যাটে আপলোড করুন।' : 'Upload JPG or PNG file.'}
                   </p>
-                  <div className="flex flex-wrap gap-2.5 justify-center sm:justify-start">
-                    <label className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer inline-block">
-                      {language === 'bn' ? 'ফাইল সিলেক্ট করুন' : 'Choose Image'}
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleLogoUpload}
-                        className="hidden"
-                      />
+                  <div className="flex flex-wrap gap-2">
+                    <label className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold cursor-pointer inline-block">
+                      {language === 'bn' ? 'ফাইল বেছে নিন' : 'Choose Image'}
+                      <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
                     </label>
                     {tempLogo && (
-                      <button
-                        type="button"
-                        onClick={() => setTempLogo('')}
-                        className="px-4 py-2 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-xl text-xs font-bold transition-all border border-rose-150 cursor-pointer"
-                      >
-                        {language === 'bn' ? 'রিমুভ করুন' : 'Remove Image'}
+                      <button type="button" onClick={() => setTempLogo('')} className="px-4 py-2 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-lg text-xs font-bold border border-rose-100 cursor-pointer">
+                        {language === 'bn' ? 'সরান' : 'Remove'}
                       </button>
                     )}
                   </div>
@@ -184,60 +352,414 @@ export default function SettingsModule({
               </div>
             </div>
 
-            <div className="pt-3 border-t border-slate-100 flex items-center justify-end">
-              <button
-                type="submit"
-                className="inline-flex h-11 items-center gap-2 rounded-xl bg-slate-900 px-6 text-xs font-bold text-white hover:bg-slate-800 border border-slate-950 cursor-pointer shadow-sm transition-all active:scale-95"
-              >
-                {language === 'bn' ? 'ব্র্যান্ডিং সংরক্ষণ করুন' : 'Save branding settings'}
+            <div className="pt-3 border-t border-slate-100 flex justify-end">
+              <button type="submit" className="h-10 px-6 rounded-lg bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 cursor-pointer shadow-sm">
+                {language === 'bn' ? 'সংরক্ষণ করুন' : 'Save Settings'}
               </button>
             </div>
           </form>
 
-          {/* Sidebar System parameters */}
-          <div className="lg:col-span-4 space-y-6">
-            
-            <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
+          <div className="lg:col-span-4 space-y-4">
+            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
               <h3 className="text-sm font-bold text-slate-800">
                 {language === 'bn' ? 'সিস্টেম অ্যাকশন' : 'Database & Operations'}
               </h3>
-              <p className="text-[11px] text-slate-500 font-semibold leading-normal">
-                {language === 'bn' ? 'নতুন করে ইনভেন্টরি শুরু করতে বা সমস্ত পরিবর্তন মুছতে ডেটাবেস রিসেট করতে পারেন।' : 'Reset local storage modifications if you wish to wipe current log and restore the clean initial demo seed data.'}
+              <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
+                {language === 'bn' ? 'সমস্ত ডেটা মুছে প্রথম অবস্থায় ফিরে যান।' : 'Reset all local data to restore demo seed.'}
               </p>
-              
-              <button
-                type="button"
-                onClick={handleResetDatabase}
-                className="w-full inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-rose-100 bg-rose-50 text-rose-600 hover:bg-rose-100 text-xs font-bold cursor-pointer transition-all active:scale-95"
-              >
-                {language === 'bn' ? 'ডাটাবেস ফ্যাক্টরি রিসেট' : 'Factory Reset Local DB'}
+              <button type="button" onClick={handleResetDatabase} className="w-full h-10 rounded-lg border border-rose-100 bg-rose-50 text-rose-600 hover:bg-rose-100 text-xs font-bold cursor-pointer">
+                {language === 'bn' ? 'ফ্যাক্টরি রিসেট' : 'Factory Reset Local DB'}
               </button>
             </div>
 
-            <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
+            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-3">
               <h3 className="text-sm font-bold text-slate-800">
-                {language === 'bn' ? 'সিস্টেম স্ট্যাটাস' : 'System Overview'}
+                {language === 'bn' ? 'সিস্টেম তথ্য' : 'System Info'}
               </h3>
               <div className="space-y-2 text-xs font-semibold">
                 <div className="flex justify-between py-1 border-b border-slate-50">
-                  <span className="text-slate-400">Core Engine:</span>
+                  <span className="text-slate-400">Engine:</span>
                   <span className="text-slate-700">Bangla-Chain ERP v3.1</span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-50">
-                  <span className="text-slate-400">Local Timezone:</span>
+                  <span className="text-slate-400">Timezone:</span>
                   <span className="text-slate-700">GMT+06:00 (BST)</span>
                 </div>
                 <div className="flex justify-between py-1">
-                  <span className="text-slate-400">Storage Provider:</span>
-                  <span className="text-emerald-600">Local Hydrated Cache</span>
+                  <span className="text-slate-400">Storage:</span>
+                  <span className="text-emerald-600">Local Cache</span>
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
 
+      {/* ═══════════════════════════════════════════ ACCOUNTS TAB */}
+      {activeSettingsTab === 'accounts' && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+
+          {/* ─── Admin Password Change ─── */}
+          <div className="lg:col-span-5">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center">
+                  <Shield className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-800 text-sm">
+                    {language === 'bn' ? 'অ্যাডমিন পাসওয়ার্ড পরিবর্তন' : 'Admin Password'}
+                  </h3>
+                  <p className="text-[10px] text-slate-400 font-medium">
+                    {language === 'bn' ? `লগড-ইন: ${loggedEmail}` : `Logged in as: ${loggedEmail}`}
+                  </p>
+                </div>
+              </div>
+
+              <form onSubmit={handleAdminPasswordChange} className="p-5 space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    {language === 'bn' ? 'বর্তমান পাসওয়ার্ড' : 'Current Password'}
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showAdminCurrentPw ? 'text' : 'password'}
+                      value={adminCurrentPassword}
+                      onChange={e => { setAdminCurrentPassword(e.target.value); setAdminPwError(''); }}
+                      placeholder="••••••••"
+                      className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3.5 pr-10 text-xs font-semibold outline-none focus:border-slate-900 focus:bg-white transition-all"
+                    />
+                    <button type="button" tabIndex={-1} onClick={() => setShowAdminCurrentPw(p => !p)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer">
+                      {showAdminCurrentPw ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    {language === 'bn' ? 'নতুন পাসওয়ার্ড' : 'New Password'}
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showAdminNewPw ? 'text' : 'password'}
+                      value={adminNewPassword}
+                      onChange={e => { setAdminNewPassword(e.target.value); setAdminPwError(''); }}
+                      placeholder="••••••••"
+                      className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3.5 pr-10 text-xs font-semibold outline-none focus:border-slate-900 focus:bg-white transition-all"
+                    />
+                    <button type="button" tabIndex={-1} onClick={() => setShowAdminNewPw(p => !p)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer">
+                      {showAdminNewPw ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    {language === 'bn' ? 'নতুন পাসওয়ার্ড নিশ্চিত করুন' : 'Confirm New Password'}
+                  </label>
+                  <input
+                    type="password"
+                    value={adminConfirmPassword}
+                    onChange={e => { setAdminConfirmPassword(e.target.value); setAdminPwError(''); }}
+                    placeholder="••••••••"
+                    className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3.5 text-xs font-semibold outline-none focus:border-slate-900 focus:bg-white transition-all"
+                  />
+                </div>
+
+                {adminPwError && (
+                  <div className="px-3 py-2 bg-red-50 border border-red-100 rounded-lg">
+                    <p className="text-xs font-semibold text-red-600">{adminPwError}</p>
+                  </div>
+                )}
+
+                {adminPwSuccess && (
+                  <div className="px-3 py-2 bg-emerald-50 border border-emerald-100 rounded-lg flex items-center gap-2">
+                    <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <p className="text-xs font-semibold text-emerald-700">
+                      {language === 'bn' ? 'পাসওয়ার্ড সফলভাবে পরিবর্তন হয়েছে!' : 'Password changed successfully!'}
+                    </p>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  className="w-full h-10 rounded-lg bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 cursor-pointer transition-all active:scale-[0.98] shadow-sm"
+                >
+                  {language === 'bn' ? 'পাসওয়ার্ড আপডেট করুন' : 'Update Password'}
+                </button>
+
+                <p className="text-[10px] text-slate-400 font-medium text-center leading-relaxed">
+                  {language === 'bn'
+                    ? 'পাসওয়ার্ড পরিবর্তনের পর পরবর্তী লগইনে নতুন পাসওয়ার্ড ব্যবহার করতে হবে।'
+                    : 'You will need to use the new password on next login.'}
+                </p>
+              </form>
+            </div>
           </div>
 
+          {/* ─── SR Accounts Management ─── */}
+          <div className="lg:col-span-7">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center">
+                    <Users className="w-4 h-4 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-800 text-sm">
+                      {language === 'bn' ? 'সেলস অফিসার (SR) অ্যাকাউন্ট' : 'Sales Officer (SR) Accounts'}
+                    </h3>
+                    <p className="text-[10px] text-slate-400 font-medium">
+                      {srs.length} {language === 'bn' ? 'জন SR' : 'SRs registered'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setShowNewSrForm(p => !p); setNewSrError(''); }}
+                  className="h-8 px-3 rounded-lg bg-indigo-600 text-white text-[11px] font-bold hover:bg-indigo-700 cursor-pointer flex items-center gap-1.5 transition-all"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  {language === 'bn' ? 'নতুন SR' : 'Add SR'}
+                </button>
+              </div>
+
+              {/* New SR quick-create form */}
+              {showNewSrForm && (
+                <form onSubmit={handleCreateNewSr} className="p-4 bg-indigo-50/40 border-b border-indigo-100 space-y-3">
+                  <p className="text-[11px] font-bold text-indigo-700 uppercase tracking-wider">
+                    {language === 'bn' ? 'নতুন SR অ্যাকাউন্ট তৈরি করুন' : 'Create New SR Account'}
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-600 mb-1">
+                        {language === 'bn' ? 'নাম *' : 'Full Name *'}
+                      </label>
+                      <input
+                        type="text"
+                        value={newSrName}
+                        onChange={e => { setNewSrName(e.target.value); setNewSrError(''); }}
+                        placeholder={language === 'bn' ? 'যেমন: সেলিম আহমেদ' : 'e.g. Selim Ahmed'}
+                        className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold outline-none focus:border-indigo-400 transition-all"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-600 mb-1">
+                        {language === 'bn' ? 'ফোন *' : 'Phone *'}
+                      </label>
+                      <input
+                        type="text"
+                        value={newSrPhone}
+                        onChange={e => { setNewSrPhone(e.target.value); setNewSrError(''); }}
+                        placeholder="017XXXXXXXX"
+                        className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs font-mono font-semibold outline-none focus:border-indigo-400 transition-all"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-600 mb-1">
+                        {language === 'bn' ? 'ইউজারনেম *' : 'Username *'}
+                      </label>
+                      <input
+                        type="text"
+                        value={newSrUsername}
+                        onChange={e => { setNewSrUsername(e.target.value.toLowerCase().replace(/\s+/g, '')); setNewSrError(''); }}
+                        placeholder="selim123"
+                        className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs font-mono font-semibold outline-none focus:border-indigo-400 transition-all"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-600 mb-1">
+                        {language === 'bn' ? 'পাসওয়ার্ড *' : 'Password *'}
+                      </label>
+                      <input
+                        type="text"
+                        value={newSrPassword}
+                        onChange={e => { setNewSrPassword(e.target.value); setNewSrError(''); }}
+                        placeholder={language === 'bn' ? 'কমপক্ষে ৩ অক্ষর' : 'min. 3 chars'}
+                        className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs font-mono font-semibold outline-none focus:border-indigo-400 transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  {newSrError && (
+                    <div className="px-3 py-2 bg-red-50 border border-red-100 rounded-lg">
+                      <p className="text-xs font-semibold text-red-600">{newSrError}</p>
+                    </div>
+                  )}
+
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => { setShowNewSrForm(false); setNewSrError(''); }}
+                      className="h-9 px-4 rounded-lg border border-slate-200 bg-white text-slate-600 text-xs font-bold hover:bg-slate-50 cursor-pointer"
+                    >
+                      {language === 'bn' ? 'বাতিল' : 'Cancel'}
+                    </button>
+                    <button
+                      type="submit"
+                      className="h-9 px-5 rounded-lg bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      {language === 'bn' ? 'SR তৈরি করুন' : 'Create SR'}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* SR List */}
+              <div className="divide-y divide-slate-50 max-h-[480px] overflow-y-auto">
+                {srs.length === 0 ? (
+                  <div className="py-10 text-center">
+                    <UserCheck className="w-8 h-8 text-slate-200 mx-auto mb-2" />
+                    <p className="text-xs text-slate-400 font-medium">
+                      {language === 'bn' ? 'কোনো SR নেই। উপরে "নতুন SR" বাটনে ক্লিক করুন।' : 'No SRs found. Click "Add SR" above.'}
+                    </p>
+                  </div>
+                ) : srs.map((sr, idx) => {
+                  const isEditing = editingSrId === sr.id;
+                  const avatarColors = ['bg-blue-500', 'bg-emerald-500', 'bg-violet-500', 'bg-amber-500', 'bg-rose-500'];
+                  const avatarColor = avatarColors[idx % avatarColors.length];
+
+                  return (
+                    <div key={sr.id} className={`p-4 transition-colors ${isEditing ? 'bg-blue-50/40' : 'hover:bg-slate-50/60'}`}>
+                      <div className="flex items-center gap-3">
+                        {/* Avatar */}
+                        <div className={`w-9 h-9 rounded-lg ${avatarColor} flex items-center justify-center text-white font-bold text-xs shrink-0`}>
+                          {sr.name[0].toUpperCase()}
+                        </div>
+
+                        {/* Info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-slate-800 truncate">{sr.name}</span>
+                            <span className="text-[9px] text-slate-400 font-mono">{sr.phone}</span>
+                          </div>
+                          {!isEditing && (
+                            <div className="flex items-center gap-3 mt-0.5">
+                              {sr.loginUsername ? (
+                                <>
+                                  <span className="text-[10px] text-slate-500 font-mono">
+                                    <span className="text-slate-400">user: </span>
+                                    <span className="font-bold text-slate-700">{sr.loginUsername}</span>
+                                  </span>
+                                  <span className="text-[10px] text-slate-500 font-mono flex items-center gap-1">
+                                    <span className="text-slate-400">pass: </span>
+                                    <span className="font-bold text-slate-700">
+                                      {showSrPw[sr.id] ? (sr.loginPassword || '—') : '••••••'}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => setShowSrPw(p => ({ ...p, [sr.id]: !p[sr.id] }))}
+                                      className="text-slate-300 hover:text-slate-600 cursor-pointer ml-0.5"
+                                    >
+                                      {showSrPw[sr.id] ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                                    </button>
+                                  </span>
+                                </>
+                              ) : (
+                                <span className="text-[10px] text-amber-500 font-semibold">
+                                  {language === 'bn' ? '⚠ লগইন তথ্য নেই' : '⚠ No login credentials'}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Actions */}
+                        {!isEditing ? (
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleStartSrEdit(sr)}
+                              className="h-7 w-7 rounded-lg border border-slate-200 bg-white flex items-center justify-center text-slate-500 hover:text-slate-900 hover:border-slate-400 cursor-pointer transition-all"
+                              title={language === 'bn' ? 'পাসওয়ার্ড পরিবর্তন' : 'Edit credentials'}
+                            >
+                              <KeyRound className="w-3 h-3" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteSr(sr.id, sr.name)}
+                              className="h-7 w-7 rounded-lg border border-rose-100 bg-rose-50 flex items-center justify-center text-rose-500 hover:bg-rose-100 cursor-pointer transition-all"
+                              title={language === 'bn' ? 'মুছুন' : 'Delete'}
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
+
+                      {/* Inline Edit form */}
+                      {isEditing && (
+                        <div className="mt-3 space-y-3">
+                          <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">
+                            {language === 'bn' ? 'লগইন তথ্য পরিবর্তন করুন' : 'Update Login Credentials'}
+                          </p>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="block text-[10px] font-semibold text-slate-600 mb-1">
+                                {language === 'bn' ? 'ইউজারনেম' : 'Username'}
+                              </label>
+                              <input
+                                type="text"
+                                value={editSrUsername}
+                                onChange={e => setEditSrUsername(e.target.value.toLowerCase().replace(/\s+/g, ''))}
+                                placeholder="username"
+                                className="h-9 w-full rounded-lg border border-blue-200 bg-white px-3 text-xs font-mono font-semibold outline-none focus:border-blue-500 transition-all"
+                                autoFocus
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] font-semibold text-slate-600 mb-1">
+                                {language === 'bn' ? 'নতুন পাসওয়ার্ড' : 'New Password'}
+                              </label>
+                              <input
+                                type="text"
+                                value={editSrPassword}
+                                onChange={e => setEditSrPassword(e.target.value)}
+                                placeholder={language === 'bn' ? 'পাসওয়ার্ড' : 'password'}
+                                className="h-9 w-full rounded-lg border border-blue-200 bg-white px-3 text-xs font-mono font-semibold outline-none focus:border-blue-500 transition-all"
+                              />
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setEditingSrId(null)}
+                              className="h-8 px-3 rounded-lg border border-slate-200 bg-white text-slate-600 text-xs font-bold cursor-pointer hover:bg-slate-50"
+                            >
+                              {language === 'bn' ? 'বাতিল' : 'Cancel'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleSaveSrCredentials(sr.id)}
+                              className="h-8 px-4 rounded-lg bg-blue-600 text-white text-xs font-bold cursor-pointer hover:bg-blue-700 flex items-center gap-1.5"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                              {language === 'bn' ? 'সংরক্ষণ করুন' : 'Save'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Footer note */}
+              <div className="px-5 py-3 border-t border-slate-100 bg-slate-50/50">
+                <p className="text-[10px] text-slate-400 font-medium">
+                  {language === 'bn'
+                    ? 'SR-রা এই username ও password দিয়ে লগইন করবে। তারা শুধু Sales Terminal দেখতে পাবে।'
+                    : 'SRs use these credentials to log in. They can only access the Sales Terminal.'}
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
-      ) : (
+      )}
+
+      {/* ═══════════════════════════════════════════ GODOWNS TAB */}
+      {activeSettingsTab === 'godowns' && (
         <DirectoryModule
           key="settings-godowns"
           {...directoryBaseProps}
