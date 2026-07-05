@@ -276,7 +276,7 @@ export default function SellModule({
   const [selectedCompany, setSelectedCompany]   = useState('All');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedStockFilter, setSelectedStockFilter] = useState('All');
-  const [discountPercent, setDiscountPercent]   = useState<number>(0);
+  const [commissionAmount, setCommissionAmount] = useState<number>(0);
 
   const [selectedSR, setSelectedSR] = useState(srs[0]?.name || '');
   const [selectedRoute, setSelectedRoute] = useState(() => {
@@ -332,8 +332,8 @@ export default function SellModule({
   const handleRemoveFromCart = useCallback((i: number) => { setCart(p => p.filter((_, idx) => idx !== i)); }, []);
 
   const cartSubtotal = cart.reduce((s, i) => s + i.product.defaultWSP * i.qty, 0);
-  const discountAmt  = (cartSubtotal * discountPercent) / 100;
-  const netTotal     = cartSubtotal - discountAmt;
+  const commissionAmt = commissionAmount;
+  const netTotal = cartSubtotal - commissionAmt;
 
   const handleSRChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     const name = e.target.value;
@@ -375,10 +375,10 @@ export default function SellModule({
       const ci = cart.find(i => i.product.id === p.id);
       return ci ? { ...p, currentStock: p.currentStock - (ci.qty + ci.bonusQty) } : p;
     }));
+    const shareOfCommission = cart.length > 0 ? commissionAmount / cart.length : 0;
     const newChallans: ChallanItem[] = cart.map((item, idx) => {
-      const finalPrice = (item.product.defaultWSP * item.qty) * (1 - discountPercent / 100);
-      const srObj      = srs.find(s => s.name.toLowerCase() === selectedSR.toLowerCase());
-      const commission = finalPrice * ((srObj?.commissionRate ?? 5) / 100);
+      const baseAmount = item.product.defaultWSP * item.qty;
+      const finalPrice = baseAmount - shareOfCommission;
       return {
         id: `ch-${Date.now()}-${idx}`,
         productName: item.product.name, company: item.product.company,
@@ -386,27 +386,39 @@ export default function SellModule({
         totalQty: item.qty + item.bonusQty, rate: item.product.defaultWSP,
         totalAmount: finalPrice, srName: selectedSR, routeName: selectedRoute,
         deliveryManName: selectedDeliveryMan, status: 'Delivered',
-        returnedQty: 0, damagedQty: 0, commissionAmount: commission,
+        returnedQty: 0, damagedQty: 0, commissionAmount: shareOfCommission,
         createdAt: new Date().toISOString()
       };
     });
     setChallans(prev => [...newChallans, ...prev]);
     const orderData: SalesOrderData = {
-      items: cart.map(i => ({ productName: i.product.name, company: i.product.company, spec: i.selectedSpec, qty: i.qty, bonusQty: i.bonusQty, rate: i.product.defaultWSP, total: (i.product.defaultWSP * i.qty) * (1 - discountPercent / 100) })),
+      items: cart.map((i) => {
+        const baseAmount = i.product.defaultWSP * i.qty;
+        const shareOfCommission = cart.length > 0 ? commissionAmount / cart.length : 0;
+        return {
+          productName: i.product.name,
+          company: i.product.company,
+          spec: i.selectedSpec,
+          qty: i.qty,
+          bonusQty: i.bonusQty,
+          rate: i.product.defaultWSP,
+          total: baseAmount - shareOfCommission,
+        };
+      }),
       srName: selectedSR, routeName: selectedRoute, deliveryMan: selectedDeliveryMan,
-      discountPct: discountPercent, subtotal: cartSubtotal, discountAmt, netTotal,
+      commissionPct: commissionAmount, subtotal: cartSubtotal, commissionAmt, netTotal,
       orderIds: newChallans.map(c => c.id),
     };
     setLastOrder(orderData);
     setCart([]);
-    setDiscountPercent(0);
+    setCommissionAmount(0);
     alert('Checkout successful! Challans generated and stock updated.');
     onNavigate('delivery');
-  }, [cart, cartSubtotal, discountAmt, netTotal, selectedSR, selectedRoute, selectedDeliveryMan, discountPercent, setChallans, setProducts, onNavigate, srs]);
+  }, [cart, cartSubtotal, commissionAmount, netTotal, selectedSR, selectedRoute, selectedDeliveryMan, setChallans, setProducts, onNavigate, srs]);
 
   const handlePrintLastOrder = useCallback(() => { if (lastOrder) printSalesOrder(lastOrder); }, [lastOrder]);
   const handleSearchChange   = useCallback((e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value), []);
-  const handleDiscountChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => setDiscountPercent(Number(e.target.value)), []);
+  const handleCommissionChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => setCommissionAmount(Number(e.target.value)), []);
   const handleDMChange       = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => setSelectedDeliveryMan(e.target.value), []);
   const resetFilters = useCallback(() => { setSearchQuery(''); setSelectedCompany('All'); setSelectedCategory('All'); setSelectedStockFilter('All'); }, []);
   const hasFilters = searchQuery || selectedCompany !== 'All' || selectedCategory !== 'All' || selectedStockFilter !== 'All';
@@ -625,38 +637,31 @@ export default function SellModule({
                   <span className="font-mono font-bold text-slate-700">{formatBDT(cartSubtotal)}</span>
                 </div>
 
-                {/* Discount + delivery row */}
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-0.5">
-                    <label className="text-[9px] font-black text-amber-600 uppercase tracking-wider flex items-center gap-1">
-                      <TicketPercent className="w-3 h-3" />{language === 'bn' ? 'ছাড়' : 'Discount'}
-                    </label>
-                    <select id="pos-discount-select" value={discountPercent} onChange={handleDiscountChange}
-                      className="h-8 w-full rounded-lg border-2 border-amber-100 bg-white px-2 text-xs font-bold text-amber-700 outline-none focus:border-amber-400 cursor-pointer">
-                      <option value={0}>0%</option>
-                      <option value={5}>5%</option>
-                      <option value={10}>10%</option>
-                      <option value={15}>15%</option>
-                      <option value={20}>20%</option>
-                    </select>
-                  </div>
-                  <div className="space-y-0.5">
-                    <label className="text-[9px] font-black text-rose-600 uppercase tracking-wider flex items-center gap-1">
-                      <Truck className="w-3 h-3" />{translations[language].challan.deliverySelectLabel}
-                    </label>
-                    <select id="pos-form-delivery" value={selectedDeliveryMan} onChange={handleDMChange}
-                      className="h-8 w-full rounded-lg border-2 border-rose-100 bg-white px-2 text-xs font-bold text-rose-700 outline-none focus:border-rose-400 cursor-pointer">
-                      {deliveryMen.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
-                    </select>
-                  </div>
+                <div className="space-y-0.5">
+                  <label className="text-[9px] font-black text-amber-600 uppercase tracking-wider flex items-center gap-1">
+                    <TicketPercent className="w-3 h-3" />{language === 'bn' ? 'কমিশন (টাকা)' : 'Commission (Tk)'}
+                  </label>
+                  <input id="pos-commission-input" type="number" min="0" step="0.01" value={commissionAmount} onChange={handleCommissionChange}
+                    className="h-8 w-full rounded-lg border-2 border-amber-100 bg-white px-2 text-xs font-bold text-amber-700 outline-none focus:border-amber-400" />
                 </div>
 
-                {discountAmt > 0 && (
-                  <div className="flex justify-between text-rose-600 font-semibold">
-                    <span>{translations[language].procurement.colDiscVal} ({discountPercent}%)</span>
-                    <span className="font-mono">−{formatBDT(discountAmt)}</span>
+                <div className="space-y-0.5">
+                  <label className="text-[9px] font-black text-rose-600 uppercase tracking-wider flex items-center gap-1">
+                    <Truck className="w-3 h-3" />{translations[language].challan.deliverySelectLabel}
+                  </label>
+                  <select id="pos-form-delivery" value={selectedDeliveryMan} onChange={handleDMChange}
+                    className="h-8 w-full rounded-lg border-2 border-rose-100 bg-white px-2 text-xs font-bold text-rose-700 outline-none focus:border-rose-400 cursor-pointer">
+                    {deliveryMen.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
+                  </select>
+                </div>
+
+                {commissionAmt > 0 && (
+                  <div className="flex justify-between text-amber-600 font-semibold">
+                    <span>{language === 'bn' ? 'কমিশন' : 'Commission'}</span>
+                    <span className="font-mono">−{formatBDT(commissionAmt)}</span>
                   </div>
                 )}
+
               </div>
 
               {/* Net total */}

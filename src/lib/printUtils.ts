@@ -362,9 +362,9 @@ export interface SalesOrderData {
   srName:         string;
   routeName:      string;
   deliveryMan:    string;
-  discountPct:    number;
+  commissionPct:  number;
   subtotal:       number;
-  discountAmt:    number;
+  commissionAmt:  number;
   netTotal:       number;
   orderIds:       string[];
 }
@@ -412,7 +412,7 @@ export function printSalesOrder(order: SalesOrderData): void {
 
     <div class="summary"><table>
       <tr><td>Subtotal:</td><td class="text-right">৳${order.subtotal.toFixed(0)}</td></tr>
-      ${order.discountPct > 0 ? `<tr><td>Discount (${order.discountPct}%):</td><td class="text-right" style="color:#dc2626">−৳${order.discountAmt.toFixed(0)}</td></tr>` : ''}
+      ${order.commissionPct > 0 ? `<tr><td>Commission:</td><td class="text-right" style="color:#2563eb">−৳${(order.commissionAmt || 0).toFixed(0)}</td></tr>` : ''}
       <tr class="total"><td><b>NET TOTAL:</b></td><td class="text-right"><b>৳${order.netTotal.toFixed(0)}</b></td></tr>
     </table></div>
 

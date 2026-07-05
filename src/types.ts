@@ -84,14 +84,14 @@ export interface ChallanItem {
   bonusQty: number;
   totalQty: number;         // qty + bonusQty
   rate: number;             // Trade Price (TP)
-  totalAmount: number;      // rate * qty
+  totalAmount: number;      // adjusted amount after commission/value-add
   srName: string;           // Supplied by SR
   routeName: string;        // Route beat mapped
   deliveryManName: string;
   status: 'Pending' | 'Shipped' | 'Delivered';
   returnedQty: number;
   damagedQty: number;
-  commissionAmount: number; // SR commission in BDT
+  commissionAmount: number; // commission/deduction amount in BDT
   createdAt: string;        // ISO Date & Time string
 }
 

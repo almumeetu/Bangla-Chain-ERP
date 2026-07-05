@@ -76,6 +76,7 @@ export default function ChallanModule({
   const [newAttribute, setNewAttribute] = useState('');
   const [newQty, setNewQty] = useState<number>(10);
   const [newBonusQty, setNewBonusQty] = useState<number>(0);
+  const [newCommissionAmount, setNewCommissionAmount] = useState<number>(0);
   const [newSR, setNewSR] = useState('');
   const [newRoute, setNewRoute] = useState('');
   const [newDeliveryMan, setNewDeliveryMan] = useState('');
@@ -85,6 +86,7 @@ export default function ChallanModule({
   const [editingChallan, setEditingChallan] = useState<ChallanItem | null>(null);
   const [editQty, setEditQty] = useState<number>(0);
   const [editBonusQty, setEditBonusQty] = useState<number>(0);
+  const [editCommissionAmount, setEditCommissionAmount] = useState<number>(0);
   const [editRate, setEditRate] = useState<number>(0);
   const [editSR, setEditSR] = useState('');
   const [editRoute, setEditRoute] = useState('');
@@ -162,14 +164,16 @@ export default function ChallanModule({
 
     const rate = getProductWSP(newProduct);
     const totalQty = Number(newQty) + Number(newBonusQty);
-    const totalAmount = Number(newQty) * rate;
+    const baseAmount = Number(newQty) * rate;
+    const commissionAmount = Number(newCommissionAmount) || 0;
+    const totalAmount = baseAmount - commissionAmount;
 
     const prodObj = products.find(p => p.name === newProduct);
     const company = prodObj ? prodObj.company : 'Pran';
 
     const srObj = srs.find(s => s.name === newSR);
     const commissionRate = srObj ? srObj.commissionRate : 5;
-    const commissionAmount = totalAmount * (commissionRate / 100);
+    const srCommissionAmount = totalAmount * (commissionRate / 100);
 
     const newChallan: ChallanItem = {
       id: `ch-${Date.now()}`,
@@ -199,6 +203,7 @@ export default function ChallanModule({
     setNewAttribute('');
     setNewQty(10);
     setNewBonusQty(0);
+    setNewCommissionAmount(0);
     setNewSR('');
     setNewRoute('');
     setNewDeliveryMan('');
@@ -219,6 +224,7 @@ export default function ChallanModule({
     setEditingChallan(challan);
     setEditQty(challan.qty);
     setEditBonusQty(challan.bonusQty);
+    setEditCommissionAmount(challan.commissionAmount ?? 0);
     setEditRate(challan.rate);
     setEditSR(challan.srName);
     setEditRoute(challan.routeName);
@@ -256,10 +262,12 @@ export default function ChallanModule({
     }
 
     const netQty = Number(editQty) - Number(editReturnedQty) - Number(editDamagedQty);
-    const totalAmount = Math.max(0, netQty) * Number(editRate);
+    const baseAmount = Math.max(0, netQty) * Number(editRate);
+    const commissionAmount = Number(editCommissionAmount) || 0;
+    const totalAmount = baseAmount - commissionAmount;
     const srObj = srs.find(s => s.name === editSR);
     const commissionRate = srObj ? srObj.commissionRate : 5;
-    const commissionAmount = totalAmount * (commissionRate / 100);
+    const srCommissionAmount = totalAmount * (commissionRate / 100);
 
     setChallans(prev => prev.map(ch => {
       if (ch.id === editingChallan.id) {
@@ -732,7 +740,7 @@ export default function ChallanModule({
               </div>
 
               {/* Quantities & Price Previews */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-slate-50 p-4.5 rounded-lg border border-slate-200">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 bg-slate-50 p-4.5 rounded-lg border border-slate-200">
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-slate-700">{tChallan.primaryQty}</label>
                   <input
@@ -758,12 +766,19 @@ export default function ChallanModule({
                   />
                 </div>
 
-                <div className="flex flex-col justify-end">
-                  <div className="text-right">
-                    <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider">{tChallan.totalCalculatedQty}</p>
-                    <p className="text-lg font-semibold text-blue-600 font-mono">{Number(newQty) + Number(newBonusQty)} {tCommon.units}</p>
-                  </div>
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-slate-700">{language === 'bn' ? 'কমিশন (টাকা)' : 'Commission (Tk)'}</label>
+                  <input
+                    id="new-challan-commission-input"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={newCommissionAmount}
+                    onChange={(e) => setNewCommissionAmount(Number(e.target.value))}
+                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold outline-none transition-colors focus:border-blue-500"
+                  />
                 </div>
+
               </div>
 
               {/* SR & Delivery Agent Selection */}
@@ -1031,7 +1046,7 @@ export default function ChallanModule({
               </div>
 
               {/* Quantities & Price edit */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
                 <div>
                   <label className="mb-2 block text-xs font-semibold text-slate-700">Billing Quantity *</label>
                   <input
@@ -1057,14 +1072,14 @@ export default function ChallanModule({
                   />
                 </div>
                 <div>
-                  <label className="mb-2 block text-xs font-semibold text-slate-700">Unit Price (Tk) *</label>
+                  <label className="mb-2 block text-xs font-semibold text-slate-700">Commission (Tk)</label>
                   <input
-                    id="edit-challan-rate-input"
+                    id="edit-challan-commission-input"
                     type="number"
-                    min="1"
-                    required
-                    value={editRate}
-                    onChange={(e) => setEditRate(Number(e.target.value))}
+                    min="0"
+                    step="0.01"
+                    value={editCommissionAmount}
+                    onChange={(e) => setEditCommissionAmount(Number(e.target.value))}
                     className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition-colors focus:border-blue-500"
                   />
                 </div>
