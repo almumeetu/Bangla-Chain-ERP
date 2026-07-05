@@ -1,20 +1,26 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# Bangla-Chain ERP
 
-# Run and deploy your AI Studio app
+Enterprise Supply Chain & Inventory ERP for Bangladeshi businesses.
 
-This contains everything you need to run your app locally.
+**Features:** Delivery Challans · Procurement · Stock Adjustments · Accounting · Reports
 
-View your app in AI Studio: https://ai.studio/apps/70bb5986-3931-44c7-90b9-d99bcab42f4a
+## Stack
+
+- Next.js 16 + React 19
+- Tailwind CSS v4
+- All data stored in **localStorage** — no backend, no database required
+- JSON export/import for device-to-device data transfer
 
 ## Run Locally
 
-**Prerequisites:**  Node.js
+```bash
+pnpm install
+pnpm dev        # http://localhost:3001
+```
 
+Default admin login: `admin` / `admin`
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## Backup & Restore
+
+Go to **Settings → Backup** to export all data as a `.json` file.
+Import the same file on any other device to restore.

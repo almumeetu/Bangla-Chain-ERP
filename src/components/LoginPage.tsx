@@ -228,10 +228,16 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
           t={t}
           language={language}
           forgotEmail={hook.forgotEmail}
+          forgotStep={hook.forgotStep}
+          forgotNewPass={hook.forgotNewPass}
+          forgotConfirmPass={hook.forgotConfirmPass}
           forgotSent={hook.forgotSent}
           forgotLoading={hook.forgotLoading}
           onEmailChange={hook.handleForgotEmailChange}
-          onSendReset={hook.handleForgotPassword}
+          onNewPassChange={hook.handleForgotNewPassChange}
+          onConfirmPassChange={hook.handleForgotConfirmChange}
+          onStep1={hook.handleForgotStep1}
+          onStep2={hook.handleForgotStep2}
           onClose={hook.handleCloseForgot}
         />
       )}

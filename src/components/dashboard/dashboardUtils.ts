@@ -19,7 +19,11 @@ export function getLocalDateString(dateObj: Date): string {
   return localDate.toISOString().split('T')[0];
 }
 
-export function getChallanDate(id: string): string {
+export function getChallanDate(id: string, createdAt?: string): string {
+  // If the challan has a real createdAt timestamp (from Supabase), use it
+  if (createdAt) return getLocalDateString(new Date(createdAt));
+
+  // Legacy hardcoded IDs from the initial seed data
   const HARDCODED: Record<string, string> = {
     'ch-1': '2026-06-12',
     'ch-2': '2026-06-18',
@@ -28,10 +32,13 @@ export function getChallanDate(id: string): string {
     'ch-5': '2026-06-25',
   };
   if (HARDCODED[id]) return HARDCODED[id];
+
+  // Fallback: try to parse a timestamp embedded in the id
   if (id.startsWith('ch-')) {
     const ms = Number(id.split('-')[1]);
     if (!isNaN(ms)) return new Date(ms).toISOString().split('T')[0];
   }
+
   return getLocalDateString(new Date());
 }
 
@@ -102,8 +109,8 @@ export function useDashboardMetrics(
   const yesterdayStr = getLocalDateString(yesterdayObj);
 
   const challansByDate = useMemo(() => {
-    const today     = challans.filter(ch => getChallanDate(ch.id) === todayStr);
-    const yesterday = challans.filter(ch => getChallanDate(ch.id) === yesterdayStr);
+    const today     = challans.filter(ch => getChallanDate(ch.id, ch.createdAt) === todayStr);
+    const yesterday = challans.filter(ch => getChallanDate(ch.id, ch.createdAt) === yesterdayStr);
     return { today, yesterday };
   }, [challans, todayStr, yesterdayStr]);
 

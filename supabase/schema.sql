@@ -11,14 +11,14 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- ─────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS settings (
   id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id       UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  owner_id      UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   shop_name     TEXT NOT NULL DEFAULT 'Samir Enterprise',
   shop_subbrand TEXT NOT NULL DEFAULT 'Dhaka & Chittagong Regional Hub',
   shop_logo     TEXT DEFAULT '',
   language      TEXT NOT NULL DEFAULT 'bn',
   created_at    TIMESTAMPTZ DEFAULT NOW(),
   updated_at    TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(user_id)
+  UNIQUE(owner_id)
 );
 
 -- ─────────────────────────────────────────────

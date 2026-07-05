@@ -1,16 +1,15 @@
 'use client';
 
 /**
- * useErpData — custom hook for all ERP state + Supabase sync.
- * Extracted from page.tsx to keep that file under 400 lines.
+ * useErpData — all ERP React state + localStorage sync wrappers.
+ * No Supabase. All persistence via db.ts (which delegates to localStore.ts).
  */
 
 import { useState } from 'react';
 import type {
   Product, ProductAttribute, ChallanItem, Procurement,
   StockAdjustment, ExpenseCategory, ExpenseRecord, SR,
-  CompanyBrand, Category, UnitOfMeasure, Godown, Route,
-  DeliveryMan,
+  CompanyBrand, Category, UnitOfMeasure, Godown, Route, DeliveryMan,
 } from '../../../types';
 import {
   upsertProduct,    deleteProduct,
@@ -30,25 +29,13 @@ import {
   upsertCustomer,   deleteCustomer,
   upsertSettings,
   type AppSettings,
+  type Customer,
 } from '../../../lib/db';
 import type { Language } from '../../../translations';
 
-// ── Generic optimistic-sync helper ───────────────────────────────────────────
+// ── Generic diff-and-sync helper ──────────────────────────────────────────────
 
 type Identifiable = { id: string };
-
-function diffAndSync<T extends Identifiable>(
-  prev:    T[],
-  next:    T[],
-  upsert:  (item: T)   => Promise<void>,
-  remove:  (id: string)=> Promise<void>,
-) {
-  const added   = next.filter(n => !prev.find(p => p.id === n.id));
-  const updated = next.filter(n =>  prev.find(p => p.id === n.id && JSON.stringify(p) !== JSON.stringify(n)));
-  const removed = prev.filter(p => !next.find(n => n.id === p.id));
-  added.concat(updated).forEach(item => upsert(item).catch(console.error));
-  removed.forEach(item => remove(item.id).catch(console.error));
-}
 
 function makeSyncer<T extends Identifiable>(
   setState: React.Dispatch<React.SetStateAction<T[]>>,
@@ -57,21 +44,24 @@ function makeSyncer<T extends Identifiable>(
 ) {
   return (updater: (prev: T[]) => T[]) => {
     setState(prev => {
-      const next = updater(prev);
-      diffAndSync(prev, next, upsert, remove);
+      const next    = updater(prev);
+      const added   = next.filter(n => !prev.find(p => p.id === n.id));
+      const updated = next.filter(n =>  prev.find(p => p.id === n.id && JSON.stringify(p) !== JSON.stringify(n)));
+      const removed = prev.filter(p => !next.find(n => n.id === p.id));
+      added.concat(updated).forEach(item => upsert(item).catch(console.error));
+      removed.forEach(item => remove(item.id).catch(console.error));
       return next;
     });
   };
 }
 
-// ── Hook ──────────────────────────────────────────────────────────────────────
+// ── Public interface ──────────────────────────────────────────────────────────
 
 export interface ErpDataStore {
-  // Raw state
   products:          Product[];
   srs:               SR[];
   deliveryMen:       DeliveryMan[];
-  customers:         any[];
+  customers:         Customer[];
   attributes:        ProductAttribute[];
   challans:          ChallanItem[];
   procurements:      Procurement[];
@@ -87,11 +77,10 @@ export interface ErpDataStore {
   shopSubBrand:      string;
   shopLogo:          string;
 
-  // Syncing setters
   syncProducts:          (u: (prev: Product[])          => Product[])          => void;
   syncSrs:               (u: (prev: SR[])               => SR[])               => void;
   syncDeliveryMen:       (u: (prev: DeliveryMan[])      => DeliveryMan[])      => void;
-  syncCustomers:         (u: (prev: any[])              => any[])              => void;
+  syncCustomers:         (u: (prev: Customer[])         => Customer[])         => void;
   syncAttributes:        (u: (prev: ProductAttribute[]) => ProductAttribute[]) => void;
   syncChallans:          (u: (prev: ChallanItem[])      => ChallanItem[])      => void;
   syncProcurements:      (u: (prev: Procurement[])      => Procurement[])      => void;
@@ -103,15 +92,14 @@ export interface ErpDataStore {
   syncUnits:             (u: (prev: UnitOfMeasure[])    => UnitOfMeasure[])    => void;
   syncGodowns:           (u: (prev: Godown[])           => Godown[])           => void;
   syncRoutes:            (u: (prev: Route[])            => Route[])            => void;
-  syncShopName:          (val: string | ((p: string) => string)) => void;
-  syncShopSubBrand:      (val: string | ((p: string) => string)) => void;
-  syncShopLogo:          (val: string | ((p: string) => string)) => void;
+  syncShopName:     (val: string | ((p: string) => string)) => void;
+  syncShopSubBrand: (val: string | ((p: string) => string)) => void;
+  syncShopLogo:     (val: string | ((p: string) => string)) => void;
 
-  // Raw setters (used by applyLoadedData)
   setProducts:          React.Dispatch<React.SetStateAction<Product[]>>;
   setSrs:               React.Dispatch<React.SetStateAction<SR[]>>;
   setDeliveryMen:       React.Dispatch<React.SetStateAction<DeliveryMan[]>>;
-  setCustomers:         React.Dispatch<React.SetStateAction<any[]>>;
+  setCustomers:         React.Dispatch<React.SetStateAction<Customer[]>>;
   setAttributes:        React.Dispatch<React.SetStateAction<ProductAttribute[]>>;
   setChallans:          React.Dispatch<React.SetStateAction<ChallanItem[]>>;
   setProcurements:      React.Dispatch<React.SetStateAction<Procurement[]>>;
@@ -128,11 +116,18 @@ export interface ErpDataStore {
   setShopLogo:          React.Dispatch<React.SetStateAction<string>>;
 }
 
-export function useErpData(language: Language, shopName: string, shopSubBrand: string, shopLogo: string): ErpDataStore {
+// ── Hook ──────────────────────────────────────────────────────────────────────
+
+export function useErpData(
+  language:    Language,
+  shopName:    string,
+  shopSubBrand:string,
+  shopLogo:    string,
+): ErpDataStore {
   const [products,          setProducts]          = useState<Product[]>([]);
   const [srs,               setSrs]               = useState<SR[]>([]);
   const [deliveryMen,       setDeliveryMen]       = useState<DeliveryMan[]>([]);
-  const [customers,         setCustomers]         = useState<any[]>([]);
+  const [customers,         setCustomers]         = useState<Customer[]>([]);
   const [attributes,        setAttributes]        = useState<ProductAttribute[]>([]);
   const [challans,          setChallans]          = useState<ChallanItem[]>([]);
   const [procurements,      setProcurements]      = useState<Procurement[]>([]);
@@ -151,7 +146,7 @@ export function useErpData(language: Language, shopName: string, shopSubBrand: s
   const syncProducts          = makeSyncer(setProducts,          upsertProduct,          deleteProduct);
   const syncSrs               = makeSyncer(setSrs,               upsertSR,               deleteSR);
   const syncDeliveryMen       = makeSyncer(setDeliveryMen,       upsertDeliveryMan,      deleteDeliveryMan);
-  const syncCustomers         = makeSyncer(setCustomers,         upsertCustomer,         deleteCustomer);
+  const syncCustomers         = makeSyncer(setCustomers,         upsertCustomer as (item: Customer) => Promise<void>, deleteCustomer);
   const syncAttributes        = makeSyncer(setAttributes,        upsertAttribute,        deleteAttribute);
   const syncChallans          = makeSyncer(setChallans,          upsertChallan,          deleteChallan);
   const syncProcurements      = makeSyncer(setProcurements,      upsertProcurement,      deleteProcurement);
@@ -163,7 +158,6 @@ export function useErpData(language: Language, shopName: string, shopSubBrand: s
   const syncGodowns           = makeSyncer(setGodowns,           upsertGodown,           deleteGodown);
   const syncRoutes            = makeSyncer(setRoutes,            upsertRoute,            deleteRoute);
 
-  // StockAdjustment only inserts (no update/delete)
   function syncAdjustments(updater: (prev: StockAdjustment[]) => StockAdjustment[]) {
     setAdjustments(prev => {
       const next  = updater(prev);
@@ -173,11 +167,11 @@ export function useErpData(language: Language, shopName: string, shopSubBrand: s
     });
   }
 
-  function buildSettingsPayload(overrides: Partial<AppSettings>): AppSettings {
+  function buildSettings(overrides: Partial<AppSettings>): AppSettings {
     return {
-      shopName:    overrides.shopName    ?? _shopName,
+      shopName:    overrides.shopName     ?? _shopName,
       shopSubBrand:overrides.shopSubBrand ?? _shopSubBrand,
-      shopLogo:    overrides.shopLogo    ?? _shopLogo,
+      shopLogo:    overrides.shopLogo     ?? _shopLogo,
       language,
     };
   }
@@ -185,7 +179,7 @@ export function useErpData(language: Language, shopName: string, shopSubBrand: s
   function syncShopName(val: string | ((p: string) => string)) {
     setShopName(prev => {
       const next = typeof val === 'function' ? val(prev) : val;
-      upsertSettings(buildSettingsPayload({ shopName: next })).catch(console.error);
+      upsertSettings(buildSettings({ shopName: next })).catch(console.error);
       return next;
     });
   }
@@ -193,7 +187,7 @@ export function useErpData(language: Language, shopName: string, shopSubBrand: s
   function syncShopSubBrand(val: string | ((p: string) => string)) {
     setShopSubBrand(prev => {
       const next = typeof val === 'function' ? val(prev) : val;
-      upsertSettings(buildSettingsPayload({ shopSubBrand: next })).catch(console.error);
+      upsertSettings(buildSettings({ shopSubBrand: next })).catch(console.error);
       return next;
     });
   }
@@ -201,7 +195,7 @@ export function useErpData(language: Language, shopName: string, shopSubBrand: s
   function syncShopLogo(val: string | ((p: string) => string)) {
     setShopLogo(prev => {
       const next = typeof val === 'function' ? val(prev) : val;
-      upsertSettings(buildSettingsPayload({ shopLogo: next })).catch(console.error);
+      upsertSettings(buildSettings({ shopLogo: next })).catch(console.error);
       return next;
     });
   }

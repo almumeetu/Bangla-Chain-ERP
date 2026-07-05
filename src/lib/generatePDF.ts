@@ -168,7 +168,7 @@ function generateDashboardPDF(ctx: DocCtx, opts: GeneratePDFOptions) {
 
   const todayStr = getLocalDateString(new Date());
 
-  const todaysChallans    = challans.filter(ch => getChallanDate(ch.id) === todayStr);
+  const todaysChallans    = challans.filter(ch => getChallanDate(ch.id, ch.createdAt) === todayStr);
   const todaysSales       = todaysChallans.reduce((s, ch) => s + Math.max(0, ch.totalAmount - (ch.returnedQty ?? 0) * ch.rate), 0);
   const todaysCOGS        = todaysChallans.reduce((s, ch) => {
     const pp = products.find(p => p.name === ch.productName)?.defaultPP ?? ch.rate * 0.65;
