@@ -1,0 +1,351 @@
+/**
+ * PDF generation utility for Bangla-Chain ERP.
+ * Extracted from dashboard/page.tsx to keep that file under 400 lines.
+ * Uses jsPDF. No React dependencies — pure TypeScript.
+ */
+
+import { jsPDF } from 'jspdf';
+import type {
+  Product, ChallanItem, Procurement, ExpenseRecord, ExpenseCategory,
+} from '../types';
+import { getChallanDate, getLocalDateString } from '../components/dashboard/dashboardUtils';
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+export type PDFView = 'dashboard' | 'procurement' | 'accounting';
+
+export interface GeneratePDFOptions {
+  view:         PDFView;
+  shopName:     string;
+  shopSubBrand: string;
+  products:     Product[];
+  challans:     ChallanItem[];
+  procurements: Procurement[];
+  expenses:     ExpenseRecord[];
+  categories:   ExpenseCategory[];
+}
+
+// ── Internal helpers ──────────────────────────────────────────────────────────
+
+function formatBDTVal(amount: number): string {
+  return `TK ${amount.toLocaleString('en-BD')}`;
+}
+
+function buildDocContext(shopName: string, shopSubBrand: string) {
+  const doc       = new jsPDF();
+  const now       = new Date();
+  const brandName = shopName     || 'Bangla-Chain ERP';
+  const brandSub  = shopSubBrand || 'Distribution Management System';
+  const dateStr   = now.toLocaleDateString('en-BD',  { year: 'numeric', month: 'long',  day: 'numeric' });
+  const timeStr   = now.toLocaleTimeString('en-BD',  { hour: '2-digit', minute: '2-digit', hour12: true });
+  return { doc, now, brandName, brandSub, dateStr, timeStr };
+}
+
+type DocCtx = ReturnType<typeof buildDocContext>;
+
+function drawHeader(ctx: DocCtx, title: string, subtitle: string) {
+  const { doc, brandName, brandSub, dateStr, timeStr } = ctx;
+  doc.setFillColor(15, 23, 42);
+  doc.rect(0, 0, 210, 38, 'F');
+  doc.setFillColor(99, 102, 241);
+  doc.rect(0, 38, 210, 1.5, 'F');
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(18);
+  doc.text(brandName, 14, 16);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(148, 163, 184);
+  doc.text(brandSub.toUpperCase(), 14, 23);
+
+  doc.setFillColor(99, 102, 241);
+  const badgeWidth = doc.getTextWidth(title) + 12;
+  doc.roundedRect(196 - badgeWidth, 8, badgeWidth, 10, 2, 2, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.text(title, 196 - badgeWidth + 6, 14.5);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+  doc.setTextColor(148, 163, 184);
+  const dateText = `${dateStr} • ${timeStr}`;
+  doc.text(dateText, 196 - doc.getTextWidth(dateText), 28);
+  doc.text(subtitle, 196 - doc.getTextWidth(subtitle), 33);
+}
+
+function drawSectionTitle(doc: jsPDF, title: string, y: number): number {
+  doc.setFillColor(248, 250, 252);
+  doc.rect(14, y - 5, 182, 9, 'F');
+  doc.setDrawColor(226, 232, 240);
+  doc.line(14, y + 4, 196, y + 4);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(71, 85, 105);
+  doc.text(title, 17, y + 1);
+  return y + 10;
+}
+
+function drawMetricCard(
+  doc: jsPDF, x: number, y: number, w: number,
+  label: string, value: string,
+  colorR: number, colorG: number, colorB: number,
+) {
+  doc.setFillColor(255, 255, 255);
+  doc.setDrawColor(226, 232, 240);
+  doc.roundedRect(x, y, w, 22, 2, 2, 'FD');
+  doc.setFillColor(colorR, colorG, colorB);
+  doc.rect(x, y, w, 3, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.setTextColor(15, 23, 42);
+  doc.text(value, x + 5, y + 12);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+  doc.setTextColor(100, 116, 139);
+  doc.text(label, x + 5, y + 18);
+}
+
+function drawTableHeader(doc: jsPDF, columns: { label: string; x: number }[], y: number): number {
+  doc.setFillColor(248, 250, 252);
+  doc.rect(14, y - 4, 182, 8, 'F');
+  doc.setDrawColor(203, 213, 225);
+  doc.line(14, y + 4, 196, y + 4);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(71, 85, 105);
+  columns.forEach(col => doc.text(col.label.toUpperCase(), col.x, y + 1));
+  return y + 9;
+}
+
+type TableCell = { text: string; x: number; bold?: boolean; color?: [number, number, number] };
+
+function drawTableRow(doc: jsPDF, cells: TableCell[], y: number, isEven: boolean): number {
+  if (isEven) {
+    doc.setFillColor(248, 250, 252);
+    doc.rect(14, y - 3.5, 182, 7, 'F');
+  }
+  doc.setFontSize(8);
+  cells.forEach(cell => {
+    doc.setFont('helvetica', cell.bold ? 'bold' : 'normal');
+    const c = cell.color ?? [30, 41, 59];
+    doc.setTextColor(c[0], c[1], c[2]);
+    doc.text(cell.text, cell.x, y);
+  });
+  return y + 7;
+}
+
+function drawFooter(ctx: DocCtx, pageNum = 1, totalPages = 1) {
+  const { doc, now, brandName } = ctx;
+  doc.setDrawColor(226, 232, 240);
+  doc.line(14, 278, 196, 278);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+  doc.setTextColor(148, 163, 184);
+  doc.text(`© ${now.getFullYear()} ${brandName} — Generated by Bangla-Chain ERP`, 14, 283);
+  doc.setFont('helvetica', 'italic');
+  doc.setFontSize(6.5);
+  doc.text('Created by Al Mumeetu Saikat • almumeetusaikat.me', 14, 288);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+  const pageLabel = `Page ${pageNum} of ${totalPages}`;
+  doc.text(pageLabel, 196 - doc.getTextWidth(pageLabel), 283);
+}
+
+function clamp(text: string, max: number): string {
+  return text.length > max ? text.substring(0, max - 2) + '..' : text;
+}
+
+// ── Dashboard PDF ─────────────────────────────────────────────────────────────
+
+function generateDashboardPDF(ctx: DocCtx, opts: GeneratePDFOptions) {
+  const { doc, brandName } = ctx;
+  const { products, challans, expenses } = opts;
+
+  drawHeader(ctx, 'EXECUTIVE REPORT', 'Daily Operations & Financial Summary');
+
+  const todayStr = getLocalDateString(new Date());
+
+  const todaysChallans    = challans.filter(ch => getChallanDate(ch.id) === todayStr);
+  const todaysSales       = todaysChallans.reduce((s, ch) => s + Math.max(0, ch.totalAmount - (ch.returnedQty ?? 0) * ch.rate), 0);
+  const todaysCOGS        = todaysChallans.reduce((s, ch) => {
+    const pp = products.find(p => p.name === ch.productName)?.defaultPP ?? ch.rate * 0.65;
+    return s + (ch.qty - (ch.returnedQty ?? 0)) * pp;
+  }, 0);
+  const todaysExpenses    = expenses.filter(e => e.expenseDate === todayStr).reduce((s, e) => s + e.amount, 0);
+  const todaysNetProfit   = todaysSales - todaysCOGS - todaysExpenses;
+  const totalStockValue   = products.reduce((s, p) => s + p.currentStock * p.defaultPP, 0);
+  const cumulativeSales   = challans.reduce((s, ch) => s + Math.max(0, ch.totalAmount - (ch.returnedQty ?? 0) * ch.rate), 0);
+  const cumulativeProcure = opts.procurements.reduce((s, p) => s + p.globalTotal, 0);
+  const cumulativeExp     = expenses.reduce((s, e) => s + e.amount, 0);
+  const cumulativeProfit  = cumulativeSales - cumulativeProcure - cumulativeExp;
+
+  let y = drawSectionTitle(doc, "Today's Business Snapshot", 48);
+  drawMetricCard(doc, 14,  y, 58, "Today's Sales",   formatBDTVal(todaysSales),     99,  102, 241);
+  drawMetricCard(doc, 76,  y, 58, "Today's Profit",  formatBDTVal(todaysNetProfit),  todaysNetProfit >= 0 ? 16 : 185, todaysNetProfit >= 0 ? 185 : 28, todaysNetProfit >= 0 ? 129 : 28);
+  drawMetricCard(doc, 138, y, 58, "Stock Value",      formatBDTVal(totalStockValue), 245, 158, 11);
+
+  y = drawSectionTitle(doc, "Cumulative Financial Summary", y + 32);
+  drawMetricCard(doc, 14,  y, 44, "Total Sales",   formatBDTVal(cumulativeSales),   99,  102, 241);
+  drawMetricCard(doc, 62,  y, 44, "Procurement",   formatBDTVal(cumulativeProcure), 245, 158, 11);
+  drawMetricCard(doc, 110, y, 44, "Expenses",      formatBDTVal(cumulativeExp),     239, 68,  68);
+  drawMetricCard(doc, 158, y, 38, "Net Profit",    formatBDTVal(cumulativeProfit),  cumulativeProfit >= 0 ? 16 : 185, cumulativeProfit >= 0 ? 185 : 28, cumulativeProfit >= 0 ? 129 : 28);
+
+  const lowStockList = products.filter(p => p.currentStock < 600);
+  y = drawSectionTitle(doc, `Stock Alerts (${lowStockList.length > 0 ? lowStockList.length + ' items below 600 units' : 'All healthy'})`, y + 32);
+  const stockCols = [{ label: 'SKU', x: 15 }, { label: 'Product Name', x: 38 }, { label: 'Trade Price', x: 110 }, { label: 'MRP', x: 142 }, { label: 'Stock', x: 170 }];
+  y = drawTableHeader(doc, stockCols, y);
+  const displayStock = lowStockList.length > 0 ? lowStockList.slice(0, 5) : products.slice(0, 5);
+  displayStock.forEach((p, i) => {
+    const isLow = p.currentStock < 600;
+    y = drawTableRow(doc, [
+      { text: p.sku, x: 15 },
+      { text: clamp(p.name, 32), x: 38 },
+      { text: formatBDTVal(p.defaultWSP), x: 110 },
+      { text: formatBDTVal(p.defaultMRP), x: 142 },
+      { text: `${p.currentStock}`, x: 170, bold: true, color: isLow ? [185, 28, 28] : [16, 185, 129] },
+    ], y, i % 2 === 0);
+  });
+
+  y = drawSectionTitle(doc, "Recent Delivery Challans", y + 6);
+  const challanCols = [{ label: 'ID', x: 15 }, { label: 'Product', x: 38 }, { label: 'Qty', x: 110 }, { label: 'SR Agent', x: 130 }, { label: 'Amount', x: 170 }];
+  y = drawTableHeader(doc, challanCols, y);
+  [...challans].reverse().slice(0, 5).forEach((ch, i) => {
+    y = drawTableRow(doc, [
+      { text: ch.id, x: 15 },
+      { text: clamp(ch.productName, 32), x: 38 },
+      { text: `${ch.qty}`, x: 110 },
+      { text: ch.srName, x: 130 },
+      { text: formatBDTVal(ch.totalAmount), x: 170, bold: true },
+    ], y, i % 2 === 0);
+  });
+
+  drawFooter(ctx);
+  doc.save(`${brandName.replace(/\s+/g, '_')}_Dashboard_Report_${todayStr}.pdf`);
+}
+
+// ── Procurement PDF ───────────────────────────────────────────────────────────
+
+function generateProcurementPDF(ctx: DocCtx, opts: GeneratePDFOptions) {
+  const { doc, brandName } = ctx;
+  const { procurements } = opts;
+  const totalCost  = procurements.reduce((s, p) => s + p.globalTotal, 0);
+  const totalPages = Math.ceil((procurements.length * 7 + 90) / 230) || 1;
+  let currentPage  = 1;
+
+  drawHeader(ctx, 'PROCUREMENT LEDGER', 'Purchase Orders & Inbound Stock Register');
+
+  let y = drawSectionTitle(doc, "Procurement Overview", 48);
+  drawMetricCard(doc, 14,  y, 58, "Total Orders",   `${procurements.length}`, 99,  102, 241);
+  drawMetricCard(doc, 76,  y, 58, "Total Spending", formatBDTVal(totalCost),  245, 158, 11);
+  drawMetricCard(doc, 138, y, 58, "Avg Order Value", formatBDTVal(procurements.length > 0 ? Math.round(totalCost / procurements.length) : 0), 16, 185, 129);
+
+  y = drawSectionTitle(doc, "Detailed Procurement Records", y + 32);
+  const cols = [{ label: 'Ref #', x: 15 }, { label: 'Supplier', x: 38 }, { label: 'Purchase Title', x: 78 }, { label: 'Date', x: 128 }, { label: 'Status', x: 154 }, { label: 'Amount', x: 178 }];
+  y = drawTableHeader(doc, cols, y);
+
+  procurements.forEach((pr, i) => {
+    if (y > 265) {
+      drawFooter(ctx, currentPage, totalPages);
+      doc.addPage();
+      currentPage++;
+      drawHeader(ctx, 'PROCUREMENT LEDGER', 'Purchase Orders & Inbound Stock Register');
+      y = drawSectionTitle(doc, "Detailed Procurement Records (continued)", 48);
+      y = drawTableHeader(doc, cols, y);
+    }
+    y = drawTableRow(doc, [
+      { text: pr.invoiceRef, x: 15, bold: true },
+      { text: clamp(pr.supplierName, 18), x: 38 },
+      { text: clamp(pr.procurementName, 22), x: 78 },
+      { text: pr.invoiceDate, x: 128 },
+      { text: pr.paymentStatus, x: 154, color: pr.paymentStatus === 'Paid' ? [16, 185, 129] : [245, 158, 11] },
+      { text: formatBDTVal(pr.globalTotal), x: 178, bold: true },
+    ], y, i % 2 === 0);
+  });
+
+  drawFooter(ctx, currentPage, totalPages);
+  doc.save(`${brandName.replace(/\s+/g, '_')}_Procurement_Ledger_${new Date().toISOString().split('T')[0]}.pdf`);
+}
+
+// ── Accounting PDF ────────────────────────────────────────────────────────────
+
+function generateAccountingPDF(ctx: DocCtx, opts: GeneratePDFOptions) {
+  const { doc, brandName } = ctx;
+  const { expenses, categories } = opts;
+  const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
+  const totalPages    = Math.ceil((expenses.length * 7 + 90) / 230) || 1;
+  let currentPage     = 1;
+
+  drawHeader(ctx, 'EXPENSE STATEMENT', 'Operating Costs & Voucher Ledger');
+
+  let y = drawSectionTitle(doc, "Expense Summary", 48);
+  drawMetricCard(doc, 14,  y, 58, "Total Expenses", formatBDTVal(totalExpenses),       239, 68,  68);
+  drawMetricCard(doc, 76,  y, 58, "Voucher Logs",   `${expenses.length} Records`,      99,  102, 241);
+  drawMetricCard(doc, 138, y, 58, "Categories",     `${categories.length} Types`,      16,  185, 129);
+
+  y = drawSectionTitle(doc, "Expense by Category", y + 32);
+  const catBreakdown: Record<string, number> = {};
+  expenses.forEach(e => { catBreakdown[e.categoryName] = (catBreakdown[e.categoryName] ?? 0) + e.amount; });
+  const catEntries   = Object.entries(catBreakdown).sort((a, b) => b[1] - a[1]);
+  const catColors: [number, number, number][] = [[99,102,241],[16,185,129],[245,158,11],[239,68,68],[168,85,247]];
+
+  catEntries.forEach((entry, i) => {
+    const barWidth = totalExpenses > 0 ? (entry[1] / totalExpenses) * 130 : 0;
+    const color    = catColors[i % catColors.length];
+    doc.setFillColor(color[0], color[1], color[2]);
+    doc.roundedRect(15, y - 3, Math.max(barWidth, 4), 5, 1, 1, 'F');
+    doc.setFont('helvetica', 'bold');   doc.setFontSize(7.5); doc.setTextColor(30, 41, 59);
+    doc.text(entry[0], 150, y);
+    doc.setFont('helvetica', 'normal'); doc.setTextColor(100, 116, 139);
+    doc.text(formatBDTVal(entry[1]), 150, y + 5);
+    y += 12;
+  });
+
+  y = drawSectionTitle(doc, "Detailed Expense Records", y + 2);
+  const expCols = [{ label: '#', x: 15 }, { label: 'Date', x: 22 }, { label: 'Category', x: 52 }, { label: 'Paid To', x: 100 }, { label: 'Amount', x: 145 }, { label: 'Notes', x: 170 }];
+  y = drawTableHeader(doc, expCols, y);
+
+  expenses.forEach((exp, i) => {
+    if (y > 265) {
+      drawFooter(ctx, currentPage, totalPages);
+      doc.addPage();
+      currentPage++;
+      drawHeader(ctx, 'EXPENSE STATEMENT', 'Operating Costs & Voucher Ledger');
+      y = drawSectionTitle(doc, "Detailed Expense Records (continued)", 48);
+      y = drawTableHeader(doc, expCols, y);
+    }
+    y = drawTableRow(doc, [
+      { text: `${i + 1}`, x: 15, color: [148, 163, 184] },
+      { text: exp.expenseDate, x: 22 },
+      { text: clamp(exp.categoryName, 22), x: 52 },
+      { text: clamp(exp.paidTo, 20), x: 100 },
+      { text: formatBDTVal(exp.amount), x: 145, bold: true },
+      { text: exp.notes ? clamp(exp.notes, 18) : '—', x: 170 },
+    ], y, i % 2 === 0);
+  });
+
+  if (y < 260) {
+    y += 4;
+    doc.setFillColor(15, 23, 42);
+    doc.roundedRect(14, y - 3, 182, 9, 2, 2, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(255, 255, 255);
+    doc.text('GRAND TOTAL', 18, y + 3);
+    doc.text(formatBDTVal(totalExpenses), 170, y + 3);
+  }
+
+  drawFooter(ctx, currentPage, totalPages);
+  doc.save(`${brandName.replace(/\s+/g, '_')}_Expense_Statement_${new Date().toISOString().split('T')[0]}.pdf`);
+}
+
+// ── Public API ────────────────────────────────────────────────────────────────
+
+export function generatePDF(opts: GeneratePDFOptions): void {
+  const ctx = buildDocContext(opts.shopName, opts.shopSubBrand);
+  if (opts.view === 'dashboard')   { generateDashboardPDF(ctx, opts);   return; }
+  if (opts.view === 'procurement') { generateProcurementPDF(ctx, opts); return; }
+  generateAccountingPDF(ctx, opts);
+}

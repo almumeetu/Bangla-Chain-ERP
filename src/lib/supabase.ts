@@ -1,64 +1,79 @@
 /**
  * Supabase browser client — lazy singleton.
  *
- * createBrowserClient() requires URL + anon key at call time.
- * We defer creation to first use so build-time SSR prerendering
- * (which has no env vars) never triggers the constructor.
+ * createBrowserClient() requires a URL + anon key at call time.
+ * Deferring creation to first use prevents build-time SSR prerendering
+ * (which has no env vars) from triggering the constructor.
  */
 
 import { createBrowserClient } from '@supabase/ssr';
 
-let _client: ReturnType<typeof createBrowserClient> | null = null;
+// ── Types ─────────────────────────────────────────────────────────────────────
 
-function getSupabaseClient() {
-  if (_client) return _client;
+type SupabaseClient = ReturnType<typeof createBrowserClient>;
 
-  const url  = process.env.NEXT_PUBLIC_SUPABASE_URL  ?? '';
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
+// ── Stub (returned during SSR / missing env vars) ─────────────────────────────
 
-  if (!url || !anon) {
-    // During static build or when env vars are missing, return a stub.
-    // The real app always has env vars set via .env.local / Vercel dashboard.
-    if (typeof window !== 'undefined') {
+const NO_OP_STUB: SupabaseClient = {
+  auth: {
+    getSession:              async () => ({ data: { session: null }, error: null }),
+    signInWithPassword:      async () => ({ error: { message: 'Not configured' } }),
+    signUp:                  async () => ({ error: { message: 'Not configured' } }),
+    signOut:                 async () => ({}),
+    onAuthStateChange:       ()       => ({ data: { subscription: { unsubscribe: () => {} } } }),
+    resetPasswordForEmail:   async () => ({}),
+    getUser:                 async () => ({ data: { user: null } }),
+  },
+  from: () => ({
+    select:  () => ({
+      maybeSingle: async () => ({ data: null, error: null }),
+      order:       ()       => ({ data: [], error: null }),
+    }),
+    upsert:  () => Promise.resolve({ error: null }),
+    insert:  () => Promise.resolve({ error: null }),
+    delete:  () => ({ eq: () => Promise.resolve({ error: null }) }),
+  }),
+} as unknown as SupabaseClient;
+
+// ── Singleton factory ─────────────────────────────────────────────────────────
+
+let _client: SupabaseClient | null = null;
+
+function resolveClient(): SupabaseClient {
+  const isBrowser = typeof window !== 'undefined';
+  const url        = process.env.NEXT_PUBLIC_SUPABASE_URL        ?? '';
+  const anon       = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY   ?? '';
+  const isMissing  = !url || !anon;
+
+  if (isMissing) {
+    if (isBrowser) {
       console.error(
         '[DillerPro] Missing Supabase environment variables.\n' +
         'Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to your .env.local\n' +
-        'See SUPABASE_SETUP.md for instructions.'
+        'See SUPABASE_SETUP.md for instructions.',
       );
     }
-    // Return a no-op proxy so the app renders without crashing during build
-    return {
-      auth: {
-        getSession: async () => ({ data: { session: null }, error: null }),
-        signInWithPassword: async () => ({ error: { message: 'Not configured' } }),
-        signUp: async () => ({ error: { message: 'Not configured' } }),
-        signOut: async () => ({}),
-        onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
-        resetPasswordForEmail: async () => ({}),
-        getUser: async () => ({ data: { user: null } }),
-      },
-      from: () => ({
-        select: () => ({ maybeSingle: async () => ({ data: null, error: null }), order: () => ({ data: [], error: null }) }),
-        upsert: () => Promise.resolve({ error: null }),
-        insert: () => Promise.resolve({ error: null }),
-        delete: () => ({ eq: () => Promise.resolve({ error: null }) }),
-      }),
-    } as unknown as ReturnType<typeof createBrowserClient>;
+    return NO_OP_STUB;
   }
 
-  _client = createBrowserClient(url, anon);
+  if (!_client) {
+    _client = createBrowserClient(url, anon);
+  }
+
   return _client;
 }
 
+// ── Exported proxy ────────────────────────────────────────────────────────────
+
 /**
  * Browser / Client-Component Supabase proxy.
- * Each property access goes through the lazy getter.
+ * All property accesses are forwarded through the lazy `resolveClient()` getter,
+ * so the real client is never instantiated during SSR prerendering.
  */
-export const supabase = new Proxy({} as ReturnType<typeof createBrowserClient>, {
-  get(_target, prop) {
-    const client = getSupabaseClient();
-    const value = (client as Record<string | symbol, unknown>)[prop];
-    if (typeof value === 'function') return value.bind(client);
-    return value;
+export const supabase = new Proxy({} as SupabaseClient, {
+  get(_target, prop: string | symbol) {
+    const client = resolveClient();
+    const value  = (client as Record<string | symbol, unknown>)[prop];
+    return typeof value === 'function' ? value.bind(client) : value;
   },
 });
