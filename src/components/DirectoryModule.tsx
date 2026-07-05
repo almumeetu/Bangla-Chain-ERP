@@ -17,7 +17,9 @@ import {
   Briefcase,
   Sliders,
   DollarSign,
-  AlertTriangle
+  AlertTriangle,
+  Search,
+  Truck
 } from 'lucide-react';
 import {
   Product,
@@ -26,7 +28,8 @@ import {
   Category,
   UnitOfMeasure,
   Godown,
-  Route
+  Route,
+  DeliveryMan
 } from '../types';
 import { translations as dict, Language } from '../translations';
 
@@ -47,6 +50,8 @@ interface DirectoryModuleProps {
   setGodowns: React.Dispatch<React.SetStateAction<Godown[]>>;
   routes: Route[];
   setRoutes: React.Dispatch<React.SetStateAction<Route[]>>;
+  deliveryMen: DeliveryMan[];
+  setDeliveryMen: React.Dispatch<React.SetStateAction<DeliveryMan[]>>;
   language: Language;
   /** Which sub-tab to open by default when rendered */
   defaultTab?: DirectoryTab;
@@ -67,7 +72,8 @@ type DirectoryTab =
   | 'categories'
   | 'units'
   | 'godowns'
-  | 'routes';
+  | 'routes'
+  | 'deliveryMen';
 
 // --- SUB-COMPONENT: Product Catalog Row ---
 interface ProductRowProps {
@@ -95,7 +101,13 @@ function ProductRow({ p, index, companies, categories, units, godowns, onEdit, o
       <td className="px-4 py-3.5 text-center text-slate-400 font-mono font-medium">{index + 1}</td>
       <td className="px-4 py-3.5">
         <div className="font-semibold text-slate-800">{p.name}</div>
-        <div className="text-[10px] text-slate-400 font-mono mt-0.5">Cat: {categoryName} | UOM: {uomName}</div>
+        {(categoryName !== 'N/A' || uomName !== 'N/A') && (
+          <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+            {categoryName !== 'N/A' && `Cat: ${categoryName}`}
+            {categoryName !== 'N/A' && uomName !== 'N/A' && ' | '}
+            {uomName !== 'N/A' && `UOM: ${uomName}`}
+          </div>
+        )}
       </td>
       <td className="px-4 py-3.5 text-slate-550 font-mono font-medium">{p.sku}</td>
       <td className="px-4 py-3.5">
@@ -107,7 +119,8 @@ function ProductRow({ p, index, companies, categories, units, godowns, onEdit, o
       <td className="px-4 py-3.5 text-right font-mono font-semibold text-slate-900">{formatBDT(p.defaultWSP)}</td>
       <td className="px-4 py-3.5 text-right font-mono text-slate-650">{formatBDT(p.defaultMRP)}</td>
       <td className="px-4 py-3.5 text-center">
-        <div className="font-mono font-bold text-slate-750">{p.currentStock} Pcs</div>
+        <div className="font-mono font-bold text-slate-750">{p.currentStock.toLocaleString()} Pcs</div>
+        <div className="text-[9px] text-slate-400 font-mono">৳{(p.currentStock * p.defaultPP).toLocaleString('en-BD')}</div>
       </td>
       <td className="px-4 py-3.5 text-center">
         <div className="flex items-center justify-center gap-1.5">
@@ -210,7 +223,7 @@ function ShopRow({ c, index, routes, onEdit, onDelete, formatBDT }: ShopRowProps
       </td>
       <td className="px-4 py-3.5 text-slate-550 font-mono">{c.phone}</td>
       <td className="px-4 py-3.5">
-        <span className="bg-blue-50 text-blue-700 border border-blue-150 px-2.5 py-0.5 rounded text-[10px] font-semibold">
+        <span className="bg-blue-50 text-blue-700 border border-blue-200 px-2.5 py-0.5 rounded text-[10px] font-semibold">
           SR: {c.assignedSR}
         </span>
       </td>
@@ -474,6 +487,8 @@ export default function DirectoryModule({
   setGodowns,
   routes,
   setRoutes,
+  deliveryMen,
+  setDeliveryMen,
   language,
   defaultTab,
   visibleTabs,
@@ -484,6 +499,14 @@ export default function DirectoryModule({
   const tDir = dict[language].directory;
 
   const [activeSubTab, setActiveSubTab] = useState<DirectoryTab>(defaultTab || 'products');
+
+  // Directory filter states
+  const [productSearch, setProductSearch] = useState('');
+  const [productCompanyFilter, setProductCompanyFilter] = useState('All');
+  const [productCategoryFilter, setProductCategoryFilter] = useState('All');
+  const [productStockFilter, setProductStockFilter] = useState('All'); // 'All' | 'Low'
+  const [categorySearch, setCategorySearch] = useState('');
+  const [unitSearch, setUnitSearch] = useState('');
 
   // Damage states
   const [showDamageModal, setShowDamageModal] = useState(false);
@@ -531,6 +554,18 @@ export default function DirectoryModule({
   const [srAssignedCompanies, setSrAssignedCompanies] = useState<string[]>([]);
   const [srLoginUsername, setSrLoginUsername] = useState('');
   const [srLoginPassword, setSrLoginPassword] = useState('');
+
+  // Form Fields & States: Delivery Man
+  const [showDmModal, setShowDmModal] = useState(false);
+  const [editingDm, setEditingDm] = useState<DeliveryMan | null>(null);
+  const [dmName, setDmName] = useState('');
+  const [dmVehicle, setDmVehicle] = useState('');
+  const [dmSearch, setDmSearch] = useState('');
+
+  // Damage Tab Filter States
+  const [damageSearch, setDamageSearch] = useState('');
+  const [damageCategoryFilter, setDamageCategoryFilter] = useState('All');
+  const [damageStockFilter, setDamageStockFilter] = useState('All'); // 'All' | 'HasDamage' | 'NoDamage'
 
   // Form Fields: Shop
   const [shopName, setShopName] = useState('');
@@ -630,6 +665,23 @@ export default function DirectoryModule({
     }
     setShowSrModal(false);
   }, [srName, srPhone, srCommissionRate, srAssignedCompanies, srLoginUsername, srLoginPassword, editingSr, setSrs]);
+
+  // --- SUBMIT: Delivery Man ---
+  const handleDmSubmit = useCallback((e: React.FormEvent) => {
+    e.preventDefault();
+    if (!dmName || !dmVehicle) {
+      alert('Delivery Man Name and Vehicle details are required.');
+      return;
+    }
+
+    if (editingDm) {
+      setDeliveryMen(prev => prev.map(d => d.id === editingDm.id ? { ...d, name: dmName, vehicle: dmVehicle } : d));
+      setEditingDm(null);
+    } else {
+      setDeliveryMen(prev => [...prev, { id: `dm-${Date.now()}`, name: dmName, vehicle: dmVehicle }]);
+    }
+    setShowDmModal(false);
+  }, [dmName, dmVehicle, editingDm, setDeliveryMen]);
 
   // --- SUBMIT: Shop ---
   const handleShopSubmit = useCallback((e: React.FormEvent) => {
@@ -949,6 +1001,12 @@ export default function DirectoryModule({
     }
   }, [tCommon.confirmDelete, setSrs]);
 
+  const handleDeleteDm = useCallback((id: string) => {
+    if (confirm(tCommon.confirmDelete)) {
+      setDeliveryMen(prev => prev.filter(d => d.id !== id));
+    }
+  }, [tCommon.confirmDelete, setDeliveryMen]);
+
   const handleDeleteShop = useCallback((id: string) => {
     if (confirm(tCommon.confirmDelete)) {
       setCustomers(prev => prev.filter(c => c.id !== id));
@@ -1010,7 +1068,8 @@ export default function DirectoryModule({
             { id: 'categories', label: tDir.tabCategories, icon: Sliders },
             { id: 'units', label: tDir.tabUnits, icon: DollarSign },
             { id: 'godowns', label: tDir.tabGodowns, icon: HardDrive },
-            { id: 'routes', label: tDir.tabRoutes, icon: Compass }
+            { id: 'routes', label: tDir.tabRoutes, icon: Compass },
+            { id: 'deliveryMen', label: language === 'bn' ? 'ডেলিভারি ম্যান' : 'Delivery Men', icon: Truck }
           ]
             .filter(tab => !visibleTabs || visibleTabs.includes(tab.id as DirectoryTab))
             .map(tab => {
@@ -1036,8 +1095,16 @@ export default function DirectoryModule({
 
       {/* SUB-TAB: Products Catalog */}
       {activeSubTab === 'products' && (() => {
-        const totalProductsStockValuation = products.reduce((sum, p) => sum + (p.currentStock * p.defaultPP), 0);
-        const lowStockCount = products.filter(p => p.currentStock < 600).length;
+        const filteredProducts = products.filter(p => {
+          const matchesSearch = p.name.toLowerCase().includes(productSearch.toLowerCase()) || p.sku.toLowerCase().includes(productSearch.toLowerCase());
+          const matchesCompany = productCompanyFilter === 'All' || p.company === productCompanyFilter;
+          const matchesCategory = productCategoryFilter === 'All' || p.categoryId === productCategoryFilter;
+          const matchesStock = productStockFilter === 'All' || (productStockFilter === 'Low' && p.currentStock < 600);
+          return matchesSearch && matchesCompany && matchesCategory && matchesStock;
+        });
+
+        const totalProductsStockValuation = filteredProducts.reduce((sum, p) => sum + (p.currentStock * p.defaultPP), 0);
+        const lowStockCount = filteredProducts.filter(p => p.currentStock < 600).length;
 
         return (
           <div className="space-y-6">
@@ -1054,8 +1121,8 @@ export default function DirectoryModule({
                   <span className="text-[10px] text-blue-500 font-bold uppercase tracking-wider block">
                     {language === 'bn' ? 'মোট নিবন্ধিত পণ্য' : 'Total SKU Count'}
                   </span>
-                  <span className="text-2xl font-black text-slate-850 font-mono tracking-tight">
-                    {products.length} <span className="text-xs font-bold text-slate-500">{language === 'bn' ? 'টি আইটেম' : 'Products'}</span>
+                  <span className="text-2xl font-black text-slate-855 font-mono tracking-tight">
+                    {filteredProducts.length} <span className="text-xs font-bold text-slate-500">/ {products.length} {language === 'bn' ? 'টি' : 'Products'}</span>
                   </span>
                 </div>
               </div>
@@ -1070,7 +1137,7 @@ export default function DirectoryModule({
                   <span className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider block">
                     {language === 'bn' ? 'মোট ইনভেন্টরি মূল্য' : 'Inventory Valuation'}
                   </span>
-                  <span className="text-2xl font-black text-slate-850 font-mono tracking-tight">
+                  <span className="text-2xl font-black text-slate-855 font-mono tracking-tight">
                     {formatBDT(totalProductsStockValuation)}
                   </span>
                 </div>
@@ -1083,12 +1150,105 @@ export default function DirectoryModule({
                   <AlertTriangle className="w-6 h-6 animate-pulse" />
                 </div>
                 <div>
-                  <span className="text-[10px] text-amber-600 font-bold uppercase tracking-wider block">
+                  <span className="text-[10px] text-amber-605 font-bold uppercase tracking-wider block">
                     {language === 'bn' ? 'স্টক সংকট অ্যালার্ট' : 'Low Stock Alerts'}
                   </span>
-                  <span className="text-2xl font-black text-slate-850 font-mono tracking-tight">
+                  <span className="text-2xl font-black text-slate-855 font-mono tracking-tight">
                     {lowStockCount} <span className="text-xs font-bold text-slate-500">{language === 'bn' ? 'টি সংকটে' : 'Items'}</span>
                   </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Highly highlighted interactive Filter bar */}
+            <div className="bg-indigo-50/30 border border-indigo-200 rounded-3xl p-5 shadow-sm space-y-4">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-ping shrink-0" />
+                  <span className="text-[10px] bg-indigo-100 text-indigo-700 font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider font-mono">
+                    {language === 'bn' ? 'ফিল্টার এবং লাইভ সার্চ কন্ট্রোল' : 'Live Filter & Search Control'}
+                  </span>
+                </div>
+                {(productSearch || productCompanyFilter !== 'All' || productCategoryFilter !== 'All' || productStockFilter !== 'All') && (
+                  <button
+                    onClick={() => {
+                      setProductSearch('');
+                      setProductCompanyFilter('All');
+                      setProductCategoryFilter('All');
+                      setProductStockFilter('All');
+                    }}
+                    className="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold underline transition-colors cursor-pointer"
+                  >
+                    {language === 'bn' ? 'ফিল্টার রিসেট করুন' : 'Reset Filters'}
+                  </button>
+                )}
+              </div>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Search query */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                    {language === 'bn' ? 'পণ্য বা SKU খুঁজুন' : 'Search Product / SKU'}
+                  </label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-sky-500" />
+                    <input
+                      type="text"
+                      value={productSearch}
+                      onChange={e => setProductSearch(e.target.value)}
+                      placeholder={language === 'bn' ? 'পণ্যের নাম বা SKU...' : 'Product name or SKU...'}
+                      className="w-full h-10 pl-9 pr-3 rounded-xl border border-sky-200 bg-sky-50/10 text-xs font-semibold text-slate-750 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 transition-all placeholder:text-slate-450"
+                    />
+                  </div>
+                </div>
+
+                {/* Company Filter */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-orange-600 uppercase tracking-wider block">
+                    {language === 'bn' ? 'কোম্পানি ফিল্টার' : 'Filter by Company'}
+                  </label>
+                  <select
+                    value={productCompanyFilter}
+                    onChange={e => setProductCompanyFilter(e.target.value)}
+                    className="h-10 w-full rounded-xl border border-orange-200 bg-orange-50/10 px-3 text-xs font-bold text-orange-850 outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 transition-all cursor-pointer"
+                  >
+                    <option value="All">{language === 'bn' ? 'সকল কোম্পানি' : 'All Companies'}</option>
+                    {Array.from(new Set(products.map(p => p.company).filter(Boolean))).map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Category Filter */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-purple-600 uppercase tracking-wider block">
+                    {language === 'bn' ? 'ক্যাটাগরি ফিল্টার' : 'Filter by Category'}
+                  </label>
+                  <select
+                    value={productCategoryFilter}
+                    onChange={e => setProductCategoryFilter(e.target.value)}
+                    className="h-10 w-full rounded-xl border border-purple-200 bg-purple-50/10 px-3 text-xs font-bold text-purple-855 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100 transition-all cursor-pointer"
+                  >
+                    <option value="All">{language === 'bn' ? 'সকল ক্যাটাগরি' : 'All Categories'}</option>
+                    {productCategories.map(cat => (
+                      <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Stock Level Filter */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-rose-600 uppercase tracking-wider block">
+                    {language === 'bn' ? 'স্টক পরিমাণ ফিল্টার' : 'Filter by Stock Level'}
+                  </label>
+                  <select
+                    value={productStockFilter}
+                    onChange={e => setProductStockFilter(e.target.value)}
+                    className="h-10 w-full rounded-xl border border-rose-200 bg-rose-50/10 px-3 text-xs font-bold text-rose-855 outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100 transition-all cursor-pointer"
+                  >
+                    <option value="All">{language === 'bn' ? 'সকল লেভেল' : 'All Levels'}</option>
+                    <option value="Low">{language === 'bn' ? 'স্টক সংকট (< ৬০০ পিস)' : 'Low Stock (< 600 Pcs)'}</option>
+                  </select>
                 </div>
               </div>
             </div>
@@ -1116,7 +1276,7 @@ export default function DirectoryModule({
 
             {/* Product Card Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-              {products.map(p => {
+              {filteredProducts.map(p => {
                 const categoryName = productCategories.find(c => c.id === p.categoryId)?.name || 'N/A';
                 const uomName = units.find(u => u.id === p.uomId)?.name || 'N/A';
                 const godownName = godowns.find(g => g.id === p.defaultGodownId)?.name || 'Main Godown';
@@ -1124,25 +1284,64 @@ export default function DirectoryModule({
 
                 const isLowStock = p.currentStock < 600;
 
-                let brandStyle = "bg-purple-50 text-purple-700 border-purple-150";
-                if (p.company.toLowerCase() === 'pran') {
-                  brandStyle = "bg-orange-50 text-orange-700 border-orange-150";
-                } else if (p.company.toLowerCase() === 'olympic') {
-                  brandStyle = "bg-blue-50 text-blue-700 border-blue-150";
-                } else if (p.company.toLowerCase() === 'haque') {
-                  brandStyle = "bg-emerald-50 text-emerald-700 border-emerald-150";
+                let brandTheme = {
+                  border: "hover:border-purple-300",
+                  bgGradient: "from-purple-50/30 via-white to-white border-slate-200",
+                  badge: "bg-purple-50 text-purple-700 border-purple-200",
+                  valText: "text-purple-700",
+                  valBg: "bg-purple-50/40 border-purple-100",
+                  shadow: "shadow-purple-100/50"
+                };
+
+                const compLower = p.company.toLowerCase();
+                if (compLower === 'pran') {
+                  brandTheme = {
+                    border: "hover:border-orange-300",
+                    bgGradient: "from-orange-50/30 via-white to-white border-slate-200",
+                    badge: "bg-orange-50 text-orange-700 border-orange-200",
+                    valText: "text-orange-700",
+                    valBg: "bg-orange-50/40 border-orange-100",
+                    shadow: "shadow-orange-100/50"
+                  };
+                } else if (compLower === 'olympic') {
+                  brandTheme = {
+                    border: "hover:border-blue-300",
+                    bgGradient: "from-blue-50/30 via-white to-white border-slate-200",
+                    badge: "bg-blue-50 text-blue-700 border-blue-200",
+                    valText: "text-blue-700",
+                    valBg: "bg-blue-50/40 border-blue-100",
+                    shadow: "shadow-blue-100/50"
+                  };
+                } else if (compLower === 'haque') {
+                  brandTheme = {
+                    border: "hover:border-emerald-300",
+                    bgGradient: "from-emerald-50/30 via-white to-white border-slate-200",
+                    badge: "bg-emerald-50 text-emerald-700 border-emerald-200",
+                    valText: "text-emerald-700",
+                    valBg: "bg-emerald-50/40 border-emerald-100",
+                    shadow: "shadow-emerald-100/50"
+                  };
+                } else if (compLower === 'coca-cola' || compLower === 'coca cola') {
+                  brandTheme = {
+                    border: "hover:border-red-300",
+                    bgGradient: "from-red-50/30 via-white to-white border-slate-200",
+                    badge: "bg-red-50 text-red-700 border-red-200",
+                    valText: "text-red-700",
+                    valBg: "bg-red-50/40 border-red-100",
+                    shadow: "shadow-red-100/50"
+                  };
                 }
 
                 return (
                   <div
                     key={p.id}
-                    className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm hover:shadow-md hover:border-slate-800 transition-all duration-300 flex flex-col justify-between space-y-4 group relative overflow-hidden"
+                    className={`bg-gradient-to-br ${brandTheme.bgGradient} rounded-3xl border p-5 shadow-sm hover:shadow-md ${brandTheme.border} transition-all duration-300 flex flex-col justify-between space-y-4 group relative overflow-hidden`}
                   >
                     <div className="absolute -right-20 -top-20 w-36 h-36 rounded-full bg-slate-50 group-hover:bg-blue-500/5 transition-all duration-500 pointer-events-none" />
 
                     <div className="space-y-2.5 relative z-10">
                       <div className="flex items-center justify-between">
-                        <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold border uppercase tracking-wider ${brandStyle}`}>
+                        <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold border uppercase tracking-wider ${brandTheme.badge}`}>
                           {p.company}
                         </span>
                         <span className="font-mono text-[9px] font-bold text-slate-400 uppercase tracking-wide">
@@ -1154,10 +1353,16 @@ export default function DirectoryModule({
                         {p.name}
                       </h4>
 
-                      <div className="flex flex-wrap items-center gap-1.5 text-[9px] font-bold text-slate-500 uppercase tracking-wide">
-                        <span className="bg-slate-100 px-2 py-0.5 rounded border border-slate-200">Cat: {categoryName}</span>
-                        <span className="bg-slate-100 px-2 py-0.5 rounded border border-slate-200">UOM: {uomName}</span>
-                        <span className="bg-slate-100 px-2 py-0.5 rounded border border-slate-200">{godownName}</span>
+                      <div className="flex flex-wrap items-center gap-1.5 text-[9px] font-bold uppercase tracking-wide">
+                        {categoryName !== 'N/A' && (
+                          <span className="bg-sky-50 text-sky-700 border border-sky-100 px-2 py-0.5 rounded">Cat: {categoryName}</span>
+                        )}
+                        {uomName !== 'N/A' && (
+                          <span className="bg-purple-50 text-purple-700 border border-purple-100 px-2 py-0.5 rounded">UOM: {uomName}</span>
+                        )}
+                        {godownName !== 'Main Godown' && godownName !== 'N/A' && (
+                          <span className="bg-amber-50 text-amber-700 border border-amber-100 px-2 py-0.5 rounded">{godownName}</span>
+                        )}
                       </div>
                     </div>
 
@@ -1165,9 +1370,14 @@ export default function DirectoryModule({
                     <div className="space-y-1.5 relative z-10 pt-1">
                       <div className="flex items-center justify-between text-[10px] font-bold text-slate-500">
                         <span>{language === 'bn' ? 'স্টক লেভেল' : 'Stock Level'}</span>
-                        <span className={isLowStock ? "text-amber-600 animate-pulse font-extrabold" : "text-slate-700"}>
-                          {p.currentStock} {language === 'bn' ? 'টি' : 'Units'}
-                        </span>
+                        <div className="text-right">
+                          <span className={isLowStock ? "text-amber-600 animate-pulse font-extrabold" : "text-slate-700"}>
+                            {p.currentStock.toLocaleString()} {language === 'bn' ? 'টি' : 'Units'}
+                          </span>
+                          <span className={`text-[10px] ${brandTheme.valText} ${brandTheme.valBg} border px-2 py-0.5 rounded font-mono block mt-0.5 font-bold`}>
+                            Val: ৳{(p.currentStock * p.defaultPP).toLocaleString('en-BD')}
+                          </span>
+                        </div>
                       </div>
                       <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
                         <div
@@ -1180,17 +1390,17 @@ export default function DirectoryModule({
 
                     {/* Prices Grid */}
                     <div className="grid grid-cols-3 gap-2 relative z-10 pt-1 text-center">
-                      <div className="bg-slate-50 rounded-xl p-2 border border-slate-150">
-                        <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider block">{language === 'bn' ? 'DP' : 'Dealer Price (DP)'}</span>
-                        <span className="font-mono text-xs font-bold text-slate-700">{formatBDT(p.defaultPP)}</span>
+                      <div className="bg-blue-50/40 rounded-xl p-2 border border-blue-100">
+                        <span className="text-[8px] text-blue-500 font-extrabold uppercase tracking-wider block">{language === 'bn' ? 'DP' : 'Dealer Price (DP)'}</span>
+                        <span className="font-mono text-xs font-black text-blue-700">{formatBDT(p.defaultPP)}</span>
                       </div>
-                      <div className="bg-slate-50 rounded-xl p-2 border border-slate-150">
-                        <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider block">{language === 'bn' ? 'TP' : 'Trade Price (TP)'}</span>
-                        <span className="font-mono text-xs font-extrabold text-slate-800">{formatBDT(p.defaultWSP)}</span>
+                      <div className="bg-emerald-50/40 rounded-xl p-2 border border-emerald-100">
+                        <span className="text-[8px] text-emerald-600 font-extrabold uppercase tracking-wider block">{language === 'bn' ? 'TP' : 'Trade Price (TP)'}</span>
+                        <span className="font-mono text-xs font-black text-emerald-800">{formatBDT(p.defaultWSP)}</span>
                       </div>
-                      <div className="bg-slate-50 rounded-xl p-2 border border-slate-150">
-                        <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider block">{language === 'bn' ? 'MRP' : 'MRP'}</span>
-                        <span className="font-mono text-xs font-bold text-slate-600">{formatBDT(p.defaultMRP)}</span>
+                      <div className="bg-amber-50/40 rounded-xl p-2 border border-amber-100">
+                        <span className="text-[8px] text-amber-600 font-extrabold uppercase tracking-wider block">{language === 'bn' ? 'MRP' : 'MRP'}</span>
+                        <span className="font-mono text-xs font-black text-amber-700">{formatBDT(p.defaultMRP)}</span>
                       </div>
                     </div>
 
@@ -1198,7 +1408,7 @@ export default function DirectoryModule({
                     <div className="pt-3 border-t border-slate-100 flex items-center justify-between relative z-10">
                       <div className="space-y-0.5">
                         <span className="text-[9px] text-slate-400 uppercase font-bold block">{language === 'bn' ? 'পাইকারি মার্জিন' : 'Wholesale Margin'}</span>
-                        <span className="font-mono text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-150 inline-block">
+                        <span className="font-mono text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 inline-block">
                           +{marginPct.toFixed(1)}%
                         </span>
                       </div>
@@ -1298,14 +1508,14 @@ export default function DirectoryModule({
                         </div>
 
                         <div className="flex flex-wrap gap-2 pt-1">
-                          <span className="bg-indigo-50 text-indigo-700 border border-indigo-150 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider">
+                          <span className="bg-indigo-50 text-indigo-700 border border-indigo-200 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider">
                             Agent: {c.assignedSR}
                           </span>
                         </div>
                       </div>
 
                       {/* Credit Ledger details */}
-                      <div className="bg-slate-50 rounded-2xl p-3.5 border border-slate-150 relative z-10 flex items-center justify-between text-xs">
+                      <div className="bg-slate-50 rounded-2xl p-3.5 border border-slate-200 relative z-10 flex items-center justify-between text-xs">
                         <div className="space-y-0.5">
                           <span className="text-[9px] font-bold text-slate-450 uppercase tracking-wide block">Credit Limit</span>
                           <span className="font-mono font-extrabold text-slate-900">{formatBDT(c.creditLimit || 0)}</span>
@@ -1451,7 +1661,22 @@ export default function DirectoryModule({
 
       {/* SUB-TAB: Product Damage List */}
       {activeSubTab === 'damage' && (() => {
-        const damageFilteredProducts = products.filter(p => selectedDamageCompany === 'All' || p.company === selectedDamageCompany);
+        const damageFilteredProducts = products.filter(p => {
+          const matchCompany = selectedDamageCompany === 'All' || p.company === selectedDamageCompany;
+          const matchCategory = damageCategoryFilter === 'All' || p.categoryId === damageCategoryFilter;
+          
+          const search = damageSearch.toLowerCase();
+          const matchSearch = !search || p.name.toLowerCase().includes(search) || p.sku.toLowerCase().includes(search);
+          
+          let matchStock = true;
+          if (damageStockFilter === 'HasDamage') {
+            matchStock = (p.damagedStock || 0) > 0;
+          } else if (damageStockFilter === 'NoDamage') {
+            matchStock = (p.damagedStock || 0) === 0;
+          }
+          
+          return matchCompany && matchCategory && matchSearch && matchStock;
+        });
 
         // Calculations for KPI Cards
         const totalDamagedUnits = damageFilteredProducts.reduce((sum, p) => sum + (p.damagedStock || 0), 0);
@@ -1514,45 +1739,100 @@ export default function DirectoryModule({
               </div>
             </div>
 
-            {/* Sub-header Filter panel */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4.5 border border-slate-200 rounded-2xl shadow-sm">
-              <div className="space-y-0.5">
-                <h3 className="text-sm font-bold text-slate-800">
-                  {language === 'bn' ? 'ড্যামেজ ও ডিফেক্ট তালিকা' : 'Damage & Defect Records'}
-                </h3>
-                <p className="text-[11px] text-slate-400 font-semibold">
-                  {language === 'bn' ? 'প্রতিটি কোম্পানির তালিকা এবং সমন্বয়ের অপশন' : 'Brand-wise list of product conditions and action items'}
-                </p>
+            {/* Filter Section */}
+            <div className="bg-indigo-50/30 border border-indigo-200 rounded-3xl p-5 shadow-sm space-y-4 animate-fade-in">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] bg-indigo-100 text-indigo-700 font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider font-mono">
+                    {language === 'bn' ? 'ড্যামেজ ফিল্টার প্যানেল' : 'Damage Filter Panel'}
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-bold font-mono">
+                    {damageFilteredProducts.length} {language === 'bn' ? 'টি পণ্য পাওয়া গেছে' : 'products found'}
+                  </span>
+                </div>
+                {(damageSearch || selectedDamageCompany !== 'All' || damageCategoryFilter !== 'All' || damageStockFilter !== 'All') && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDamageSearch('');
+                      setSelectedDamageCompany('All');
+                      setDamageCategoryFilter('All');
+                      setDamageStockFilter('All');
+                    }}
+                    className="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold underline transition-colors cursor-pointer"
+                  >
+                    {language === 'bn' ? 'ফিল্টার রিসেট করুন' : 'Reset Filters'}
+                  </button>
+                )}
               </div>
 
-              {/* Premium Pill-based Company Filters instead of generic select */}
-              <div className="flex flex-wrap items-center gap-1.5 bg-slate-50 p-1 rounded-xl border border-slate-200">
-                <button
-                  type="button"
-                  onClick={() => setSelectedDamageCompany('All')}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${selectedDamageCompany === 'All'
-                      ? 'bg-slate-900 text-white shadow-sm'
-                      : 'text-slate-500 hover:text-slate-800'
-                    }`}
-                >
-                  {language === 'bn' ? 'সব কোম্পানি' : 'All Brands'}
-                </button>
-                {companies.map(c => {
-                  const isActive = selectedDamageCompany === c.name;
-                  return (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => setSelectedDamageCompany(c.name)}
-                      className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${isActive
-                          ? 'bg-slate-900 text-white shadow-sm'
-                          : 'text-slate-500 hover:text-slate-800'
-                        }`}
-                    >
-                      {c.name}
-                    </button>
-                  );
-                })}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Search query */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                    {language === 'bn' ? 'পণ্য বা SKU খুঁজুন' : 'Search Product / SKU'}
+                  </label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-sky-500" />
+                    <input
+                      type="text"
+                      value={damageSearch}
+                      onChange={e => setDamageSearch(e.target.value)}
+                      placeholder={language === 'bn' ? 'পণ্যের নাম বা SKU...' : 'Product name or SKU...'}
+                      className="w-full h-10 pl-9 pr-3 rounded-xl border border-sky-200 bg-white text-xs font-semibold text-slate-750 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 transition-all placeholder:text-slate-450"
+                    />
+                  </div>
+                </div>
+
+                {/* Company Filter */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-orange-600 uppercase tracking-wider block">
+                    {language === 'bn' ? 'কোম্পানি ফিল্টার' : 'Filter by Company'}
+                  </label>
+                  <select
+                    value={selectedDamageCompany}
+                    onChange={e => setSelectedDamageCompany(e.target.value)}
+                    className="h-10 w-full rounded-xl border border-orange-200 bg-white px-3 text-xs font-bold text-orange-855 outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 transition-all cursor-pointer"
+                  >
+                    <option value="All">{language === 'bn' ? 'সকল কোম্পানি' : 'All Companies'}</option>
+                    {Array.from(new Set(products.map(p => p.company).filter(Boolean))).map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Category Filter */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-purple-600 uppercase tracking-wider block">
+                    {language === 'bn' ? 'ক্যাটাগরি ফিল্টার' : 'Filter by Category'}
+                  </label>
+                  <select
+                    value={damageCategoryFilter}
+                    onChange={e => setDamageCategoryFilter(e.target.value)}
+                    className="h-10 w-full rounded-xl border border-purple-200 bg-white px-3 text-xs font-bold text-purple-855 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100 transition-all cursor-pointer"
+                  >
+                    <option value="All">{language === 'bn' ? 'সকল ক্যাটাগরি' : 'All Categories'}</option>
+                    {productCategories.map(cat => (
+                      <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Damage Level Filter */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-rose-600 uppercase tracking-wider block">
+                    {language === 'bn' ? 'ড্যামেজ লেভেল' : 'Filter by Condition'}
+                  </label>
+                  <select
+                    value={damageStockFilter}
+                    onChange={e => setDamageStockFilter(e.target.value)}
+                    className="h-10 w-full rounded-xl border border-rose-200 bg-white px-3 text-xs font-bold text-rose-855 outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100 transition-all cursor-pointer"
+                  >
+                    <option value="All">{language === 'bn' ? 'সকল পণ্য' : 'All Products'}</option>
+                    <option value="HasDamage">{language === 'bn' ? 'ড্যামেজ আছে (> ০)' : 'Has Damage (> 0)'}</option>
+                    <option value="NoDamage">{language === 'bn' ? 'কোনো ড্যামেজ নেই (= ০)' : 'No Damage (= 0)'}</option>
+                  </select>
+                </div>
               </div>
             </div>
 
@@ -1564,13 +1844,13 @@ export default function DirectoryModule({
                 const itemDamageRatio = totalQty > 0 ? (damagedQty / totalQty) * 100 : 0;
 
                 // Color theme based on company
-                let themePillStyle = "bg-purple-50 text-purple-700 border-purple-150";
+                let themePillStyle = "bg-purple-50 text-purple-700 border-purple-200";
                 if (p.company.toLowerCase() === 'pran') {
-                  themePillStyle = "bg-orange-50 text-orange-700 border-orange-150";
+                  themePillStyle = "bg-orange-50 text-orange-700 border-orange-200";
                 } else if (p.company.toLowerCase() === 'olympic') {
-                  themePillStyle = "bg-blue-50 text-blue-700 border-blue-150";
+                  themePillStyle = "bg-blue-50 text-blue-700 border-blue-200";
                 } else if (p.company.toLowerCase() === 'haque') {
-                  themePillStyle = "bg-emerald-50 text-emerald-700 border-emerald-150";
+                  themePillStyle = "bg-emerald-50 text-emerald-700 border-emerald-200";
                 }
 
                 return (
@@ -1603,7 +1883,10 @@ export default function DirectoryModule({
                           {language === 'bn' ? 'বিক্রয়যোগ্য স্টক' : 'Salable Stock'}
                         </span>
                         <span className="font-mono text-sm font-black text-slate-800">
-                          {p.currentStock} <span className="text-[10px] font-semibold text-slate-400">{language === 'bn' ? 'টি' : 'Units'}</span>
+                          {p.currentStock.toLocaleString()} <span className="text-[10px] font-semibold text-slate-400">{language === 'bn' ? 'টি' : 'Units'}</span>
+                        </span>
+                        <span className="text-[9px] text-slate-450 font-mono block mt-0.5">
+                          Val: ৳{(p.currentStock * p.defaultPP).toLocaleString('en-BD')}
                         </span>
                       </div>
 
@@ -1612,7 +1895,10 @@ export default function DirectoryModule({
                           {language === 'bn' ? 'ড্যামেজ স্টক' : 'Damaged Stock'}
                         </span>
                         <span className="font-mono text-sm font-black text-slate-800">
-                          {damagedQty} <span className="text-[10px] font-semibold text-slate-400">{language === 'bn' ? 'টি' : 'Units'}</span>
+                          {damagedQty.toLocaleString()} <span className="text-[10px] font-semibold text-slate-400">{language === 'bn' ? 'টি' : 'Units'}</span>
+                        </span>
+                        <span className="text-[9px] text-slate-450 font-mono block mt-0.5">
+                          Val: ৳{(damagedQty * p.defaultPP).toLocaleString('en-BD')}
                         </span>
                       </div>
                     </div>
@@ -1761,31 +2047,51 @@ export default function DirectoryModule({
       )}
 
       {/* SUB-TAB: Categories */}
-      {activeSubTab === 'categories' && (
-        <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4.5 border border-slate-200 rounded-2xl shadow-sm">
-            <div className="space-y-0.5">
-              <h3 className="text-sm font-bold text-slate-800">
-                {language === 'bn' ? 'পণ্যের ক্যাটাগরি সমূহ' : 'Product Categories'}
-              </h3>
-              <p className="text-[11px] text-slate-400 font-semibold">
-                {language === 'bn' ? 'পণ্যের শ্রেণীবিভাগ ও শ্রেণীবিন্যাস ক্লাস' : 'Taxonomy classes used to classify different product varieties'}
-              </p>
+      {activeSubTab === 'categories' && (() => {
+        const filteredCategories = productCategories.filter(cat =>
+          cat.name.toLowerCase().includes(categorySearch.toLowerCase()) ||
+          (cat.description || '').toLowerCase().includes(categorySearch.toLowerCase())
+        );
+
+        return (
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4.5 border border-slate-200 rounded-2xl shadow-sm">
+              <div className="space-y-0.5">
+                <h3 className="text-sm font-bold text-slate-800">
+                  {language === 'bn' ? 'পণ্যের ক্যাটাগরি সমূহ' : 'Product Categories'}
+                </h3>
+                <p className="text-[11px] text-slate-400 font-semibold">
+                  {language === 'bn' ? 'পণ্যের শ্রেণীবিভাগ ও শ্রেণীবিন্যাস ক্লাস' : 'Taxonomy classes used to classify different product varieties'}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleOpenCategory}
+                className="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-900 px-4 text-xs font-bold text-white hover:bg-slate-800 border border-slate-950 cursor-pointer transition-all active:scale-95 shadow-sm shrink-0"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                {tDir.registerCategory}
+              </button>
             </div>
 
-            <button
-              type="button"
-              onClick={handleOpenCategory}
-              className="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-900 px-4 text-xs font-bold text-white hover:bg-slate-800 border border-slate-950 cursor-pointer transition-all active:scale-95 shadow-sm shrink-0"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              {tDir.registerCategory}
-            </button>
-          </div>
+            {/* Highlighted Search Bar */}
+            <div className="bg-indigo-50/30 border border-indigo-200 rounded-2xl p-4 shadow-sm">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-500" />
+                <input
+                  type="text"
+                  value={categorySearch}
+                  onChange={e => setCategorySearch(e.target.value)}
+                  placeholder={language === 'bn' ? 'ক্যাটাগরি অনুসন্ধান করুন...' : 'Search category name or description...'}
+                  className="w-full h-10 pl-10 pr-4 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-750 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all placeholder:text-slate-450"
+                />
+              </div>
+            </div>
 
-          {/* Cards Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {productCategories.map((cat, index) => {
+            {/* Cards Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredCategories.map((cat, index) => {
               const categoryProductsCount = products.filter(p => p.categoryId === cat.id).length;
 
               const colorGradients = [
@@ -1846,34 +2152,53 @@ export default function DirectoryModule({
             })}
           </div>
         </div>
-      )}
+      ); })()}
 
       {/* SUB-TAB: Units (UOM) */}
-      {activeSubTab === 'units' && (
-        <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4.5 border border-slate-200 rounded-2xl shadow-sm">
-            <div className="space-y-0.5">
-              <h3 className="text-sm font-bold text-slate-800">
-                {language === 'bn' ? 'পরিমাপের একক সমূহ (UOM)' : 'Units of Measure (UOM)'}
-              </h3>
-              <p className="text-[11px] text-slate-400 font-semibold">
-                {language === 'bn' ? 'পণ্যের পরিমাপ, কার্টুন অথবা বক্সের গুণক সমূহ' : 'Packaging scales and conversion counts used for wholesale lot dispatches'}
-              </p>
+      {activeSubTab === 'units' && (() => {
+        const filteredUnits = units.filter(uom =>
+          uom.name.toLowerCase().includes(unitSearch.toLowerCase())
+        );
+
+        return (
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4.5 border border-slate-200 rounded-2xl shadow-sm">
+              <div className="space-y-0.5">
+                <h3 className="text-sm font-bold text-slate-800">
+                  {language === 'bn' ? 'পরিমাপের একক সমূহ (UOM)' : 'Units of Measure (UOM)'}
+                </h3>
+                <p className="text-[11px] text-slate-400 font-semibold">
+                  {language === 'bn' ? 'পণ্যের পরিমাপ, কার্টুন অথবা বক্সের গুণক সমূহ' : 'Packaging scales and conversion counts used for wholesale lot dispatches'}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleOpenUnit}
+                className="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-900 px-4 text-xs font-bold text-white hover:bg-slate-800 border border-slate-950 cursor-pointer transition-all active:scale-95 shadow-sm shrink-0"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                {tDir.registerUnit}
+              </button>
             </div>
 
-            <button
-              type="button"
-              onClick={handleOpenUnit}
-              className="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-900 px-4 text-xs font-bold text-white hover:bg-slate-800 border border-slate-950 cursor-pointer transition-all active:scale-95 shadow-sm shrink-0"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              {tDir.registerUnit}
-            </button>
-          </div>
+            {/* Highlighted Search Bar */}
+            <div className="bg-indigo-50/30 border border-indigo-200 rounded-2xl p-4 shadow-sm">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-500" />
+                <input
+                  type="text"
+                  value={unitSearch}
+                  onChange={e => setUnitSearch(e.target.value)}
+                  placeholder={language === 'bn' ? 'একক UOM অনুসন্ধান করুন...' : 'Search unit of measure...'}
+                  className="w-full h-10 pl-10 pr-4 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-750 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all placeholder:text-slate-450"
+                />
+              </div>
+            </div>
 
-          {/* Cards Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {units.map((uom, index) => {
+            {/* Cards Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredUnits.map((uom, index) => {
               const colorGradients = [
                 'from-violet-500 to-indigo-600',
                 'from-amber-500 to-orange-600',
@@ -1932,7 +2257,7 @@ export default function DirectoryModule({
             })}
           </div>
         </div>
-      )}
+      ); })()}
 
       {/* SUB-TAB: Warehouses / Godowns */}
       {activeSubTab === 'godowns' && (
@@ -2073,6 +2398,117 @@ export default function DirectoryModule({
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* SUB-TAB: Delivery Agents (deliveryMen) */}
+      {activeSubTab === 'deliveryMen' && (
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4.5 border border-slate-200 rounded-2xl shadow-sm">
+            <div className="space-y-0.5">
+              <h3 className="text-sm font-bold text-slate-800">
+                {language === 'bn' ? 'ডেলিভারি ম্যান তালিকা' : 'Delivery Agents / Men'}
+              </h3>
+              <p className="text-[11px] text-slate-400 font-semibold">
+                {language === 'bn' ? 'চালান ডেলিভারি এবং গাড়ি ও রুটের দায়িত্বপ্রাপ্ত ব্যক্তিবর্গ' : 'Field agents responsible for order deliveries and vehicle logistics'}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3 w-full sm:w-auto shrink-0">
+              <div className="relative w-full sm:w-48">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                <input
+                  type="text"
+                  value={dmSearch}
+                  onChange={e => setDmSearch(e.target.value)}
+                  placeholder={language === 'bn' ? 'অনুসন্ধান...' : 'Search...'}
+                  className="w-full h-9 pl-9 pr-3 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 outline-none focus:border-slate-450 focus:ring-2 focus:ring-slate-100 transition-all placeholder:text-slate-400 shadow-sm"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingDm(null);
+                  setDmName('');
+                  setDmVehicle('');
+                  setShowDmModal(true);
+                }}
+                className="inline-flex h-9 items-center gap-2 rounded-xl bg-slate-900 px-4 text-xs font-bold text-white hover:bg-slate-800 border border-slate-950 cursor-pointer transition-all active:scale-95 shadow-sm shrink-0"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                {language === 'bn' ? 'যোগ করুন' : 'Add Agent'}
+              </button>
+            </div>
+          </div>
+
+          {/* Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {deliveryMen
+              .filter(dm => {
+                const term = dmSearch.toLowerCase();
+                return dm.name.toLowerCase().includes(term) || (dm.vehicle && dm.vehicle.toLowerCase().includes(term));
+              })
+              .map((dm, index) => {
+                const initials = dm.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+
+                // Colors dynamically selected based on index
+                const colorGradients = [
+                  'from-orange-500 to-amber-600',
+                  'from-blue-500 to-indigo-600',
+                  'from-emerald-500 to-teal-600',
+                  'from-purple-500 to-pink-600',
+                  'from-rose-500 to-red-600'
+                ];
+                const gradient = colorGradients[index % colorGradients.length];
+
+                return (
+                  <div
+                    key={dm.id}
+                    className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm hover:shadow-md hover:border-slate-800 transition-all duration-300 flex items-center justify-between relative overflow-hidden group"
+                  >
+                    <div className="flex items-center gap-4 relative z-10">
+                      {/* Circle avatar initials */}
+                      <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${gradient} flex items-center justify-center font-bold text-white text-sm shadow-md`}>
+                        {initials}
+                      </div>
+
+                      <div className="space-y-0.5">
+                        <h4 className="font-bold text-slate-800 group-hover:text-slate-900 transition-colors text-sm sm:text-base leading-snug">
+                          {dm.name}
+                        </h4>
+                        <p className="text-xs text-slate-500 font-mono font-semibold">
+                          {dm.vehicle || (language === 'bn' ? 'কোনো বাহন নেই' : 'No Vehicle Assigned')}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-1 relative z-10 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingDm(dm);
+                          setDmName(dm.name);
+                          setDmVehicle(dm.vehicle || '');
+                          setShowDmModal(true);
+                        }}
+                        className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all border border-transparent hover:border-slate-200 cursor-pointer"
+                        title="Edit delivery agent"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteDm(dm.id)}
+                        className="p-2 text-rose-500 hover:text-rose-900 hover:bg-rose-50 rounded-xl transition-all border border-transparent hover:border-rose-100 cursor-pointer"
+                        title="Delete delivery agent"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
           </div>
         </div>
       )}
@@ -2792,6 +3228,53 @@ export default function DirectoryModule({
               <button type="button" onClick={() => setShowDamageModal(false)} className="px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 font-semibold cursor-pointer">{tCommon.cancel}</button>
               <button type="submit" className="px-4.5 py-2.5 rounded-lg bg-slate-900 text-white font-semibold hover:bg-slate-800 border border-slate-950 cursor-pointer shadow-sm">
                 {language === 'bn' ? 'সমন্বয় সম্পন্ন করুন' : 'Confirm Adjust'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+      {/* MODAL: Delivery Man Setup */}
+      {showDmModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <form onSubmit={handleDmSubmit} className="bg-white rounded-xl border border-slate-200 w-full max-w-md shadow-2xl flex flex-col justify-between overflow-hidden">
+            <div className="border-b border-slate-200 px-6 py-4 bg-slate-50 flex items-center justify-between">
+              <span className="font-semibold text-slate-800 text-sm flex items-center gap-1.5">
+                <Truck className="w-4.5 h-4.5 text-slate-750" />
+                {editingDm ? (language === 'bn' ? 'ডেলিভারি ম্যান তথ্য সংশোধন' : 'Edit Delivery Agent') : (language === 'bn' ? 'নতুন ডেলিভারি ম্যান যোগ করুন' : 'Add Delivery Agent')}
+              </span>
+              <button type="button" onClick={() => setShowDmModal(false)} className="text-slate-400 hover:text-slate-850">✕</button>
+            </div>
+
+            <div className="p-6 space-y-4 text-xs">
+              <div>
+                <label className="mb-2 block text-xs font-semibold text-slate-750">{language === 'bn' ? 'ডেলিভারি ম্যানের নাম *' : 'Delivery Agent Name *'}</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Sujon Mia"
+                  value={dmName}
+                  onChange={e => setDmName(e.target.value)}
+                  className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3.5 font-semibold outline-none focus:border-slate-800 focus:bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-xs font-semibold text-slate-750">{language === 'bn' ? 'যানবাহন বিবরণ (যেমনঃ Covered Van - ১২৩৪) *' : 'Vehicle Details (e.g. Covered Van - 1234) *'}</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Covered Van (Dhaka-Metro-1234)"
+                  value={dmVehicle}
+                  onChange={e => setDmVehicle(e.target.value)}
+                  className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3.5 font-semibold outline-none focus:border-slate-800 focus:bg-white"
+                />
+              </div>
+            </div>
+
+            <div className="border-t border-slate-200 px-6 py-4 flex items-center justify-end gap-2.5 bg-slate-50/50">
+              <button type="button" onClick={() => setShowDmModal(false)} className="px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-750 hover:bg-slate-50 font-semibold cursor-pointer">{tCommon.cancel}</button>
+              <button type="submit" className="px-4.5 py-2.5 rounded-lg bg-slate-900 text-white font-semibold hover:bg-slate-800 border border-slate-950 cursor-pointer shadow-sm">
+                {editingDm ? (language === 'bn' ? 'সংশোধন করুন' : 'Save Changes') : (language === 'bn' ? 'সংরক্ষণ করুন' : 'Save Agent')}
               </button>
             </div>
           </form>

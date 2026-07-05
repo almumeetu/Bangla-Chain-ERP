@@ -1,22 +1,12 @@
 'use client';
 
 import React, { useState, useCallback } from 'react';
-import { 
-  ShoppingBag, 
-  Trash2, 
-  Plus, 
-  User, 
-  Tag, 
-  CreditCard, 
-  Check, 
-  Search, 
-  TicketPercent, 
-  Truck,
-  Layers,
-  Sparkles,
-  Printer
+import {
+  ShoppingBag, Trash2, Plus, Check, Search,
+  TicketPercent, Sparkles, Printer, AlertTriangle,
+  Package, ChevronRight, Zap, User, Truck, MapPin
 } from 'lucide-react';
-import { Product, ProductAttribute, SR, Route, ChallanItem, DeliveryMan } from '../types';
+import { Product, ProductAttribute, SR, Route, ChallanItem, DeliveryMan, Category } from '../types';
 import { translations, Language } from '../translations';
 import { printSalesOrder, type SalesOrderData } from '../lib/printUtils';
 
@@ -28,6 +18,7 @@ interface SellModuleProps {
   routes: Route[];
   deliveryMen: DeliveryMan[];
   setChallans: React.Dispatch<React.SetStateAction<ChallanItem[]>>;
+  categories: Category[];
   onNavigate: (tab: any) => void;
   language: Language;
 }
@@ -39,7 +30,17 @@ interface CartItem {
   bonusQty: number;
 }
 
-// Subcomponent: Product Card inside Catalog Grid
+// ── Brand colour helpers ──────────────────────────────────────────────────────
+function getBrandTheme(company: string) {
+  const c = company.toLowerCase();
+  if (c.includes('pran'))   return { badge: 'bg-orange-100 text-orange-700 border-orange-300', bar: 'bg-orange-500',  ring: 'hover:border-orange-400 hover:shadow-orange-100', accent: 'text-orange-600', btn: 'bg-orange-500 hover:bg-orange-600' };
+  if (c.includes('olympic'))return { badge: 'bg-blue-100 text-blue-700 border-blue-300',     bar: 'bg-blue-500',    ring: 'hover:border-blue-400 hover:shadow-blue-100',   accent: 'text-blue-600',   btn: 'bg-blue-600 hover:bg-blue-700' };
+  if (c.includes('haque'))  return { badge: 'bg-emerald-100 text-emerald-700 border-emerald-300', bar: 'bg-emerald-500', ring: 'hover:border-emerald-400 hover:shadow-emerald-100', accent: 'text-emerald-600', btn: 'bg-emerald-600 hover:bg-emerald-700' };
+  if (c.includes('coca'))   return { badge: 'bg-red-100 text-red-700 border-red-300',         bar: 'bg-red-500',     ring: 'hover:border-red-400 hover:shadow-red-100',     accent: 'text-red-600',    btn: 'bg-red-600 hover:bg-red-700' };
+  return                           { badge: 'bg-purple-100 text-purple-700 border-purple-300', bar: 'bg-purple-500',  ring: 'hover:border-purple-400 hover:shadow-purple-100', accent: 'text-purple-600', btn: 'bg-purple-600 hover:bg-purple-700' };
+}
+
+// ── ProductCard ───────────────────────────────────────────────────────────────
 interface ProductCardProps {
   product: Product;
   onAddToCart: (p: Product, q?: number, b?: number) => void;
@@ -48,156 +49,137 @@ interface ProductCardProps {
 }
 
 function ProductCard({ product, onAddToCart, formatBDT, language }: ProductCardProps) {
-  const isLowStock = product.currentStock < 600;
+  const [qtyInput, setQtyInput]     = React.useState('20');
+  const [bonusInput, setBonusInput] = React.useState('0');
+  const theme     = getBrandTheme(product.company);
+  const isOut     = product.currentStock <= 0;
+  const isLow     = product.currentStock > 0 && product.currentStock < 600;
+  const stockPct  = Math.min(100, (product.currentStock / 5000) * 100);
 
-  const [qtyInput, setQtyInput] = React.useState('20');
-  const [bonusInput, setBonusInput] = React.useState('1');
-
-  const handleAddClick = useCallback(() => {
+  const handleAdd = useCallback(() => {
     const q = Number(qtyInput) || 0;
     const b = Number(bonusInput) || 0;
-    if (q <= 0) return;
+    if (q <= 0 || isOut) return;
     onAddToCart(product, q, b);
-  }, [product, onAddToCart, qtyInput, bonusInput]);
-
-  let brandStyle = "bg-purple-50 text-purple-700 border-purple-150";
-  if (product.company.toLowerCase() === 'pran') {
-    brandStyle = "bg-orange-50 text-orange-700 border-orange-150";
-  } else if (product.company.toLowerCase() === 'olympic') {
-    brandStyle = "bg-blue-50 text-blue-700 border-blue-150";
-  } else if (product.company.toLowerCase() === 'haque') {
-    brandStyle = "bg-emerald-50 text-emerald-700 border-emerald-150";
-  }
+  }, [product, onAddToCart, qtyInput, bonusInput, isOut]);
 
   return (
-    <div 
-      className="bg-white rounded-2xl p-4.5 border border-slate-200 hover:border-slate-800 hover:shadow-md transition-all duration-300 flex flex-col justify-between space-y-4 relative overflow-hidden group shadow-sm"
-    >
-      <div className="absolute -right-20 -top-20 w-36 h-36 rounded-full bg-slate-50 group-hover:bg-slate-100/50 transition-all duration-500 pointer-events-none" />
-      
-      <div className="space-y-2 relative z-10">
-        <div className="flex items-center justify-between">
-          <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold border uppercase tracking-wider ${brandStyle}`}>
-            {product.company}
-          </span>
-          <span className="font-mono text-[9px] font-bold text-slate-400 uppercase tracking-wide">
-            {product.sku}
-          </span>
+    <div className={`relative bg-white rounded-2xl border-2 border-slate-100 transition-all duration-200 shadow-sm hover:shadow-lg overflow-hidden flex flex-col ${isOut ? 'opacity-60' : theme.ring}`}>
+
+      {/* Top colour strip */}
+      <div className={`h-1.5 w-full ${theme.bar}`} />
+
+      {/* Out-of-stock ribbon */}
+      {isOut && (
+        <div className="absolute top-4 right-0 bg-slate-800 text-white text-[9px] font-black px-3 py-0.5 rounded-l-full uppercase tracking-widest shadow">
+          Out of Stock
         </div>
+      )}
 
-        <h4 className="font-bold text-slate-800 text-sm group-hover:text-slate-900 transition-colors line-clamp-1 leading-snug">
-          {product.name}
-        </h4>
-
-        {/* Pricing tag list */}
-        <div className="flex items-center gap-3 text-xs text-slate-500 font-semibold pt-0.5">
-          <div>
-            <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider block">{language === 'bn' ? 'ট্রেড মূল্য (TP)' : 'Trade Price (TP)'}</span>
-            <span className="font-mono text-xs font-bold text-slate-800">{formatBDT(product.defaultWSP)}</span>
-          </div>
-          <div className="h-6 w-px bg-slate-200" />
-          <div>
-            <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider block">{language === 'bn' ? 'এমআরপি (MRP)' : 'Retail Price (MRP)'}</span>
-            <span className="font-mono text-xs font-bold text-slate-650">{formatBDT(product.defaultMRP)}</span>
+      <div className="p-4 flex flex-col gap-3 flex-1">
+        {/* Header row */}
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-black border uppercase tracking-wider mb-1.5 ${theme.badge}`}>
+              {product.company}
+            </span>
+            <h4 className="font-black text-slate-900 text-sm leading-snug line-clamp-2">
+              {product.name}
+            </h4>
+            <p className="text-[10px] text-slate-400 font-mono mt-0.5">{product.sku}</p>
           </div>
         </div>
-      </div>
 
-      {/* Stock status indicator */}
-      <div className="space-y-1.5 pt-1 relative z-10">
-        <div className="flex items-center justify-between text-[10px] font-bold text-slate-500">
-          <span>Available Stock</span>
-          <span className={isLowStock ? "text-amber-600 animate-pulse font-extrabold" : "text-slate-700"}>
-            {product.currentStock} Units
-          </span>
-        </div>
-        <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-          <div 
-            style={{ width: `${Math.min(100, (product.currentStock / 5000) * 100)}%` }} 
-            className="h-full rounded-full transition-all duration-500 bg-emerald-500"
-          />
-        </div>
-      </div>
-
-      {/* Interactive Quick Add inputs & button for desktop operators */}
-      <div className="pt-3 border-t border-slate-100 space-y-2.5 relative z-10">
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <span className="text-[8.5px] text-slate-400 font-bold uppercase tracking-wider block mb-1">{language === 'bn' ? 'পরিমাণ (Qty)' : 'Qty'}</span>
-            <input
-              type="number"
-              min="1"
-              disabled={product.currentStock <= 0}
-              value={qtyInput}
-              onChange={e => setQtyInput(e.target.value)}
-              className="h-8 w-full rounded border border-slate-200 px-2 font-mono text-[11px] font-bold outline-none focus:border-slate-800 focus:bg-slate-50/30 transition-colors"
-            />
+        {/* Pricing row */}
+        <div className="flex items-center gap-3 bg-slate-50 rounded-xl px-3 py-2 border border-slate-100">
+          <div className="flex-1">
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">{language === 'bn' ? 'পাইকারি' : 'Trade (TP)'}</p>
+            <p className={`text-base font-black font-mono ${theme.accent}`}>{formatBDT(product.defaultWSP)}</p>
           </div>
-          <div>
-            <span className="text-[8.5px] text-slate-400 font-bold uppercase tracking-wider block mb-1">{language === 'bn' ? 'বোনাস (Bonus)' : 'Bonus'}</span>
-            <input
-              type="number"
-              min="0"
-              disabled={product.currentStock <= 0}
-              value={bonusInput}
-              onChange={e => setBonusInput(e.target.value)}
-              className="h-8 w-full rounded border border-slate-200 px-2 font-mono text-[11px] font-bold outline-none focus:border-slate-800 focus:bg-slate-50/30 transition-colors"
+          <div className="w-px h-8 bg-slate-200" />
+          <div className="flex-1 text-right">
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">{language === 'bn' ? 'এমআরপি' : 'MRP'}</p>
+            <p className="text-sm font-bold font-mono text-slate-500">{formatBDT(product.defaultMRP)}</p>
+          </div>
+        </div>
+
+        {/* Stock bar */}
+        <div className="space-y-1">
+          <div className="flex items-center justify-between">
+            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+              {isLow && <AlertTriangle className="w-3 h-3 text-amber-500" />}
+              {language === 'bn' ? 'স্টক' : 'Stock'}
+            </span>
+            <span className={`text-[11px] font-black font-mono ${isOut ? 'text-rose-500' : isLow ? 'text-amber-600' : 'text-slate-700'}`}>
+              {product.currentStock.toLocaleString()} {language === 'bn' ? 'পিস' : 'pcs'}
+            </span>
+          </div>
+          <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+            <div
+              style={{ width: `${stockPct}%` }}
+              className={`h-full rounded-full transition-all duration-500 ${theme.bar}`}
             />
           </div>
         </div>
 
-        {/* Preset increments & Calculated value */}
-        {product.currentStock > 0 && (
-          <div className="flex items-center justify-between text-[10px] text-slate-500 font-semibold bg-slate-50 p-1.5 rounded-lg border border-slate-150">
-            <div className="flex gap-1">
-              <button
-                type="button"
-                onClick={() => setQtyInput(prev => String((Number(prev) || 0) + 10))}
-                className="px-1.5 py-0.5 bg-white border border-slate-200 rounded text-[9px] hover:border-slate-800 transition-colors cursor-pointer"
-              >
-                +10
-              </button>
-              <button
-                type="button"
-                onClick={() => setQtyInput(prev => String((Number(prev) || 0) + 50))}
-                className="px-1.5 py-0.5 bg-white border border-slate-200 rounded text-[9px] hover:border-slate-800 transition-colors cursor-pointer"
-              >
-                +50
-              </button>
-              <button
-                type="button"
-                onClick={() => setQtyInput(prev => String((Number(prev) || 0) + 100))}
-                className="px-1.5 py-0.5 bg-white border border-slate-200 rounded text-[9px] hover:border-slate-800 transition-colors cursor-pointer"
-              >
-                +100
-              </button>
+        {/* Qty + Bonus inputs */}
+        {!isOut && (
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-[9px] font-black text-slate-500 uppercase tracking-wider block mb-1">{language === 'bn' ? 'পরিমাণ' : 'Qty'}</label>
+              <input
+                type="number" min="1"
+                value={qtyInput}
+                onChange={e => setQtyInput(e.target.value)}
+                className="h-9 w-full rounded-lg border-2 border-slate-200 px-2 font-black font-mono text-sm text-slate-800 outline-none focus:border-slate-700 text-center transition-colors"
+              />
             </div>
-            <div className="font-mono text-slate-700 font-bold">
-              ৳{((Number(qtyInput) || 0) * product.defaultWSP).toLocaleString('en-BD')}
+            <div>
+              <label className="text-[9px] font-black text-slate-500 uppercase tracking-wider block mb-1">{language === 'bn' ? 'বোনাস' : 'Bonus'}</label>
+              <input
+                type="number" min="0"
+                value={bonusInput}
+                onChange={e => setBonusInput(e.target.value)}
+                className="h-9 w-full rounded-lg border-2 border-slate-200 px-2 font-black font-mono text-sm text-slate-600 outline-none focus:border-slate-700 text-center transition-colors"
+              />
             </div>
           </div>
         )}
 
-        <button
-          id={`pos-add-to-cart-${product.id}`}
-          type="button"
-          onClick={handleAddClick}
-          disabled={product.currentStock <= 0}
-          className={`inline-flex h-9 items-center gap-1.5 rounded-xl px-4 text-xs font-bold transition-all active:scale-95 cursor-pointer w-full justify-center ${
-            product.currentStock <= 0 
-              ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200 font-bold' 
-              : 'bg-slate-900 hover:bg-slate-800 text-white border border-slate-955 shadow-sm font-bold'
-          }`}
-        >
-          <Plus className="w-3.5 h-3.5" />
-          {language === 'bn' ? 'অর্ডার যোগ করুন' : 'Add to Order'}
-        </button>
+        {/* Quick preset buttons */}
+        {!isOut && (
+          <div className="flex items-center justify-between gap-1">
+            <div className="flex gap-1">
+              {[10, 25, 50, 100].map(n => (
+                <button key={n} type="button"
+                  onClick={() => setQtyInput(p => String((Number(p) || 0) + n))}
+                  className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 text-[9px] font-black rounded-lg transition-colors cursor-pointer"
+                >+{n}</button>
+              ))}
+            </div>
+            <span className={`text-[11px] font-black font-mono ${theme.accent}`}>
+              {formatBDT((Number(qtyInput) || 0) * product.defaultWSP)}
+            </span>
+          </div>
+        )}
       </div>
+
+      {/* Add button — full width, flush bottom */}
+      <button
+        id={`pos-add-to-cart-${product.id}`}
+        type="button"
+        onClick={handleAdd}
+        disabled={isOut}
+        className={`w-full py-3 text-sm font-black tracking-wide flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer ${isOut ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : `${theme.btn} text-white shadow-md`}`}
+      >
+        <Plus className="w-4 h-4" />
+        {isOut ? (language === 'bn' ? 'স্টক নেই' : 'Out of Stock') : (language === 'bn' ? 'কার্টে যোগ' : 'Add to Cart')}
+      </button>
     </div>
   );
 }
 
-// Subcomponent: Cart Item row in Spot Sales Cart panel
+// ── CartItemRow ───────────────────────────────────────────────────────────────
 interface CartItemRowProps {
   item: CartItem;
   idx: number;
@@ -209,652 +191,503 @@ interface CartItemRowProps {
   onRemove: (idx: number) => void;
 }
 
-function CartItemRow({
-  item,
-  idx,
-  attributes,
-  formatBDT,
-  onUpdateSpec,
-  onUpdateQty,
-  onUpdateBonus,
-  onRemove
-}: CartItemRowProps) {
-  
-  const handleRemove = useCallback(() => {
-    onRemove(idx);
-  }, [idx, onRemove]);
+function CartItemRow({ item, idx, attributes, formatBDT, onUpdateSpec, onUpdateQty, onUpdateBonus, onRemove }: CartItemRowProps) {
+  const theme = getBrandTheme(item.product.company);
 
-  const handleSpecChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
-    onUpdateSpec(idx, e.target.value);
-  }, [idx, onUpdateSpec]);
+  const handleRemove      = useCallback(() => onRemove(idx), [idx, onRemove]);
+  const handleSpecChange  = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => onUpdateSpec(idx, e.target.value), [idx, onUpdateSpec]);
+  const handleQtyChange   = useCallback((e: React.ChangeEvent<HTMLInputElement>) => onUpdateQty(idx, Number(e.target.value)), [idx, onUpdateQty]);
+  const handleBonusChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => onUpdateBonus(idx, Number(e.target.value)), [idx, onUpdateBonus]);
+  const handleQtyDec      = useCallback(() => onUpdateQty(idx, Math.max(1, item.qty - 1)), [idx, item.qty, onUpdateQty]);
+  const handleQtyInc      = useCallback(() => onUpdateQty(idx, item.qty + 1), [idx, item.qty, onUpdateQty]);
 
-  const handleQtyDec = useCallback(() => {
-    onUpdateQty(idx, Math.max(1, item.qty - 10));
-  }, [idx, item.qty, onUpdateQty]);
-
-  const handleQtyInc = useCallback(() => {
-    onUpdateQty(idx, item.qty + 10);
-  }, [idx, item.qty, onUpdateQty]);
-
-  const handleQtyChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    onUpdateQty(idx, Number(e.target.value));
-  }, [idx, onUpdateQty]);
-
-  const handleAdd24 = useCallback(() => {
-    onUpdateQty(idx, item.qty + 24);
-  }, [idx, item.qty, onUpdateQty]);
-
-  const handleAdd48 = useCallback(() => {
-    onUpdateQty(idx, item.qty + 48);
-  }, [idx, item.qty, onUpdateQty]);
-
-  const handleAdd120 = useCallback(() => {
-    onUpdateQty(idx, item.qty + 120);
-  }, [idx, item.qty, onUpdateQty]);
-
-  const handleBonusChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    onUpdateBonus(idx, Number(e.target.value));
-  }, [idx, onUpdateBonus]);
+  const lineTotal = item.product.defaultWSP * item.qty;
 
   return (
-    <div className="flex flex-col gap-3 p-3.5 bg-slate-50/50 border border-slate-200 rounded-xl relative group transition-all duration-200 hover:bg-white hover:border-slate-300">
-      
-      {/* Top section: Product specs & Trash */}
-      <div className="flex justify-between items-start gap-4">
-        <div>
-          <h4 className="text-xs font-bold text-slate-800 pr-8 line-clamp-2 leading-tight">{item.product.name}</h4>
-          <p className="text-[10px] text-slate-400 font-mono mt-0.5">Rate: {formatBDT(item.product.defaultWSP)}</p>
-        </div>
-        <button
-          id={`pos-cart-remove-${idx}`}
-          type="button"
-          onClick={handleRemove}
-          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer shrink-0 border border-transparent hover:border-slate-200"
-          title="Remove item"
-        >
-          <Trash2 className="w-3.5 h-3.5" />
-        </button>
-      </div>
+    <div className="bg-white border-2 border-slate-100 rounded-2xl overflow-hidden hover:border-slate-200 transition-all">
+      {/* Colour top strip */}
+      <div className={`h-1 w-full ${theme.bar}`} />
 
-      {/* Bottom section: Interactive settings (Wider column layout for Spec selector to prevent text wrapping) */}
-      <div className="grid grid-cols-12 gap-3.5 items-start">
-        
-        {/* Spec Selector - Allocated 5 columns out of 12 for generous spacing */}
-        <div className="col-span-5 space-y-1">
-          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Spec</span>
-          <select
-            id={`pos-cart-${idx}-spec`}
-            value={item.selectedSpec}
-            onChange={handleSpecChange}
-            className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[11px] font-semibold text-slate-705 outline-none focus:border-slate-800 transition-colors"
-          >
-            {attributes.filter(a => a.status === 'Active').map(attr => (
-              <option key={attr.id} value={attr.name}>{attr.name}</option>
-            ))}
-          </select>
-        </div>
-
-        {/* Qty Input & Quick carton Presets - Allocated 4 columns */}
-        <div className="col-span-4 space-y-1">
-          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Qty (Units)</span>
-          <div className="flex items-center border border-slate-200 rounded-lg bg-white overflow-hidden h-8">
-            <button
-              id={`pos-cart-${idx}-qty-dec`}
-              type="button"
-              onClick={handleQtyDec}
-              className="px-2 py-1 bg-slate-50 text-slate-500 hover:bg-slate-100 text-xs font-semibold cursor-pointer"
-            >
-              -
-            </button>
-            <input
-              id={`pos-cart-${idx}-qty-val`}
-              type="number"
-              min="1"
-              value={item.qty}
-              onChange={handleQtyChange}
-              className="w-full text-center text-[11px] font-mono font-semibold text-slate-800 outline-none"
-            />
-            <button
-              id={`pos-cart-${idx}-qty-inc`}
-              type="button"
-              onClick={handleQtyInc}
-              className="px-2 py-1 bg-slate-50 text-slate-500 hover:bg-slate-100 text-xs font-semibold cursor-pointer"
-            >
-              +
-            </button>
+      <div className="p-3 space-y-2.5">
+        {/* Product name + remove */}
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-black text-slate-800 line-clamp-1">{item.product.name}</p>
+            <p className={`text-[10px] font-bold font-mono mt-0.5 ${theme.accent}`}>{formatBDT(item.product.defaultWSP)} / pc</p>
           </div>
-          {/* Quick case multipliers */}
-          <div className="flex items-center gap-0.5 mt-1 justify-end">
-            <button
-              type="button"
-              onClick={handleAdd24}
-              className="px-1 py-0.5 bg-slate-100 text-[8px] font-bold text-slate-650 rounded hover:bg-slate-200 cursor-pointer whitespace-nowrap"
-              title="Add 1 Case (24 units)"
-            >
-              +24
-            </button>
-            <button
-              type="button"
-              onClick={handleAdd48}
-              className="px-1 py-0.5 bg-slate-100 text-[8px] font-bold text-slate-655 rounded hover:bg-slate-200 cursor-pointer whitespace-nowrap"
-              title="Add 2 Cases (48 units)"
-            >
-              +48
-            </button>
-            <button
-              type="button"
-              onClick={handleAdd120}
-              className="px-1 py-0.5 bg-slate-100 text-[8px] font-bold text-slate-655 rounded hover:bg-slate-200 cursor-pointer whitespace-nowrap"
-              title="Add 5 Cases (120 units)"
-            >
-              +120
-            </button>
+          <button type="button" onClick={handleRemove}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer shrink-0">
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {/* Spec + Qty + Bonus row */}
+        <div className="grid grid-cols-12 gap-2 items-end">
+          {/* Spec */}
+          <div className="col-span-5 space-y-1">
+            <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Spec</label>
+            <select id={`pos-cart-${idx}-spec`} value={item.selectedSpec} onChange={handleSpecChange}
+              className="w-full h-8 rounded-lg border-2 border-slate-100 bg-slate-50 px-2 text-[11px] font-bold text-slate-700 outline-none focus:border-slate-400 cursor-pointer transition-colors">
+              {attributes.filter(a => a.status === 'Active').map(attr => (
+                <option key={attr.id} value={attr.name}>{attr.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Qty stepper */}
+          <div className="col-span-4 space-y-1">
+            <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Qty</label>
+            <div className="flex items-center h-8 border-2 border-slate-100 rounded-lg bg-slate-50 overflow-hidden">
+              <button id={`pos-cart-${idx}-qty-dec`} type="button" onClick={handleQtyDec}
+                className="w-7 h-full flex items-center justify-center text-slate-500 hover:bg-slate-200 font-black text-sm transition-colors cursor-pointer shrink-0">−</button>
+              <input id={`pos-cart-${idx}-qty-val`} type="number" min="1" value={item.qty} onChange={handleQtyChange}
+                className="flex-1 text-center text-xs font-black font-mono text-slate-800 outline-none bg-transparent" />
+              <button id={`pos-cart-${idx}-qty-inc`} type="button" onClick={handleQtyInc}
+                className="w-7 h-full flex items-center justify-center text-slate-500 hover:bg-slate-200 font-black text-sm transition-colors cursor-pointer shrink-0">+</button>
+            </div>
+          </div>
+
+          {/* Bonus */}
+          <div className="col-span-3 space-y-1">
+            <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Bonus</label>
+            <input id={`pos-cart-${idx}-bonus-val`} type="number" min="0" value={item.bonusQty} onChange={handleBonusChange}
+              className="w-full h-8 text-center rounded-lg border-2 border-slate-100 bg-slate-50 text-xs font-bold font-mono text-slate-600 outline-none focus:border-slate-400" />
           </div>
         </div>
 
-        {/* Bonus Input - Allocated 3 columns */}
-        <div className="col-span-3 space-y-1">
-          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Bonus</span>
-          <input
-            id={`pos-cart-${idx}-bonus-val`}
-            type="number"
-            min="0"
-            value={item.bonusQty}
-            onChange={handleBonusChange}
-            className="w-full text-center rounded-lg border border-slate-200 bg-white py-1 text-[11px] font-mono font-semibold outline-none focus:border-slate-800 h-8"
-          />
+        {/* Line total */}
+        <div className="flex items-center justify-between bg-slate-50 rounded-lg px-2.5 py-1.5">
+          <span className="text-[10px] text-slate-400 font-bold">{item.qty} × {formatBDT(item.product.defaultWSP)}</span>
+          <span className={`text-sm font-black font-mono ${theme.accent}`}>{formatBDT(lineTotal)}</span>
         </div>
-
       </div>
-
     </div>
   );
 }
 
+// ── Main SellModule ───────────────────────────────────────────────────────────
 export default function SellModule({
-  products,
-  setProducts,
-  attributes,
-  srs,
-  routes,
-  deliveryMen,
-  setChallans,
-  onNavigate,
-  language
+  products, setProducts, attributes, srs, routes, deliveryMen,
+  setChallans, categories, onNavigate, language
 }: SellModuleProps) {
-  // POS Cart State
-  const [cart, setCart] = useState<CartItem[]>([]);
+  const [cart, setCart]                         = useState<CartItem[]>([]);
+  const [lastOrder, setLastOrder]               = useState<SalesOrderData | null>(null);
+  const [searchQuery, setSearchQuery]           = useState('');
+  const [selectedCompany, setSelectedCompany]   = useState('All');
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [selectedStockFilter, setSelectedStockFilter] = useState('All');
+  const [discountPercent, setDiscountPercent]   = useState<number>(0);
 
-  // Last completed order — kept so user can reprint after checkout
-  const [lastOrder, setLastOrder] = useState<SalesOrderData | null>(null);
-
-  // Logistics states
   const [selectedSR, setSelectedSR] = useState(srs[0]?.name || '');
   const [selectedRoute, setSelectedRoute] = useState(() => {
-    const defaultSR = srs[0];
-    if (defaultSR) {
-      const activeRoute = routes.find(r => r.assignedSRId === defaultSR.id);
-      return activeRoute ? activeRoute.name : (routes[0]?.name || '');
+    const sr = srs[0];
+    if (sr) {
+      const r = routes.find(r => r.assignedSRId === sr.id);
+      return r ? r.name : (routes[0]?.name || '');
     }
     return routes[0]?.name || '';
   });
-  const [selectedDeliveryMan, setSelectedDeliveryMan] = useState(deliveryMen[0]?.name || '');
-  const [discountPercent, setDiscountPercent] = useState<number>(0);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCompany, setSelectedCompany] = useState('All');
-
-  // Extract unique companies dynamically from current products
-  const uniqueCompanies = Array.from(new Set(products.map(p => p.company).filter(Boolean)));
-
-  // Search & company filtered products
-  const filteredProducts = products.filter(p => {
-    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          p.sku.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCompany = selectedCompany === 'All' || p.company === selectedCompany;
-    return matchesSearch && matchesCompany;
+  const [selectedDeliveryMan, setSelectedDeliveryMan] = useState(() => {
+    const sr = srs[0];
+    const r  = sr ? routes.find(r => r.assignedSRId === sr.id) : null;
+    const rt = r || routes[0];
+    if (rt) {
+      const dm = deliveryMen.find(d => d.id === rt.assignedDeliveryManId);
+      if (dm) return dm.name;
+    }
+    return deliveryMen[0]?.name || '';
   });
 
-  // Core functions
+  const uniqueCompanies = Array.from(new Set(products.map(p => p.company).filter(Boolean)));
+
+  const filteredProducts = products.filter(p => {
+    const q = searchQuery.toLowerCase();
+    const matchSearch   = p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q);
+    const matchCompany  = selectedCompany === 'All'  || p.company === selectedCompany;
+    const matchCategory = selectedCategory === 'All' || p.categoryId === selectedCategory;
+    let   matchStock    = true;
+    if (selectedStockFilter === 'InStock')  matchStock = p.currentStock > 0;
+    if (selectedStockFilter === 'OutStock') matchStock = p.currentStock <= 0;
+    if (selectedStockFilter === 'LowStock') matchStock = p.currentStock > 0 && p.currentStock < 600;
+    return matchSearch && matchCompany && matchCategory && matchStock;
+  });
+
+  const formatBDT = useCallback((n: number) => `৳${n.toLocaleString('en-BD')}`, []);
+
   const handleAddToCart = useCallback((product: Product, customQty?: number, customBonus?: number) => {
-    const defaultSpec = attributes.filter(a => a.status === 'Active')[0]?.name || 'Size: 42';
-    
-    const existingIndex = cart.findIndex(
-      item => item.product.id === product.id && item.selectedSpec === defaultSpec
-    );
-
-    const qtyToAdd = customQty !== undefined ? customQty : 20;
-    const bonusToAdd = customBonus !== undefined ? customBonus : 1;
-
-    if (existingIndex > -1) {
-      setCart(prev => {
-        const updated = [...prev];
-        updated[existingIndex].qty += qtyToAdd;
-        updated[existingIndex].bonusQty += bonusToAdd;
-        return updated;
-      });
+    const defaultSpec = attributes.filter(a => a.status === 'Active')[0]?.name || 'Default';
+    const existingIdx = cart.findIndex(i => i.product.id === product.id && i.selectedSpec === defaultSpec);
+    const qty   = customQty   ?? 20;
+    const bonus = customBonus ?? 0;
+    if (existingIdx > -1) {
+      setCart(prev => { const u = [...prev]; u[existingIdx].qty += qty; u[existingIdx].bonusQty += bonus; return u; });
     } else {
-      setCart(prev => [
-        ...prev, 
-        {
-          product,
-          selectedSpec: defaultSpec,
-          qty: qtyToAdd,
-          bonusQty: bonusToAdd
-        }
-      ]);
+      setCart(prev => [...prev, { product, selectedSpec: defaultSpec, qty, bonusQty: bonus }]);
     }
   }, [cart, attributes]);
 
-  const handleUpdateQty = useCallback((index: number, newQty: number) => {
-    if (newQty < 1) return;
-    setCart(prev => {
-      const updated = [...prev];
-      updated[index].qty = newQty;
-      return updated;
-    });
-  }, []);
+  const handleUpdateQty   = useCallback((i: number, v: number) => { if (v < 1) return; setCart(p => { const u=[...p]; u[i].qty=v; return u; }); }, []);
+  const handleUpdateBonus = useCallback((i: number, v: number) => { if (v < 0) return; setCart(p => { const u=[...p]; u[i].bonusQty=v; return u; }); }, []);
+  const handleUpdateSpec  = useCallback((i: number, v: string) => { setCart(p => { const u=[...p]; u[i].selectedSpec=v; return u; }); }, []);
+  const handleRemoveFromCart = useCallback((i: number) => { setCart(p => p.filter((_, idx) => idx !== i)); }, []);
 
-  const handleUpdateBonus = useCallback((index: number, newBonus: number) => {
-    if (newBonus < 0) return;
-    setCart(prev => {
-      const updated = [...prev];
-      updated[index].bonusQty = newBonus;
-      return updated;
-    });
-  }, []);
+  const cartSubtotal = cart.reduce((s, i) => s + i.product.defaultWSP * i.qty, 0);
+  const discountAmt  = (cartSubtotal * discountPercent) / 100;
+  const netTotal     = cartSubtotal - discountAmt;
 
-  const handleUpdateSpec = useCallback((index: number, newSpec: string) => {
-    setCart(prev => {
-      const updated = [...prev];
-      updated[index].selectedSpec = newSpec;
-      return updated;
-    });
-  }, []);
+  const handleSRChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    const name = e.target.value;
+    setSelectedSR(name);
+    const sr = srs.find(s => s.name === name);
+    if (sr) {
+      const r = routes.find(r => r.assignedSRId === sr.id);
+      if (r) {
+        setSelectedRoute(r.name);
+        const dm = deliveryMen.find(d => d.id === r.assignedDeliveryManId);
+        if (dm) setSelectedDeliveryMan(dm.name);
+      }
+    }
+  }, [srs, routes, deliveryMen]);
 
-  const handleRemoveFromCart = useCallback((index: number) => {
-    setCart(prev => prev.filter((_, i) => i !== index));
-  }, []);
+  const handleRouteChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    const name = e.target.value;
+    setSelectedRoute(name);
+    const r = routes.find(r => r.name === name);
+    if (r) {
+      const sr = srs.find(s => s.id === r.assignedSRId);
+      if (sr) setSelectedSR(sr.name);
+      const dm = deliveryMen.find(d => d.id === r.assignedDeliveryManId);
+      if (dm) setSelectedDeliveryMan(dm.name);
+    }
+  }, [routes, srs, deliveryMen]);
 
-  // Cart Calculations
-  const cartSubtotal = cart.reduce((sum, item) => sum + (item.product.defaultWSP * item.qty), 0);
-  const discountAmt = (cartSubtotal * discountPercent) / 100;
-  const netTotal = cartSubtotal - discountAmt;
-
-  // Checkout Handler
   const handleCheckout = useCallback((e: React.FormEvent) => {
     e.preventDefault();
-    if (cart.length === 0) {
-      alert('Cart is empty! Choose products to dispatch.');
-      return;
-    }
-
+    if (cart.length === 0) { alert('Cart is empty!'); return; }
     for (const item of cart) {
-      const requiredQty = item.qty + item.bonusQty;
-      if (item.product.currentStock < requiredQty) {
-        alert(`Insufficient stock for "${item.product.name}"! Available: ${item.product.currentStock} Units, Requested: ${requiredQty} Units`);
+      const need = item.qty + item.bonusQty;
+      if (item.product.currentStock < need) {
+        alert(`Insufficient stock for "${item.product.name}"! Available: ${item.product.currentStock}, Requested: ${need}`);
         return;
       }
     }
-
-    setProducts(prevProducts => prevProducts.map(p => {
-      const cartItem = cart.find(item => item.product.id === p.id);
-      if (cartItem) {
-        return {
-          ...p,
-          currentStock: p.currentStock - (cartItem.qty + cartItem.bonusQty)
-        };
-      }
-      return p;
+    setProducts(prev => prev.map(p => {
+      const ci = cart.find(i => i.product.id === p.id);
+      return ci ? { ...p, currentStock: p.currentStock - (ci.qty + ci.bonusQty) } : p;
     }));
-
     const newChallans: ChallanItem[] = cart.map((item, idx) => {
       const finalPrice = (item.product.defaultWSP * item.qty) * (1 - discountPercent / 100);
-      const srObj = srs.find(s => s.name.toLowerCase() === selectedSR.toLowerCase());
-      const commissionRate = srObj ? srObj.commissionRate : 5;
-      const commissionAmount = finalPrice * (commissionRate / 100);
+      const srObj      = srs.find(s => s.name.toLowerCase() === selectedSR.toLowerCase());
+      const commission = finalPrice * ((srObj?.commissionRate ?? 5) / 100);
       return {
         id: `ch-${Date.now()}-${idx}`,
-        productName: item.product.name,
-        company: item.product.company,
-        attribute: item.selectedSpec,
-        qty: item.qty,
-        bonusQty: item.bonusQty,
-        totalQty: item.qty + item.bonusQty,
-        rate: item.product.defaultWSP,
-        totalAmount: finalPrice,
-        srName: selectedSR,
-        routeName: selectedRoute,
-        deliveryManName: selectedDeliveryMan,
-        status: 'Delivered',
-        returnedQty: 0,
-        damagedQty: 0,
-        commissionAmount,
+        productName: item.product.name, company: item.product.company,
+        attribute: item.selectedSpec, qty: item.qty, bonusQty: item.bonusQty,
+        totalQty: item.qty + item.bonusQty, rate: item.product.defaultWSP,
+        totalAmount: finalPrice, srName: selectedSR, routeName: selectedRoute,
+        deliveryManName: selectedDeliveryMan, status: 'Delivered',
+        returnedQty: 0, damagedQty: 0, commissionAmount: commission,
         createdAt: new Date().toISOString()
       };
     });
-
     setChallans(prev => [...newChallans, ...prev]);
-
-    // Build SalesOrderData for the print receipt before clearing cart
     const orderData: SalesOrderData = {
-      items: cart.map(item => ({
-        productName: item.product.name,
-        company:     item.product.company,
-        spec:        item.selectedSpec,
-        qty:         item.qty,
-        bonusQty:    item.bonusQty,
-        rate:        item.product.defaultWSP,
-        total:       (item.product.defaultWSP * item.qty) * (1 - discountPercent / 100),
-      })),
-      srName:      selectedSR,
-      routeName:   selectedRoute,
-      deliveryMan: selectedDeliveryMan,
-      discountPct: discountPercent,
-      subtotal:    cartSubtotal,
-      discountAmt,
-      netTotal,
-      orderIds:    newChallans.map(c => c.id),
+      items: cart.map(i => ({ productName: i.product.name, company: i.product.company, spec: i.selectedSpec, qty: i.qty, bonusQty: i.bonusQty, rate: i.product.defaultWSP, total: (i.product.defaultWSP * i.qty) * (1 - discountPercent / 100) })),
+      srName: selectedSR, routeName: selectedRoute, deliveryMan: selectedDeliveryMan,
+      discountPct: discountPercent, subtotal: cartSubtotal, discountAmt, netTotal,
+      orderIds: newChallans.map(c => c.id),
     };
     setLastOrder(orderData);
-
     setCart([]);
     setDiscountPercent(0);
-    alert('Spot checkout successful! Challan generated, stocks reduced, and financial ledgers synchronized.');
+    alert('Checkout successful! Challans generated and stock updated.');
     onNavigate('delivery');
   }, [cart, cartSubtotal, discountAmt, netTotal, selectedSR, selectedRoute, selectedDeliveryMan, discountPercent, setChallans, setProducts, onNavigate, srs]);
 
-  const handlePrintLastOrder = useCallback(() => {
-    if (lastOrder) printSalesOrder(lastOrder);
-  }, [lastOrder]);
+  const handlePrintLastOrder = useCallback(() => { if (lastOrder) printSalesOrder(lastOrder); }, [lastOrder]);
+  const handleSearchChange   = useCallback((e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value), []);
+  const handleDiscountChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => setDiscountPercent(Number(e.target.value)), []);
+  const handleDMChange       = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => setSelectedDeliveryMan(e.target.value), []);
+  const resetFilters = useCallback(() => { setSearchQuery(''); setSelectedCompany('All'); setSelectedCategory('All'); setSelectedStockFilter('All'); }, []);
+  const hasFilters = searchQuery || selectedCompany !== 'All' || selectedCategory !== 'All' || selectedStockFilter !== 'All';
 
-  const formatBDT = useCallback((amount: number) => {
-    return `৳${amount.toLocaleString('en-BD')}`;
-  }, []);
+  return (
+    <div className="space-y-5">
 
-  // UI Event Handlers (satisfying no anonymous DOM function requirement)
-  const handleSearchQueryChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value);
-  }, []);
-
-  const handleSRChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newSRName = e.target.value;
-    setSelectedSR(newSRName);
-    const sr = srs.find(s => s.name === newSRName);
-    if (sr) {
-      const activeRoute = routes.find(r => r.assignedSRId === sr.id);
-      setSelectedRoute(activeRoute ? activeRoute.name : (routes[0]?.name || ''));
-    }
-  }, [routes, srs]);
-
-  const handleRouteChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedRoute(e.target.value);
-  }, []);
-
-  const handleDiscountChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
-    setDiscountPercent(Number(e.target.value));
-  }, []);
-
-  const handleDeliveryManChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedDeliveryMan(e.target.value);
-  }, []);  return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Page Header - Consistent with Dashboard */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-2xl p-5 md:p-6 text-white border border-slate-800 shadow-md flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 relative overflow-hidden group">
-        <div className="absolute -right-20 -top-20 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="space-y-1 relative z-10">
-          <h2 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-            <ShoppingBag className="w-5.5 h-5.5 text-indigo-300" />
-            {translations[language].sell.title}
-          </h2>
-          <p className="text-slate-300 text-xs">{translations[language].sell.subtitle}</p>
+      {/* ── Page Header ─────────────────────────────────────────────────────── */}
+      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-2xl px-6 py-5 text-white border border-slate-800 shadow-lg flex items-center justify-between gap-4 relative overflow-hidden">
+        <div className="absolute -right-16 -top-16 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="flex items-center gap-3 relative z-10">
+          <div className="w-10 h-10 rounded-2xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center shrink-0">
+            <ShoppingBag className="w-5 h-5 text-indigo-300" />
+          </div>
+          <div>
+            <h2 className="text-lg font-black text-white tracking-tight">{translations[language].sell.title}</h2>
+            <p className="text-slate-400 text-xs">{translations[language].sell.subtitle}</p>
+          </div>
         </div>
-        {lastOrder && (
-          <button
-            type="button"
-            onClick={handlePrintLastOrder}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold transition-all text-xs border border-white/20 hover:border-white/30 cursor-pointer active:scale-95 shrink-0 z-10 relative"
-          >
-            <Printer className="w-4 h-4 text-indigo-300" />
-            {language === 'bn' ? 'শেষ অর্ডার প্রিন্ট করুন' : 'Print Last Order'}
-          </button>
-        )}
+        <div className="flex items-center gap-2 relative z-10">
+          {lastOrder && (
+            <button type="button" onClick={handlePrintLastOrder}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs border border-white/20 cursor-pointer active:scale-95 transition-all">
+              <Printer className="w-4 h-4 text-indigo-300" />
+              {language === 'bn' ? 'শেষ অর্ডার প্রিন্ট' : 'Print Last Order'}
+            </button>
+          )}
+          <div className="hidden sm:flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-3 py-2">
+            <Zap className="w-3.5 h-3.5 text-amber-400" />
+            <span className="text-[11px] font-bold text-white/80">{cart.length} {language === 'bn' ? 'আইটেম কার্টে' : 'in cart'}</span>
+          </div>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
-        {/* Product catalogue layout */}
+      {/* ── Main two-column POS layout ───────────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+
+        {/* ══ LEFT: Product Catalog ════════════════════════════════════════════ */}
         <div className="lg:col-span-7 space-y-4">
-          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
-            
-            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 border-b border-slate-100 pb-4">
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider shrink-0">
-                {translations[language].sidebar.productList}
-              </span>
-              
-              <div className="flex flex-wrap items-center gap-2.5 w-full xl:w-auto xl:justify-end">
-                {/* Company Filter Dropdown */}
-                <div className="relative w-full sm:w-auto min-w-[130px] shrink-0">
-                  <select
-                    value={selectedCompany}
-                    onChange={(e) => setSelectedCompany(e.target.value)}
-                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold outline-none focus:border-slate-800 transition-colors cursor-pointer"
-                  >
-                    <option value="All">{language === 'bn' ? 'সব কোম্পানি' : 'All Companies'}</option>
-                    {uniqueCompanies.map(c => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
-                </div>
 
-                {/* Search Input */}
-                <div className="relative w-full sm:w-44 shrink-0">
-                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    id="pos-search-input"
-                    type="text"
-                    placeholder={translations[language].common.search}
-                    value={searchQuery}
-                    onChange={handleSearchQueryChange}
-                    className="h-10 w-full rounded-lg border border-slate-200 bg-slate-55 pl-9 pr-4 text-xs font-semibold outline-none focus:border-slate-800 focus:bg-white transition-colors"
-                  />
-                </div>
+          {/* Filter bar */}
+          <div className="bg-white border-2 border-indigo-100 rounded-2xl p-4 shadow-sm space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-indigo-500 animate-ping" />
+                <span className="text-xs font-black text-indigo-700 uppercase tracking-wider">
+                  {language === 'bn' ? 'পণ্য ফিল্টার' : 'Product Filter'}
+                </span>
+                <span className="bg-indigo-100 text-indigo-700 text-[10px] font-black px-2 py-0.5 rounded-full font-mono">
+                  {filteredProducts.length}/{products.length}
+                </span>
+              </div>
+              {hasFilters && (
+                <button type="button" onClick={resetFilters}
+                  className="text-[10px] font-black text-rose-600 bg-rose-50 border border-rose-200 hover:bg-rose-100 px-2.5 py-1 rounded-full transition-colors cursor-pointer">
+                  ✕ Reset
+                </button>
+              )}
+            </div>
 
-                {/* Direct Add Select */}
-                <div className="relative w-full sm:w-56 shrink-0">
-                  <select
-                    value=""
-                    onChange={(e) => {
-                      const prodId = e.target.value;
-                      if (prodId) {
-                        const prod = products.find(p => p.id === prodId);
-                        if (prod) {
-                          handleAddToCart(prod);
-                        }
-                      }
-                    }}
-                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold outline-none focus:border-slate-800 transition-colors cursor-pointer"
-                  >
-                    <option value="" disabled>
-                      {language === 'bn' ? 'পণ্য সরাসরি যোগ' : 'Direct add product...'}
-                    </option>
-                    {filteredProducts.map(p => (
-                      <option key={p.id} value={p.id} disabled={p.currentStock <= 0}>
-                        {p.name} ({p.sku})
-                      </option>
-                    ))}
-                  </select>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {/* Search */}
+              <div className="col-span-2 sm:col-span-1 space-y-1">
+                <label className="text-[9px] font-black text-indigo-600 uppercase tracking-wider block">{language === 'bn' ? 'খুঁজুন' : 'Search'}</label>
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-indigo-400" />
+                  <input type="text" value={searchQuery} onChange={handleSearchChange}
+                    placeholder={language === 'bn' ? 'নাম / SKU...' : 'Name / SKU...'}
+                    className="h-9 w-full rounded-xl border-2 border-indigo-100 bg-indigo-50/40 pl-8 pr-2 text-xs font-bold text-slate-800 outline-none focus:border-indigo-400 focus:bg-white transition-all placeholder:text-slate-400" />
                 </div>
+              </div>
+
+              {/* Company */}
+              <div className="space-y-1">
+                <label className="text-[9px] font-black text-orange-600 uppercase tracking-wider block">{language === 'bn' ? 'কোম্পানি' : 'Company'}</label>
+                <select value={selectedCompany} onChange={e => setSelectedCompany(e.target.value)}
+                  className="h-9 w-full rounded-xl border-2 border-orange-100 bg-orange-50/40 px-2 text-xs font-bold text-orange-800 outline-none focus:border-orange-400 transition-all cursor-pointer">
+                  <option value="All">{language === 'bn' ? 'সকল' : 'All'}</option>
+                  {uniqueCompanies.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+
+              {/* Category */}
+              <div className="space-y-1">
+                <label className="text-[9px] font-black text-purple-600 uppercase tracking-wider block">{language === 'bn' ? 'ক্যাটাগরি' : 'Category'}</label>
+                <select value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)}
+                  className="h-9 w-full rounded-xl border-2 border-purple-100 bg-purple-50/40 px-2 text-xs font-bold text-purple-800 outline-none focus:border-purple-400 transition-all cursor-pointer">
+                  <option value="All">{language === 'bn' ? 'সকল' : 'All'}</option>
+                  {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+
+              {/* Stock */}
+              <div className="space-y-1">
+                <label className="text-[9px] font-black text-rose-600 uppercase tracking-wider block">{language === 'bn' ? 'স্টক' : 'Stock'}</label>
+                <select value={selectedStockFilter} onChange={e => setSelectedStockFilter(e.target.value)}
+                  className="h-9 w-full rounded-xl border-2 border-rose-100 bg-rose-50/40 px-2 text-xs font-bold text-rose-800 outline-none focus:border-rose-400 transition-all cursor-pointer">
+                  <option value="All">{language === 'bn' ? 'সকল' : 'All'}</option>
+                  <option value="InStock">{language === 'bn' ? 'আছে' : 'In Stock'}</option>
+                  <option value="OutStock">{language === 'bn' ? 'শেষ' : 'Out of Stock'}</option>
+                  <option value="LowStock">{language === 'bn' ? 'কম' : 'Low Stock'}</option>
+                </select>
               </div>
             </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[580px] overflow-y-auto pr-1 modal-body">
+            {/* Quick add dropdown */}
+            <div className="flex items-center gap-3 border-t-2 border-indigo-50 pt-3">
+              <div className="flex items-center gap-1.5 shrink-0">
+                <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                <span className="text-[10px] font-black text-indigo-600 uppercase tracking-wider">{language === 'bn' ? 'দ্রুত যোগ:' : 'Quick Add:'}</span>
+              </div>
+              <select value="" onChange={e => { const p = products.find(x => x.id === e.target.value); if (p) handleAddToCart(p); }}
+                className="flex-1 h-9 rounded-xl border-2 border-indigo-100 bg-white px-3 text-xs font-bold text-indigo-700 outline-none focus:border-indigo-400 transition-all cursor-pointer">
+                <option value="" disabled>{language === 'bn' ? 'পণ্য সরাসরি কার্টে...' : 'Select to add directly to cart...'}</option>
+                {filteredProducts.map(p => (
+                  <option key={p.id} value={p.id} disabled={p.currentStock <= 0}>
+                    {p.name} — {p.currentStock} {language === 'bn' ? 'পিস বাকি' : 'pcs'}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Product grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[640px] overflow-y-auto pr-1 modal-body">
             {filteredProducts.map(p => (
-              <ProductCard
-                key={p.id}
-                product={p}
-                onAddToCart={handleAddToCart}
-                formatBDT={formatBDT}
-                language={language}
-              />
+              <ProductCard key={p.id} product={p} onAddToCart={handleAddToCart} formatBDT={formatBDT} language={language} />
             ))}
             {filteredProducts.length === 0 && (
-              <div className="col-span-2 py-16 text-center text-slate-400 font-semibold text-xs">
-                {language === 'bn' ? 'কোনো পণ্য পাওয়া যায়নি।' : 'No products found.'}
+              <div className="col-span-2 py-20 flex flex-col items-center justify-center gap-3 text-slate-400">
+                <Package className="w-10 h-10 text-slate-300" />
+                <p className="text-sm font-bold">{language === 'bn' ? 'কোনো পণ্য পাওয়া যায়নি' : 'No products found'}</p>
+                <button type="button" onClick={resetFilters}
+                  className="text-xs font-bold text-indigo-600 hover:underline cursor-pointer">
+                  {language === 'bn' ? 'ফিল্টার রিসেট করুন' : 'Reset filters'}
+                </button>
               </div>
             )}
           </div>
         </div>
 
-      </div>
+        {/* ══ RIGHT: Cart & Checkout ════════════════════════════════════════════ */}
+        <div className="lg:col-span-5">
+          <form onSubmit={handleCheckout} className="bg-white rounded-2xl border-2 border-slate-100 shadow-lg overflow-hidden flex flex-col sticky top-4" style={{ maxHeight: 'calc(100vh - 120px)' }}>
 
-      {/* Cart & Checkout Panel (Right Column) */}
-      <div className="lg:col-span-5 space-y-4">
-        
-        <form onSubmit={handleCheckout} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-full min-h-[580px] justify-between">
-          
-          <div className="p-5 border-b border-slate-150 bg-slate-50/40 space-y-4.5 shrink-0">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                {language === 'bn' ? 'সক্রিয় কার্ট' : 'Active Cart'}
-              </span>
-              <span className="bg-slate-100 text-slate-800 text-[11px] font-semibold px-3 py-0.5 rounded-full border border-slate-200 shadow-sm">
-                {cart.length} {language === 'bn' ? 'টি পণ্য' : `item${cart.length !== 1 ? 's' : ''}`}
-              </span>
-            </div>
-
-            {/* Logistics mapping fields */}
-            <div className="grid grid-cols-2 gap-3.5">
-              <div>
-                <label className="mb-2 block text-xs font-semibold text-slate-700">{translations[language].challan.srSelectLabel}</label>
-                <select
-                  id="pos-form-sr"
-                  value={selectedSR}
-                  onChange={handleSRChange}
-                  className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold outline-none focus:border-slate-800 transition-colors"
-                >
-                  {srs.map(sr => (
-                    <option key={sr.id} value={sr.name}>{sr.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="mb-2 block text-xs font-semibold text-slate-700">{language === 'bn' ? 'মার্কেট / রুট *' : 'Market / Route *'}</label>
-                <select
-                  id="pos-form-route"
-                  value={selectedRoute}
-                  onChange={handleRouteChange}
-                  className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold outline-none focus:border-slate-800 transition-colors"
-                >
-                  {routes
-                    .filter(r => {
-                      const srObj = srs.find(s => s.name === selectedSR);
-                      return !srObj || r.assignedSRId === srObj.id;
-                    })
-                    .map(r => (
-                      <option key={r.id} value={r.name}>{r.name}</option>
-                    ))}
-                </select>
-              </div>
-            </div>
-          </div>
-
-          {/* Cart items list */}
-          <div className="flex-1 overflow-y-auto p-5 space-y-3.5 max-h-[300px] modal-body">
-            {cart.map((item, idx) => (
-              <CartItemRow
-                key={idx}
-                item={item}
-                idx={idx}
-                attributes={attributes}
-                formatBDT={formatBDT}
-                onUpdateSpec={handleUpdateSpec}
-                onUpdateQty={handleUpdateQty}
-                onUpdateBonus={handleUpdateBonus}
-                onRemove={handleRemoveFromCart}
-              />
-            ))}
-            {cart.length === 0 && (
-              <div className="py-16 text-center text-slate-400 text-xs font-semibold flex flex-col items-center justify-center gap-3">
-                <Sparkles className="w-8 h-8 text-slate-400 animate-pulse" />
-                <span className="max-w-[200px] leading-normal font-semibold">
-                  {language === 'bn' ? 'কার্ট লোড করতে পণ্যসমূহ নির্বাচন করুন।' : 'Choose products to load cart.'}
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* Calculations checkout footer */}
-          <div className="p-5 border-t border-slate-150 bg-slate-50/50 space-y-4 shrink-0">
-            <div className="space-y-2 text-xs">
-              <div className="flex justify-between text-slate-500 font-medium">
-                <span>{translations[language].procurement.subtotalItems}</span>
-                <span className="font-mono text-slate-705">{formatBDT(cartSubtotal)}</span>
-              </div>
-
-              {/* Discount selection */}
-              <div className="flex items-center justify-between text-slate-500 font-medium">
-                <span className="flex items-center gap-1.5">
-                  <TicketPercent className="w-4 h-4 text-slate-500" />
-                  {translations[language].procurement.colDiscType}:
-                </span>
-                <select
-                  id="pos-discount-select"
-                  value={discountPercent}
-                  onChange={handleDiscountChange}
-                  className="rounded-lg border border-slate-200 px-2 py-1 bg-white text-[11px] font-mono font-semibold text-slate-800 outline-none focus:border-blue-500"
-                >
-                  <option value={0}>0% {language === 'bn' ? 'ছাড়' : 'Discount'}</option>
-                  <option value={5}>5% {language === 'bn' ? 'ছাড়' : 'Flat Off'}</option>
-                  <option value={10}>10% {language === 'bn' ? 'বিশেষ ছাড়' : 'Special Off'}</option>
-                  <option value={15}>15% {language === 'bn' ? 'রমজান অফার' : 'Ramadan Promo'}</option>
-                  <option value={20}>20% {language === 'bn' ? 'ডিস্ট্রিবিউটর ছাড়' : 'Distributor Off'}</option>
-                </select>
-              </div>
-
-              <div className="flex justify-between text-slate-500 font-medium">
-                <span>{translations[language].procurement.colDiscVal}:</span>
-                <span className="font-mono text-rose-600 font-semibold">-{formatBDT(discountAmt)}</span>
-              </div>
-
+            {/* Cart header */}
+            <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 px-5 py-4 shrink-0">
               <div className="flex items-center justify-between">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{translations[language].challan.deliverySelectLabel}</label>
-                <select
-                  id="pos-form-delivery"
-                  value={selectedDeliveryMan}
-                  onChange={handleDeliveryManChange}
-                  className="rounded-lg border border-slate-200 px-2 py-1 bg-white text-[11px] font-sans font-semibold text-slate-800 max-w-[170px] outline-none focus:border-slate-550"
-                >
-                  {deliveryMen.map(dm => (
-                    <option key={dm.id} value={dm.name}>{dm.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="border-t border-slate-200/80 pt-3 flex justify-between items-center">
-                <span className="font-semibold text-slate-800 text-sm">{translations[language].challan.aggregateBillable}:</span>
-                <span className="text-xl font-semibold text-emerald-600 font-mono">{formatBDT(netTotal)}</span>
+                <div className="flex items-center gap-2.5">
+                  <ShoppingBag className="w-5 h-5 text-indigo-300" />
+                  <div>
+                    <p className="text-sm font-black text-white">{language === 'bn' ? 'বিক্রয় কার্ট' : 'Sales Cart'}</p>
+                    <p className="text-[10px] text-slate-400">{language === 'bn' ? 'পণ্য যোগ করুন, তারপর চেকআউট করুন' : 'Add products then checkout'}</p>
+                  </div>
+                </div>
+                <span className={`text-xs font-black px-3 py-1 rounded-full border ${cart.length > 0 ? 'bg-indigo-500 text-white border-indigo-400' : 'bg-white/10 text-white/50 border-white/20'}`}>
+                  {cart.length} {language === 'bn' ? 'টি' : `item${cart.length !== 1 ? 's' : ''}`}
+                </span>
               </div>
             </div>
 
-            <button
-              id="pos-btn-checkout"
-              type="submit"
-              disabled={cart.length === 0}
-              className={`w-full py-3.5 rounded-lg text-xs font-semibold transition-all text-center flex items-center justify-center gap-2 shadow-lg cursor-pointer ${
-                cart.length === 0 
-                  ? 'bg-slate-205 text-slate-400 cursor-not-allowed border border-slate-200' 
-                  : 'bg-slate-900 hover:bg-slate-800 text-white border border-slate-950 active:scale-95'
-              }`}
-            >
-              <Check className="w-4 h-4" />
-              {translations[language].challan.dispatchBtn}
-            </button>
-          </div>
+            {/* Logistics row */}
+            <div className="px-4 py-3 bg-slate-50 border-b-2 border-slate-100 shrink-0">
+              <div className="grid grid-cols-2 gap-2.5">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-purple-600 uppercase tracking-wider flex items-center gap-1">
+                    <User className="w-3 h-3" />{translations[language].challan.srSelectLabel}
+                  </label>
+                  <select id="pos-form-sr" value={selectedSR} onChange={handleSRChange}
+                    className="h-9 w-full rounded-xl border-2 border-purple-100 bg-white px-2 text-xs font-bold text-purple-800 outline-none focus:border-purple-400 cursor-pointer transition-all">
+                    {srs.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-blue-600 uppercase tracking-wider flex items-center gap-1">
+                    <MapPin className="w-3 h-3" />{language === 'bn' ? 'রুট / মার্কেট' : 'Route / Market'}
+                  </label>
+                  <select id="pos-form-route" value={selectedRoute} onChange={handleRouteChange}
+                    className="h-9 w-full rounded-xl border-2 border-blue-100 bg-white px-2 text-xs font-bold text-blue-800 outline-none focus:border-blue-400 cursor-pointer transition-all">
+                    {routes.filter(r => { const sr = srs.find(s => s.name === selectedSR); return !sr || r.assignedSRId === sr.id; })
+                      .map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
+                  </select>
+                </div>
+              </div>
+            </div>
 
-        </form>
+            {/* Cart items */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 modal-body min-h-[180px]">
+              {cart.length === 0 ? (
+                <div className="flex flex-col items-center justify-center gap-3 py-12 text-slate-400">
+                  <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center">
+                    <ShoppingBag className="w-7 h-7 text-slate-300" />
+                  </div>
+                  <p className="text-sm font-bold">{language === 'bn' ? 'কার্ট খালি আছে' : 'Cart is empty'}</p>
+                  <p className="text-xs text-center max-w-[180px] leading-relaxed">
+                    {language === 'bn' ? 'বাম দিক থেকে পণ্য বেছে নিন' : 'Pick products from the left catalog'}
+                  </p>
+                </div>
+              ) : (
+                cart.map((item, idx) => (
+                  <CartItemRow key={idx} item={item} idx={idx} attributes={attributes}
+                    formatBDT={formatBDT} onUpdateSpec={handleUpdateSpec}
+                    onUpdateQty={handleUpdateQty} onUpdateBonus={handleUpdateBonus}
+                    onRemove={handleRemoveFromCart} />
+                ))
+              )}
+            </div>
+
+            {/* Order summary + checkout */}
+            <div className="border-t-2 border-slate-100 bg-slate-50 px-4 py-4 space-y-3 shrink-0">
+
+              {/* Subtotal */}
+              <div className="space-y-1.5 text-xs">
+                <div className="flex justify-between text-slate-500 font-semibold">
+                  <span>{translations[language].procurement.subtotalItems}</span>
+                  <span className="font-mono font-bold text-slate-700">{formatBDT(cartSubtotal)}</span>
+                </div>
+
+                {/* Discount + delivery row */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-0.5">
+                    <label className="text-[9px] font-black text-amber-600 uppercase tracking-wider flex items-center gap-1">
+                      <TicketPercent className="w-3 h-3" />{language === 'bn' ? 'ছাড়' : 'Discount'}
+                    </label>
+                    <select id="pos-discount-select" value={discountPercent} onChange={handleDiscountChange}
+                      className="h-8 w-full rounded-lg border-2 border-amber-100 bg-white px-2 text-xs font-bold text-amber-700 outline-none focus:border-amber-400 cursor-pointer">
+                      <option value={0}>0%</option>
+                      <option value={5}>5%</option>
+                      <option value={10}>10%</option>
+                      <option value={15}>15%</option>
+                      <option value={20}>20%</option>
+                    </select>
+                  </div>
+                  <div className="space-y-0.5">
+                    <label className="text-[9px] font-black text-rose-600 uppercase tracking-wider flex items-center gap-1">
+                      <Truck className="w-3 h-3" />{translations[language].challan.deliverySelectLabel}
+                    </label>
+                    <select id="pos-form-delivery" value={selectedDeliveryMan} onChange={handleDMChange}
+                      className="h-8 w-full rounded-lg border-2 border-rose-100 bg-white px-2 text-xs font-bold text-rose-700 outline-none focus:border-rose-400 cursor-pointer">
+                      {deliveryMen.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                {discountAmt > 0 && (
+                  <div className="flex justify-between text-rose-600 font-semibold">
+                    <span>{translations[language].procurement.colDiscVal} ({discountPercent}%)</span>
+                    <span className="font-mono">−{formatBDT(discountAmt)}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Net total */}
+              <div className="bg-gradient-to-r from-slate-900 to-indigo-900 rounded-xl px-4 py-3 flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{language === 'bn' ? 'মোট বিল' : 'Net Total'}</p>
+                  <p className="text-2xl font-black font-mono text-white">{formatBDT(netTotal)}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{language === 'bn' ? 'আইটেম' : 'Items'}</p>
+                  <p className="text-xl font-black text-indigo-300">{cart.length}</p>
+                </div>
+              </div>
+
+              {/* Checkout button */}
+              <button id="pos-btn-checkout" type="submit" disabled={cart.length === 0}
+                className={`w-full py-4 rounded-xl text-sm font-black tracking-wide flex items-center justify-center gap-2.5 transition-all shadow-lg cursor-pointer active:scale-[0.98] ${
+                  cart.length === 0
+                    ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                    : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-200'
+                }`}>
+                <Check className="w-5 h-5" />
+                {translations[language].challan.dispatchBtn}
+                {cart.length > 0 && <ChevronRight className="w-4 h-4 opacity-70" />}
+              </button>
+            </div>
+
+          </form>
+        </div>
+
       </div>
-    </div>
     </div>
   );
 }

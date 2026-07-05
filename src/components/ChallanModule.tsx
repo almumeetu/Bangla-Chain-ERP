@@ -372,22 +372,25 @@ export default function ChallanModule({
       </div>
 
       {/* Filter Engine Form */}
-      <form onSubmit={handleSearch} className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm space-y-6">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-          <h3 className="text-xs font-semibold text-slate-705 tracking-wider uppercase">{tChallan.filterTitle}</h3>
-          <span className="text-[11px] text-slate-400 font-semibold uppercase">Dynamic Search</span>
+      <form onSubmit={handleSearch} className="bg-indigo-50/30 border border-indigo-200 rounded-3xl p-6 shadow-sm space-y-6">
+        <div className="flex items-center justify-between border-b border-indigo-200 pb-3">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-ping shrink-0" />
+            <h3 className="text-xs font-bold text-indigo-705 tracking-wider uppercase">{tChallan.filterTitle}</h3>
+          </div>
+          <span className="text-[10px] bg-indigo-100 text-indigo-700 font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider font-mono">Dynamic Search</span>
         </div>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
           
           {/* SR Dropdown */}
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-slate-700">{tChallan.srLabel}</label>
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-purple-600 uppercase tracking-wider block">{tChallan.srLabel}</label>
             <select
               id="filter-sr-select"
               value={filterSR}
               onChange={(e) => setFilterSR(e.target.value)}
-              className="h-11 w-full rounded-lg border-2 border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all"
+              className="h-10 w-full rounded-xl border border-purple-200 bg-purple-50/10 px-3 text-xs font-bold text-purple-855 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100 transition-all cursor-pointer shadow-sm"
             >
               <option value="">{tChallan.allSr}</option>
               {srs.map(sr => (
@@ -397,13 +400,13 @@ export default function ChallanModule({
           </div>
 
           {/* Route Beat Dropdown */}
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-slate-700">{language === 'bn' ? 'মার্কেট / রুট' : 'Market / Route'}</label>
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-blue-600 uppercase tracking-wider block">{language === 'bn' ? 'মার্কেট / রুট:' : 'Market / Route:'}</label>
             <select
               id="filter-route-select"
               value={filterRoute}
               onChange={(e) => setFilterRoute(e.target.value)}
-              className="h-11 w-full rounded-lg border-2 border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all"
+              className="h-10 w-full rounded-xl border border-blue-200 bg-blue-50/10 px-3 text-xs font-bold text-blue-855 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all cursor-pointer shadow-sm"
             >
               <option value="">{language === 'bn' ? 'সব মার্কেট' : 'All Markets'}</option>
               {routes.map(r => (
@@ -413,13 +416,13 @@ export default function ChallanModule({
           </div>
 
           {/* Delivery Man Dropdown */}
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-slate-700">{tChallan.deliveryLabel}</label>
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-rose-600 uppercase tracking-wider block">{tChallan.deliveryLabel}</label>
             <select
               id="filter-delivery-select"
               value={filterDeliveryMan}
               onChange={(e) => setFilterDeliveryMan(e.target.value)}
-              className="h-11 w-full rounded-lg border-2 border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all"
+              className="h-10 w-full rounded-xl border border-rose-200 bg-rose-50/10 px-3 text-xs font-bold text-rose-855 outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100 transition-all cursor-pointer shadow-sm"
             >
               <option value="">{tChallan.allDelivery}</option>
               {deliveryMen.map(dm => (
@@ -429,13 +432,13 @@ export default function ChallanModule({
           </div>
 
           {/* Status Dropdown */}
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-slate-700">{tChallan.statusLabel}</label>
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-amber-600 uppercase tracking-wider block">{tChallan.statusLabel}</label>
             <select
               id="filter-status-select"
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="h-11 w-full rounded-lg border-2 border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all"
+              className="h-10 w-full rounded-xl border border-amber-200 bg-amber-50/10 px-3 text-xs font-bold text-amber-855 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100 transition-all cursor-pointer shadow-sm"
             >
               <option value="">{tChallan.allStatus}</option>
               <option value="Pending">{tCommon.pending}</option>
@@ -445,17 +448,17 @@ export default function ChallanModule({
           </div>
 
           {/* Keyword Search */}
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-slate-700">{tChallan.keywordLabel}</label>
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider block">{tChallan.keywordLabel}</label>
             <div className="relative">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <Search className="w-3.5 h-3.5 text-indigo-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 id="filter-keyword-input"
                 type="text"
                 placeholder={tCommon.search}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-11 w-full rounded-lg border-2 border-slate-200 bg-white pl-9 pr-4 text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all"
+                className="h-10 w-full rounded-xl border border-indigo-200 bg-white pl-9 pr-4 text-xs font-bold text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all shadow-sm"
               />
             </div>
           </div>
@@ -463,12 +466,12 @@ export default function ChallanModule({
         </div>
 
         {/* Action buttons inside filter card */}
-        <div className="flex items-center justify-end gap-3 border-t border-slate-100 pt-4">
+        <div className="flex items-center justify-end gap-3 border-t border-indigo-200 pt-4">
           <button
             id="filter-btn-reset"
             type="button"
             onClick={handleReset}
-            className="h-11 rounded-lg border-2 border-slate-200 bg-white px-5 text-sm font-semibold text-slate-650 hover:bg-slate-50 hover:border-slate-300 transition-all flex items-center gap-1.5 cursor-pointer"
+            className="h-9 rounded-xl border border-indigo-200 bg-white px-4 text-xs font-bold text-indigo-700 hover:bg-indigo-50 hover:border-indigo-300 transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
           >
             <RotateCcw className="w-3.5 h-3.5" />
             {tChallan.resetFilters}
@@ -477,7 +480,7 @@ export default function ChallanModule({
           <button
             id="filter-btn-submit"
             type="submit"
-            className="inline-flex h-11 items-center gap-2 rounded-lg bg-slate-900 px-5 text-sm font-semibold text-white hover:bg-slate-800 transition-all shrink-0 cursor-pointer border border-slate-950"
+            className="inline-flex h-9 items-center gap-2 rounded-xl bg-indigo-650 px-4 text-xs font-bold text-white hover:bg-indigo-700 transition-all shrink-0 cursor-pointer border border-indigo-750 shadow-sm"
           >
             <Search className="w-4 h-4 text-white" />
             {tChallan.querySheet}
@@ -487,7 +490,7 @@ export default function ChallanModule({
 
       {/* Table Section */}
       <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm hover:shadow-md hover:border-slate-850 transition-all duration-300">
-        <div className="px-6 py-5 border-b border-slate-150 flex items-center justify-between bg-slate-50/50">
+        <div className="px-6 py-5 border-b border-slate-200 flex items-center justify-between bg-slate-50/50">
           <h4 className="font-extrabold text-slate-800 text-sm tracking-tight">{tChallan.tableTitle}</h4>
           <span className="bg-slate-900 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm">
             {tChallan.recordsFound.replace('{count}', String(filteredChallans.length))}
@@ -580,7 +583,7 @@ export default function ChallanModule({
                         <button
                           id={`challan-action-edit-${c.id}`}
                           onClick={() => handleOpenEditModal(c)}
-                          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-indigo-150 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 cursor-pointer shadow-sm active:scale-95 transition-all"
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 cursor-pointer shadow-sm active:scale-95 transition-all"
                           title={language === 'bn' ? 'সম্পাদনা করুন' : 'Edit Order'}
                         >
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -809,7 +812,21 @@ export default function ChallanModule({
                   id="new-challan-route-select"
                   required
                   value={newRoute}
-                  onChange={(e) => setNewRoute(e.target.value)}
+                  onChange={(e) => {
+                    const routeName = e.target.value;
+                    setNewRoute(routeName);
+                    const routeObj = routes.find(r => r.name === routeName);
+                    if (routeObj) {
+                      const srObj = srs.find(s => s.id === routeObj.assignedSRId);
+                      if (srObj) {
+                        setNewSR(srObj.name);
+                      }
+                      const dmObj = deliveryMen.find(dm => dm.id === routeObj.assignedDeliveryManId);
+                      if (dmObj) {
+                        setNewDeliveryMan(dmObj.name);
+                      }
+                    }
+                  }}
                   className="h-11 w-full rounded-lg border-2 border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all"
                 >
                   <option value="">{language === 'bn' ? 'মার্কেট / রুট নির্বাচন করুন' : 'Select Market / Route'}</option>
@@ -1024,7 +1041,7 @@ export default function ChallanModule({
                     required
                     value={editQty}
                     onChange={(e) => setEditQty(Number(e.target.value))}
-                    className="h-10 w-full rounded-lg border border-slate-250 bg-white px-3 text-sm font-semibold outline-none transition-colors focus:border-blue-500"
+                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition-colors focus:border-blue-500"
                   />
                 </div>
                 <div>
@@ -1036,7 +1053,7 @@ export default function ChallanModule({
                     required
                     value={editBonusQty}
                     onChange={(e) => setEditBonusQty(Number(e.target.value))}
-                    className="h-10 w-full rounded-lg border border-slate-250 bg-white px-3 text-sm font-semibold outline-none transition-colors focus:border-blue-500"
+                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition-colors focus:border-blue-500"
                   />
                 </div>
                 <div>
@@ -1048,7 +1065,7 @@ export default function ChallanModule({
                     required
                     value={editRate}
                     onChange={(e) => setEditRate(Number(e.target.value))}
-                    className="h-10 w-full rounded-lg border border-slate-250 bg-white px-3 text-sm font-semibold outline-none transition-colors focus:border-blue-500"
+                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition-colors focus:border-blue-500"
                   />
                 </div>
               </div>
@@ -1087,7 +1104,7 @@ export default function ChallanModule({
                     id="edit-challan-sr-select"
                     value={editSR}
                     onChange={(e) => setEditSR(e.target.value)}
-                    className="h-10 w-full rounded-lg border border-slate-250 bg-white px-3 text-xs font-semibold outline-none focus:border-blue-500 transition-colors"
+                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold outline-none focus:border-blue-500 transition-colors"
                   >
                     {srs.map(sr => (
                       <option key={sr.id} value={sr.name}>{sr.name}</option>
@@ -1099,8 +1116,22 @@ export default function ChallanModule({
                   <select
                     id="edit-challan-route-select"
                     value={editRoute}
-                    onChange={(e) => setEditRoute(e.target.value)}
-                    className="h-10 w-full rounded-lg border border-slate-250 bg-white px-3 text-xs font-semibold outline-none focus:border-blue-500 transition-colors"
+                    onChange={(e) => {
+                      const routeName = e.target.value;
+                      setEditRoute(routeName);
+                      const routeObj = routes.find(r => r.name === routeName);
+                      if (routeObj) {
+                        const srObj = srs.find(s => s.id === routeObj.assignedSRId);
+                        if (srObj) {
+                          setEditSR(srObj.name);
+                        }
+                        const dmObj = deliveryMen.find(dm => dm.id === routeObj.assignedDeliveryManId);
+                        if (dmObj) {
+                          setEditDeliveryMan(dmObj.name);
+                        }
+                      }
+                    }}
+                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold outline-none focus:border-blue-500 transition-colors"
                   >
                     {routes.map(r => (
                       <option key={r.id} value={r.name}>{r.name}</option>
@@ -1113,7 +1144,7 @@ export default function ChallanModule({
                     id="edit-challan-delivery-select"
                     value={editDeliveryMan}
                     onChange={(e) => setEditDeliveryMan(e.target.value)}
-                    className="h-10 w-full rounded-lg border border-slate-250 bg-white px-3 text-xs font-semibold outline-none focus:border-blue-500 transition-colors"
+                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold outline-none focus:border-blue-500 transition-colors"
                   >
                     {deliveryMen.map(dm => (
                       <option key={dm.id} value={dm.name}>{dm.name}</option>
@@ -1129,7 +1160,7 @@ export default function ChallanModule({
                   id="edit-challan-status"
                   value={editStatus}
                   onChange={(e: any) => setEditStatus(e.target.value)}
-                  className="h-10 w-full rounded-lg border border-slate-250 bg-white px-3 text-xs font-semibold outline-none focus:border-blue-500 transition-colors"
+                  className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold outline-none focus:border-blue-500 transition-colors"
                 >
                   <option value="Pending">Pending</option>
                   <option value="Shipped">Shipped</option>

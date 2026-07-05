@@ -33,6 +33,7 @@ export interface Route {
   area: string;
   territory: string;
   assignedSRId?: string; // Mapped SR
+  assignedDeliveryManId?: string; // Mapped Delivery Man
 }
 
 export interface SR {

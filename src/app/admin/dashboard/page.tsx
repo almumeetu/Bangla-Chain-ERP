@@ -156,6 +156,7 @@ export default function App() {
   const directoryBaseProps = {
     products:          db.products,          setProducts:          db.syncProducts,
     srs:               db.srs,               setSrs:               db.syncSrs,
+    deliveryMen:       db.deliveryMen,       setDeliveryMen:       db.syncDeliveryMen,
     customers:         db.customers,         setCustomers:         db.syncCustomers as any,
     companies:         db.companies,         setCompanies:         db.syncCompanies,
     productCategories: db.productCategories, setProductCategories: db.syncProductCategories,
@@ -179,6 +180,7 @@ export default function App() {
         <SellModule products={db.products} setProducts={db.syncProducts}
           attributes={db.attributes} srs={db.srs} routes={db.routes}
           deliveryMen={db.deliveryMen} setChallans={db.syncChallans}
+          categories={db.productCategories}
           onNavigate={handleNavigate} language={language} />
       );
       case 'delivery': return (
@@ -189,7 +191,8 @@ export default function App() {
       case 'stock': return (
         <StockAdjustmentModule attributes={db.attributes} setAttributes={db.syncAttributes}
           adjustments={db.adjustments} setAdjustments={db.syncAdjustments}
-          products={db.products} setProducts={db.syncProducts} language={language} />
+          products={db.products} setProducts={db.syncProducts}
+          categories={db.productCategories} language={language} />
       );
       case 'purchase': return (
         <ProcurementModule procurements={db.procurements} setProcurements={db.syncProcurements}
@@ -213,9 +216,9 @@ export default function App() {
       );
       case 'routes': return (
         <DirectoryModule key="routes" {...directoryBaseProps}
-          defaultTab="routes" visibleTabs={['routes', 'srs']}
-          pageTitle={language === 'bn' ? 'ডেলিভারি রুট ও এসআর' : 'Delivery Routes & SRs'}
-          pageSubtitle={language === 'bn' ? 'রুট ম্যাপ ও SR তালিকা' : 'Manage routes and Sales Officers'} />
+          defaultTab="routes" visibleTabs={['routes', 'srs', 'deliveryMen']}
+          pageTitle={language === 'bn' ? 'ডেলিভারি রুট, এসআর ও ডেলিভারি ম্যান' : 'Delivery Routes, SRs & Delivery Men'}
+          pageSubtitle={language === 'bn' ? 'রুট ম্যাপ, এসআর ও ডেলিভারি ম্যান তালিকা' : 'Manage routes, Sales Officers and Delivery personnel'} />
       );
       case 'damage': return (
         <DirectoryModule key="damage" {...directoryBaseProps}
@@ -225,7 +228,7 @@ export default function App() {
       );
       case 'reports': return (
         <ReportsModule products={db.products} challans={db.challans} srs={db.srs}
-          companies={db.companies} expenses={db.expenses}
+          companies={db.companies} expenses={db.expenses} deliveryMen={db.deliveryMen}
           language={language} userRole={userRole} />
       );
       case 'settings': return (

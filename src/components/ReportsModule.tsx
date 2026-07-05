@@ -15,7 +15,7 @@ import {
   ArrowRightLeft,
   ClipboardList
 } from 'lucide-react';
-import { Product, ChallanItem, SR, CompanyBrand, ExpenseRecord } from '../types';
+import { Product, ChallanItem, SR, CompanyBrand, ExpenseRecord, DeliveryMan } from '../types';
 import { translations, Language } from '../translations';
 
 interface ReportsModuleProps {
@@ -23,6 +23,7 @@ interface ReportsModuleProps {
   challans: ChallanItem[];
   srs: SR[];
   companies: CompanyBrand[];
+  deliveryMen: DeliveryMan[];
   expenses: ExpenseRecord[];
   language: Language;
   userRole?: 'admin' | 'sr';
@@ -35,6 +36,7 @@ export default function ReportsModule({
   challans,
   srs,
   companies,
+  deliveryMen,
   expenses,
   language,
   userRole = 'admin'
@@ -55,6 +57,11 @@ export default function ReportsModule({
     return d.toISOString().split('T')[0];
   });
   const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0]);
+
+  // Global filters
+  const [selectedCompanyFilter, setSelectedCompanyFilter] = useState('All');
+  const [selectedSrFilter, setSelectedSrFilter] = useState('All');
+  const [selectedDeliveryManFilter, setSelectedDeliveryManFilter] = useState('All');
 
   const handlePresetChange = useCallback((val: string) => {
     setPreset(val);
@@ -81,20 +88,30 @@ export default function ReportsModule({
     return `৳${amount.toLocaleString('en-BD', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
   }, []);
 
-  // Filtered Challans based on date range
+  const companiesList = useMemo(() => {
+    return Array.from(new Set(products.map(p => p.company).filter(Boolean)));
+  }, [products]);
+
+  // Filtered Challans based on date range and global filters
   const filteredChallans = useMemo(() => {
     return challans.filter(ch => {
       if (!ch.createdAt) return true;
       const date = ch.createdAt.split('T')[0];
-      return date >= startDate && date <= endDate;
+      const matchesDate = date >= startDate && date <= endDate;
+      const matchesCompany = selectedCompanyFilter === 'All' || ch.company === selectedCompanyFilter;
+      const matchesSR = selectedSrFilter === 'All' || ch.srName.toLowerCase() === selectedSrFilter.toLowerCase();
+      const matchesDM = selectedDeliveryManFilter === 'All' || ch.deliveryManName.toLowerCase() === selectedDeliveryManFilter.toLowerCase();
+      return matchesDate && matchesCompany && matchesSR && matchesDM;
     });
-  }, [challans, startDate, endDate]);
+  }, [challans, startDate, endDate, selectedCompanyFilter, selectedSrFilter, selectedDeliveryManFilter]);
 
   // ═══════════════════════════════════════════════════════════════
   // 1. STOCK REPORT DATA CALCULATION
   // ═══════════════════════════════════════════════════════════════
   const stockReportData = useMemo(() => {
-    const brandList = Array.from(new Set(products.map(p => p.company)));
+    const brandList = selectedCompanyFilter === 'All'
+      ? Array.from(new Set(products.map(p => p.company).filter(Boolean)))
+      : [selectedCompanyFilter];
     let grandQty = 0;
     let grandValue = 0;
 
@@ -114,14 +131,16 @@ export default function ReportsModule({
     });
 
     return { rows, grandQty, grandValue };
-  }, [products]);
+  }, [products, selectedCompanyFilter]);
 
   // ═══════════════════════════════════════════════════════════════
   // 2. SALES REPORT DATA CALCULATION
   // ═══════════════════════════════════════════════════════════════
   const salesReportData = useMemo(() => {
     // A. Company-wise Sales
-    const brandList = Array.from(new Set(products.map(p => p.company)));
+    const brandList = selectedCompanyFilter === 'All'
+      ? Array.from(new Set(products.map(p => p.company).filter(Boolean)))
+      : [selectedCompanyFilter];
     const companySales = brandList.map(brandName => {
       const brandChallans = filteredChallans.filter(ch => ch.company === brandName);
       const unitsSold = brandChallans.reduce((sum, ch) => sum + ch.qty, 0);
@@ -139,7 +158,10 @@ export default function ReportsModule({
     });
 
     // B. SR-wise Sales
-    const srSales = srs.map(sr => {
+    const activeSrs = selectedSrFilter === 'All'
+      ? srs
+      : srs.filter(s => s.name.toLowerCase() === selectedSrFilter.toLowerCase());
+    const srSales = activeSrs.map(sr => {
       const srChallans = filteredChallans.filter(ch => ch.srName.toLowerCase() === sr.name.toLowerCase());
       const unitsSold = srChallans.reduce((sum, ch) => sum + ch.qty, 0);
       const revenue = srChallans.reduce((sum, ch) => sum + ch.totalAmount, 0);
@@ -158,14 +180,61 @@ export default function ReportsModule({
       };
     });
 
-    return { companySales, srSales };
-  }, [filteredChallans, products, srs]);
+    // C. Delivery Man-wise Sales
+    const activeDeliveryMen = selectedDeliveryManFilter === 'All'
+      ? deliveryMen
+      : deliveryMen.filter(dm => dm.name.toLowerCase() === selectedDeliveryManFilter.toLowerCase());
+    const dmSales = activeDeliveryMen.map(dm => {
+      const dmChallans = filteredChallans.filter(ch => ch.deliveryManName.toLowerCase() === dm.name.toLowerCase());
+      const unitsSold = dmChallans.reduce((sum, ch) => sum + ch.qty, 0);
+      const revenue = dmChallans.reduce((sum, ch) => sum + ch.totalAmount, 0);
+      const returns = dmChallans.reduce((sum, ch) => sum + (ch.returnedQty || 0), 0);
+      const damages = dmChallans.reduce((sum, ch) => sum + (ch.damagedQty || 0), 0);
+      const totalChallans = dmChallans.length;
+
+      return {
+        dmName: dm.name,
+        vehicle: dm.vehicle,
+        unitsSold,
+        revenue,
+        returns,
+        damages,
+        totalChallans
+      };
+    });
+
+    // D. Product-wise Sales
+    const productSales = products.map(p => {
+      const pChallans = filteredChallans.filter(ch => ch.productName.toLowerCase() === p.name.toLowerCase());
+      const unitsSold = pChallans.reduce((sum, ch) => sum + ch.qty, 0);
+      const revenue = pChallans.reduce((sum, ch) => sum + ch.totalAmount, 0);
+      const returns = pChallans.reduce((sum, ch) => sum + (ch.returnedQty || 0), 0);
+      const damages = pChallans.reduce((sum, ch) => sum + (ch.damagedQty || 0), 0);
+
+      return {
+        productName: p.name,
+        sku: p.sku,
+        company: p.company,
+        unitsSold,
+        revenue,
+        returns,
+        damages
+      };
+    }).filter(row => {
+      const matchesCompany = selectedCompanyFilter === 'All' || row.company === selectedCompanyFilter;
+      return matchesCompany && (row.unitsSold > 0 || row.returns > 0 || row.damages > 0);
+    });
+
+    return { companySales, srSales, dmSales, productSales };
+  }, [filteredChallans, products, srs, deliveryMen, selectedCompanyFilter, selectedSrFilter, selectedDeliveryManFilter]);
 
   // ═══════════════════════════════════════════════════════════════
   // 3. PROFIT REPORT DATA CALCULATION
   // ═══════════════════════════════════════════════════════════════
   const profitReportData = useMemo(() => {
-    const brandList = Array.from(new Set(products.map(p => p.company)));
+    const brandList = selectedCompanyFilter === 'All'
+      ? Array.from(new Set(products.map(p => p.company).filter(Boolean)))
+      : [selectedCompanyFilter];
     let grandRevenue = 0;
     let grandCost = 0;
     let grandProfit = 0;
@@ -198,29 +267,31 @@ export default function ReportsModule({
     });
 
     return { rows, grandRevenue, grandCost, grandProfit };
-  }, [filteredChallans, products]);
+  }, [filteredChallans, products, selectedCompanyFilter]);
 
   // ═══════════════════════════════════════════════════════════════
   // 4. PROFIT MARGIN TOOL (DP/TP VARIANCE)
   // ═══════════════════════════════════════════════════════════════
   const profitMarginToolData = useMemo(() => {
-    return products.map(p => {
-      const dp = p.defaultPP;
-      const tp = p.defaultWSP;
-      const mrp = p.defaultMRP;
-      const variance = tp - dp;
-      const marginPct = dp > 0 ? (variance / dp) * 100 : 0;
-      
-      return {
-        product: p,
-        dp,
-        tp,
-        mrp,
-        variance,
-        marginPct
-      };
-    });
-  }, [products]);
+    return products
+      .filter(p => selectedCompanyFilter === 'All' || p.company === selectedCompanyFilter)
+      .map(p => {
+        const dp = p.defaultPP;
+        const tp = p.defaultWSP;
+        const mrp = p.defaultMRP;
+        const variance = tp - dp;
+        const marginPct = dp > 0 ? (variance / dp) * 100 : 0;
+        
+        return {
+          product: p,
+          dp,
+          tp,
+          mrp,
+          variance,
+          marginPct
+        };
+      });
+  }, [products, selectedCompanyFilter]);
 
   // ═══════════════════════════════════════════════════════════════
   // PDF REPORT DOWNLOAD FUNCTION
@@ -290,6 +361,13 @@ export default function ReportsModule({
       doc.text(`TK ${stockReportData.grandValue.toLocaleString()}`, 140, y);
     } 
     else if (activeTab === 'sales') {
+      const checkPageBreak = (heightNeeded: number) => {
+        if (y + heightNeeded > 270) {
+          doc.addPage();
+          y = 20;
+        }
+      };
+
       // Draw Sales Report
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(12);
@@ -314,6 +392,7 @@ export default function ReportsModule({
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(30, 41, 59);
       salesReportData.companySales.forEach(row => {
+        checkPageBreak(8);
         doc.text(row.companyName, 16, y);
         doc.text(row.unitsSold.toString(), 65, y);
         doc.text(row.returns.toString(), 105, y);
@@ -323,7 +402,8 @@ export default function ReportsModule({
       });
 
       // SR Sales Section
-      y += 15;
+      y += 10;
+      checkPageBreak(25);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(12);
       doc.text(t.srSalesTitle.toUpperCase(), 14, y);
@@ -334,7 +414,7 @@ export default function ReportsModule({
       doc.line(14, y + 3, 196, y + 3);
       doc.setFontSize(8.5);
       doc.setTextColor(71, 85, 105);
-      doc.text(language === 'bn' ? 'সেলস অফিসার (SR)' : 'SR NAME', 16, y - 1);
+      doc.text(language === 'bn' ? 'এসআর (SR)' : 'SR NAME', 16, y - 1);
       doc.text(language === 'bn' ? 'বিক্রিত ইউনিট' : 'UNITS', 65, y - 1);
       doc.text(language === 'bn' ? 'ফেরত' : 'RET', 95, y - 1);
       doc.text(language === 'bn' ? 'ক্ষতিগ্রস্ত' : 'DMG', 115, y - 1);
@@ -345,11 +425,78 @@ export default function ReportsModule({
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(30, 41, 59);
       salesReportData.srSales.forEach(row => {
+        checkPageBreak(8);
         doc.text(row.srName, 16, y);
         doc.text(row.unitsSold.toString(), 65, y);
         doc.text(row.returns.toString(), 95, y);
         doc.text(row.damages.toString(), 115, y);
         doc.text(`TK ${row.commissions.toLocaleString()}`, 135, y);
+        doc.text(`TK ${row.revenue.toLocaleString()}`, 165, y);
+        y += 8;
+      });
+
+      // Delivery Man Sales Section
+      y += 10;
+      checkPageBreak(25);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.text(language === 'bn' ? 'ডেলিভারি ম্যানভিত্তিক বিক্রয় বিবরণী' : 'DELIVERY MAN-WISE SALES BREAKDOWN', 14, y);
+      y += 10;
+
+      doc.setFillColor(248, 250, 252);
+      doc.rect(14, y - 5, 182, 8, 'F');
+      doc.line(14, y + 3, 196, y + 3);
+      doc.setFontSize(8.5);
+      doc.setTextColor(71, 85, 105);
+      doc.text(language === 'bn' ? 'ডেলিভারি ম্যান' : 'DELIVERY MAN', 16, y - 1);
+      doc.text(language === 'bn' ? 'মোট চালান' : 'CHALLANS', 65, y - 1);
+      doc.text(language === 'bn' ? 'ইউনিট' : 'UNITS', 95, y - 1);
+      doc.text(language === 'bn' ? 'ফেরত' : 'RET', 120, y - 1);
+      doc.text(language === 'bn' ? 'ক্ষতিগ্রস্ত' : 'DMG', 140, y - 1);
+      doc.text(language === 'bn' ? 'ডেলিভারি (TK)' : 'DELIVERED', 160, y - 1);
+      y += 10;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(30, 41, 59);
+      salesReportData.dmSales.forEach(row => {
+        checkPageBreak(8);
+        doc.text(row.dmName, 16, y);
+        doc.text(row.totalChallans.toString(), 65, y);
+        doc.text(row.unitsSold.toString(), 95, y);
+        doc.text(row.returns.toString(), 120, y);
+        doc.text(row.damages.toString(), 140, y);
+        doc.text(`TK ${row.revenue.toLocaleString()}`, 160, y);
+        y += 8;
+      });
+
+      // Product-wise Sales Section
+      y += 10;
+      checkPageBreak(25);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.text(language === 'bn' ? 'পণ্যভিত্তিক বিক্রয় বিবরণী' : 'PRODUCT-WISE SALES BREAKDOWN', 14, y);
+      y += 10;
+
+      doc.setFillColor(248, 250, 252);
+      doc.rect(14, y - 5, 182, 8, 'F');
+      doc.line(14, y + 3, 196, y + 3);
+      doc.setFontSize(8.5);
+      doc.setTextColor(71, 85, 105);
+      doc.text(language === 'bn' ? 'পণ্যের নাম' : 'PRODUCT NAME', 16, y - 1);
+      doc.text(language === 'bn' ? 'বিক্রিত ইউনিট' : 'UNITS SOLD', 90, y - 1);
+      doc.text(language === 'bn' ? 'ফেরত' : 'RET', 125, y - 1);
+      doc.text(language === 'bn' ? 'ক্ষতিগ্রস্ত' : 'DMG', 145, y - 1);
+      doc.text(language === 'bn' ? 'বিক্রয় (TK)' : 'SALES (TK)', 165, y - 1);
+      y += 10;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(30, 41, 59);
+      salesReportData.productSales.forEach(row => {
+        checkPageBreak(8);
+        doc.text(row.productName.substring(0, 32), 16, y);
+        doc.text(row.unitsSold.toLocaleString(), 90, y);
+        doc.text(row.returns.toString(), 125, y);
+        doc.text(row.damages.toString(), 145, y);
         doc.text(`TK ${row.revenue.toLocaleString()}`, 165, y);
         y += 8;
       });
@@ -413,16 +560,16 @@ export default function ReportsModule({
       </div>
 
       {/* Date Range Selector Panel */}
-      <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm flex flex-col md:flex-row items-center gap-4 justify-between">
+      <div className="bg-indigo-50/30 border border-indigo-200 rounded-3xl p-5 shadow-sm flex flex-col md:flex-row items-center gap-4 justify-between">
         <div className="flex items-center gap-4.5 w-full md:w-auto">
           <div className="flex items-center gap-2 text-slate-850 font-bold text-xs shrink-0">
-            <Calendar className="w-4 h-4 text-indigo-500" />
-            <span>{language === 'bn' ? 'সময়কাল:' : 'Period Preset:'}</span>
+            <Calendar className="w-4 h-4 text-indigo-500 animate-pulse" />
+            <span className="text-indigo-900">{language === 'bn' ? 'সময়কাল:' : 'Period Preset:'}</span>
           </div>
           <select
             value={preset}
             onChange={e => handlePresetChange(e.target.value)}
-            className="h-9 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-800 outline-none focus:border-slate-800 transition-all cursor-pointer"
+            className="h-9 rounded-xl border border-indigo-200 bg-white px-3 text-xs font-bold text-indigo-850 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all cursor-pointer shadow-sm"
           >
             <option value="today">{language === 'bn' ? 'আজকের' : 'Today'}</option>
             <option value="month">{language === 'bn' ? 'এই মাস' : 'This Month'}</option>
@@ -438,7 +585,7 @@ export default function ReportsModule({
               disabled={preset !== 'custom'}
               value={startDate}
               onChange={e => setStartDate(e.target.value)}
-              className="h-9 px-3 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800 outline-none focus:border-slate-800 disabled:bg-slate-50 disabled:text-slate-400 transition-all font-mono"
+              className="h-9 px-3 rounded-xl border border-indigo-200 bg-white text-xs font-bold text-slate-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 disabled:bg-slate-50 disabled:text-slate-450 transition-all font-mono shadow-sm"
             />
           </div>
           <div className="flex items-center gap-2">
@@ -448,8 +595,85 @@ export default function ReportsModule({
               disabled={preset !== 'custom'}
               value={endDate}
               onChange={e => setEndDate(e.target.value)}
-              className="h-9 px-3 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800 outline-none focus:border-slate-800 disabled:bg-slate-50 disabled:text-slate-400 transition-all font-mono"
+              className="h-9 px-3 rounded-xl border border-indigo-200 bg-white text-xs font-bold text-slate-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 disabled:bg-slate-50 disabled:text-slate-450 transition-all font-mono shadow-sm"
             />
+          </div>
+        </div>
+      </div>
+
+      {/* Global Filters Panel */}
+      <div className="bg-indigo-50/30 border border-indigo-200 rounded-3xl p-5 shadow-sm space-y-4">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-ping shrink-0" />
+            <span className="text-[10px] bg-indigo-100 text-indigo-700 font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider font-mono">
+              {language === 'bn' ? 'রিপোর্ট ফিল্টার কন্ট্রোল' : 'Report Filters Control'}
+            </span>
+          </div>
+          {(selectedCompanyFilter !== 'All' || selectedSrFilter !== 'All' || selectedDeliveryManFilter !== 'All') && (
+            <button
+              onClick={() => {
+                setSelectedCompanyFilter('All');
+                setSelectedSrFilter('All');
+                setSelectedDeliveryManFilter('All');
+              }}
+              className="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold underline transition-colors cursor-pointer"
+            >
+              {language === 'bn' ? 'ফিল্টার রিসেট করুন' : 'Reset Filters'}
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Company Filter */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-orange-600 uppercase tracking-wider block">
+              {language === 'bn' ? 'কোম্পানি ফিল্টার:' : 'Filter by Company:'}
+            </label>
+            <select
+              value={selectedCompanyFilter}
+              onChange={e => setSelectedCompanyFilter(e.target.value)}
+              className="h-10 w-full rounded-xl border border-orange-200 bg-orange-50/10 px-3 text-xs font-bold text-orange-850 outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 transition-all cursor-pointer shadow-sm"
+            >
+              <option value="All">{language === 'bn' ? 'সকল কোম্পানি' : 'All Companies'}</option>
+              {companiesList.map(c => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* SR Filter */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-purple-600 uppercase tracking-wider block">
+              {language === 'bn' ? 'এসআর ফিল্টার:' : 'Filter by SR:'}
+            </label>
+            <select
+              value={selectedSrFilter}
+              onChange={e => setSelectedSrFilter(e.target.value)}
+              className="h-10 w-full rounded-xl border border-purple-200 bg-purple-50/10 px-3 text-xs font-bold text-purple-855 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100 transition-all cursor-pointer shadow-sm"
+            >
+              <option value="All">{language === 'bn' ? 'সকল এসআর (SR)' : 'All SRs'}</option>
+              {srs.map(sr => (
+                <option key={sr.id} value={sr.name}>{sr.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Delivery Man Filter */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-rose-600 uppercase tracking-wider block">
+              {language === 'bn' ? 'ডেলিভারি ম্যান ফিল্টার:' : 'Filter by Delivery Man:'}
+            </label>
+            <select
+              value={selectedDeliveryManFilter}
+              onChange={e => setSelectedDeliveryManFilter(e.target.value)}
+              className="h-10 w-full rounded-xl border border-rose-200 bg-rose-50/10 px-3 text-xs font-bold text-rose-855 outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100 transition-all cursor-pointer shadow-sm"
+            >
+              <option value="All">{language === 'bn' ? 'সকল ডেলিভারি ম্যান' : 'All Delivery Men'}</option>
+              {deliveryMen.map(dm => (
+                <option key={dm.id} value={dm.name}>{dm.name}</option>
+              ))}
+            </select>
           </div>
         </div>
       </div>
@@ -536,6 +760,96 @@ export default function ReportsModule({
               </tbody>
             </table>
           </div>
+
+          {/* Delivery Man-wise Sales Breakdown */}
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
+            <div className="border-b border-slate-100 pb-3">
+              <h3 className="font-bold text-slate-800 text-sm">
+                {language === 'bn' ? 'ডেলিভারি ম্যানভিত্তিক বিক্রয় বিবরণী' : 'Delivery Man-wise Sales Breakdown'}
+              </h3>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 text-[10px] font-bold text-slate-450 uppercase tracking-wider bg-slate-50/50">
+                    <th className="px-4 py-3">{language === 'bn' ? 'ডেলিভারি ম্যান' : 'Delivery Officer / Man'}</th>
+                    <th className="px-4 py-3 text-center">{language === 'bn' ? 'মোট চালান' : 'Total Challans'}</th>
+                    <th className="px-4 py-3 text-center">{language === 'bn' ? 'ডেলিভারি ইউনিট' : 'Delivered Units'}</th>
+                    <th className="px-4 py-3 text-center">{language === 'bn' ? 'ফেরত পরিমাণ' : 'Return Qty'}</th>
+                    <th className="px-4 py-3 text-center">{language === 'bn' ? 'ক্ষতিগ্রস্ত পরিমাণ' : 'Damage Qty'}</th>
+                    <th className="px-4 py-3 text-right">{language === 'bn' ? 'মোট ডেলিভারি মূল্য (TK)' : 'Total Delivered (Tk)'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-xs">
+                  {salesReportData.dmSales.map((row, idx) => (
+                    <tr key={idx} className="hover:bg-slate-50/40 transition-colors">
+                      <td className="px-4 py-3.5 font-bold text-slate-850">
+                        <div>{row.dmName}</div>
+                        <div className="text-[9px] text-slate-400 font-mono mt-0.5">{row.vehicle}</div>
+                      </td>
+                      <td className="px-4 py-3.5 text-center font-mono font-bold text-slate-600">{row.totalChallans}</td>
+                      <td className="px-4 py-3.5 text-center font-mono font-bold text-slate-700">{row.unitsSold.toLocaleString()} Pcs</td>
+                      <td className="px-4 py-3.5 text-center font-mono font-bold text-amber-600">{row.returns} Pcs</td>
+                      <td className="px-4 py-3.5 text-center font-mono font-bold text-rose-600">{row.damages} Pcs</td>
+                      <td className="px-4 py-3.5 text-right font-mono font-bold text-slate-900">{formatBDT(row.revenue)}</td>
+                    </tr>
+                  ))}
+                  {salesReportData.dmSales.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-8 text-center text-slate-400 font-semibold">
+                        {language === 'bn' ? 'কোনো ডেলিভারি ডেটা পাওয়া যায়নি।' : 'No delivery data available.'}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Product-wise Sales Breakdown */}
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
+            <div className="border-b border-slate-100 pb-3">
+              <h3 className="font-bold text-slate-800 text-sm">
+                {language === 'bn' ? 'পণ্যভিত্তিক বিক্রয় বিবরণী' : 'Product-wise Sales Breakdown'}
+              </h3>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 text-[10px] font-bold text-slate-450 uppercase tracking-wider bg-slate-50/50">
+                    <th className="px-4 py-3">{language === 'bn' ? 'পণ্যের নাম ও কোম্পানি' : 'Product Name & Brand'}</th>
+                    <th className="px-4 py-3 text-center">{language === 'bn' ? 'বিক্রিত ইউনিট' : 'Units Sold'}</th>
+                    <th className="px-4 py-3 text-center">{language === 'bn' ? 'ফেরত পরিমাণ' : 'Return Qty'}</th>
+                    <th className="px-4 py-3 text-center">{language === 'bn' ? 'ক্ষতিগ্রস্ত পরিমাণ' : 'Damage Qty'}</th>
+                    <th className="px-4 py-3 text-right">{language === 'bn' ? 'মোট বিক্রয় মূল্য (TK)' : 'Total Sales Price (TP)'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-xs">
+                  {salesReportData.productSales.map((row, idx) => (
+                    <tr key={idx} className="hover:bg-slate-50/40 transition-colors">
+                      <td className="px-4 py-3.5 font-bold text-slate-850">
+                        <div>{row.productName}</div>
+                        <div className="text-[9px] text-slate-400 font-mono mt-0.5">{row.sku} · {row.company}</div>
+                      </td>
+                      <td className="px-4 py-3.5 text-center font-mono font-bold text-slate-700">{row.unitsSold.toLocaleString()} Pcs</td>
+                      <td className="px-4 py-3.5 text-center font-mono font-bold text-amber-600">{row.returns} Pcs</td>
+                      <td className="px-4 py-3.5 text-center font-mono font-bold text-rose-600">{row.damages} Pcs</td>
+                      <td className="px-4 py-3.5 text-right font-mono font-bold text-slate-900">{formatBDT(row.revenue)}</td>
+                    </tr>
+                  ))}
+                  {salesReportData.productSales.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-8 text-center text-slate-400 font-semibold">
+                        {language === 'bn' ? 'কোনো পণ্য বিক্রির ডেটা পাওয়া যায়নি।' : 'No product sales data available.'}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
 
@@ -610,6 +924,96 @@ export default function ReportsModule({
               </table>
             </div>
           </div>
+
+          {/* Delivery Man-wise Sales Breakdown */}
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
+            <div className="border-b border-slate-100 pb-3">
+              <h3 className="font-bold text-slate-800 text-sm">
+                {language === 'bn' ? 'ডেলিভারি ম্যানভিত্তিক বিক্রয় বিবরণী' : 'Delivery Man-wise Sales Breakdown'}
+              </h3>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 text-[10px] font-bold text-slate-450 uppercase tracking-wider bg-slate-50/50">
+                    <th className="px-4 py-3">{language === 'bn' ? 'ডেলিভারি ম্যান' : 'Delivery Officer / Man'}</th>
+                    <th className="px-4 py-3 text-center">{language === 'bn' ? 'মোট চালান' : 'Total Challans'}</th>
+                    <th className="px-4 py-3 text-center">{language === 'bn' ? 'ডেলিভারি ইউনিট' : 'Delivered Units'}</th>
+                    <th className="px-4 py-3 text-center">{language === 'bn' ? 'ফেরত পরিমাণ' : 'Return Qty'}</th>
+                    <th className="px-4 py-3 text-center">{language === 'bn' ? 'ক্ষতিগ্রস্ত পরিমাণ' : 'Damage Qty'}</th>
+                    <th className="px-4 py-3 text-right">{language === 'bn' ? 'মোট ডেলিভারি মূল্য (TK)' : 'Total Delivered (Tk)'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-xs">
+                  {salesReportData.dmSales.map((row, idx) => (
+                    <tr key={idx} className="hover:bg-slate-50/40 transition-colors">
+                      <td className="px-4 py-3.5 font-bold text-slate-850">
+                        <div>{row.dmName}</div>
+                        <div className="text-[9px] text-slate-400 font-mono mt-0.5">{row.vehicle}</div>
+                      </td>
+                      <td className="px-4 py-3.5 text-center font-mono font-bold text-slate-600">{row.totalChallans}</td>
+                      <td className="px-4 py-3.5 text-center font-mono font-bold text-slate-700">{row.unitsSold.toLocaleString()} Pcs</td>
+                      <td className="px-4 py-3.5 text-center font-mono font-bold text-amber-600">{row.returns} Pcs</td>
+                      <td className="px-4 py-3.5 text-center font-mono font-bold text-rose-600">{row.damages} Pcs</td>
+                      <td className="px-4 py-3.5 text-right font-mono font-bold text-slate-900">{formatBDT(row.revenue)}</td>
+                    </tr>
+                  ))}
+                  {salesReportData.dmSales.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-8 text-center text-slate-400 font-semibold">
+                        {language === 'bn' ? 'কোনো ডেলিভারি ডেটা পাওয়া যায়নি।' : 'No delivery data available.'}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Product-wise Sales Breakdown */}
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
+            <div className="border-b border-slate-100 pb-3">
+              <h3 className="font-bold text-slate-800 text-sm">
+                {language === 'bn' ? 'পণ্যভিত্তিক বিক্রয় বিবরণী' : 'Product-wise Sales Breakdown'}
+              </h3>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 text-[10px] font-bold text-slate-450 uppercase tracking-wider bg-slate-50/50">
+                    <th className="px-4 py-3">{language === 'bn' ? 'পণ্যের নাম ও কোম্পানি' : 'Product Name & Brand'}</th>
+                    <th className="px-4 py-3 text-center">{language === 'bn' ? 'বিক্রিত ইউনিট' : 'Units Sold'}</th>
+                    <th className="px-4 py-3 text-center">{language === 'bn' ? 'ফেরত পরিমাণ' : 'Return Qty'}</th>
+                    <th className="px-4 py-3 text-center">{language === 'bn' ? 'ক্ষতিগ্রস্ত পরিমাণ' : 'Damage Qty'}</th>
+                    <th className="px-4 py-3 text-right">{language === 'bn' ? 'মোট বিক্রয় মূল্য (TK)' : 'Total Sales Price (TP)'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-xs">
+                  {salesReportData.productSales.map((row, idx) => (
+                    <tr key={idx} className="hover:bg-slate-50/40 transition-colors">
+                      <td className="px-4 py-3.5 font-bold text-slate-850">
+                        <div>{row.productName}</div>
+                        <div className="text-[9px] text-slate-400 font-mono mt-0.5">{row.sku} · {row.company}</div>
+                      </td>
+                      <td className="px-4 py-3.5 text-center font-mono font-bold text-slate-700">{row.unitsSold.toLocaleString()} Pcs</td>
+                      <td className="px-4 py-3.5 text-center font-mono font-bold text-amber-600">{row.returns} Pcs</td>
+                      <td className="px-4 py-3.5 text-center font-mono font-bold text-rose-600">{row.damages} Pcs</td>
+                      <td className="px-4 py-3.5 text-right font-mono font-bold text-slate-900">{formatBDT(row.revenue)}</td>
+                    </tr>
+                  ))}
+                  {salesReportData.productSales.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-8 text-center text-slate-400 font-semibold">
+                        {language === 'bn' ? 'কোনো পণ্য বিক্রির ডেটা পাওয়া যায়নি।' : 'No product sales data available.'}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
 
@@ -638,7 +1042,7 @@ export default function ReportsModule({
                     <td className="px-4 py-3.5 text-right font-mono font-bold text-slate-700">{formatBDT(row.revenue)}</td>
                     <td className="px-4 py-3.5 text-right font-mono text-slate-500">{formatBDT(row.costOfGoods)}</td>
                     <td className="px-4 py-3.5 text-center font-bold">
-                      <span className="bg-emerald-50 text-emerald-700 border border-emerald-150 px-2 py-0.5 rounded text-[10px]">
+                      <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded text-[10px]">
                         {row.margin.toFixed(2)}%
                       </span>
                     </td>
@@ -660,6 +1064,96 @@ export default function ReportsModule({
               </tbody>
             </table>
           </div>
+
+          {/* Delivery Man-wise Sales Breakdown */}
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
+            <div className="border-b border-slate-100 pb-3">
+              <h3 className="font-bold text-slate-800 text-sm">
+                {language === 'bn' ? 'ডেলিভারি ম্যানভিত্তিক বিক্রয় বিবরণী' : 'Delivery Man-wise Sales Breakdown'}
+              </h3>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 text-[10px] font-bold text-slate-450 uppercase tracking-wider bg-slate-50/50">
+                    <th className="px-4 py-3">{language === 'bn' ? 'ডেলিভারি ম্যান' : 'Delivery Officer / Man'}</th>
+                    <th className="px-4 py-3 text-center">{language === 'bn' ? 'মোট চালান' : 'Total Challans'}</th>
+                    <th className="px-4 py-3 text-center">{language === 'bn' ? 'ডেলিভারি ইউনিট' : 'Delivered Units'}</th>
+                    <th className="px-4 py-3 text-center">{language === 'bn' ? 'ফেরত পরিমাণ' : 'Return Qty'}</th>
+                    <th className="px-4 py-3 text-center">{language === 'bn' ? 'ক্ষতিগ্রস্ত পরিমাণ' : 'Damage Qty'}</th>
+                    <th className="px-4 py-3 text-right">{language === 'bn' ? 'মোট ডেলিভারি মূল্য (TK)' : 'Total Delivered (Tk)'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-xs">
+                  {salesReportData.dmSales.map((row, idx) => (
+                    <tr key={idx} className="hover:bg-slate-50/40 transition-colors">
+                      <td className="px-4 py-3.5 font-bold text-slate-850">
+                        <div>{row.dmName}</div>
+                        <div className="text-[9px] text-slate-400 font-mono mt-0.5">{row.vehicle}</div>
+                      </td>
+                      <td className="px-4 py-3.5 text-center font-mono font-bold text-slate-600">{row.totalChallans}</td>
+                      <td className="px-4 py-3.5 text-center font-mono font-bold text-slate-700">{row.unitsSold.toLocaleString()} Pcs</td>
+                      <td className="px-4 py-3.5 text-center font-mono font-bold text-amber-600">{row.returns} Pcs</td>
+                      <td className="px-4 py-3.5 text-center font-mono font-bold text-rose-600">{row.damages} Pcs</td>
+                      <td className="px-4 py-3.5 text-right font-mono font-bold text-slate-900">{formatBDT(row.revenue)}</td>
+                    </tr>
+                  ))}
+                  {salesReportData.dmSales.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-8 text-center text-slate-400 font-semibold">
+                        {language === 'bn' ? 'কোনো ডেলিভারি ডেটা পাওয়া যায়নি।' : 'No delivery data available.'}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Product-wise Sales Breakdown */}
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
+            <div className="border-b border-slate-100 pb-3">
+              <h3 className="font-bold text-slate-800 text-sm">
+                {language === 'bn' ? 'পণ্যভিত্তিক বিক্রয় বিবরণী' : 'Product-wise Sales Breakdown'}
+              </h3>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 text-[10px] font-bold text-slate-450 uppercase tracking-wider bg-slate-50/50">
+                    <th className="px-4 py-3">{language === 'bn' ? 'পণ্যের নাম ও কোম্পানি' : 'Product Name & Brand'}</th>
+                    <th className="px-4 py-3 text-center">{language === 'bn' ? 'বিক্রিত ইউনিট' : 'Units Sold'}</th>
+                    <th className="px-4 py-3 text-center">{language === 'bn' ? 'ফেরত পরিমাণ' : 'Return Qty'}</th>
+                    <th className="px-4 py-3 text-center">{language === 'bn' ? 'ক্ষতিগ্রস্ত পরিমাণ' : 'Damage Qty'}</th>
+                    <th className="px-4 py-3 text-right">{language === 'bn' ? 'মোট বিক্রয় মূল্য (TK)' : 'Total Sales Price (TP)'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-xs">
+                  {salesReportData.productSales.map((row, idx) => (
+                    <tr key={idx} className="hover:bg-slate-50/40 transition-colors">
+                      <td className="px-4 py-3.5 font-bold text-slate-850">
+                        <div>{row.productName}</div>
+                        <div className="text-[9px] text-slate-400 font-mono mt-0.5">{row.sku} · {row.company}</div>
+                      </td>
+                      <td className="px-4 py-3.5 text-center font-mono font-bold text-slate-700">{row.unitsSold.toLocaleString()} Pcs</td>
+                      <td className="px-4 py-3.5 text-center font-mono font-bold text-amber-600">{row.returns} Pcs</td>
+                      <td className="px-4 py-3.5 text-center font-mono font-bold text-rose-600">{row.damages} Pcs</td>
+                      <td className="px-4 py-3.5 text-right font-mono font-bold text-slate-900">{formatBDT(row.revenue)}</td>
+                    </tr>
+                  ))}
+                  {salesReportData.productSales.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-8 text-center text-slate-400 font-semibold">
+                        {language === 'bn' ? 'কোনো পণ্য বিক্রির ডেটা পাওয়া যায়নি।' : 'No product sales data available.'}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
 
@@ -671,7 +1165,7 @@ export default function ReportsModule({
               <h3 className="font-bold text-slate-800 text-sm">{t.profitMarginTitle}</h3>
               <p className="text-[10px] text-slate-400 font-semibold mt-0.5">Variance and profit percentages based on Dealer Price (DP) and Trade Price (TP) variance.</p>
             </div>
-            <div className="flex items-center gap-1 bg-indigo-50 border border-indigo-150 px-3 py-1.5 rounded-xl text-[10px] font-bold text-indigo-700 font-mono">
+            <div className="flex items-center gap-1 bg-indigo-50 border border-indigo-200 px-3 py-1.5 rounded-xl text-[10px] font-bold text-indigo-700 font-mono">
               <Percent className="w-3.5 h-3.5" />
               <span>Profit Margin = ((TP - DP) / DP) * 100</span>
             </div>
@@ -704,7 +1198,7 @@ export default function ReportsModule({
                     <td className="px-4 py-3.5 text-right font-mono text-slate-450">{formatBDT(row.mrp)}</td>
                     <td className="px-4 py-3.5 text-right font-mono font-bold text-slate-800">+{formatBDT(row.variance)}</td>
                     <td className="px-4 py-3.5 text-center">
-                      <span className="bg-blue-50 text-blue-700 border border-blue-150 px-2.5 py-0.5 rounded-full font-bold font-mono text-[10px] animate-fade-in">
+                      <span className="bg-blue-50 text-blue-700 border border-blue-200 px-2.5 py-0.5 rounded-full font-bold font-mono text-[10px] animate-fade-in">
                         {row.marginPct.toFixed(1)}%
                       </span>
                     </td>
@@ -712,6 +1206,96 @@ export default function ReportsModule({
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* Delivery Man-wise Sales Breakdown */}
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
+            <div className="border-b border-slate-100 pb-3">
+              <h3 className="font-bold text-slate-800 text-sm">
+                {language === 'bn' ? 'ডেলিভারি ম্যানভিত্তিক বিক্রয় বিবরণী' : 'Delivery Man-wise Sales Breakdown'}
+              </h3>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 text-[10px] font-bold text-slate-450 uppercase tracking-wider bg-slate-50/50">
+                    <th className="px-4 py-3">{language === 'bn' ? 'ডেলিভারি ম্যান' : 'Delivery Officer / Man'}</th>
+                    <th className="px-4 py-3 text-center">{language === 'bn' ? 'মোট চালান' : 'Total Challans'}</th>
+                    <th className="px-4 py-3 text-center">{language === 'bn' ? 'ডেলিভারি ইউনিট' : 'Delivered Units'}</th>
+                    <th className="px-4 py-3 text-center">{language === 'bn' ? 'ফেরত পরিমাণ' : 'Return Qty'}</th>
+                    <th className="px-4 py-3 text-center">{language === 'bn' ? 'ক্ষতিগ্রস্ত পরিমাণ' : 'Damage Qty'}</th>
+                    <th className="px-4 py-3 text-right">{language === 'bn' ? 'মোট ডেলিভারি মূল্য (TK)' : 'Total Delivered (Tk)'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-xs">
+                  {salesReportData.dmSales.map((row, idx) => (
+                    <tr key={idx} className="hover:bg-slate-50/40 transition-colors">
+                      <td className="px-4 py-3.5 font-bold text-slate-850">
+                        <div>{row.dmName}</div>
+                        <div className="text-[9px] text-slate-400 font-mono mt-0.5">{row.vehicle}</div>
+                      </td>
+                      <td className="px-4 py-3.5 text-center font-mono font-bold text-slate-600">{row.totalChallans}</td>
+                      <td className="px-4 py-3.5 text-center font-mono font-bold text-slate-700">{row.unitsSold.toLocaleString()} Pcs</td>
+                      <td className="px-4 py-3.5 text-center font-mono font-bold text-amber-600">{row.returns} Pcs</td>
+                      <td className="px-4 py-3.5 text-center font-mono font-bold text-rose-600">{row.damages} Pcs</td>
+                      <td className="px-4 py-3.5 text-right font-mono font-bold text-slate-900">{formatBDT(row.revenue)}</td>
+                    </tr>
+                  ))}
+                  {salesReportData.dmSales.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-8 text-center text-slate-400 font-semibold">
+                        {language === 'bn' ? 'কোনো ডেলিভারি ডেটা পাওয়া যায়নি।' : 'No delivery data available.'}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Product-wise Sales Breakdown */}
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
+            <div className="border-b border-slate-100 pb-3">
+              <h3 className="font-bold text-slate-800 text-sm">
+                {language === 'bn' ? 'পণ্যভিত্তিক বিক্রয় বিবরণী' : 'Product-wise Sales Breakdown'}
+              </h3>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 text-[10px] font-bold text-slate-450 uppercase tracking-wider bg-slate-50/50">
+                    <th className="px-4 py-3">{language === 'bn' ? 'পণ্যের নাম ও কোম্পানি' : 'Product Name & Brand'}</th>
+                    <th className="px-4 py-3 text-center">{language === 'bn' ? 'বিক্রিত ইউনিট' : 'Units Sold'}</th>
+                    <th className="px-4 py-3 text-center">{language === 'bn' ? 'ফেরত পরিমাণ' : 'Return Qty'}</th>
+                    <th className="px-4 py-3 text-center">{language === 'bn' ? 'ক্ষতিগ্রস্ত পরিমাণ' : 'Damage Qty'}</th>
+                    <th className="px-4 py-3 text-right">{language === 'bn' ? 'মোট বিক্রয় মূল্য (TK)' : 'Total Sales Price (TP)'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-xs">
+                  {salesReportData.productSales.map((row, idx) => (
+                    <tr key={idx} className="hover:bg-slate-50/40 transition-colors">
+                      <td className="px-4 py-3.5 font-bold text-slate-850">
+                        <div>{row.productName}</div>
+                        <div className="text-[9px] text-slate-400 font-mono mt-0.5">{row.sku} · {row.company}</div>
+                      </td>
+                      <td className="px-4 py-3.5 text-center font-mono font-bold text-slate-700">{row.unitsSold.toLocaleString()} Pcs</td>
+                      <td className="px-4 py-3.5 text-center font-mono font-bold text-amber-600">{row.returns} Pcs</td>
+                      <td className="px-4 py-3.5 text-center font-mono font-bold text-rose-600">{row.damages} Pcs</td>
+                      <td className="px-4 py-3.5 text-right font-mono font-bold text-slate-900">{formatBDT(row.revenue)}</td>
+                    </tr>
+                  ))}
+                  {salesReportData.productSales.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-8 text-center text-slate-400 font-semibold">
+                        {language === 'bn' ? 'কোনো পণ্য বিক্রির ডেটা পাওয়া যায়নি।' : 'No product sales data available.'}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}

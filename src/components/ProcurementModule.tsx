@@ -14,7 +14,8 @@ import {
   ChevronLeft, 
   ChevronRight,
   Info,
-  Printer
+  Printer,
+  Search
 } from 'lucide-react';
 import { Procurement, ProcurementItem, Product, CompanyBrand } from '../types';
 import { translations, Language } from '../translations';
@@ -193,6 +194,11 @@ export default function ProcurementModule({
   // Pagination for Procurement list
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
+
+  // History List Filter States
+  const [procListSearch, setProcListSearch] = useState('');
+  const [procListCompany, setProcListCompany] = useState('All');
+  const [procListPayment, setProcListPayment] = useState('All');
 
   const suppliers = companies && companies.length > 0
     ? companies.map(c => c.name)
@@ -427,11 +433,20 @@ export default function ProcurementModule({
     alert('Procurement invoice created successfully! Stocks and default product pricing have been dynamically updated.');
   };
 
+  // Procurement search & filter logic
+  const filteredProcurements = procurements.filter(p => {
+    const search = procListSearch.toLowerCase();
+    const matchSearch = !search || p.invoiceRef.toLowerCase().includes(search) || p.supplierName.toLowerCase().includes(search);
+    const matchCompany = procListCompany === 'All' || p.supplierName === procListCompany;
+    const matchPayment = procListPayment === 'All' || p.paymentStatus === procListPayment;
+    return matchSearch && matchCompany && matchPayment;
+  });
+
   // Pagination computation
-  const totalProcurements = procurements.length;
+  const totalProcurements = filteredProcurements.length;
   const totalPages = Math.ceil(totalProcurements / itemsPerPage) || 1;
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedProcurements = procurements.slice(startIndex, startIndex + itemsPerPage);
+  const paginatedProcurements = filteredProcurements.slice(startIndex, startIndex + itemsPerPage);
 
   const formatBDT = (amount: number) => {
     return `৳${amount.toLocaleString('en-BD')}`;
@@ -483,7 +498,7 @@ export default function ProcurementModule({
       {activeSubTab === 'list' && (
         <div className="space-y-6">
           {/* Guide Card for Dealers in List View */}
-          <div className="bg-indigo-50 border border-indigo-150 rounded-xl p-4 flex gap-3 text-indigo-900 leading-relaxed shadow-sm">
+          <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 flex gap-3 text-indigo-900 leading-relaxed shadow-sm">
             <Info className="w-5 h-5 text-indigo-500 shrink-0" />
             <div className="text-xs space-y-1">
               <p className="font-bold">
@@ -494,6 +509,86 @@ export default function ProcurementModule({
                   ? 'গুদামে যখনই নতুন স্টক আসবে (যেমন প্রাণ বা অলিম্পিক থেকে মাল ডেলিভারি আসলে), তা এই ট্যাবে রিসিভ করে আপডেট রাখুন। এটি করলে পণ্যের স্টক অটোমেটিক বৃদ্ধি পাবে এবং মুনাফা রিপোর্টে পণ্য ক্রয়ের সঠিক হিসাব নিশ্চিত হবে।' 
                   : 'Whenever you receive stock shipments from manufacturer companies, log them here. This increments warehouse stock levels automatically and provides cost-of-goods metrics for your profit reports.'}
               </p>
+            </div>
+          </div>
+
+          {/* History List Filters Panel */}
+          <div className="bg-indigo-50/30 border border-indigo-200 rounded-3xl p-5 shadow-sm space-y-4 animate-fade-in">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] bg-indigo-100 text-indigo-700 font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider font-mono">
+                  {language === 'bn' ? 'চালান ফিল্টার প্যানেল' : 'Challan Filter Panel'}
+                </span>
+                <span className="text-[10px] text-slate-400 font-bold font-mono">
+                  {filteredProcurements.length} {language === 'bn' ? 'টি চালান পাওয়া গেছে' : 'challans found'}
+                </span>
+              </div>
+              {(procListSearch || procListCompany !== 'All' || procListPayment !== 'All') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setProcListSearch('');
+                    setProcListCompany('All');
+                    setProcListPayment('All');
+                  }}
+                  className="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold underline transition-colors cursor-pointer"
+                >
+                  {language === 'bn' ? 'ফিল্টার রিসেট করুন' : 'Reset Filters'}
+                </button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {/* Reference Search */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                  {language === 'bn' ? 'চালান নম্বর / রেফ' : 'Invoice Reference / Name'}
+                </label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-indigo-500" />
+                  <input
+                    type="text"
+                    value={procListSearch}
+                    onChange={e => setProcListSearch(e.target.value)}
+                    placeholder={language === 'bn' ? 'চালান নম্বর বা কোম্পানি...' : 'Challan reference or company...'}
+                    className="w-full h-10 pl-9 pr-3 rounded-xl border border-indigo-200 bg-white text-xs font-semibold text-slate-750 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all placeholder:text-slate-450 shadow-sm"
+                  />
+                </div>
+              </div>
+
+              {/* Supplier / Brand Company */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-orange-600 uppercase tracking-wider block">
+                  {language === 'bn' ? 'কোম্পানি' : 'Brand Company'}
+                </label>
+                <select
+                  value={procListCompany}
+                  onChange={e => setProcListCompany(e.target.value)}
+                  className="h-10 w-full rounded-xl border border-orange-200 bg-white px-3 text-xs font-bold text-orange-855 outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 transition-all cursor-pointer shadow-sm"
+                >
+                  <option value="All">{language === 'bn' ? 'সকল কোম্পানি' : 'All Companies'}</option>
+                  {suppliers.map(s => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Payment Status */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider block">
+                  {language === 'bn' ? 'পরিশোধের অবস্থা' : 'Payment Status'}
+                </label>
+                <select
+                  value={procListPayment}
+                  onChange={e => setProcListPayment(e.target.value)}
+                  className="h-10 w-full rounded-xl border border-emerald-200 bg-white px-3 text-xs font-bold text-emerald-855 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 transition-all cursor-pointer shadow-sm"
+                >
+                  <option value="All">{language === 'bn' ? 'সকল অবস্থা' : 'All Status'}</option>
+                  <option value="Paid">{language === 'bn' ? 'পরিশোধিত' : 'Paid'}</option>
+                  <option value="Partial">{language === 'bn' ? 'আংশিক পরিশোধিত' : 'Partial'}</option>
+                  <option value="Pending">{language === 'bn' ? 'বকেয়া' : 'Pending'}</option>
+                </select>
+              </div>
             </div>
           </div>
 
@@ -571,7 +666,7 @@ export default function ProcurementModule({
                     </div>
 
                     {/* Cost Summary grid */}
-                    <div className="bg-slate-50 rounded-2xl p-3 border border-slate-150 flex items-center justify-between relative z-10 text-center">
+                    <div className="bg-slate-50 rounded-2xl p-3 border border-slate-200 flex items-center justify-between relative z-10 text-center">
                       <div className="space-y-0.5">
                         <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider block">Lots Count</span>
                         <span className="font-mono text-xs font-bold text-slate-800">{p.items.length} Items</span>
@@ -717,7 +812,7 @@ export default function ProcurementModule({
             </div>
 
             {/* Guide Card for Dealers */}
-            <div className="bg-indigo-50 border border-indigo-150 rounded-xl p-4.5 flex gap-3 text-indigo-900 leading-relaxed shadow-sm">
+            <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4.5 flex gap-3 text-indigo-900 leading-relaxed shadow-sm">
               <Info className="w-5 h-5 text-indigo-500 shrink-0 mt-0.5" />
               <div className="text-xs space-y-1">
                 <p className="font-bold">

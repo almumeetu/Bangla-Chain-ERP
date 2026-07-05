@@ -100,7 +100,12 @@ export default function DashboardSRAndAlerts({
                         <p className="text-[9px] text-slate-400">{p.company}</p>
                       </td>
                       <td className="px-4 py-2.5 font-mono text-[10px] text-slate-500">{p.sku}</td>
-                      <td className="px-5 py-2.5 text-right font-bold text-slate-800 font-mono">{p.currentStock}</td>
+                      <td className="px-5 py-2.5 text-right font-bold text-slate-800 font-mono">
+                        <div>{p.currentStock.toLocaleString()}</div>
+                        <div className="text-[9px] text-slate-450 font-normal">
+                          ৳{(p.currentStock * p.defaultPP).toLocaleString('en-BD')}
+                        </div>
+                      </td>
                       <td className="px-4 py-2.5 text-center">
                         <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${p.currentStock < 100 ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-amber-50 text-amber-600 border-amber-100'}`}>
                           {p.currentStock < 100 ? (bn ? 'জরুরি' : 'Critical') : (bn ? 'কম' : 'Low')}

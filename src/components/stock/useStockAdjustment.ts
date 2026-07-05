@@ -10,6 +10,8 @@ export interface UseStockAdjustmentReturn {
   newStockQty:        number;
   adjustReason:       string;
   searchQuery:        string;
+  selectedCompany:    string;
+  selectedCategory:   string;
   submitted:          boolean;
   variance:           number;
   currentPage:        number;
@@ -23,6 +25,8 @@ export interface UseStockAdjustmentReturn {
   handleStepQty:      (step: number) => void;
   handleSetReason:    (r: string) => void;
   handleSearchChange: (q: string) => void;
+  handleCompanyChange:(c: string) => void;
+  handleCategoryChange:(cat: string) => void;
   handleCommit:       (e: React.FormEvent) => void;
   handleReset:        () => void;
   handlePageChange:   (page: number) => void;
@@ -41,8 +45,10 @@ export function useStockAdjustment(
   const [newStockQty,     setNewStockQty]     = useState(0);
   const [adjustReason,    setAdjustReason]    = useState('');
   const [searchQuery,     setSearchQuery]     = useState('');
-  const [submitted,       setSubmitted]       = useState(false);
-  const [currentPage,     setCurrentPage]     = useState(1);
+  const [selectedCompany, setSelectedCompany]   = useState('All');
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [submitted,       setSubmitted]         = useState(false);
+  const [currentPage,     setCurrentPage]       = useState(1);
 
   const selectedProduct = products.find(p => p.id === selectedProdId) ?? null;
   const variance        = selectedProduct ? newStockQty - selectedProduct.currentStock : 0;
@@ -53,7 +59,10 @@ export function useStockAdjustment(
 
   const filteredProducts = products.filter(p => {
     const q = searchQuery.toLowerCase();
-    return p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q) || p.company.toLowerCase().includes(q);
+    const matchesSearch = p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q);
+    const matchesCompany = selectedCompany === 'All' || p.company === selectedCompany;
+    const matchesCategory = selectedCategory === 'All' || p.categoryId === selectedCategory;
+    return matchesSearch && matchesCompany && matchesCategory;
   });
 
   const totalPages          = Math.ceil(adjustments.length / ITEMS_PER_PAGE) || 1;
@@ -73,6 +82,14 @@ export function useStockAdjustment(
   const handleStepQty   = useCallback((step: number) => setNewStockQty(q => Math.max(0, q + step)), []);
   const handleSetReason = useCallback((r: string) => setAdjustReason(r), []);
   const handleSearchChange = useCallback((q: string) => setSearchQuery(q), []);
+  const handleCompanyChange = useCallback((c: string) => {
+    setSelectedCompany(c);
+    setCurrentPage(1);
+  }, []);
+  const handleCategoryChange = useCallback((cat: string) => {
+    setSelectedCategory(cat);
+    setCurrentPage(1);
+  }, []);
   const handlePageChange   = useCallback((page: number) => setCurrentPage(page), []);
   const handleReset        = useCallback(() => { setSubmitted(false); setSelectedProdId(null); }, []);
 
@@ -89,7 +106,7 @@ export function useStockAdjustment(
     if (variance === 0)        { alert(language === 'bn' ? 'কোনো পরিবর্তন নেই।' : 'No change detected.'); return; }
 
     const newAdj: StockAdjustment = {
-      id:             `adj-${Date.now()}`,
+      id:             `adj-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       productId:      selectedProduct.id,
       productName:    selectedProduct.name,
       attributeValue: 'Standard',
@@ -109,11 +126,11 @@ export function useStockAdjustment(
 
   return {
     selectedProdId, selectedProduct,
-    newStockQty, adjustReason, searchQuery, submitted, variance,
+    newStockQty, adjustReason, searchQuery, selectedCompany, selectedCategory, submitted, variance,
     currentPage, totalPages, startIndex,
     filteredProducts, paginatedAdjustments, quickReasons,
     handleSelectProduct, handleSetQty, handleStepQty,
-    handleSetReason, handleSearchChange, handleCommit,
+    handleSetReason, handleSearchChange, handleCompanyChange, handleCategoryChange, handleCommit,
     handleReset, handlePageChange,
   };
 }
