@@ -13,10 +13,12 @@ import {
   TicketPercent, 
   Truck,
   Layers,
-  Sparkles
+  Sparkles,
+  Printer
 } from 'lucide-react';
 import { Product, ProductAttribute, SR, Route, ChallanItem, DeliveryMan } from '../types';
 import { translations, Language } from '../translations';
+import { printSalesOrder, type SalesOrderData } from '../lib/printUtils';
 
 interface SellModuleProps {
   products: Product[];
@@ -383,6 +385,9 @@ export default function SellModule({
   // POS Cart State
   const [cart, setCart] = useState<CartItem[]>([]);
 
+  // Last completed order — kept so user can reprint after checkout
+  const [lastOrder, setLastOrder] = useState<SalesOrderData | null>(null);
+
   // Logistics states
   const [selectedSR, setSelectedSR] = useState(srs[0]?.name || '');
   const [selectedRoute, setSelectedRoute] = useState(() => {
@@ -529,11 +534,38 @@ export default function SellModule({
     });
 
     setChallans(prev => [...newChallans, ...prev]);
+
+    // Build SalesOrderData for the print receipt before clearing cart
+    const orderData: SalesOrderData = {
+      items: cart.map(item => ({
+        productName: item.product.name,
+        company:     item.product.company,
+        spec:        item.selectedSpec,
+        qty:         item.qty,
+        bonusQty:    item.bonusQty,
+        rate:        item.product.defaultWSP,
+        total:       (item.product.defaultWSP * item.qty) * (1 - discountPercent / 100),
+      })),
+      srName:      selectedSR,
+      routeName:   selectedRoute,
+      deliveryMan: selectedDeliveryMan,
+      discountPct: discountPercent,
+      subtotal:    cartSubtotal,
+      discountAmt,
+      netTotal,
+      orderIds:    newChallans.map(c => c.id),
+    };
+    setLastOrder(orderData);
+
     setCart([]);
     setDiscountPercent(0);
     alert('Spot checkout successful! Challan generated, stocks reduced, and financial ledgers synchronized.');
     onNavigate('delivery');
-  }, [cart, selectedSR, selectedRoute, selectedDeliveryMan, discountPercent, setChallans, setProducts, onNavigate, srs]);
+  }, [cart, cartSubtotal, discountAmt, netTotal, selectedSR, selectedRoute, selectedDeliveryMan, discountPercent, setChallans, setProducts, onNavigate, srs]);
+
+  const handlePrintLastOrder = useCallback(() => {
+    if (lastOrder) printSalesOrder(lastOrder);
+  }, [lastOrder]);
 
   const formatBDT = useCallback((amount: number) => {
     return `৳${amount.toLocaleString('en-BD')}`;
@@ -576,6 +608,16 @@ export default function SellModule({
           </h2>
           <p className="text-slate-300 text-xs">{translations[language].sell.subtitle}</p>
         </div>
+        {lastOrder && (
+          <button
+            type="button"
+            onClick={handlePrintLastOrder}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold transition-all text-xs border border-white/20 hover:border-white/30 cursor-pointer active:scale-95 shrink-0 z-10 relative"
+          >
+            <Printer className="w-4 h-4 text-indigo-300" />
+            {language === 'bn' ? 'শেষ অর্ডার প্রিন্ট করুন' : 'Print Last Order'}
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">

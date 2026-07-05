@@ -1,9 +1,10 @@
 'use client';
 
 import React from 'react';
-import { ClipboardList, TrendingUp, TrendingDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ClipboardList, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Printer } from 'lucide-react';
 import type { StockAdjustment } from '../../types';
 import type { Language }        from '../../translations';
+import { printStockAdjustmentLog } from '../../lib/printUtils';
 
 interface AdjustmentAuditLogProps {
   language:             Language;
@@ -33,15 +34,27 @@ export default function AdjustmentAuditLog({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <ClipboardList className="w-4 h-4 text-slate-500" />
-        <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider">
-          {bn ? 'অ্যাডজাস্টমেন্ট অডিট লগ' : 'Adjustment Audit Log'}
-        </h3>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <ClipboardList className="w-4 h-4 text-slate-500" />
+          <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider">
+            {bn ? 'অ্যাডজাস্টমেন্ট অডিট লগ' : 'Adjustment Audit Log'}
+          </h3>
+          {adjustments.length > 0 && (
+            <span className="text-[10px] bg-slate-100 border border-slate-200 text-slate-500 px-2 py-0.5 rounded font-mono font-semibold">
+              {adjustments.length}
+            </span>
+          )}
+        </div>
         {adjustments.length > 0 && (
-          <span className="text-[10px] bg-slate-100 border border-slate-200 text-slate-500 px-2 py-0.5 rounded font-mono font-semibold">
-            {adjustments.length}
-          </span>
+          <button
+            type="button"
+            onClick={() => printStockAdjustmentLog(adjustments)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 hover:text-slate-900 font-medium transition-all text-xs cursor-pointer active:scale-95"
+          >
+            <Printer className="w-3.5 h-3.5 text-slate-400" />
+            {bn ? 'লগ প্রিন্ট করুন' : 'Print Log'}
+          </button>
         )}
       </div>
 

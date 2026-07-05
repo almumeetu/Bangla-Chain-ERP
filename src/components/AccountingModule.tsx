@@ -16,10 +16,12 @@ import {
   ChevronRight,
   PieChart,
   ClipboardList,
-  FileText
+  FileText,
+  Printer
 } from 'lucide-react';
 import { ExpenseCategory, ExpenseRecord, ChallanItem, Procurement } from '../types';
 import { translations, Language } from '../translations';
+import { printExpenseReceipt } from '../lib/printUtils';
 
 interface AccountingModuleProps {
   categories: ExpenseCategory[];
@@ -385,7 +387,15 @@ export default function AccountingModule({
                               <span className="text-slate-300">—</span>
                             )}
                           </td>
-                          <td className="px-5 py-3.5 text-center">
+                          <td className="px-5 py-3.5 text-center flex items-center justify-center gap-1.5">
+                            <button
+                              id={`exp-btn-print-${exp.id}`}
+                              onClick={() => printExpenseReceipt(exp)}
+                              className="p-1.5 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                              title="Print Receipt"
+                            >
+                              <Printer className="w-4 h-4" />
+                            </button>
                             <button
                               id={`exp-btn-delete-${exp.id}`}
                               onClick={() => handleDeleteExpense(exp.id)}
