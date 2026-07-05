@@ -52,6 +52,15 @@ export interface DeliveryMan {
   vehicle: string;
 }
 
+export interface DamageLogEntry {
+  id: string;
+  qty: number;
+  deltaQty?: number;
+  recordedAt: string;
+  note?: string;
+  type: 'existing' | 'new';
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -65,6 +74,7 @@ export interface Product {
   defaultWSP: number; // Wholesale Supply Price in BDT
   currentStock: number;
   damagedStock?: number;
+  damageHistory?: DamageLogEntry[];
 }
 
 export interface ProductAttribute {

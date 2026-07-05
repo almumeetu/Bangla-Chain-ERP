@@ -512,6 +512,8 @@ export default function DirectoryModule({
   const [showDamageModal, setShowDamageModal] = useState(false);
   const [selectedDamageProduct, setSelectedDamageProduct] = useState<Product | null>(null);
   const [damageQtyInput, setDamageQtyInput] = useState<number>(0);
+  const [damageNoteInput, setDamageNoteInput] = useState('');
+  const [damageMode, setDamageMode] = useState<'add' | 'set'>('add');
   const [deductFromSalable, setDeductFromSalable] = useState(false);
   const [selectedDamageCompany, setSelectedDamageCompany] = useState<string>('All');
 
@@ -713,7 +715,9 @@ export default function DirectoryModule({
   // --- SUBMIT & EDIT: Damage ---
   const handleOpenDamageModal = useCallback((product: Product) => {
     setSelectedDamageProduct(product);
-    setDamageQtyInput(product.damagedStock || 0);
+    setDamageQtyInput(0);
+    setDamageNoteInput('');
+    setDamageMode('add');
     setDeductFromSalable(false);
     setShowDamageModal(true);
   }, []);
@@ -722,20 +726,36 @@ export default function DirectoryModule({
     e.preventDefault();
     if (!selectedDamageProduct) return;
 
-    const newDamageQty = Math.max(0, Number(damageQtyInput));
-    const oldDamageQty = selectedDamageProduct.damagedStock || 0;
-    const diff = newDamageQty - oldDamageQty;
+    const currentDamageQty = selectedDamageProduct.damagedStock || 0;
+    const requestedQty = Math.max(0, Number(damageQtyInput));
+    const deltaQty = damageMode === 'add' ? requestedQty : requestedQty - currentDamageQty;
+    const nextDamageQty = Math.max(0, currentDamageQty + deltaQty);
 
     setProducts(prevProducts => prevProducts.map(p => {
       if (p.id === selectedDamageProduct.id) {
         let salableStock = p.currentStock;
-        if (deductFromSalable && diff > 0) {
-          salableStock = Math.max(0, salableStock - diff);
+        if (deductFromSalable && deltaQty > 0) {
+          salableStock = Math.max(0, salableStock - deltaQty);
+        } else if (deductFromSalable && deltaQty < 0) {
+          salableStock = salableStock - deltaQty;
         }
+
+        const history = p.damageHistory || [];
         return {
           ...p,
-          damagedStock: newDamageQty,
-          currentStock: salableStock
+          damagedStock: nextDamageQty,
+          currentStock: salableStock,
+          damageHistory: [
+            ...history,
+            {
+              id: `damage-${Date.now()}`,
+              qty: Math.abs(deltaQty),
+              deltaQty,
+              recordedAt: new Date().toISOString(),
+              note: damageNoteInput.trim() || undefined,
+              type: 'new'
+            }
+          ]
         };
       }
       return p;
@@ -743,7 +763,10 @@ export default function DirectoryModule({
 
     setShowDamageModal(false);
     setSelectedDamageProduct(null);
-  }, [selectedDamageProduct, damageQtyInput, deductFromSalable, setProducts]);
+    setDamageQtyInput(0);
+    setDamageNoteInput('');
+    setDamageMode('add');
+  }, [selectedDamageProduct, damageQtyInput, damageNoteInput, damageMode, deductFromSalable, setProducts]);
 
   // --- SUBMIT: Company ---
   const handleCompanySubmit = useCallback((e: React.FormEvent) => {
@@ -1678,9 +1701,20 @@ export default function DirectoryModule({
           return matchCompany && matchCategory && matchSearch && matchStock;
         });
 
+        const getDamageBreakdown = (product: Product) => {
+          const historyEntries = product.damageHistory || [];
+          const signedDelta = historyEntries.reduce((sum, entry) => sum + (entry.type === 'new' ? (entry.deltaQty ?? entry.qty) : 0), 0);
+          const positiveDelta = historyEntries.reduce((sum, entry) => sum + (entry.type === 'new' && (entry.deltaQty ?? entry.qty) > 0 ? (entry.deltaQty ?? entry.qty) : 0), 0);
+          const existingDamageQty = Math.max(0, (product.damagedStock || 0) - signedDelta);
+          const newDamageQty = Math.max(0, positiveDelta);
+          return { existingDamageQty, newDamageQty, totalDamageQty: existingDamageQty + newDamageQty };
+        };
+
         // Calculations for KPI Cards
-        const totalDamagedUnits = damageFilteredProducts.reduce((sum, p) => sum + (p.damagedStock || 0), 0);
-        const totalDamagedValue = damageFilteredProducts.reduce((sum, p) => sum + ((p.damagedStock || 0) * p.defaultPP), 0);
+        const totalDamagedUnits = damageFilteredProducts.reduce((sum, p) => sum + getDamageBreakdown(p).totalDamageQty, 0);
+        const totalExistingDamageUnits = damageFilteredProducts.reduce((sum, p) => sum + getDamageBreakdown(p).existingDamageQty, 0);
+        const totalNewDamageUnits = damageFilteredProducts.reduce((sum, p) => sum + getDamageBreakdown(p).newDamageQty, 0);
+        const totalDamagedValue = damageFilteredProducts.reduce((sum, p) => sum + (getDamageBreakdown(p).totalDamageQty * p.defaultPP), 0);
         const totalSalableUnits = damageFilteredProducts.reduce((sum, p) => sum + p.currentStock, 0);
         const totalUnitsCount = totalSalableUnits + totalDamagedUnits;
         const damageRatio = totalUnitsCount > 0 ? (totalDamagedUnits / totalUnitsCount) * 100 : 0;
@@ -1703,6 +1737,9 @@ export default function DirectoryModule({
                   <span className="text-2xl font-black text-slate-850 font-mono tracking-tight">
                     {totalDamagedUnits} <span className="text-xs font-bold text-slate-500">{language === 'bn' ? 'টি' : 'Units'}</span>
                   </span>
+                  <p className="text-[10px] text-slate-500 mt-1 font-semibold">
+                    {language === 'bn' ? `পুরাতন: ${totalExistingDamageUnits} • নতুন: ${totalNewDamageUnits}` : `Old: ${totalExistingDamageUnits} • New: ${totalNewDamageUnits}`}
+                  </p>
                 </div>
               </div>
 
@@ -1839,7 +1876,10 @@ export default function DirectoryModule({
             {/* Grid of Lucrative Product Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
               {damageFilteredProducts.map(p => {
-                const damagedQty = p.damagedStock || 0;
+                const damageBreakdown = getDamageBreakdown(p);
+                const damagedQty = damageBreakdown.totalDamageQty;
+                const existingDamageQty = damageBreakdown.existingDamageQty;
+                const newDamageQty = damageBreakdown.newDamageQty;
                 const totalQty = p.currentStock + damagedQty;
                 const itemDamageRatio = totalQty > 0 ? (damagedQty / totalQty) * 100 : 0;
 
@@ -1917,6 +1957,23 @@ export default function DirectoryModule({
                           className={`h-full rounded-full transition-all duration-500 ${itemDamageRatio > 10 ? 'bg-rose-500' : itemDamageRatio > 0 ? 'bg-amber-500' : 'bg-slate-300'
                             }`}
                         />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 relative z-10">
+                      <div className="grid grid-cols-2 gap-2 text-[10px]">
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-2">
+                          <div className="text-[8px] text-slate-400 uppercase font-bold">
+                            {language === 'bn' ? 'পুরাতন ড্যামেজ' : 'Old Damage'}
+                          </div>
+                          <div className="font-mono font-black text-slate-700">{existingDamageQty.toLocaleString()}</div>
+                        </div>
+                        <div className="rounded-xl border border-rose-200 bg-rose-50 p-2">
+                          <div className="text-[8px] text-rose-500 uppercase font-bold">
+                            {language === 'bn' ? 'নতুন ড্যামেজ' : 'New Damage'}
+                          </div>
+                          <div className="font-mono font-black text-rose-700">{newDamageQty.toLocaleString()}</div>
+                        </div>
                       </div>
                     </div>
 
@@ -3195,9 +3252,27 @@ export default function DirectoryModule({
                 <span className="font-mono text-[10px] text-slate-500 block uppercase">SKU: {selectedDamageProduct.sku}</span>
               </div>
 
+              <div className="bg-amber-50 rounded-lg border border-amber-200 p-3 text-[11px] text-amber-800">
+                <div className="font-semibold">
+                  {language === 'bn' ? 'পুরাতন রেকর্ডকৃত ড্যামেজ' : 'Previously recorded damage'}
+                </div>
+                <div className="font-mono font-black mt-1">
+                  {(selectedDamageProduct.damagedStock || 0).toLocaleString()} {language === 'bn' ? 'টি' : 'units'}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-white p-2">
+                <button type="button" onClick={() => setDamageMode('add')} className={`rounded-lg px-3 py-2 text-xs font-semibold transition-colors ${damageMode === 'add' ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}>
+                  {language === 'bn' ? 'যোগ করুন' : 'Add to existing'}
+                </button>
+                <button type="button" onClick={() => setDamageMode('set')} className={`rounded-lg px-3 py-2 text-xs font-semibold transition-colors ${damageMode === 'set' ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}>
+                  {language === 'bn' ? 'শেষ মান নির্ধারণ করুন' : 'Set final total'}
+                </button>
+              </div>
+
               <div>
                 <label className="mb-2 block text-xs font-semibold text-slate-705">
-                  {language === 'bn' ? 'ড্যামেজ স্টক পরিমাণ *' : 'Damaged Stock Qty *'}
+                  {damageMode === 'add' ? (language === 'bn' ? 'কতটি নতুন ড্যামেজ যোগ করবেন *' : 'How many new damaged units to add *') : (language === 'bn' ? 'ড্যামেজের শেষ মোট পরিমাণ *' : 'Final damage total to set *')}
                 </label>
                 <input
                   type="number"
@@ -3205,6 +3280,26 @@ export default function DirectoryModule({
                   min="0"
                   value={damageQtyInput}
                   onChange={e => setDamageQtyInput(Number(e.target.value))}
+                  className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3.5 font-semibold outline-none focus:border-slate-800 focus:bg-white"
+                />
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {[1, 5, 10, 20].map(q => (
+                    <button key={q} type="button" onClick={() => setDamageQtyInput(q)} className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-semibold text-slate-600 hover:border-slate-400 hover:bg-slate-50">
+                      +{q}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-xs font-semibold text-slate-705">
+                  {language === 'bn' ? 'নোট (ঐচ্ছিক)' : 'Note (optional)'}
+                </label>
+                <input
+                  type="text"
+                  value={damageNoteInput}
+                  onChange={e => setDamageNoteInput(e.target.value)}
+                  placeholder={language === 'bn' ? 'যেমন: রেসিডিউ, ট্রান্সপোর্ট, ...' : 'e.g. transit, spoilage, ...'}
                   className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3.5 font-semibold outline-none focus:border-slate-800 focus:bg-white"
                 />
               </div>

@@ -29,7 +29,7 @@ interface ReportsModuleProps {
   userRole?: 'admin' | 'sr';
 }
 
-type ReportTab = 'stock' | 'sales' | 'profit' | 'margin';
+type ReportTab = 'stock' | 'sales' | 'profit' | 'margin' | 'damage';
 
 export default function ReportsModule({
   products,
@@ -229,8 +229,56 @@ export default function ReportsModule({
   }, [filteredChallans, products, srs, deliveryMen, selectedCompanyFilter, selectedSrFilter, selectedDeliveryManFilter]);
 
   // ═══════════════════════════════════════════════════════════════
-  // 3. PROFIT REPORT DATA CALCULATION
+  // 3. DAMAGE RECONCILIATION REPORT DATA CALCULATION
   // ═══════════════════════════════════════════════════════════════
+  const damageReportData = useMemo(() => {
+    const rows = products
+      .filter(p => selectedCompanyFilter === 'All' || p.company === selectedCompanyFilter)
+      .map(p => {
+        const historyEntries = p.damageHistory || [];
+        const signedDelta = historyEntries.reduce((sum, entry) => sum + (entry.type === 'new' ? (entry.deltaQty ?? entry.qty) : 0), 0);
+        const positiveDelta = historyEntries.reduce((sum, entry) => sum + (entry.type === 'new' && (entry.deltaQty ?? entry.qty) > 0 ? (entry.deltaQty ?? entry.qty) : 0), 0);
+        const existingDamageQty = Math.max(0, (p.damagedStock || 0) - signedDelta);
+        const newDamageQty = Math.max(0, positiveDelta);
+        const totalDamageQty = existingDamageQty + newDamageQty;
+        const unitValue = p.defaultPP || 0;
+        const oldDamageValue = existingDamageQty * unitValue;
+        const newDamageValue = newDamageQty * unitValue;
+        const totalDamageValue = totalDamageQty * unitValue;
+        const periodSalesValue = filteredChallans
+          .filter(ch => ch.productName.toLowerCase() === p.name.toLowerCase())
+          .reduce((sum, ch) => sum + (ch.totalAmount || 0), 0);
+        const latestNote = [...historyEntries]
+          .sort((a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime())[0]?.note || '';
+
+        return {
+          productName: p.name,
+          sku: p.sku,
+          company: p.company,
+          currentStock: p.currentStock,
+          oldDamageQty: existingDamageQty,
+          oldDamageValue,
+          newDamageQty,
+          newDamageValue,
+          totalDamageQty,
+          totalDamageValue,
+          periodSalesValue,
+          latestNote
+        };
+      })
+      .filter(row => row.totalDamageQty > 0 || row.periodSalesValue > 0)
+      .sort((a, b) => b.totalDamageValue - a.totalDamageValue || b.totalDamageQty - a.totalDamageQty);
+
+    return {
+      rows,
+      totalDamageUnits: rows.reduce((sum, row) => sum + row.totalDamageQty, 0),
+      totalOldDamageUnits: rows.reduce((sum, row) => sum + row.oldDamageQty, 0),
+      totalNewDamageUnits: rows.reduce((sum, row) => sum + row.newDamageQty, 0),
+      totalDamageValue: rows.reduce((sum, row) => sum + row.totalDamageValue, 0),
+      totalRecordedSalesValue: rows.reduce((sum, row) => sum + row.periodSalesValue, 0)
+    };
+  }, [products, selectedCompanyFilter, filteredChallans]);
+
   const profitReportData = useMemo(() => {
     const brandList = selectedCompanyFilter === 'All'
       ? Array.from(new Set(products.map(p => p.company).filter(Boolean)))
@@ -322,6 +370,13 @@ export default function ReportsModule({
     doc.text(`DATE GENERATED: ${dateStr} | PERIOD: ${startDate} to ${endDate}`, 14, 28);
 
     let y = 55;
+
+    const checkPageBreak = (heightNeeded: number) => {
+      if (y + heightNeeded > 270) {
+        doc.addPage();
+        y = 20;
+      }
+    };
 
     if (activeTab === 'stock') {
       // Draw Stock Report
@@ -500,7 +555,38 @@ export default function ReportsModule({
         doc.text(`TK ${row.revenue.toLocaleString()}`, 165, y);
         y += 8;
       });
-    } 
+    }
+    else if (activeTab === 'damage') {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.setTextColor(30, 41, 59);
+      doc.text(t.damageTitle.toUpperCase(), 14, y);
+      y += 10;
+
+      doc.setFillColor(248, 250, 252);
+      doc.rect(14, y - 5, 182, 8, 'F');
+      doc.line(14, y + 3, 196, y + 3);
+      doc.setFontSize(8.5);
+      doc.setTextColor(71, 85, 105);
+      doc.text(language === 'bn' ? 'পণ্য / কোম্পানি' : 'PRODUCT / COMPANY', 16, y - 1);
+      doc.text(language === 'bn' ? 'পুরাতন' : 'OLD', 76, y - 1);
+      doc.text(language === 'bn' ? 'নতুন' : 'NEW', 116, y - 1);
+      doc.text(language === 'bn' ? 'মোট' : 'TOTAL', 148, y - 1);
+      doc.text(language === 'bn' ? 'রেকর্ডেড' : 'RECORDED', 172, y - 1);
+      y += 10;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(30, 41, 59);
+      damageReportData.rows.forEach(row => {
+        checkPageBreak(8);
+        doc.text(`${row.productName.substring(0, 18)} / ${row.company}`, 16, y);
+        doc.text(`${row.oldDamageQty} (${row.oldDamageValue.toLocaleString()} TK)`, 76, y);
+        doc.text(`${row.newDamageQty} (${row.newDamageValue.toLocaleString()} TK)`, 116, y);
+        doc.text(`${row.totalDamageQty} (${row.totalDamageValue.toLocaleString()} TK)`, 148, y);
+        doc.text(`TK ${row.periodSalesValue.toLocaleString()}`, 172, y);
+        y += 8;
+      });
+    }
     else if (activeTab === 'profit') {
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(12);
@@ -704,6 +790,16 @@ export default function ReportsModule({
         {userRole === 'admin' && (
           <>
             <button
+              onClick={() => setActiveTab('damage')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                activeTab === 'damage'
+                  ? 'bg-white text-slate-900 shadow-sm border border-slate-200/50'
+                  : 'text-slate-500 hover:text-slate-900'
+              }`}
+            >
+              {t.tabDamage}
+            </button>
+            <button
               onClick={() => setActiveTab('profit')}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 activeTab === 'profit'
@@ -854,6 +950,79 @@ export default function ReportsModule({
       )}
 
       {/* TAB CONTENT: SALES REPORT */}
+      {activeTab === 'damage' && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="rounded-3xl border border-rose-200 bg-rose-50/70 p-4">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-rose-600">{language === 'bn' ? 'মোট ড্যামেজ ইউনিট' : 'Total Damage Units'}</div>
+              <div className="mt-2 text-2xl font-black text-slate-900">{damageReportData.totalDamageUnits.toLocaleString()}</div>
+              <div className="text-[10px] text-slate-500">{language === 'bn' ? 'পুরাতন + নতুন' : 'Old + New'}</div>
+            </div>
+            <div className="rounded-3xl border border-amber-200 bg-amber-50/70 p-4">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-amber-600">{language === 'bn' ? 'পুরাতন ড্যামেজ' : 'Old Damage'}</div>
+              <div className="mt-2 text-2xl font-black text-slate-900">{damageReportData.totalOldDamageUnits.toLocaleString()}</div>
+              <div className="text-[10px] text-slate-500">{language === 'bn' ? 'আগে থাকা ড্যামেজ' : 'Existing damage'}</div>
+            </div>
+            <div className="rounded-3xl border border-emerald-200 bg-emerald-50/70 p-4">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">{language === 'bn' ? 'নতুন ড্যামেজ' : 'New Damage'}</div>
+              <div className="mt-2 text-2xl font-black text-slate-900">{damageReportData.totalNewDamageUnits.toLocaleString()}</div>
+              <div className="text-[10px] text-slate-500">{language === 'bn' ? 'এই রিসার্চে যোগ হওয়া' : 'Added in this cycle'}</div>
+            </div>
+            <div className="rounded-3xl border border-slate-200 bg-white p-4">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{language === 'bn' ? 'ড্যামেজ মান (TK)' : 'Damage Value (TK)'}</div>
+              <div className="mt-2 text-2xl font-black text-slate-900">{formatBDT(damageReportData.totalDamageValue)}</div>
+              <div className="text-[10px] text-slate-500">{language === 'bn' ? 'রেকর্ডেড বিক্রয় মূল্য: ' : 'Recorded sales value: '}{formatBDT(damageReportData.totalRecordedSalesValue)}</div>
+            </div>
+          </div>
+
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
+            <div className="border-b border-slate-100 pb-3">
+              <h3 className="font-bold text-slate-800 text-sm">{t.damageTitle}</h3>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 text-[10px] font-bold text-slate-450 uppercase tracking-wider bg-slate-50/50">
+                    <th className="px-4 py-3">{language === 'bn' ? 'পণ্য / কোম্পানি' : 'Product / Company'}</th>
+                    <th className="px-4 py-3 text-center">{language === 'bn' ? 'পুরাতন Qty' : 'Old Qty'}</th>
+                    <th className="px-4 py-3 text-center">{language === 'bn' ? 'নতুন Qty' : 'New Qty'}</th>
+                    <th className="px-4 py-3 text-right">{language === 'bn' ? 'পুরাতন Amount' : 'Old Amount'}</th>
+                    <th className="px-4 py-3 text-right">{language === 'bn' ? 'নতুন Amount' : 'New Amount'}</th>
+                    <th className="px-4 py-3 text-right">{language === 'bn' ? 'মোট Amount' : 'Total Amount'}</th>
+                    <th className="px-4 py-3 text-right">{language === 'bn' ? 'রেকর্ডেড বিক্রয় মূল্য' : 'Recorded Sales Value'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-xs">
+                  {damageReportData.rows.map((row, idx) => (
+                    <tr key={idx} className="hover:bg-slate-50/40 transition-colors">
+                      <td className="px-4 py-3.5 font-bold text-slate-850">
+                        <div>{row.productName}</div>
+                        <div className="text-[9px] text-slate-400 font-mono mt-0.5">{row.sku} · {row.company}</div>
+                        {row.latestNote && <div className="text-[9px] text-rose-500 mt-1">{row.latestNote}</div>}
+                      </td>
+                      <td className="px-4 py-3.5 text-center font-mono font-bold text-amber-600">{row.oldDamageQty.toLocaleString()}</td>
+                      <td className="px-4 py-3.5 text-center font-mono font-bold text-emerald-600">{row.newDamageQty.toLocaleString()}</td>
+                      <td className="px-4 py-3.5 text-right font-mono font-bold text-slate-700">{formatBDT(row.oldDamageValue)}</td>
+                      <td className="px-4 py-3.5 text-right font-mono font-bold text-slate-700">{formatBDT(row.newDamageValue)}</td>
+                      <td className="px-4 py-3.5 text-right font-mono font-bold text-rose-600">{formatBDT(row.totalDamageValue)}</td>
+                      <td className="px-4 py-3.5 text-right font-mono font-bold text-slate-900">{formatBDT(row.periodSalesValue)}</td>
+                    </tr>
+                  ))}
+                  {damageReportData.rows.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="px-4 py-8 text-center text-slate-400 font-semibold">
+                        {language === 'bn' ? 'কোনো ড্যামেজ রেকর্ড পাওয়া যায়নি।' : 'No damage records found.'}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
       {activeTab === 'sales' && (
         <div className="space-y-6">
           {/* Company-wise Sales Breakdown */}
