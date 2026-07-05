@@ -365,6 +365,48 @@ export function seedInitialData(): void {
   localStorage.setItem(KEYS.seeded, 'true');
 }
 
+// ── Clear ALL business data (keeps admin accounts + auth, wipes everything else) ─
+
+export function clearAllData(): void {
+  const businessKeys: string[] = [
+    KEYS.products,
+    KEYS.srs,
+    KEYS.deliveryMen,
+    KEYS.customers,
+    KEYS.attributes,
+    KEYS.challans,
+    KEYS.procurements,
+    KEYS.adjustments,
+    KEYS.expenseCategories,
+    KEYS.expenses,
+    KEYS.companies,
+    KEYS.productCategories,
+    KEYS.units,
+    KEYS.godowns,
+    KEYS.routes,
+    KEYS.seeded,
+  ];
+  businessKeys.forEach(k => localStorage.removeItem(k));
+  // Write empty arrays so the app gets [] instead of re-seeding
+  saveProducts([]);
+  saveSRs([]);
+  saveDeliveryMen([]);
+  saveCustomers([]);
+  saveAttributes([]);
+  saveChallans([]);
+  saveProcurements([]);
+  saveStockAdjustments([]);
+  saveExpenseCategories([]);
+  saveExpenses([]);
+  saveCompanies([]);
+  saveProductCategories([]);
+  saveUnits([]);
+  saveGodowns([]);
+  saveRoutes([]);
+  // Mark seeded = 'cleared' so demo data is NOT re-injected on next load
+  localStorage.setItem(KEYS.seeded, 'cleared');
+}
+
 // ── Restore from imported backup ──────────────────────────────────────────────
 
 export function restoreAllData(data: Partial<AllErpData>): void {

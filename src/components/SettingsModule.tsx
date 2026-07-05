@@ -3,6 +3,7 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { Settings, ClipboardList, Users, Eye, EyeOff, Plus, Trash2, Check, Shield, KeyRound, UserCheck, Download, Upload, Database } from 'lucide-react';
 import { exportBackup, importBackup } from '../lib/backupRestore';
+import { clearAllData } from '../lib/localStore';
 import DirectoryModule from './DirectoryModule';
 import { SR } from '../types';
 
@@ -87,10 +88,18 @@ export default function SettingsModule({
   };
 
   const handleResetDatabase = () => {
-    if (confirm(language === 'bn' ? 'আপনি কি নিশ্চিত যে সমস্ত ডেটা মুছে ফেলে প্রাথমিক অবস্থায় ফিরে যেতে চান?' : 'Are you sure you want to reset all local changes and restore original demo data?')) {
-      localStorage.clear();
-      window.location.reload();
-    }
+    const message = language === 'bn'
+      ? 'এই কাজটি সব পণ্য, কোম্পানি, এসআর, বিক্রয়, স্টক, খরচ এবং অন্যান্য ব্যবসায়িক ডেটা মুছে দিবে। আপনি কি সত্যি নতুনভাবে শুরু করতে চান?'
+      : 'This will remove all products, companies, SRs, sales, stock, expenses, and other business data. Do you want to start fresh?';
+
+    if (!confirm(message)) return;
+
+    clearAllData();
+    sessionStorage.removeItem('erp_sr_id');
+    sessionStorage.removeItem('erp_sr_name');
+    localStorage.removeItem('erp_auth_role');
+    localStorage.removeItem('erp_active_tab');
+    window.location.reload();
   };
 
   // ─── Admin: change password ────────────────────────────────────
@@ -372,10 +381,10 @@ export default function SettingsModule({
                 {language === 'bn' ? 'সিস্টেম অ্যাকশন' : 'Database & Operations'}
               </h3>
               <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
-                {language === 'bn' ? 'সমস্ত ডেটা মুছে প্রথম অবস্থায় ফিরে যান।' : 'Reset all local data to restore demo seed.'}
+                {language === 'bn' ? 'সব ব্যবসায়িক ডেটা ক্লিয়ার করে শূন্য অবস্থায় ফিরে যান।' : 'Clear all business data and start from zero.'}
               </p>
               <button type="button" onClick={handleResetDatabase} className="w-full h-10 rounded-lg border border-rose-100 bg-rose-50 text-rose-600 hover:bg-rose-100 text-xs font-bold cursor-pointer">
-                {language === 'bn' ? 'ফ্যাক্টরি রিসেট' : 'Factory Reset Local DB'}
+                {language === 'bn' ? 'ক্লিয়ার অল' : 'Clear All'}
               </button>
             </div>
 
