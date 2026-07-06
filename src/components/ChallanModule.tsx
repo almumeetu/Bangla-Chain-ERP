@@ -185,6 +185,11 @@ export default function ChallanModule({
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedOrders = filteredOrders.slice(startIndex, startIndex + itemsPerPage);
 
+  // Flat list of filtered ChallanItems
+  const filteredChallans = React.useMemo(() => {
+    return filteredOrders.flatMap(o => o.items);
+  }, [filteredOrders]);
+
   // Auto-fill price or get default wholesale price for selected product
   const getProductWSP = (prodName: string) => {
     const prod = products.find(p => p.name === prodName);
@@ -1053,7 +1058,7 @@ export default function ChallanModule({
               <button
                 id="viewing-challan-btn-print-sheet"
                 type="button"
-                onClick={() => printChallanSheet(viewingOrder.items, products)}
+                onClick={() => printChallanSheet(viewingOrder.items)}
                 className="flex-1 py-3 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold rounded-lg text-sm transition-all active:scale-95 text-center shadow-sm cursor-pointer flex items-center justify-center gap-1.5"
               >
                 <Printer className="w-4 h-4" />
