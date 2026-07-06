@@ -79,16 +79,40 @@ import type { ChallanItem, Procurement, ExpenseRecord, StockAdjustment } from '.
 
 // ── 1. Challan / Delivery Invoice ─────────────────────────────────────────────
 
-export function printChallanInvoice(ch: ChallanItem): void {
+export function printChallanInvoice(items: ChallanItem[]): void {
+  if (items.length === 0) return;
+  const ch = items[0]; // Header info comes from first item
   const shop = getShopName();
-  const netQty = ch.qty - (ch.returnedQty || 0) - (ch.damagedQty || 0);
 
-  printHTML(`Challan ${ch.id.toUpperCase()}`, `
+  const totalGrossQty = items.reduce((sum, item) => sum + item.qty, 0);
+  const totalBonusQty = items.reduce((sum, item) => sum + (item.bonusQty || 0), 0);
+  const totalReturned = items.reduce((sum, item) => sum + (item.returnedQty || 0), 0);
+  const totalDamaged = items.reduce((sum, item) => sum + (item.damagedQty || 0), 0);
+  const totalNetPayable = items.reduce((sum, item) => sum + item.totalAmount, 0);
+
+  const rows = items.map((item, idx) => {
+    const netQty = item.qty - (item.returnedQty || 0) - (item.damagedQty || 0);
+    return `
+      <tr>
+        <td><b>${item.productName}</b><br><span style="font-size:10px;color:#64748b">${item.company || ''}</span></td>
+        <td>${item.attribute}</td>
+        <td class="text-center">${item.qty}</td>
+        <td class="text-center">${item.bonusQty}</td>
+        <td class="text-center">${item.returnedQty || 0}</td>
+        <td class="text-center">${item.damagedQty || 0}</td>
+        <td class="text-center"><b>${netQty}</b></td>
+        <td class="text-right">${item.rate.toFixed(0)}</td>
+        <td class="text-right"><b>${item.totalAmount.toFixed(0)}</b></td>
+      </tr>
+    `;
+  }).join('');
+
+  printHTML(`Challan ORD-${new Date(ch.createdAt).getTime().toString().slice(-6)}`, `
     <div class="header">
       <div class="brand"><h1>${shop}</h1><p>FMCG Dealer &amp; Distributor</p></div>
       <div class="doc-meta">
         <div class="doc-type">Delivery Challan</div>
-        <div class="doc-id">${ch.id.toUpperCase()}</div>
+        <div class="doc-id">ORD-${new Date(ch.createdAt).getTime().toString().slice(-6)}</div>
         <div class="doc-date">Printed: ${now()}</div>
       </div>
     </div>
@@ -101,7 +125,6 @@ export function printChallanInvoice(ch: ChallanItem): void {
       <div class="meta-item"><span class="label">Status</span><span class="value">
         <span class="badge ${ch.status === 'Delivered' ? 'badge-green' : ch.status === 'Shipped' ? 'badge-blue' : 'badge-amber'}">${ch.status}</span>
       </span></div>
-      <div class="meta-item"><span class="label">Commission</span><span class="value">৳${(ch.commissionAmount || 0).toFixed(0)}</span></div>
     </div>
 
     <table>
@@ -112,25 +135,15 @@ export function printChallanInvoice(ch: ChallanItem): void {
         <th class="text-center">Net Qty</th>
         <th class="text-right">Rate (৳)</th><th class="text-right">Total (৳)</th>
       </tr></thead>
-      <tbody><tr>
-        <td><b>${ch.productName}</b><br><span style="font-size:10px;color:#64748b">${ch.company || ''}</span></td>
-        <td>${ch.attribute}</td>
-        <td class="text-center">${ch.qty}</td>
-        <td class="text-center">${ch.bonusQty}</td>
-        <td class="text-center">${ch.returnedQty || 0}</td>
-        <td class="text-center">${ch.damagedQty || 0}</td>
-        <td class="text-center"><b>${netQty}</b></td>
-        <td class="text-right">${ch.rate.toFixed(0)}</td>
-        <td class="text-right"><b>${ch.totalAmount.toFixed(0)}</b></td>
-      </tr></tbody>
+      <tbody>${rows}</tbody>
     </table>
 
     <div class="summary"><table>
-      <tr><td>Gross Qty:</td><td class="text-right">${ch.qty} units</td></tr>
-      <tr><td>Bonus Qty:</td><td class="text-right">${ch.bonusQty} units</td></tr>
-      <tr><td>Returned:</td><td class="text-right">−${ch.returnedQty || 0} units</td></tr>
-      <tr><td>Damaged:</td><td class="text-right">−${ch.damagedQty || 0} units</td></tr>
-      <tr class="total"><td><b>NET PAYABLE:</b></td><td class="text-right"><b>৳${ch.totalAmount.toFixed(0)}</b></td></tr>
+      <tr><td>Gross Qty:</td><td class="text-right">${totalGrossQty} units</td></tr>
+      <tr><td>Bonus Qty:</td><td class="text-right">${totalBonusQty} units</td></tr>
+      <tr><td>Returned:</td><td class="text-right">−${totalReturned} units</td></tr>
+      <tr><td>Damaged:</td><td class="text-right">−${totalDamaged} units</td></tr>
+      <tr class="total"><td><b>NET PAYABLE:</b></td><td class="text-right"><b>৳${totalNetPayable.toLocaleString('en-BD')}</b></td></tr>
     </table></div>
 
     <div class="signatures">
@@ -365,6 +378,7 @@ export interface SalesOrderData {
   commissionPct:  number;
   subtotal:       number;
   commissionAmt:  number;
+  extraCommissionAmt?: number;
   netTotal:       number;
   orderIds:       string[];
 }
@@ -413,6 +427,7 @@ export function printSalesOrder(order: SalesOrderData): void {
     <div class="summary"><table>
       <tr><td>Subtotal:</td><td class="text-right">৳${order.subtotal.toFixed(0)}</td></tr>
       ${order.commissionPct > 0 ? `<tr><td>Commission:</td><td class="text-right" style="color:#2563eb">−৳${(order.commissionAmt || 0).toFixed(0)}</td></tr>` : ''}
+      ${order.extraCommissionAmt && order.extraCommissionAmt > 0 ? `<tr><td>Extra Comm.:</td><td class="text-right" style="color:#2563eb">−৳${order.extraCommissionAmt.toFixed(0)}</td></tr>` : ''}
       <tr class="total"><td><b>NET TOTAL:</b></td><td class="text-right"><b>৳${order.netTotal.toFixed(0)}</b></td></tr>
     </table></div>
 

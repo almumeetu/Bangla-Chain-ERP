@@ -206,7 +206,7 @@ export default function ProcurementModule({
 
   // Create Form State
   const [supplierName, setSupplierName] = useState('');
-  const [procurementName, setProcurementName] = useState('');
+  const procurementName = 'Purchased Items';
   const [invoiceRef, setInvoiceRef] = useState('');
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0]);
   const [deliveryDate, setDeliveryDate] = useState(new Date().toISOString().split('T')[0]);
@@ -353,8 +353,8 @@ export default function ProcurementModule({
   const handleSubmitProcurement = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!procurementName.trim() || !invoiceRef.trim()) {
-      alert('Please fill out procurement batch name and invoice reference');
+    if (!invoiceRef.trim()) {
+      alert('Please fill out all required fields.');
       return;
     }
 
@@ -409,7 +409,7 @@ export default function ProcurementModule({
     });
 
     // Reset Form & switch tab
-    setProcurementName('');
+    // Removed setProcurementName('');
     setInvoiceRef('');
     setAdditionalCost(0);
     setPaymentStatus('Paid');
@@ -655,7 +655,7 @@ export default function ProcurementModule({
 
                       <div className="space-y-1">
                         <h4 className="font-bold text-slate-800 group-hover:text-slate-900 transition-colors text-sm sm:text-base leading-snug line-clamp-1">
-                          {p.procurementName}
+                          {p.supplierName} Procurement
                         </h4>
                         <div className="flex flex-wrap gap-1.5 text-[9px] font-bold text-slate-400 uppercase tracking-wider">
                           <span>Date: {p.invoiceDate}</span>
@@ -859,19 +859,6 @@ export default function ProcurementModule({
                     <option key={s} value={s}>{s}</option>
                   ))}
                 </select>
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-xs font-bold text-slate-700 uppercase tracking-wide">{tProc.procNameLabel}</label>
-                <input
-                  id="proc-form-name"
-                  type="text"
-                  required
-                  placeholder="e.g., Pran Mango Juice Bulk Import"
-                  value={procurementName}
-                  onChange={(e) => setProcurementName(e.target.value)}
-                  className={`h-11 w-full rounded-xl border-2 border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:ring-4 transition-all ${theme.focus}`}
-                />
               </div>
 
               <div>

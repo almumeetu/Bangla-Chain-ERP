@@ -102,6 +102,17 @@ export default function SettingsModule({
     window.location.reload();
   };
 
+  const handleLoadDemoData = () => {
+    const message = language === 'bn'
+      ? 'এটি ডেমো ডেটা লোড করবে। আপনি কি নিশ্চিত?'
+      : 'This will load demo data into the system. Are you sure?';
+
+    if (!confirm(message)) return;
+
+    localStorage.removeItem('erp_seeded');
+    window.location.reload();
+  };
+
   // ─── Admin: change password ────────────────────────────────────
   const handleAdminPasswordChange = useCallback((e: React.FormEvent) => {
     e.preventDefault();
@@ -386,6 +397,15 @@ export default function SettingsModule({
               <button type="button" onClick={handleResetDatabase} className="w-full h-10 rounded-lg border border-rose-100 bg-rose-50 text-rose-600 hover:bg-rose-100 text-xs font-bold cursor-pointer">
                 {language === 'bn' ? 'ক্লিয়ার অল' : 'Clear All'}
               </button>
+
+              <div className="mt-4 pt-4 border-t border-slate-100">
+                <p className="text-[11px] text-slate-500 font-medium mb-3 leading-relaxed">
+                  {language === 'bn' ? 'সিস্টেমটি পরীক্ষা করার জন্য ডেমো ডেটা লোড করুন।' : 'Load demo data to test the system.'}
+                </p>
+                <button type="button" onClick={handleLoadDemoData} className="w-full h-10 rounded-lg border border-indigo-100 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 text-xs font-bold cursor-pointer">
+                  {language === 'bn' ? 'ডেমো ডেটা লোড করুন' : 'Load Demo Data'}
+                </button>
+              </div>
             </div>
 
             <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-3">

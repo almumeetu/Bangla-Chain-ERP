@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   ShoppingBag, Trash2, Plus, Check, Search,
   TicketPercent, Sparkles, Printer, AlertTriangle,
-  Package, ChevronRight, Zap, User, Truck, MapPin
+  Package, ChevronRight, Zap, User, Truck, MapPin, Calendar
 } from 'lucide-react';
 import { Product, ProductAttribute, SR, Route, ChallanItem, DeliveryMan, Category } from '../types';
 import { translations, Language } from '../translations';
@@ -28,6 +28,8 @@ interface CartItem {
   selectedSpec: string;
   qty: number;
   bonusQty: number;
+  returnedQty: number;
+  damagedQty: number;
 }
 
 // ── Brand colour helpers ──────────────────────────────────────────────────────
@@ -50,7 +52,6 @@ interface ProductCardProps {
 
 function ProductCard({ product, onAddToCart, formatBDT, language }: ProductCardProps) {
   const [qtyInput, setQtyInput]     = React.useState('20');
-  const [bonusInput, setBonusInput] = React.useState('0');
   const theme     = getBrandTheme(product.company);
   const isOut     = product.currentStock <= 0;
   const isLow     = product.currentStock > 0 && product.currentStock < 600;
@@ -58,10 +59,9 @@ function ProductCard({ product, onAddToCart, formatBDT, language }: ProductCardP
 
   const handleAdd = useCallback(() => {
     const q = Number(qtyInput) || 0;
-    const b = Number(bonusInput) || 0;
-    if (q <= 0 || isOut) return;
-    onAddToCart(product, q, b);
-  }, [product, onAddToCart, qtyInput, bonusInput, isOut]);
+    if (q > 0) onAddToCart(product, q, 0);
+    setQtyInput('20');
+  }, [product, qtyInput, onAddToCart]);
 
   return (
     <div className={`relative bg-white rounded-2xl border-2 border-slate-100 transition-all duration-200 shadow-sm hover:shadow-lg overflow-hidden flex flex-col ${isOut ? 'opacity-60' : theme.ring}`}>
@@ -122,27 +122,16 @@ function ProductCard({ product, onAddToCart, formatBDT, language }: ProductCardP
           </div>
         </div>
 
-        {/* Qty + Bonus inputs */}
+        {/* Qty input */}
         {!isOut && (
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="text-[9px] font-black text-slate-500 uppercase tracking-wider block mb-1">{language === 'bn' ? 'পরিমাণ' : 'Qty'}</label>
-              <input
-                type="number" min="1"
-                value={qtyInput}
-                onChange={e => setQtyInput(e.target.value)}
-                className="h-9 w-full rounded-lg border-2 border-slate-200 px-2 font-black font-mono text-sm text-slate-800 outline-none focus:border-slate-700 text-center transition-colors"
-              />
-            </div>
-            <div>
-              <label className="text-[9px] font-black text-slate-500 uppercase tracking-wider block mb-1">{language === 'bn' ? 'বোনাস' : 'Bonus'}</label>
-              <input
-                type="number" min="0"
-                value={bonusInput}
-                onChange={e => setBonusInput(e.target.value)}
-                className="h-9 w-full rounded-lg border-2 border-slate-200 px-2 font-black font-mono text-sm text-slate-600 outline-none focus:border-slate-700 text-center transition-colors"
-              />
-            </div>
+          <div className="mb-2">
+            <label className="text-[9px] font-black text-slate-500 uppercase tracking-wider block mb-1">{language === 'bn' ? 'পরিমাণ' : 'Qty'}</label>
+            <input
+              type="number" min="1"
+              value={qtyInput}
+              onChange={e => setQtyInput(e.target.value)}
+              className="h-9 w-full rounded-lg border-2 border-slate-200 px-2 font-black font-mono text-sm text-slate-800 outline-none focus:border-slate-700 text-center transition-colors"
+            />
           </div>
         )}
 
@@ -187,21 +176,24 @@ interface CartItemRowProps {
   formatBDT: (amt: number) => string;
   onUpdateSpec: (idx: number, spec: string) => void;
   onUpdateQty: (idx: number, qty: number) => void;
-  onUpdateBonus: (idx: number, qty: number) => void;
+  onUpdateReturn: (idx: number, qty: number) => void;
+  onUpdateDamage: (idx: number, qty: number) => void;
   onRemove: (idx: number) => void;
 }
 
-function CartItemRow({ item, idx, attributes, formatBDT, onUpdateSpec, onUpdateQty, onUpdateBonus, onRemove }: CartItemRowProps) {
+function CartItemRow({ item, idx, attributes, formatBDT, onUpdateSpec, onUpdateQty, onUpdateReturn, onUpdateDamage, onRemove }: CartItemRowProps) {
   const theme = getBrandTheme(item.product.company);
 
   const handleRemove      = useCallback(() => onRemove(idx), [idx, onRemove]);
   const handleSpecChange  = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => onUpdateSpec(idx, e.target.value), [idx, onUpdateSpec]);
   const handleQtyChange   = useCallback((e: React.ChangeEvent<HTMLInputElement>) => onUpdateQty(idx, Number(e.target.value)), [idx, onUpdateQty]);
-  const handleBonusChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => onUpdateBonus(idx, Number(e.target.value)), [idx, onUpdateBonus]);
   const handleQtyDec      = useCallback(() => onUpdateQty(idx, Math.max(1, item.qty - 1)), [idx, item.qty, onUpdateQty]);
   const handleQtyInc      = useCallback(() => onUpdateQty(idx, item.qty + 1), [idx, item.qty, onUpdateQty]);
+  const handleReturnChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => onUpdateReturn(idx, Number(e.target.value)), [idx, onUpdateReturn]);
+  const handleDamageChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => onUpdateDamage(idx, Number(e.target.value)), [idx, onUpdateDamage]);
 
-  const lineTotal = item.product.defaultWSP * item.qty;
+  const netQty = item.qty - (item.returnedQty || 0) - (item.damagedQty || 0);
+  const lineTotal = item.product.defaultWSP * Math.max(0, netQty);
 
   return (
     <div className="bg-white border-2 border-slate-100 rounded-2xl overflow-hidden hover:border-slate-200 transition-all">
@@ -221,10 +213,10 @@ function CartItemRow({ item, idx, attributes, formatBDT, onUpdateSpec, onUpdateQ
           </button>
         </div>
 
-        {/* Spec + Qty + Bonus row */}
-        <div className="grid grid-cols-12 gap-2 items-end">
+        {/* Spec + Qty row */}
+        <div className="grid grid-cols-2 gap-2 items-end">
           {/* Spec */}
-          <div className="col-span-5 space-y-1">
+          <div className="space-y-1">
             <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Spec</label>
             <select id={`pos-cart-${idx}-spec`} value={item.selectedSpec} onChange={handleSpecChange}
               className="w-full h-8 rounded-lg border-2 border-slate-100 bg-slate-50 px-2 text-[11px] font-bold text-slate-700 outline-none focus:border-slate-400 cursor-pointer transition-colors">
@@ -235,7 +227,7 @@ function CartItemRow({ item, idx, attributes, formatBDT, onUpdateSpec, onUpdateQ
           </div>
 
           {/* Qty stepper */}
-          <div className="col-span-4 space-y-1">
+          <div className="space-y-1">
             <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Qty</label>
             <div className="flex items-center h-8 border-2 border-slate-100 rounded-lg bg-slate-50 overflow-hidden">
               <button id={`pos-cart-${idx}-qty-dec`} type="button" onClick={handleQtyDec}
@@ -246,18 +238,25 @@ function CartItemRow({ item, idx, attributes, formatBDT, onUpdateSpec, onUpdateQ
                 className="w-7 h-full flex items-center justify-center text-slate-500 hover:bg-slate-200 font-black text-sm transition-colors cursor-pointer shrink-0">+</button>
             </div>
           </div>
+        </div>
 
-          {/* Bonus */}
-          <div className="col-span-3 space-y-1">
-            <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Bonus</label>
-            <input id={`pos-cart-${idx}-bonus-val`} type="number" min="0" value={item.bonusQty} onChange={handleBonusChange}
-              className="w-full h-8 text-center rounded-lg border-2 border-slate-100 bg-slate-50 text-xs font-bold font-mono text-slate-600 outline-none focus:border-slate-400" />
+        {/* Returns and Damages row */}
+        <div className="grid grid-cols-2 gap-2 items-end">
+          <div className="space-y-1">
+            <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Return Qty</label>
+            <input type="number" min="0" value={item.returnedQty || 0} onChange={handleReturnChange}
+              className="w-full h-8 text-center rounded-lg border-2 border-slate-100 bg-slate-50 text-xs font-bold font-mono text-amber-600 outline-none focus:border-amber-400" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Damage Qty</label>
+            <input type="number" min="0" value={item.damagedQty || 0} onChange={handleDamageChange}
+              className="w-full h-8 text-center rounded-lg border-2 border-slate-100 bg-slate-50 text-xs font-bold font-mono text-rose-600 outline-none focus:border-rose-400" />
           </div>
         </div>
 
         {/* Line total */}
-        <div className="flex items-center justify-between bg-slate-50 rounded-lg px-2.5 py-1.5">
-          <span className="text-[10px] text-slate-400 font-bold">{item.qty} × {formatBDT(item.product.defaultWSP)}</span>
+        <div className="flex items-center justify-between bg-slate-50 rounded-lg px-2.5 py-1.5 border-t border-slate-100">
+          <span className="text-[10px] text-slate-400 font-bold">Net: {netQty} × {formatBDT(item.product.defaultWSP)}</span>
           <span className={`text-sm font-black font-mono ${theme.accent}`}>{formatBDT(lineTotal)}</span>
         </div>
       </div>
@@ -277,26 +276,14 @@ export default function SellModule({
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedStockFilter, setSelectedStockFilter] = useState('All');
   const [commissionAmount, setCommissionAmount] = useState<number>(0);
+  const [extraCommission, setExtraCommission] = useState<number>(0);
 
   const [selectedSR, setSelectedSR] = useState(srs[0]?.name || '');
-  const [selectedRoute, setSelectedRoute] = useState(() => {
-    const sr = srs[0];
-    if (sr) {
-      const r = routes.find(r => r.assignedSRId === sr.id);
-      return r ? r.name : (routes[0]?.name || '');
-    }
-    return routes[0]?.name || '';
-  });
-  const [selectedDeliveryMan, setSelectedDeliveryMan] = useState(() => {
-    const sr = srs[0];
-    const r  = sr ? routes.find(r => r.assignedSRId === sr.id) : null;
-    const rt = r || routes[0];
-    if (rt) {
-      const dm = deliveryMen.find(d => d.id === rt.assignedDeliveryManId);
-      if (dm) return dm.name;
-    }
-    return deliveryMen[0]?.name || '';
-  });
+  const [selectedRoute, setSelectedRoute] = useState(routes[0]?.name || '');
+  const [selectedDeliveryMan, setSelectedDeliveryMan] = useState(deliveryMen[0]?.name || '');
+  const [orderStatus, setOrderStatus] = useState<'Shipped' | 'Delivered'>('Delivered');
+  const [orderDate, setOrderDate] = useState<string>(new Date().toISOString().slice(0, 10));
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
 
   const uniqueCompanies = Array.from(new Set(products.map(p => p.company).filter(Boolean)));
 
@@ -322,44 +309,32 @@ export default function SellModule({
     if (existingIdx > -1) {
       setCart(prev => { const u = [...prev]; u[existingIdx].qty += qty; u[existingIdx].bonusQty += bonus; return u; });
     } else {
-      setCart(prev => [...prev, { product, selectedSpec: defaultSpec, qty, bonusQty: bonus }]);
+      setCart(prev => [...prev, { product, selectedSpec: defaultSpec, qty, bonusQty: bonus, returnedQty: 0, damagedQty: 0 }]);
     }
   }, [cart, attributes]);
 
-  const handleUpdateQty   = useCallback((i: number, v: number) => { if (v < 1) return; setCart(p => { const u=[...p]; u[i].qty=v; return u; }); }, []);
-  const handleUpdateBonus = useCallback((i: number, v: number) => { if (v < 0) return; setCart(p => { const u=[...p]; u[i].bonusQty=v; return u; }); }, []);
-  const handleUpdateSpec  = useCallback((i: number, v: string) => { setCart(p => { const u=[...p]; u[i].selectedSpec=v; return u; }); }, []);
+  const handleUpdateQty    = useCallback((i: number, v: number) => { if (v < 1) return; setCart(p => { const u=[...p]; u[i].qty=v; return u; }); }, []);
+  const handleUpdateReturn = useCallback((i: number, v: number) => { if (v < 0) return; setCart(p => { const u=[...p]; u[i].returnedQty=v; return u; }); }, []);
+  const handleUpdateDamage = useCallback((i: number, v: number) => { if (v < 0) return; setCart(p => { const u=[...p]; u[i].damagedQty=v; return u; }); }, []);
+  const handleUpdateSpec   = useCallback((i: number, v: string) => { setCart(p => { const u=[...p]; u[i].selectedSpec=v; return u; }); }, []);
   const handleRemoveFromCart = useCallback((i: number) => { setCart(p => p.filter((_, idx) => idx !== i)); }, []);
 
-  const cartSubtotal = cart.reduce((s, i) => s + i.product.defaultWSP * i.qty, 0);
+  const cartSubtotal = cart.reduce((s, item) => {
+    const netQty = item.qty - (item.returnedQty || 0) - (item.damagedQty || 0);
+    return s + item.product.defaultWSP * Math.max(0, netQty);
+  }, 0);
   const commissionAmt = commissionAmount;
-  const netTotal = cartSubtotal - commissionAmt;
+  const netTotal = cartSubtotal - commissionAmt - extraCommission;
 
   const handleSRChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     const name = e.target.value;
     setSelectedSR(name);
-    const sr = srs.find(s => s.name === name);
-    if (sr) {
-      const r = routes.find(r => r.assignedSRId === sr.id);
-      if (r) {
-        setSelectedRoute(r.name);
-        const dm = deliveryMen.find(d => d.id === r.assignedDeliveryManId);
-        if (dm) setSelectedDeliveryMan(dm.name);
-      }
-    }
-  }, [srs, routes, deliveryMen]);
+  }, []);
 
   const handleRouteChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     const name = e.target.value;
     setSelectedRoute(name);
-    const r = routes.find(r => r.name === name);
-    if (r) {
-      const sr = srs.find(s => s.id === r.assignedSRId);
-      if (sr) setSelectedSR(sr.name);
-      const dm = deliveryMen.find(d => d.id === r.assignedDeliveryManId);
-      if (dm) setSelectedDeliveryMan(dm.name);
-    }
-  }, [routes, srs, deliveryMen]);
+  }, []);
 
   const handleCheckout = useCallback((e: React.FormEvent) => {
     e.preventDefault();
@@ -373,28 +348,44 @@ export default function SellModule({
     }
     setProducts(prev => prev.map(p => {
       const ci = cart.find(i => i.product.id === p.id);
-      return ci ? { ...p, currentStock: p.currentStock - (ci.qty + ci.bonusQty) } : p;
+      if (ci) {
+        return { 
+          ...p, 
+          currentStock: p.currentStock - (ci.qty + ci.bonusQty) + (ci.returnedQty || 0),
+          damagedStock: (p.damagedStock || 0) + (ci.damagedQty || 0)
+        };
+      }
+      return p;
     }));
-    const shareOfCommission = cart.length > 0 ? commissionAmount / cart.length : 0;
+    const shareOfCommission = cart.length > 0 ? (commissionAmount + extraCommission) / cart.length : 0;
+    
+    // Combine selected date with current time to ensure unique timestamp per checkout
+    const currentTimeStr = new Date().toISOString().slice(11, 24);
+    const orderTimestamp = new Date(`${orderDate}T${currentTimeStr}`).toISOString();
+    
+    const orderIdSuffix = Date.now();
+    
     const newChallans: ChallanItem[] = cart.map((item, idx) => {
-      const baseAmount = item.product.defaultWSP * item.qty;
+      const netQty = item.qty - (item.returnedQty || 0) - (item.damagedQty || 0);
+      const baseAmount = item.product.defaultWSP * Math.max(0, netQty);
       const finalPrice = baseAmount - shareOfCommission;
       return {
-        id: `ch-${Date.now()}-${idx}`,
+        id: `ch-${orderIdSuffix}-${idx}`,
         productName: item.product.name, company: item.product.company,
         attribute: item.selectedSpec, qty: item.qty, bonusQty: item.bonusQty,
         totalQty: item.qty + item.bonusQty, rate: item.product.defaultWSP,
         totalAmount: finalPrice, srName: selectedSR, routeName: selectedRoute,
-        deliveryManName: selectedDeliveryMan, status: 'Delivered',
-        returnedQty: 0, damagedQty: 0, commissionAmount: shareOfCommission,
-        createdAt: new Date().toISOString()
+        deliveryManName: selectedDeliveryMan, status: orderStatus,
+        returnedQty: item.returnedQty || 0, damagedQty: item.damagedQty || 0, commissionAmount: shareOfCommission,
+        createdAt: orderTimestamp
       };
     });
     setChallans(prev => [...newChallans, ...prev]);
     const orderData: SalesOrderData = {
       items: cart.map((i) => {
-        const baseAmount = i.product.defaultWSP * i.qty;
-        const shareOfCommission = cart.length > 0 ? commissionAmount / cart.length : 0;
+        const netQty = i.qty - (i.returnedQty || 0) - (i.damagedQty || 0);
+        const baseAmount = i.product.defaultWSP * Math.max(0, netQty);
+        const shareOfCommission = cart.length > 0 ? (commissionAmount + extraCommission) / cart.length : 0;
         return {
           productName: i.product.name,
           company: i.product.company,
@@ -406,20 +397,24 @@ export default function SellModule({
         };
       }),
       srName: selectedSR, routeName: selectedRoute, deliveryMan: selectedDeliveryMan,
-      commissionPct: commissionAmount, subtotal: cartSubtotal, commissionAmt, netTotal,
+      commissionPct: commissionAmount, subtotal: cartSubtotal, commissionAmt, extraCommissionAmt: extraCommission, netTotal,
       orderIds: newChallans.map(c => c.id),
     };
     setLastOrder(orderData);
     setCart([]);
     setCommissionAmount(0);
+    setExtraCommission(0);
+    setOrderStatus('Delivered');
     alert('Checkout successful! Challans generated and stock updated.');
     onNavigate('delivery');
-  }, [cart, cartSubtotal, commissionAmount, netTotal, selectedSR, selectedRoute, selectedDeliveryMan, setChallans, setProducts, onNavigate, srs]);
+  }, [cart, cartSubtotal, commissionAmount, extraCommission, netTotal, selectedSR, selectedRoute, selectedDeliveryMan, orderStatus, orderDate, setChallans, setProducts, onNavigate]);
 
   const handlePrintLastOrder = useCallback(() => { if (lastOrder) printSalesOrder(lastOrder); }, [lastOrder]);
   const handleSearchChange   = useCallback((e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value), []);
   const handleCommissionChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => setCommissionAmount(Number(e.target.value)), []);
+  const handleExtraCommissionChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => setExtraCommission(Number(e.target.value)), []);
   const handleDMChange       = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => setSelectedDeliveryMan(e.target.value), []);
+  const handleStatusChange   = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => setOrderStatus(e.target.value as 'Shipped' | 'Delivered'), []);
   const resetFilters = useCallback(() => { setSearchQuery(''); setSelectedCompany('All'); setSelectedCategory('All'); setSelectedStockFilter('All'); }, []);
   const hasFilters = searchQuery || selectedCompany !== 'All' || selectedCategory !== 'All' || selectedStockFilter !== 'All';
 
@@ -457,7 +452,7 @@ export default function SellModule({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
 
         {/* ══ LEFT: Product Catalog ════════════════════════════════════════════ */}
-        <div className="lg:col-span-7 space-y-4">
+        <div className="lg:col-span-6 space-y-4">
 
           {/* Filter bar */}
           <div className="bg-white border-2 border-indigo-100 rounded-2xl p-4 shadow-sm space-y-4">
@@ -561,131 +556,182 @@ export default function SellModule({
         </div>
 
         {/* ══ RIGHT: Cart & Checkout ════════════════════════════════════════════ */}
-        <div className="lg:col-span-5">
-          <form onSubmit={handleCheckout} className="bg-white rounded-2xl border-2 border-slate-100 shadow-lg overflow-hidden flex flex-col sticky top-4" style={{ maxHeight: 'calc(100vh - 120px)' }}>
+        <div className="lg:col-span-6 flex flex-col min-h-0">
+          <form onSubmit={handleCheckout} className="bg-white rounded-2xl border-2 border-slate-100 shadow-xl overflow-hidden flex flex-col sticky top-4" style={{ maxHeight: 'calc(100vh - 120px)' }}>
 
             {/* Cart header */}
-            <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 px-5 py-4 shrink-0">
+            <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 px-6 py-5 shrink-0">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <ShoppingBag className="w-5 h-5 text-indigo-300" />
+                <div className="flex items-center gap-3">
+                  <ShoppingBag className="w-6 h-6 text-indigo-300" />
                   <div>
-                    <p className="text-sm font-black text-white">{language === 'bn' ? 'বিক্রয় কার্ট' : 'Sales Cart'}</p>
-                    <p className="text-[10px] text-slate-400">{language === 'bn' ? 'পণ্য যোগ করুন, তারপর চেকআউট করুন' : 'Add products then checkout'}</p>
+                    <p className="text-base font-black text-white tracking-wide">{language === 'bn' ? 'বিক্রয় কার্ট' : 'Sales Cart'}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">{language === 'bn' ? 'পণ্য যোগ করুন, তারপর চেকআউট করুন' : 'Add products then checkout'}</p>
                   </div>
                 </div>
-                <span className={`text-xs font-black px-3 py-1 rounded-full border ${cart.length > 0 ? 'bg-indigo-500 text-white border-indigo-400' : 'bg-white/10 text-white/50 border-white/20'}`}>
+                <span className={`text-sm font-black px-4 py-1.5 rounded-full border shadow-sm ${cart.length > 0 ? 'bg-indigo-500 text-white border-indigo-400 shadow-indigo-500/20' : 'bg-white/10 text-white/50 border-white/20'}`}>
                   {cart.length} {language === 'bn' ? 'টি' : `item${cart.length !== 1 ? 's' : ''}`}
                 </span>
               </div>
             </div>
 
             {/* Logistics row */}
-            <div className="px-4 py-3 bg-slate-50 border-b-2 border-slate-100 shrink-0">
-              <div className="grid grid-cols-2 gap-2.5">
-                <div className="space-y-1">
-                  <label className="text-[9px] font-black text-purple-600 uppercase tracking-wider flex items-center gap-1">
-                    <User className="w-3 h-3" />{translations[language].challan.srSelectLabel}
+            <div className="px-5 py-4 bg-slate-50 border-b-2 border-slate-100 shrink-0">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-purple-600 uppercase tracking-wider flex items-center gap-1.5">
+                    <User className="w-3.5 h-3.5" />{translations[language].challan.srSelectLabel}
                   </label>
                   <select id="pos-form-sr" value={selectedSR} onChange={handleSRChange}
-                    className="h-9 w-full rounded-xl border-2 border-purple-100 bg-white px-2 text-xs font-bold text-purple-800 outline-none focus:border-purple-400 cursor-pointer transition-all">
+                    className="h-10 w-full rounded-xl border-2 border-purple-100 bg-white px-3 text-sm font-bold text-purple-800 outline-none focus:border-purple-400 cursor-pointer transition-all shadow-sm">
                     {srs.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
                   </select>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[9px] font-black text-blue-600 uppercase tracking-wider flex items-center gap-1">
-                    <MapPin className="w-3 h-3" />{language === 'bn' ? 'রুট / মার্কেট' : 'Route / Market'}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-blue-600 uppercase tracking-wider flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5" />{language === 'bn' ? 'রুট / মার্কেট' : 'Route / Market'}
                   </label>
                   <select id="pos-form-route" value={selectedRoute} onChange={handleRouteChange}
-                    className="h-9 w-full rounded-xl border-2 border-blue-100 bg-white px-2 text-xs font-bold text-blue-800 outline-none focus:border-blue-400 cursor-pointer transition-all">
-                    {routes.filter(r => { const sr = srs.find(s => s.name === selectedSR); return !sr || r.assignedSRId === sr.id; })
-                      .map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
+                    className="h-10 w-full rounded-xl border-2 border-blue-100 bg-white px-3 text-sm font-bold text-blue-800 outline-none focus:border-blue-400 cursor-pointer transition-all shadow-sm">
+                    {routes.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
                   </select>
                 </div>
               </div>
             </div>
 
             {/* Cart items */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 modal-body min-h-[180px]">
+            <div className="flex-1 overflow-y-auto p-5 space-y-4 modal-body min-h-[220px]">
               {cart.length === 0 ? (
-                <div className="flex flex-col items-center justify-center gap-3 py-12 text-slate-400">
-                  <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center">
-                    <ShoppingBag className="w-7 h-7 text-slate-300" />
+                <div className="flex flex-col items-center justify-center gap-4 py-16 text-slate-400">
+                  <div className="w-16 h-16 rounded-3xl bg-slate-100 flex items-center justify-center border-2 border-slate-200">
+                    <ShoppingBag className="w-8 h-8 text-slate-300" />
                   </div>
-                  <p className="text-sm font-bold">{language === 'bn' ? 'কার্ট খালি আছে' : 'Cart is empty'}</p>
-                  <p className="text-xs text-center max-w-[180px] leading-relaxed">
-                    {language === 'bn' ? 'বাম দিক থেকে পণ্য বেছে নিন' : 'Pick products from the left catalog'}
-                  </p>
+                  <div className="text-center">
+                    <p className="text-base font-black text-slate-500 mb-1">{language === 'bn' ? 'কার্ট খালি আছে' : 'Cart is empty'}</p>
+                    <p className="text-sm max-w-[200px] leading-relaxed">
+                      {language === 'bn' ? 'বাম দিক থেকে পণ্য বেছে নিন' : 'Pick products from the left catalog'}
+                    </p>
+                  </div>
                 </div>
               ) : (
                 cart.map((item, idx) => (
                   <CartItemRow key={idx} item={item} idx={idx} attributes={attributes}
                     formatBDT={formatBDT} onUpdateSpec={handleUpdateSpec}
-                    onUpdateQty={handleUpdateQty} onUpdateBonus={handleUpdateBonus}
+                    onUpdateQty={handleUpdateQty} 
+                    onUpdateReturn={handleUpdateReturn} onUpdateDamage={handleUpdateDamage}
                     onRemove={handleRemoveFromCart} />
                 ))
               )}
             </div>
 
             {/* Order summary + checkout */}
-            <div className="border-t-2 border-slate-100 bg-slate-50 px-4 py-4 space-y-3 shrink-0">
+            <div className="border-t-2 border-slate-100 bg-slate-50 px-5 py-5 space-y-4 shrink-0">
 
               {/* Subtotal */}
-              <div className="space-y-1.5 text-xs">
-                <div className="flex justify-between text-slate-500 font-semibold">
+              <div className="space-y-2.5 text-sm">
+                <div className="flex justify-between items-center text-slate-500 font-bold mb-1">
                   <span>{translations[language].procurement.subtotalItems}</span>
-                  <span className="font-mono font-bold text-slate-700">{formatBDT(cartSubtotal)}</span>
+                  <div className="flex items-center gap-4">
+                    <button type="button" onClick={() => setIsAdvancedOpen(!isAdvancedOpen)} className="text-[10px] uppercase tracking-wider text-indigo-500 hover:text-indigo-600 font-black cursor-pointer bg-indigo-50 px-2 py-1 rounded-md transition-colors">
+                      {isAdvancedOpen ? (language === 'bn' ? 'লুকান' : 'Hide Settings') : (language === 'bn' ? 'অতিরিক্ত সেটিংস' : 'Advanced Settings')}
+                    </button>
+                    <span className="font-mono font-black text-slate-700 text-base">{formatBDT(cartSubtotal)}</span>
+                  </div>
                 </div>
 
-                <div className="space-y-0.5">
-                  <label className="text-[9px] font-black text-amber-600 uppercase tracking-wider flex items-center gap-1">
-                    <TicketPercent className="w-3 h-3" />{language === 'bn' ? 'কমিশন (টাকা)' : 'Commission (Tk)'}
-                  </label>
-                  <input id="pos-commission-input" type="number" min="0" step="0.01" value={commissionAmount} onChange={handleCommissionChange}
-                    className="h-8 w-full rounded-lg border-2 border-amber-100 bg-white px-2 text-xs font-bold text-amber-700 outline-none focus:border-amber-400" />
-                </div>
+                {isAdvancedOpen && (
+                  <div className="space-y-4 pt-2 pb-2 border-t border-slate-200">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-amber-600 uppercase tracking-wider flex items-center gap-1.5">
+                          <TicketPercent className="w-3.5 h-3.5" />{language === 'bn' ? 'কমিশন (টাকা)' : 'Commission'}
+                        </label>
+                        <input id="pos-commission-input" type="number" min="0" step="0.01" value={commissionAmount} onChange={handleCommissionChange}
+                          className="h-10 w-full rounded-xl border-2 border-amber-100 bg-white px-3 text-sm font-bold text-amber-700 outline-none focus:border-amber-400 shadow-sm transition-all" />
+                      </div>
 
-                <div className="space-y-0.5">
-                  <label className="text-[9px] font-black text-rose-600 uppercase tracking-wider flex items-center gap-1">
-                    <Truck className="w-3 h-3" />{translations[language].challan.deliverySelectLabel}
-                  </label>
-                  <select id="pos-form-delivery" value={selectedDeliveryMan} onChange={handleDMChange}
-                    className="h-8 w-full rounded-lg border-2 border-rose-100 bg-white px-2 text-xs font-bold text-rose-700 outline-none focus:border-rose-400 cursor-pointer">
-                    {deliveryMen.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
-                  </select>
-                </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-amber-600 uppercase tracking-wider flex items-center gap-1.5">
+                          <TicketPercent className="w-3.5 h-3.5" />{language === 'bn' ? 'অতিরিক্ত কমিশন' : 'Extra-Comm.'}
+                        </label>
+                        <input id="pos-extracommission-input" type="number" min="0" step="0.01" value={extraCommission} onChange={handleExtraCommissionChange}
+                          className="h-10 w-full rounded-xl border-2 border-amber-100 bg-white px-3 text-sm font-bold text-amber-700 outline-none focus:border-amber-400 shadow-sm transition-all" />
+                      </div>
 
-                {commissionAmt > 0 && (
-                  <div className="flex justify-between text-amber-600 font-semibold">
-                    <span>{language === 'bn' ? 'কমিশন' : 'Commission'}</span>
-                    <span className="font-mono">−{formatBDT(commissionAmt)}</span>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-rose-600 uppercase tracking-wider flex items-center gap-1.5">
+                          <Truck className="w-3.5 h-3.5" />{translations[language].challan.deliverySelectLabel}
+                        </label>
+                        <select id="pos-form-delivery" value={selectedDeliveryMan} onChange={handleDMChange}
+                          className="h-10 w-full rounded-xl border-2 border-rose-100 bg-white px-3 text-sm font-bold text-rose-700 outline-none focus:border-rose-400 cursor-pointer shadow-sm transition-all">
+                          {deliveryMen.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
+                        </select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-indigo-600 uppercase tracking-wider flex items-center gap-1.5">
+                          <Truck className="w-3.5 h-3.5" />{language === 'bn' ? 'অর্ডার স্ট্যাটাস' : 'Status'}
+                        </label>
+                        <select id="pos-form-status" value={orderStatus} onChange={handleStatusChange}
+                          className="h-10 w-full rounded-xl border-2 border-indigo-100 bg-white px-3 text-sm font-bold text-indigo-700 outline-none focus:border-indigo-400 cursor-pointer shadow-sm transition-all">
+                          <option value="Delivered">{language === 'bn' ? 'ডেলিভার্ড' : 'Delivered'}</option>
+                          <option value="Shipped">{language === 'bn' ? 'শিপড' : 'Shipped'}</option>
+                        </select>
+                      </div>
+                      
+                      <div className="space-y-1 col-span-2">
+                        <label className="text-[10px] font-black text-teal-600 uppercase tracking-wider flex items-center gap-1.5">
+                          <Calendar className="w-3.5 h-3.5" />{language === 'bn' ? 'অর্ডারের তারিখ' : 'Order Date'}
+                        </label>
+                        <input type="date" value={orderDate} onChange={(e) => setOrderDate(e.target.value)}
+                          className="h-10 w-full rounded-xl border-2 border-teal-100 bg-white px-3 text-sm font-bold text-teal-700 outline-none focus:border-teal-400 cursor-pointer shadow-sm transition-all" />
+                      </div>
+                    </div>
                   </div>
                 )}
 
+                {(commissionAmt > 0 || extraCommission > 0) && (
+                  <div className="pt-2 border-t border-slate-100 space-y-1">
+                    {commissionAmt > 0 && (
+                      <div className="flex justify-between text-amber-600 font-bold text-sm">
+                        <span>{language === 'bn' ? 'কমিশন' : 'Commission'}</span>
+                        <span className="font-mono">−{formatBDT(commissionAmt)}</span>
+                      </div>
+                    )}
+                    {extraCommission > 0 && (
+                      <div className="flex justify-between text-amber-600 font-bold text-sm">
+                        <span>{language === 'bn' ? 'অতিরিক্ত কমিশন' : 'Extra Commission'}</span>
+                        <span className="font-mono">−{formatBDT(extraCommission)}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Net total */}
-              <div className="bg-gradient-to-r from-slate-900 to-indigo-900 rounded-xl px-4 py-3 flex items-center justify-between">
-                <div>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{language === 'bn' ? 'মোট বিল' : 'Net Total'}</p>
-                  <p className="text-2xl font-black font-mono text-white">{formatBDT(netTotal)}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{language === 'bn' ? 'আইটেম' : 'Items'}</p>
-                  <p className="text-xl font-black text-indigo-300">{cart.length}</p>
+              <div className="bg-indigo-950 text-white p-5 rounded-xl space-y-4 shadow-inner">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[11px] font-black text-indigo-300 uppercase tracking-widest">{language === 'bn' ? 'মোট বিল' : 'Net Total'}</p>
+                    <p className="text-3xl font-black font-mono tracking-tight">{formatBDT(Math.max(0, netTotal))}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[11px] font-black text-indigo-300 uppercase tracking-widest mb-1">{language === 'bn' ? 'আইটেম' : 'Items'}</p>
+                    <p className="text-xl font-black">{cart.length}</p>
+                  </div>
                 </div>
               </div>
 
               {/* Checkout button */}
               <button id="pos-btn-checkout" type="submit" disabled={cart.length === 0}
-                className={`w-full py-4 rounded-xl text-sm font-black tracking-wide flex items-center justify-center gap-2.5 transition-all shadow-lg cursor-pointer active:scale-[0.98] ${
-                  cart.length === 0
-                    ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                    : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-200'
-                }`}>
+                className={`w-full py-4 text-base font-black tracking-wide flex items-center justify-center gap-2 rounded-xl transition-all cursor-pointer shadow-lg
+                  ${cart.length > 0
+                    ? 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white shadow-emerald-500/25 active:scale-[0.98]'
+                    : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
+                  }`}>
                 <Check className="w-5 h-5" />
                 {translations[language].challan.dispatchBtn}
-                {cart.length > 0 && <ChevronRight className="w-4 h-4 opacity-70" />}
+                {cart.length > 0 && <ChevronRight className="w-5 h-5 opacity-70" />}
               </button>
             </div>
 

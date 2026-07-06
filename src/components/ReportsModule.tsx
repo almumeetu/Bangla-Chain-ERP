@@ -167,7 +167,10 @@ export default function ReportsModule({
       const revenue = srChallans.reduce((sum, ch) => sum + ch.totalAmount, 0);
       const returns = srChallans.reduce((sum, ch) => sum + (ch.returnedQty || 0), 0);
       const damages = srChallans.reduce((sum, ch) => sum + (ch.damagedQty || 0), 0);
-      const commissions = srChallans.reduce((sum, ch) => sum + (ch.commissionAmount || 0), 0);
+      const dpTotal = srChallans.reduce((sum, ch) => {
+        const product = products.find(p => p.name === ch.productName);
+        return sum + ((product?.defaultPP || 0) * ch.qty);
+      }, 0);
 
       return {
         srName: sr.name,
@@ -176,7 +179,7 @@ export default function ReportsModule({
         revenue,
         returns,
         damages,
-        commissions
+        dpTotal
       };
     });
 
@@ -473,7 +476,7 @@ export default function ReportsModule({
       doc.text(language === 'bn' ? 'বিক্রিত ইউনিট' : 'UNITS', 65, y - 1);
       doc.text(language === 'bn' ? 'ফেরত' : 'RET', 95, y - 1);
       doc.text(language === 'bn' ? 'ক্ষতিগ্রস্ত' : 'DMG', 115, y - 1);
-      doc.text(language === 'bn' ? 'কমিশন (TK)' : 'COMMISSION', 135, y - 1);
+      doc.text(language === 'bn' ? 'ডিপি (TK)' : 'DP PRICE', 135, y - 1);
       doc.text(language === 'bn' ? 'বিক্রয় (TK)' : 'REVENUE', 165, y - 1);
       y += 10;
 
@@ -485,7 +488,7 @@ export default function ReportsModule({
         doc.text(row.unitsSold.toString(), 65, y);
         doc.text(row.returns.toString(), 95, y);
         doc.text(row.damages.toString(), 115, y);
-        doc.text(`TK ${row.commissions.toLocaleString()}`, 135, y);
+        doc.text(`TK ${row.dpTotal.toLocaleString()}`, 135, y);
         doc.text(`TK ${row.revenue.toLocaleString()}`, 165, y);
         y += 8;
       });
@@ -1071,7 +1074,7 @@ export default function ReportsModule({
                     <th className="px-4 py-3 text-center">{language === 'bn' ? 'বিক্রিত ইউনিট' : 'Units Sold'}</th>
                     <th className="px-4 py-3 text-center">{language === 'bn' ? 'ফেরত পরিমাণ' : 'Return Qty'}</th>
                     <th className="px-4 py-3 text-center">{language === 'bn' ? 'ক্ষতিগ্রস্ত পরিমাণ' : 'Damage Qty'}</th>
-                    <th className="px-4 py-3 text-right">{language === 'bn' ? 'কমিশন (TK)' : 'Commission (Tk)'}</th>
+                    <th className="px-4 py-3 text-right">{language === 'bn' ? 'ডিপি (TK)' : 'DP Price (Tk)'}</th>
                     <th className="px-4 py-3 text-right">{language === 'bn' ? 'বিক্রয় মূল্য (TK)' : 'Total Sales (TP)'}</th>
                   </tr>
                 </thead>
@@ -1085,7 +1088,7 @@ export default function ReportsModule({
                       <td className="px-4 py-3.5 text-center font-mono font-bold text-slate-700">{row.unitsSold.toLocaleString()} Pcs</td>
                       <td className="px-4 py-3.5 text-center font-mono font-bold text-amber-600">{row.returns} Pcs</td>
                       <td className="px-4 py-3.5 text-center font-mono font-bold text-rose-600">{row.damages} Pcs</td>
-                      <td className="px-4 py-3.5 text-right font-mono font-bold text-emerald-600">{formatBDT(row.commissions)}</td>
+                      <td className="px-4 py-3.5 text-right font-mono font-bold text-emerald-600">{formatBDT(row.dpTotal)}</td>
                       <td className="px-4 py-3.5 text-right font-mono font-bold text-slate-900">{formatBDT(row.revenue)}</td>
                     </tr>
                   ))}
