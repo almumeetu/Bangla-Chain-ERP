@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react';
 import type { Product, StockAdjustment } from '../../types';
 import type { Language } from '../../translations';
+import { getLocalDateString } from '../dashboard/dashboardUtils';
 
 export interface UseStockAdjustmentReturn {
   selectedProdId:     string | null;
@@ -14,6 +15,8 @@ export interface UseStockAdjustmentReturn {
   selectedCategory:   string;
   submitted:          boolean;
   variance:           number;
+  adjustmentStartDate: string;
+  adjustmentEndDate:   string;
   currentPage:        number;
   totalPages:         number;
   startIndex:         number;
@@ -27,6 +30,9 @@ export interface UseStockAdjustmentReturn {
   handleSearchChange: (q: string) => void;
   handleCompanyChange:(c: string) => void;
   handleCategoryChange:(cat: string) => void;
+  handleAdjustmentStartDateChange: (date: string) => void;
+  handleAdjustmentEndDateChange:   (date: string) => void;
+  handleResetAdjustmentDates:      () => void;
   handleCommit:       (e: React.FormEvent) => void;
   handleReset:        () => void;
   handlePageChange:   (page: number) => void;
@@ -49,6 +55,8 @@ export function useStockAdjustment(
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [submitted,       setSubmitted]         = useState(false);
   const [currentPage,     setCurrentPage]       = useState(1);
+  const [adjustmentStartDate, setAdjustmentStartDate] = useState('');
+  const [adjustmentEndDate, setAdjustmentEndDate] = useState('');
 
   const selectedProduct = products.find(p => p.id === selectedProdId) ?? null;
   const variance        = selectedProduct ? newStockQty - selectedProduct.currentStock : 0;
@@ -65,9 +73,17 @@ export function useStockAdjustment(
     return matchesSearch && matchesCompany && matchesCategory;
   });
 
-  const totalPages          = Math.ceil(adjustments.length / ITEMS_PER_PAGE) || 1;
+  const filteredAdjustments = adjustments.filter(adj => {
+    if (!adjustmentStartDate && !adjustmentEndDate) return true;
+    const adjDate = getLocalDateString(new Date(adj.date));
+    const matchesStart = adjustmentStartDate ? adjDate >= adjustmentStartDate : true;
+    const matchesEnd = adjustmentEndDate ? adjDate <= adjustmentEndDate : true;
+    return matchesStart && matchesEnd;
+  });
+
+  const totalPages          = Math.ceil(filteredAdjustments.length / ITEMS_PER_PAGE) || 1;
   const startIndex          = (currentPage - 1) * ITEMS_PER_PAGE;
-  const paginatedAdjustments = adjustments.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  const paginatedAdjustments = filteredAdjustments.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
   const handleSelectProduct = useCallback((id: string) => {
     const prod = products.find(p => p.id === id);
@@ -88,6 +104,19 @@ export function useStockAdjustment(
   }, []);
   const handleCategoryChange = useCallback((cat: string) => {
     setSelectedCategory(cat);
+    setCurrentPage(1);
+  }, []);
+  const handleAdjustmentStartDateChange = useCallback((date: string) => {
+    setAdjustmentStartDate(date);
+    setCurrentPage(1);
+  }, []);
+  const handleAdjustmentEndDateChange = useCallback((date: string) => {
+    setAdjustmentEndDate(date);
+    setCurrentPage(1);
+  }, []);
+  const handleResetAdjustmentDates = useCallback(() => {
+    setAdjustmentStartDate('');
+    setAdjustmentEndDate('');
     setCurrentPage(1);
   }, []);
   const handlePageChange   = useCallback((page: number) => setCurrentPage(page), []);
@@ -127,10 +156,12 @@ export function useStockAdjustment(
   return {
     selectedProdId, selectedProduct,
     newStockQty, adjustReason, searchQuery, selectedCompany, selectedCategory, submitted, variance,
+    adjustmentStartDate, adjustmentEndDate,
     currentPage, totalPages, startIndex,
     filteredProducts, paginatedAdjustments, quickReasons,
     handleSelectProduct, handleSetQty, handleStepQty,
     handleSetReason, handleSearchChange, handleCompanyChange, handleCategoryChange, handleCommit,
+    handleAdjustmentStartDateChange, handleAdjustmentEndDateChange, handleResetAdjustmentDates,
     handleReset, handlePageChange,
   };
 }

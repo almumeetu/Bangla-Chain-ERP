@@ -240,7 +240,12 @@ export default function StockAdjustmentModule({
         currentPage={hook.currentPage}
         totalPages={hook.totalPages}
         startIndex={hook.startIndex}
+        adjustmentStartDate={hook.adjustmentStartDate}
+        adjustmentEndDate={hook.adjustmentEndDate}
         onPageChange={hook.handlePageChange}
+        onAdjustmentStartDateChange={hook.handleAdjustmentStartDateChange}
+        onAdjustmentEndDateChange={hook.handleAdjustmentEndDateChange}
+        onResetAdjustmentDates={hook.handleResetAdjustmentDates}
       />
     </div>
   );

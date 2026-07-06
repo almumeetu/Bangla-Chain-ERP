@@ -68,6 +68,8 @@ export default function ChallanModule({
   const [filterDeliveryMan, setFilterDeliveryMan] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [filterStartDate, setFilterStartDate] = useState('');
+  const [filterEndDate, setFilterEndDate] = useState('');
 
   // Active searched filters
   const [appliedSearch, setAppliedSearch] = useState('');
@@ -75,13 +77,24 @@ export default function ChallanModule({
   const [appliedRoute, setAppliedRoute] = useState('');
   const [appliedDeliveryMan, setAppliedDeliveryMan] = useState('');
   const [appliedStatus, setAppliedStatus] = useState('');
+  const [appliedStartDate, setAppliedStartDate] = useState('');
+  const [appliedEndDate, setAppliedEndDate] = useState('');
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
 
+  // Status Tab selection
+  const [selectedStatusTab, setSelectedStatusTab] = useState<'All' | 'Pending' | 'Shipped' | 'Delivered'>('Pending');
+
   // Selected Order for detailed view modal
   const [viewingOrder, setViewingOrder] = useState<GroupedOrder | null>(null);
+
+  // Settlement modal states
+  const [settlementOrder, setSettlementOrder] = useState<GroupedOrder | null>(null);
+  const [settlementStatus, setSettlementStatus] = useState<'Pending' | 'Shipped' | 'Delivered'>('Pending');
+  const [settlementQuantities, setSettlementQuantities] = useState<Record<string, { returned: number, damaged: number }>>({});
+  const [settlementSRCommValue, setSettlementSRCommValue] = useState<number>(0);
 
   // New Challan Creation Modal State
   const [showAddModal, setShowAddModal] = useState(false);
@@ -116,6 +129,8 @@ export default function ChallanModule({
     setAppliedRoute(filterRoute);
     setAppliedDeliveryMan(filterDeliveryMan);
     setAppliedStatus(filterStatus);
+    setAppliedStartDate(filterStartDate);
+    setAppliedEndDate(filterEndDate);
     setCurrentPage(1);
   };
 
@@ -125,11 +140,16 @@ export default function ChallanModule({
     setFilterRoute('');
     setFilterDeliveryMan('');
     setFilterStatus('');
+    setFilterStartDate('');
+    setFilterEndDate('');
     setAppliedSearch('');
     setAppliedSR('');
     setAppliedRoute('');
     setAppliedDeliveryMan('');
     setAppliedStatus('');
+    setAppliedStartDate('');
+    setAppliedEndDate('');
+    setSelectedStatusTab('Pending');
     setCurrentPage(1);
   };
 
@@ -174,9 +194,15 @@ export default function ChallanModule({
     const matchesSR = appliedSR ? group.srName === appliedSR : true;
     const matchesRoute = appliedRoute ? group.routeName === appliedRoute : true;
     const matchesDeliveryMan = appliedDeliveryMan ? group.deliveryManName === appliedDeliveryMan : true;
-    const matchesStatus = appliedStatus ? group.status === appliedStatus : true;
+    
+    // Status tab filter
+    const matchesStatus = selectedStatusTab === 'All' ? true : group.status === selectedStatusTab;
 
-    return matchesSearch && matchesSR && matchesRoute && matchesDeliveryMan && matchesStatus;
+    const groupDateStr = group.createdAt.slice(0, 10);
+    const matchesStartDate = appliedStartDate ? groupDateStr >= appliedStartDate : true;
+    const matchesEndDate = appliedEndDate ? groupDateStr <= appliedEndDate : true;
+
+    return matchesSearch && matchesSR && matchesRoute && matchesDeliveryMan && matchesStatus && matchesStartDate && matchesEndDate;
   });
 
   // Native Sliced Pagination
@@ -189,6 +215,166 @@ export default function ChallanModule({
   const filteredChallans = React.useMemo(() => {
     return filteredOrders.flatMap(o => o.items);
   }, [filteredOrders]);
+
+  // Order settlement calculations
+  const settlement = React.useMemo(() => {
+    if (!viewingOrder) return null;
+    
+    let totalDispatchedValue = 0;
+    let totalDispatchedQty = 0;
+    
+    let totalSoldQty = 0;
+    let totalSoldValue = 0;
+    
+    let totalReturnedQty = 0;
+    let totalReturnedValue = 0;
+    
+    let totalDamagedQty = 0;
+    let totalDamagedValue = 0;
+    
+    let totalCommission = 0;
+    let totalNetValue = 0;
+    
+    viewingOrder.items.forEach(item => {
+      const rate = item.rate || 0;
+      const dispatchedQty = item.qty || 0;
+      const dispatchedValue = dispatchedQty * rate;
+      
+      totalDispatchedQty += dispatchedQty;
+      totalDispatchedValue += dispatchedValue;
+      
+      const returned = item.returnedQty || 0;
+      const returnedVal = returned * rate;
+      totalReturnedQty += returned;
+      totalReturnedValue += returnedVal;
+      
+      const damaged = item.damagedQty || 0;
+      const damagedVal = damaged * rate;
+      totalDamagedQty += damaged;
+      totalDamagedValue += damagedVal;
+      
+      const sold = Math.max(0, dispatchedQty - returned - damaged);
+      const soldVal = sold * rate;
+      totalSoldQty += sold;
+      totalSoldValue += soldVal;
+      
+      totalCommission += item.commissionAmount || 0;
+      totalNetValue += item.totalAmount || 0;
+    });
+
+    const firstItem = viewingOrder.items[0];
+    const hasSavedComm = viewingOrder.items.some(item => item.srCommissionAmount !== undefined);
+    
+    const srObj = srs.find(s => s.name.toLowerCase() === viewingOrder.srName.toLowerCase());
+    const defaultAmount = srObj ? srObj.commissionRate : 0;
+      
+    const srCommission = hasSavedComm
+      ? viewingOrder.items.reduce((sum, item) => sum + (item.srCommissionAmount || 0), 0)
+      : defaultAmount;
+
+    const srCommRateDisplay = language === 'bn' ? 'নির্ধারিত মূল্য' : 'Fixed Price';
+
+    const dmCommRate = 2; // Default 2% Delivery Man Commission
+    const deliveryManPay = totalSoldValue * (dmCommRate / 100);
+
+    const netToOwner = totalNetValue - srCommission - deliveryManPay;
+
+    return {
+      totalDispatchedQty,
+      totalDispatchedValue,
+      totalSoldQty,
+      totalSoldValue,
+      totalReturnedQty,
+      totalReturnedValue,
+      totalDamagedQty,
+      totalDamagedValue,
+      totalCommission,
+      totalNetValue,
+      srCommRate: srCommRateDisplay,
+      srCommission,
+      dmCommRate,
+      deliveryManPay,
+      netToOwner
+    };
+  }, [viewingOrder, srs, language]);
+
+  // Dynamic settlement calculation for the transition modal
+  const transitionSettlement = React.useMemo(() => {
+    if (!settlementOrder) return null;
+    
+    let totalDispatchedValue = 0;
+    let totalDispatchedQty = 0;
+    
+    let totalSoldQty = 0;
+    let totalSoldValue = 0;
+    
+    let totalReturnedQty = 0;
+    let totalReturnedValue = 0;
+    
+    let totalDamagedQty = 0;
+    let totalDamagedValue = 0;
+    
+    let totalCommission = 0;
+    let totalNetValue = 0;
+    
+    settlementOrder.items.forEach(item => {
+      const rate = item.rate || 0;
+      const dispatchedQty = item.qty || 0;
+      const dispatchedValue = dispatchedQty * rate;
+      
+      totalDispatchedQty += dispatchedQty;
+      totalDispatchedValue += dispatchedValue;
+      
+      const qUpdates = settlementQuantities[item.id] || { returned: 0, damaged: 0 };
+      const returned = Number(qUpdates.returned) || 0;
+      const returnedVal = returned * rate;
+      totalReturnedQty += returned;
+      totalReturnedValue += returnedVal;
+      
+      const damaged = Number(qUpdates.damaged) || 0;
+      const damagedVal = damaged * rate;
+      totalDamagedQty += damaged;
+      totalDamagedValue += damagedVal;
+      
+      const sold = Math.max(0, dispatchedQty - returned - damaged);
+      const soldVal = sold * rate;
+      totalSoldQty += sold;
+      totalSoldValue += soldVal;
+      
+      totalCommission += item.commissionAmount || 0;
+      
+      // Calculate net amount for this item
+      const itemNet = soldVal - (item.commissionAmount || 0);
+      totalNetValue += itemNet;
+    });
+
+    const srCommission = settlementSRCommValue;
+
+    const srCommRateDisplay = language === 'bn' ? 'নির্ধারিত মূল্য' : 'Fixed Price';
+
+    const dmCommRate = 2; // Default 2% Delivery Fee
+    const deliveryManPay = totalSoldValue * (dmCommRate / 100);
+
+    const netToOwner = totalNetValue - srCommission - deliveryManPay;
+
+    return {
+      totalDispatchedQty,
+      totalDispatchedValue,
+      totalSoldQty,
+      totalSoldValue,
+      totalReturnedQty,
+      totalReturnedValue,
+      totalDamagedQty,
+      totalDamagedValue,
+      totalCommission,
+      totalNetValue,
+      srCommRate: srCommRateDisplay,
+      srCommission,
+      dmCommRate,
+      deliveryManPay,
+      netToOwner
+    };
+  }, [settlementOrder, settlementQuantities, srs, settlementSRCommValue, language]);
 
   // Auto-fill price or get default wholesale price for selected product
   const getProductWSP = (prodName: string) => {
@@ -252,11 +438,136 @@ export default function ChallanModule({
     setNewStatus('Pending');
   };
 
-  const handleGroupStatusChange = (groupId: string, newStatus: any) => {
+  const handleGroupStatusChange = (groupId: string, newStatus: 'Pending' | 'Shipped' | 'Delivered') => {
     const group = groupedData.find(g => g.id === groupId);
     if (!group) return;
-    const itemIds = group.items.map(i => i.id);
-    setChallans(prev => prev.map(c => itemIds.includes(c.id) ? { ...c, status: newStatus } : c));
+
+    // Initialize quantity records
+    const initialQtys: Record<string, { returned: number, damaged: number }> = {};
+    group.items.forEach(item => {
+      initialQtys[item.id] = {
+        returned: item.returnedQty || 0,
+        damaged: item.damagedQty || 0
+      };
+    });
+
+    const firstItem = group.items[0];
+    const srObj = srs.find(s => s.name.toLowerCase() === group.srName.toLowerCase());
+    const defaultAmount = srObj ? srObj.commissionRate : 0;
+    const initialValue = firstItem?.srCommissionAmount !== undefined 
+      ? firstItem.srCommissionAmount 
+      : defaultAmount;
+
+    setSettlementSRCommValue(initialValue);
+
+    setSettlementOrder(group);
+    setSettlementStatus(newStatus);
+    setSettlementQuantities(initialQtys);
+  };
+
+  const handleSaveSettlement = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!settlementOrder) return;
+
+    // Calculate total net value of updated items to distribute fixed commission proportionally
+    let totalUpdatedNetValue = 0;
+    const itemsToUpdate = settlementOrder.items.map(item => {
+      const updates = settlementQuantities[item.id] || { returned: 0, damaged: 0 };
+      const netQty = item.qty - (Number(updates.returned) || 0) - (Number(updates.damaged) || 0);
+      const soldVal = Math.max(0, netQty) * item.rate;
+      return {
+        id: item.id,
+        netValue: soldVal - (item.commissionAmount || 0)
+      };
+    });
+    totalUpdatedNetValue = itemsToUpdate.reduce((sum, x) => sum + x.netValue, 0);
+
+    const calculatedTotalSRComm = settlementSRCommValue;
+
+    // Update all challan items and synchronize stocks
+    setChallans(prev => {
+      return prev.map(ch => {
+        const itemQtyUpdates = settlementQuantities[ch.id];
+        if (itemQtyUpdates) {
+          const newReturned = Number(itemQtyUpdates.returned) || 0;
+          const newDamaged = Number(itemQtyUpdates.damaged) || 0;
+
+          // Product stock synchronization
+          const prod = products.find(p => p.name === ch.productName);
+          if (prod) {
+            const returnDiff = newReturned - (ch.returnedQty || 0);
+            prod.currentStock += returnDiff;
+
+            const damageDiff = newDamaged - (ch.damagedQty || 0);
+            prod.damagedStock = (prod.damagedStock || 0) + damageDiff;
+          }
+
+          const netQty = ch.qty - newReturned - newDamaged;
+          const baseAmount = Math.max(0, netQty) * ch.rate;
+          const totalAmount = baseAmount - (ch.commissionAmount || 0);
+
+          const itemUpdate = itemsToUpdate.find(x => x.id === ch.id);
+          const itemSRCommAmount = totalUpdatedNetValue > 0 && itemUpdate
+            ? calculatedTotalSRComm * (itemUpdate.netValue / totalUpdatedNetValue)
+            : 0;
+
+          return {
+            ...ch,
+            status: settlementStatus,
+            returnedQty: newReturned,
+            damagedQty: newDamaged,
+            totalAmount,
+            srCommissionValue: settlementSRCommValue,
+            srCommissionAmount: itemSRCommAmount
+          };
+        }
+        return ch;
+      });
+    });
+
+    // Update viewingOrder if active
+    setViewingOrder(prev => {
+      if (!prev || prev.id !== settlementOrder.id) return prev;
+      const updatedItems = prev.items.map(item => {
+        const updates = settlementQuantities[item.id];
+        if (updates) {
+          const newReturned = Number(updates.returned) || 0;
+          const newDamaged = Number(updates.damaged) || 0;
+
+          const netQty = item.qty - newReturned - newDamaged;
+          const baseAmount = Math.max(0, netQty) * item.rate;
+          const totalAmount = baseAmount - (item.commissionAmount || 0);
+
+          const itemUpdate = itemsToUpdate.find(x => x.id === item.id);
+          const itemSRCommAmount = totalUpdatedNetValue > 0 && itemUpdate
+            ? calculatedTotalSRComm * (itemUpdate.netValue / totalUpdatedNetValue)
+            : 0;
+
+          return {
+            ...item,
+            status: settlementStatus,
+            returnedQty: newReturned,
+            damagedQty: newDamaged,
+            totalAmount,
+            srCommissionValue: settlementSRCommValue,
+            srCommissionAmount: itemSRCommAmount
+          };
+        }
+        return item;
+      });
+      return {
+        ...prev,
+        status: settlementStatus,
+        items: updatedItems,
+        totalQty: updatedItems.reduce((acc, curr) => acc + curr.totalQty, 0),
+        totalAmount: updatedItems.reduce((acc, curr) => acc + curr.totalAmount, 0)
+      };
+    });
+
+    setSettlementOrder(null);
+    alert(language === 'bn' 
+      ? 'চালান সেটেলমেন্ট এবং স্টক আপডেট সফল হয়েছে!' 
+      : 'Challan settlement and stock updates saved successfully!');
   };
 
   const handleDeleteGroup = (groupId: string) => {
@@ -440,7 +751,7 @@ export default function ChallanModule({
           <span className="text-[10px] bg-indigo-100 text-indigo-700 font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider font-mono">Dynamic Search</span>
         </div>
         
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-4">
           
           {/* SR Dropdown */}
           <div className="space-y-1.5">
@@ -490,22 +801,6 @@ export default function ChallanModule({
             </select>
           </div>
 
-          {/* Status Dropdown */}
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-bold text-amber-600 uppercase tracking-wider block">{tChallan.statusLabel}</label>
-            <select
-              id="filter-status-select"
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="h-10 w-full rounded-xl border border-amber-200 bg-amber-50/10 px-3 text-xs font-bold text-amber-855 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100 transition-all cursor-pointer shadow-sm"
-            >
-              <option value="">{tChallan.allStatus}</option>
-              <option value="Pending">{tCommon.pending}</option>
-              <option value="Shipped">{tCommon.shipped}</option>
-              <option value="Delivered">{tCommon.delivered}</option>
-            </select>
-          </div>
-
           {/* Keyword Search */}
           <div className="space-y-1.5">
             <label className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider block">{tChallan.keywordLabel}</label>
@@ -520,6 +815,32 @@ export default function ChallanModule({
                 className="h-10 w-full rounded-xl border border-indigo-200 bg-white pl-9 pr-4 text-xs font-bold text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all shadow-sm"
               />
             </div>
+          </div>
+
+          {/* Start Date */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+              {language === 'bn' ? 'শুরুর তারিখ:' : 'Start Date:'}
+            </label>
+            <input
+              type="date"
+              value={filterStartDate}
+              onChange={(e) => setFilterStartDate(e.target.value)}
+              className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all shadow-sm"
+            />
+          </div>
+
+          {/* End Date */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+              {language === 'bn' ? 'শেষের তারিখ:' : 'End Date:'}
+            </label>
+            <input
+              type="date"
+              value={filterEndDate}
+              onChange={(e) => setFilterEndDate(e.target.value)}
+              className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all shadow-sm"
+            />
           </div>
 
         </div>
@@ -539,7 +860,7 @@ export default function ChallanModule({
           <button
             id="filter-btn-submit"
             type="submit"
-            className="inline-flex h-9 items-center gap-2 rounded-xl bg-indigo-650 px-4 text-xs font-bold text-white hover:bg-indigo-700 transition-all shrink-0 cursor-pointer border border-indigo-750 shadow-sm"
+            className="inline-flex h-9 items-center gap-2 rounded-xl bg-indigo-600 px-4 text-xs font-bold text-white hover:bg-indigo-700 transition-all shrink-0 cursor-pointer border border-indigo-700 shadow-sm"
           >
             <Search className="w-4 h-4 text-white" />
             {tChallan.querySheet}
@@ -548,18 +869,102 @@ export default function ChallanModule({
       </form>
 
       {/* Table Section */}
-      <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm hover:shadow-md hover:border-slate-850 transition-all duration-300">
-        <div className="px-6 py-5 border-b border-slate-200 flex items-center justify-between bg-slate-50/50">
-          <h4 className="font-extrabold text-slate-800 text-sm tracking-tight">{tChallan.tableTitle}</h4>
-          <span className="bg-slate-900 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm">
-            {tChallan.recordsFound.replace('{count}', String(filteredOrders.length))}
-          </span>
+      <div className={`overflow-hidden rounded-3xl border bg-white shadow-sm hover:shadow-md transition-all duration-300 ${
+        selectedStatusTab === 'Pending' ? 'border-amber-200 shadow-amber-50/20' :
+        selectedStatusTab === 'Shipped' ? 'border-blue-200 shadow-blue-50/20' :
+        selectedStatusTab === 'Delivered' ? 'border-emerald-200 shadow-emerald-50/20' :
+        'border-slate-200'
+      }`}>
+        {/* Dynamic color-coded top accent bar */}
+        <div className={`h-1.5 w-full transition-all duration-300 ${
+          selectedStatusTab === 'Pending' ? 'bg-amber-500' :
+          selectedStatusTab === 'Shipped' ? 'bg-blue-500' :
+          selectedStatusTab === 'Delivered' ? 'bg-emerald-500' :
+          'bg-slate-950'
+        }`} />
+
+        <div className="px-6 py-4 border-b border-slate-200 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-slate-50/50">
+          <div className="flex items-center gap-3">
+            <h4 className="font-extrabold text-slate-800 text-sm tracking-tight">{tChallan.tableTitle}</h4>
+            <span className="bg-slate-900 text-white text-xs font-bold px-2.5 py-0.5 rounded-full shadow-sm">
+              {filteredOrders.length}
+            </span>
+          </div>
+
+          {/* Status Tabs Switcher */}
+          <div className="flex flex-wrap items-center p-1 bg-slate-100 rounded-xl border border-slate-200 gap-1 self-start lg:self-auto">
+            {(['All', 'Pending', 'Shipped', 'Delivered'] as const).map((tab) => {
+              const isActive = selectedStatusTab === tab;
+              
+              // Count for this tab (filtered by SR, route, delivery man, keyword, but with specific status)
+              const count = groupedData.filter((group) => {
+                const matchesSearch = searchQuery 
+                  ? group.items.some(i => i.productName.toLowerCase().includes(appliedSearch.toLowerCase())) ||
+                    group.items.some(i => i.attribute.toLowerCase().includes(appliedSearch.toLowerCase()))
+                  : true;
+
+                const matchesSR = appliedSR ? group.srName === appliedSR : true;
+                const matchesRoute = appliedRoute ? group.routeName === appliedRoute : true;
+                const matchesDeliveryMan = appliedDeliveryMan ? group.deliveryManName === appliedDeliveryMan : true;
+                const matchesStatus = tab === 'All' ? true : group.status === tab;
+
+                return matchesSearch && matchesSR && matchesRoute && matchesDeliveryMan && matchesStatus;
+              }).length;
+
+              let label = '';
+              let badgeColor = '';
+              let activeTabStyle = '';
+              if (tab === 'All') {
+                label = language === 'bn' ? 'সব' : 'All';
+                badgeColor = isActive ? 'bg-slate-900 text-white' : 'bg-slate-200 text-slate-700';
+                activeTabStyle = 'bg-white text-slate-950 shadow-sm border border-slate-200';
+              } else if (tab === 'Pending') {
+                label = tCommon.pending;
+                badgeColor = isActive ? 'bg-amber-600 text-white' : 'bg-amber-100 text-amber-800';
+                activeTabStyle = 'bg-amber-50 text-amber-800 border border-amber-200/60 shadow-sm';
+              } else if (tab === 'Shipped') {
+                label = tCommon.shipped;
+                badgeColor = isActive ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-800';
+                activeTabStyle = 'bg-blue-50 text-blue-800 border border-blue-200/60 shadow-sm';
+              } else if (tab === 'Delivered') {
+                label = tCommon.delivered;
+                badgeColor = isActive ? 'bg-emerald-600 text-white' : 'bg-emerald-100 text-emerald-800';
+                activeTabStyle = 'bg-emerald-50 text-emerald-800 border border-emerald-200/60 shadow-sm';
+              }
+
+              return (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => {
+                    setSelectedStatusTab(tab);
+                    setCurrentPage(1);
+                  }}
+                  className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    isActive 
+                      ? activeTabStyle 
+                      : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'
+                  }`}
+                >
+                  <span>{label}</span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-extrabold transition-all duration-300 ${badgeColor}`}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm border-collapse min-w-[1100px]">
             <thead>
-              <tr className="bg-slate-900 text-white border-b border-slate-955">
+              <tr className={`text-white border-b transition-colors duration-300 ${
+                selectedStatusTab === 'Pending' ? 'bg-gradient-to-r from-amber-600 to-amber-700 border-amber-700' :
+                selectedStatusTab === 'Shipped' ? 'bg-gradient-to-r from-blue-600 to-blue-700 border-blue-700' :
+                selectedStatusTab === 'Delivered' ? 'bg-gradient-to-r from-emerald-600 to-emerald-700 border-emerald-700' :
+                'bg-slate-900 border-slate-955'
+              }`}>
                 <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-wider w-14 text-center">#</th>
                 <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-wider">Order ID / Date</th>
                 <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-wider text-center">Items</th>
@@ -993,6 +1398,113 @@ export default function ChallanModule({
                 </div>
               </div>
 
+              {/* Financial & Settlement Summary Dashboard */}
+              <div className="space-y-3">
+                <p className="font-bold text-slate-800 text-sm border-b border-slate-200 pb-2">
+                  {language === 'bn' ? 'চালান হিসাব-নিকাশ ও সেটেলমেন্ট' : 'Challan Accounts & Settlement'}
+                </p>
+                
+                {/* Metrics Grid */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 shadow-sm">
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                      {language === 'bn' ? 'মোট চালানি সরবরাহ' : 'Total Dispatched'}
+                    </p>
+                    <p className="text-lg font-mono font-extrabold text-slate-850 mt-1">
+                      ৳{settlement?.totalDispatchedValue.toLocaleString('en-BD')}
+                    </p>
+                    <p className="text-[10px] text-slate-500 font-bold mt-0.5">
+                      {settlement?.totalDispatchedQty} {language === 'bn' ? 'পিস' : 'units'}
+                    </p>
+                  </div>
+
+                  <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-3.5 shadow-sm">
+                    <p className="text-[10px] text-blue-500 font-bold uppercase tracking-wider">
+                      {language === 'bn' ? 'মোট বিক্রয় মূল্য' : 'Total Sold'}
+                    </p>
+                    <p className="text-lg font-mono font-extrabold text-blue-900 mt-1">
+                      ৳{settlement?.totalSoldValue.toLocaleString('en-BD')}
+                    </p>
+                    <p className="text-[10px] text-blue-500 font-bold mt-0.5">
+                      {settlement?.totalSoldQty} {language === 'bn' ? 'পিস বিক্রি' : 'units sold'}
+                    </p>
+                  </div>
+
+                  <div className="bg-amber-50/50 border border-amber-100 rounded-xl p-3.5 shadow-sm">
+                    <p className="text-[10px] text-amber-600 font-bold uppercase tracking-wider">
+                      {language === 'bn' ? 'মোট ফেরত মূল্য' : 'Total Returned'}
+                    </p>
+                    <p className="text-lg font-mono font-extrabold text-amber-900 mt-1">
+                      ৳{settlement?.totalReturnedValue.toLocaleString('en-BD')}
+                    </p>
+                    <p className="text-[10px] text-amber-650 font-bold mt-0.5">
+                      {settlement?.totalReturnedQty} {language === 'bn' ? 'পিস ফেরত' : 'units returned'}
+                    </p>
+                  </div>
+
+                  <div className="bg-rose-50/50 border border-rose-100 rounded-xl p-3.5 shadow-sm">
+                    <p className="text-[10px] text-rose-600 font-bold uppercase tracking-wider">
+                      {language === 'bn' ? 'মোট ড্যামেজ মূল্য' : 'Total Damaged'}
+                    </p>
+                    <p className="text-lg font-mono font-extrabold text-rose-900 mt-1">
+                      ৳{settlement?.totalDamagedValue.toLocaleString('en-BD')}
+                    </p>
+                    <p className="text-[10px] text-rose-500 font-bold mt-0.5">
+                      {settlement?.totalDamagedQty} {language === 'bn' ? 'পিস নষ্ট' : 'units damaged'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Detailed financial accounting card */}
+                <div className="bg-gradient-to-br from-slate-50 via-white to-slate-50 border border-slate-200 rounded-xl p-4 shadow-sm">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 divide-y md:divide-y-0 md:divide-x divide-slate-200">
+                    
+                    {/* Left Column: Cash flow */}
+                    <div className="space-y-2">
+                      <h5 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
+                        {language === 'bn' ? 'আদায় ও লাভ' : 'Cash Flow'}
+                      </h5>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-500 font-medium">{language === 'bn' ? 'আদায়যোগ্য বাজার মূল্য' : 'Net Market Collection'}:</span>
+                        <span className="font-mono font-bold text-slate-800">৳{settlement?.totalNetValue.toLocaleString('en-BD')}</span>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-500 font-medium">{language === 'bn' ? 'আইটেম ডিসকাউন্ট/কমিশন' : 'Item Discounts'}:</span>
+                        <span className="font-mono text-slate-800">৳{settlement?.totalCommission.toLocaleString('en-BD')}</span>
+                      </div>
+                    </div>
+
+                    {/* Middle Column: Commissions */}
+                    <div className="space-y-2 md:pl-6">
+                      <h5 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
+                        {language === 'bn' ? 'কমিশন ও খরচ' : 'Commissions & Fees'}
+                      </h5>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-500 font-medium">{language === 'bn' ? 'এসআর কমিশন:' : 'SR Commission:'}</span>
+                        <span className="font-mono font-bold text-rose-650">-৳{settlement?.srCommission.toLocaleString('en-BD')}</span>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-500 font-medium">Delivery Agent Fee ({settlement?.dmCommRate}%):</span>
+                        <span className="font-mono font-bold text-rose-650">-৳{settlement?.deliveryManPay.toLocaleString('en-BD')}</span>
+                      </div>
+                    </div>
+
+                    {/* Right Column: Owner payout */}
+                    <div className="space-y-2 md:pl-6 flex flex-col justify-center">
+                      <div className="p-2.5 rounded-lg bg-emerald-50/60 border border-emerald-200 shadow-sm">
+                        <h5 className="text-[10px] font-extrabold text-emerald-800 uppercase tracking-wider">
+                          {language === 'bn' ? 'মালিকের নিট পাওনা (পাবেন)' : 'Owner Net Receivable'}
+                        </h5>
+                        <p className="text-xl font-mono font-black text-emerald-700 mt-1">
+                          ৳{settlement?.netToOwner.toLocaleString('en-BD')}
+                        </p>
+                      </div>
+                    </div>
+
+                  </div>
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <p className="font-bold text-slate-800 text-sm border-b border-slate-200 pb-2">Products in Order ({viewingOrder.itemCount})</p>
                 <div className="overflow-x-auto border border-slate-200 rounded-lg">
@@ -1054,7 +1566,36 @@ export default function ChallanModule({
               </div>
             </div>
 
-            <div className="border-t border-slate-200 px-6 py-4 flex items-center justify-end gap-3 bg-slate-50 shrink-0 rounded-b-xl">
+            <div className="border-t border-slate-200 px-6 py-4 flex flex-wrap items-center justify-end gap-3 bg-slate-50 shrink-0 rounded-b-xl">
+              {/* Quick status transition actions */}
+              {viewingOrder.status === 'Pending' && (
+                <button
+                  type="button"
+                  onClick={() => handleGroupStatusChange(viewingOrder.id, 'Shipped')}
+                  className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800 font-bold rounded-lg text-sm transition-all active:scale-95 text-center shadow-sm cursor-pointer"
+                >
+                  {language === 'bn' ? 'চালান প্রেরণ করুন (Shipped)' : 'Ship Order (Shipped)'}
+                </button>
+              )}
+              {viewingOrder.status === 'Shipped' && (
+                <button
+                  type="button"
+                  onClick={() => handleGroupStatusChange(viewingOrder.id, 'Delivered')}
+                  className="flex-1 py-3 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white hover:from-emerald-700 hover:to-emerald-800 font-bold rounded-lg text-sm transition-all active:scale-95 text-center shadow-sm cursor-pointer"
+                >
+                  {language === 'bn' ? 'ডেলিভারি সেটেল করুন (Delivered)' : 'Settle Delivery (Delivered)'}
+                </button>
+              )}
+              {viewingOrder.status === 'Delivered' && (
+                <button
+                  type="button"
+                  onClick={() => handleGroupStatusChange(viewingOrder.id, 'Pending')}
+                  className="flex-1 py-3 bg-gradient-to-r from-amber-500 to-amber-600 text-white hover:from-amber-600 hover:to-amber-700 font-bold rounded-lg text-sm transition-all active:scale-95 text-center shadow-sm cursor-pointer"
+                >
+                  {language === 'bn' ? 'পেন্ডিং করুন (Pending)' : 'Set back to Pending'}
+                </button>
+              )}
+
               <button
                 id="viewing-challan-btn-print-sheet"
                 type="button"
@@ -1082,6 +1623,226 @@ export default function ChallanModule({
                 {tChallan.closeVoucher}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Status Transition & Settlement Modal */}
+      {settlementOrder && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl border border-slate-200 w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col justify-between animate-scale-up">
+            
+            <div className="border-b border-slate-200 px-6 py-5 bg-gradient-to-r from-slate-50 to-white flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2">
+                <FileText className="w-5 h-5 text-indigo-600" />
+                <h3 className="font-semibold text-slate-800 text-lg">
+                  {language === 'bn' 
+                    ? `চালান সেটেলমেন্ট এবং স্থিতি পরিবর্তন (${settlementStatus})` 
+                    : `Challan Settlement & Status Transition (${settlementStatus})`}
+                </h3>
+              </div>
+              <button
+                id="settlement-modal-close"
+                onClick={() => setSettlementOrder(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveSettlement} className="modal-body p-6 space-y-6">
+              
+              {/* Order Metadata */}
+              <div className="grid grid-cols-4 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
+                <div>
+                  <p className="text-slate-400 font-semibold uppercase tracking-wider">{language === 'bn' ? 'অর্ডার নম্বর' : 'Order ID'}</p>
+                  <p className="font-mono font-bold text-slate-800 text-sm mt-0.5">
+                    ORD-{new Date(settlementOrder.createdAt).getTime().toString().slice(-6)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-slate-455 font-semibold uppercase tracking-wider">SR Name</p>
+                  <p className="font-bold text-slate-800 text-sm mt-0.5">{settlementOrder.srName}</p>
+                </div>
+                <div>
+                  <p className="text-slate-455 font-semibold uppercase tracking-wider">Delivery Agent</p>
+                  <p className="font-bold text-slate-800 text-sm mt-0.5">{settlementOrder.deliveryManName}</p>
+                </div>
+                <div>
+                  <p className="text-slate-455 font-semibold uppercase tracking-wider">Route</p>
+                  <p className="font-bold text-slate-800 text-sm mt-0.5">{settlementOrder.routeName}</p>
+                </div>
+              </div>
+
+              {/* Items Table for Return & Damage inputs */}
+              <div className="space-y-2">
+                <p className="font-bold text-slate-800 text-sm border-b border-slate-200 pb-2">
+                  {language === 'bn' ? 'প্রোডাক্ট তালিকা ও হিসাব সংশোধন করুন' : 'Confirm Product Quantities & Accounts'}
+                </p>
+                <div className="overflow-x-auto border border-slate-200 rounded-lg">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-slate-100 text-slate-700">
+                      <tr>
+                        <th className="px-4 py-3 font-semibold">Product</th>
+                        <th className="px-4 py-3 font-semibold text-center w-24">Sent Qty</th>
+                        <th className="px-4 py-3 font-semibold text-center w-28">Returned Qty</th>
+                        <th className="px-4 py-3 font-semibold text-center w-28">Damaged Qty</th>
+                        <th className="px-4 py-3 font-semibold text-center w-24">Sold Qty</th>
+                        <th className="px-4 py-3 font-semibold text-right w-28">Net Amount (৳)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 bg-white">
+                      {settlementOrder.items.map((item) => {
+                        const qUpdates = settlementQuantities[item.id] || { returned: 0, damaged: 0 };
+                        const returned = qUpdates.returned;
+                        const damaged = qUpdates.damaged;
+                        const sold = Math.max(0, item.qty - returned - damaged);
+                        const netAmount = (sold * item.rate) - (item.commissionAmount || 0);
+
+                        return (
+                          <tr key={item.id} className="hover:bg-slate-50">
+                            <td className="px-4 py-3">
+                              <p className="font-bold text-slate-800">{item.productName}</p>
+                              <p className="text-[10px] text-slate-500">{item.attribute} • Rate: ৳{item.rate}</p>
+                            </td>
+                            <td className="px-4 py-3 text-center font-mono font-bold text-slate-700">
+                              {item.qty}
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <input
+                                type="number"
+                                min="0"
+                                max={item.qty - damaged}
+                                value={returned}
+                                onChange={(e) => {
+                                  const val = Math.min(item.qty - damaged, Math.max(0, Number(e.target.value) || 0));
+                                  setSettlementQuantities(prev => ({
+                                    ...prev,
+                                    [item.id]: { ...prev[item.id], returned: val }
+                                  }));
+                                }}
+                                className="h-8 w-20 text-center font-mono font-semibold rounded border border-slate-200 focus:border-indigo-500 outline-none text-slate-800"
+                              />
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <input
+                                type="number"
+                                min="0"
+                                max={item.qty - returned}
+                                value={damaged}
+                                onChange={(e) => {
+                                  const val = Math.min(item.qty - returned, Math.max(0, Number(e.target.value) || 0));
+                                  setSettlementQuantities(prev => ({
+                                    ...prev,
+                                    [item.id]: { ...prev[item.id], damaged: val }
+                                  }));
+                                }}
+                                className="h-8 w-20 text-center font-mono font-semibold rounded border border-slate-200 focus:border-indigo-500 outline-none text-slate-800"
+                              />
+                            </td>
+                            <td className="px-4 py-3 text-center font-mono font-bold text-blue-655 bg-blue-50/10">
+                              {sold}
+                            </td>
+                            <td className="px-4 py-3 text-right font-mono font-extrabold text-slate-800">
+                              ৳{netAmount.toLocaleString('en-BD')}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Settlement accounting summary dashboard */}
+              <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <p className="font-bold text-slate-800 text-xs uppercase tracking-wider">
+                  {language === 'bn' ? 'সেটেলমেন্ট সামারি প্রাকদর্শন (রিয়েল-টাইম)' : 'Settlement Preview (Real-time)'}
+                </p>
+                
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                  <div className="bg-white border border-slate-200 rounded-lg p-3">
+                    <span className="text-slate-400 font-bold block">{language === 'bn' ? 'সরবরাহকৃত চালানি মূল্য' : 'Dispatched Value'}</span>
+                    <span className="font-mono font-bold text-slate-800 text-sm">৳{transitionSettlement?.totalDispatchedValue.toLocaleString('en-BD')}</span>
+                  </div>
+                  <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
+                    <span className="text-blue-600 font-bold block">{language === 'bn' ? 'বিক্রয় মূল্য' : 'Sold Value'}</span>
+                    <span className="font-mono font-extrabold text-blue-900 text-sm">৳{transitionSettlement?.totalSoldValue.toLocaleString('en-BD')}</span>
+                  </div>
+                  <div className="bg-amber-50 border border-amber-100 rounded-lg p-3">
+                    <span className="text-amber-600 font-bold block">{language === 'bn' ? 'ফেরত মূল্য' : 'Returned Value'}</span>
+                    <span className="font-mono font-bold text-amber-900 text-sm">৳{transitionSettlement?.totalReturnedValue.toLocaleString('en-BD')}</span>
+                  </div>
+                  <div className="bg-rose-50 border border-rose-100 rounded-lg p-3">
+                    <span className="text-rose-600 font-bold block">{language === 'bn' ? 'ড্যামেজ মূল্য' : 'Damaged Value'}</span>
+                    <span className="font-mono font-bold text-rose-900 text-sm">৳{transitionSettlement?.totalDamagedValue.toLocaleString('en-BD')}</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-3 border-t border-slate-200 text-xs">
+                  <div className="flex flex-col justify-center">
+                    <span className="text-slate-550 block font-bold mb-1">{language === 'bn' ? 'আদায়যোগ্য বাজার মূল্য' : 'Net Market Collection'}:</span>
+                    <span className="font-mono font-black text-slate-800 text-base">৳{transitionSettlement?.totalNetValue.toLocaleString('en-BD')}</span>
+                  </div>
+                  
+                  {/* Interactive SR Commission Block */}
+                  <div className="space-y-1.5 p-2.5 rounded-lg bg-indigo-50/50 border border-indigo-100/80 shadow-sm flex flex-col justify-between">
+                    <span className="text-indigo-900 block font-bold text-[10px] uppercase tracking-wider">
+                      {language === 'bn' ? 'এসআর কমিশন (টাকা)' : 'SR Commission (Tk)'}
+                    </span>
+                    
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-indigo-700 font-mono text-sm">৳</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={settlementSRCommValue}
+                        onChange={(e) => setSettlementSRCommValue(Math.max(0, Number(e.target.value) || 0))}
+                        className="h-8 w-full px-2 font-mono font-semibold rounded border border-slate-200 bg-white focus:border-indigo-500 outline-none text-xs text-slate-800"
+                      />
+                    </div>
+
+                    <div className="flex justify-between items-center text-[10px] mt-1 pt-1 border-t border-indigo-100">
+                      <span className="text-slate-500 font-bold">{language === 'bn' ? 'মোট কমিশন:' : 'Total Commission:'}</span>
+                      <span className="font-mono font-black text-rose-600 text-xs">-৳{transitionSettlement?.srCommission.toLocaleString('en-BD')}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col justify-center">
+                    <span className="text-slate-555 block font-bold mb-1">Delivery Agent Fee ({transitionSettlement?.dmCommRate}%):</span>
+                    <span className="font-mono font-black text-rose-650 text-base">-৳{transitionSettlement?.deliveryManPay.toLocaleString('en-BD')}</span>
+                  </div>
+                </div>
+
+                <div className="bg-emerald-50 border border-emerald-250 p-3 rounded-lg flex items-center justify-between mt-2">
+                  <span className="font-extrabold text-emerald-800 text-xs">
+                    {language === 'bn' ? 'মালিকের নিট পাওনা (পাবেন)' : 'Owner Net Receivable'}
+                  </span>
+                  <span className="font-mono font-black text-emerald-700 text-lg">
+                    ৳{transitionSettlement?.netToOwner.toLocaleString('en-BD')}
+                  </span>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setSettlementOrder(null)}
+                  className="h-10 rounded-lg border-2 border-slate-200 bg-white px-5 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all cursor-pointer shadow-sm"
+                >
+                  {tCommon.cancel}
+                </button>
+                <button
+                  type="submit"
+                  className="inline-flex h-10 items-center gap-2 rounded-lg bg-indigo-600 px-5 text-xs font-extrabold text-white hover:bg-indigo-700 transition-all shrink-0 cursor-pointer border border-indigo-700 shadow-md"
+                >
+                  {language === 'bn' ? 'সেটেল করুন ও স্থিতি সংরক্ষণ করুন' : 'Confirm Settlement & Save'}
+                </button>
+              </div>
+
+            </form>
           </div>
         </div>
       )}

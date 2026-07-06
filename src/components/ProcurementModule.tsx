@@ -199,6 +199,8 @@ export default function ProcurementModule({
   const [procListSearch, setProcListSearch] = useState('');
   const [procListCompany, setProcListCompany] = useState('All');
   const [procListPayment, setProcListPayment] = useState('All');
+  const [procListStartDate, setProcListStartDate] = useState('');
+  const [procListEndDate, setProcListEndDate] = useState('');
 
   const suppliers = companies && companies.length > 0
     ? companies.map(c => c.name)
@@ -439,7 +441,12 @@ export default function ProcurementModule({
     const matchSearch = !search || p.invoiceRef.toLowerCase().includes(search) || p.supplierName.toLowerCase().includes(search);
     const matchCompany = procListCompany === 'All' || p.supplierName === procListCompany;
     const matchPayment = procListPayment === 'All' || p.paymentStatus === procListPayment;
-    return matchSearch && matchCompany && matchPayment;
+
+    const orderDateStr = p.invoiceDate.slice(0, 10);
+    const matchStartDate = procListStartDate ? orderDateStr >= procListStartDate : true;
+    const matchEndDate = procListEndDate ? orderDateStr <= procListEndDate : true;
+
+    return matchSearch && matchCompany && matchPayment && matchStartDate && matchEndDate;
   });
 
   // Pagination computation
@@ -523,13 +530,15 @@ export default function ProcurementModule({
                   {filteredProcurements.length} {language === 'bn' ? 'টি চালান পাওয়া গেছে' : 'challans found'}
                 </span>
               </div>
-              {(procListSearch || procListCompany !== 'All' || procListPayment !== 'All') && (
+              {(procListSearch || procListCompany !== 'All' || procListPayment !== 'All' || procListStartDate || procListEndDate) && (
                 <button
                   type="button"
                   onClick={() => {
                     setProcListSearch('');
                     setProcListCompany('All');
                     setProcListPayment('All');
+                    setProcListStartDate('');
+                    setProcListEndDate('');
                   }}
                   className="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold underline transition-colors cursor-pointer"
                 >
@@ -538,7 +547,7 @@ export default function ProcurementModule({
               )}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
               {/* Reference Search */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
@@ -588,6 +597,32 @@ export default function ProcurementModule({
                   <option value="Partial">{language === 'bn' ? 'আংশিক পরিশোধিত' : 'Partial'}</option>
                   <option value="Pending">{language === 'bn' ? 'বকেয়া' : 'Pending'}</option>
                 </select>
+              </div>
+
+              {/* Start Date */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                  {language === 'bn' ? 'শুরূ তারিখ' : 'Start Date'}
+                </label>
+                <input
+                  type="date"
+                  value={procListStartDate}
+                  onChange={e => setProcListStartDate(e.target.value)}
+                  className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-750 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all shadow-sm"
+                />
+              </div>
+
+              {/* End Date */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                  {language === 'bn' ? 'শেষ তারিখ' : 'End Date'}
+                </label>
+                <input
+                  type="date"
+                  value={procListEndDate}
+                  onChange={e => setProcListEndDate(e.target.value)}
+                  className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-750 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all shadow-sm"
+                />
               </div>
             </div>
           </div>

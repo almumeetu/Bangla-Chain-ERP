@@ -85,6 +85,8 @@ export default function AccountingModule({
   // Pagination for expenses
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8; // slightly larger now that table takes full screen width
+  const [expenseFilterStartDate, setExpenseFilterStartDate] = useState('');
+  const [expenseFilterEndDate, setExpenseFilterEndDate] = useState('');
 
   // Handler: Calculate Profit Report instantly
   const handleCalculateReport = (e?: React.FormEvent) => {
@@ -224,11 +226,21 @@ export default function AccountingModule({
     }
   };
 
+  // Date filtering helper for Expenses Log
+  const filteredExpenses = React.useMemo(() => {
+    return expenses.filter(exp => {
+      const expDateStr = exp.expenseDate.slice(0, 10);
+      const matchStart = expenseFilterStartDate ? expDateStr >= expenseFilterStartDate : true;
+      const matchEnd = expenseFilterEndDate ? expDateStr <= expenseFilterEndDate : true;
+      return matchStart && matchEnd;
+    });
+  }, [expenses, expenseFilterStartDate, expenseFilterEndDate]);
+
   // Pagination helper for Expenses Log
-  const totalExpenses = expenses.length;
+  const totalExpenses = filteredExpenses.length;
   const totalPages = Math.ceil(totalExpenses / itemsPerPage) || 1;
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedExpenses = expenses.slice(startIndex, startIndex + itemsPerPage);
+  const paginatedExpenses = filteredExpenses.slice(startIndex, startIndex + itemsPerPage);
 
   const formatBDT = (amount: number) => {
     return `৳${amount.toLocaleString('en-BD')}`;
@@ -307,6 +319,60 @@ export default function AccountingModule({
                 <Plus className="w-4 h-4 text-white" />
                 {tAcc.addExpenseBtn}
               </button>
+            </div>
+          </div>
+
+          {/* Expense Date Filter Panel */}
+          <div className="bg-indigo-50/30 border border-indigo-200 rounded-3xl p-5 shadow-sm space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] bg-indigo-100 text-indigo-700 font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider font-mono">
+                  {language === 'bn' ? 'খরচ ফিল্টার প্যানেল' : 'Expense Filter Panel'}
+                </span>
+                <span className="text-[10px] text-slate-400 font-bold font-mono">
+                  {totalExpenses} {language === 'bn' ? 'টি খরচ পাওয়া গেছে' : 'vouchers found'}
+                </span>
+              </div>
+              {(expenseFilterStartDate || expenseFilterEndDate) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setExpenseFilterStartDate('');
+                    setExpenseFilterEndDate('');
+                  }}
+                  className="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold underline transition-colors cursor-pointer"
+                >
+                  {language === 'bn' ? 'ফিল্টার রিসেট করুন' : 'Reset Filters'}
+                </button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-md">
+              {/* Start Date */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                  {language === 'bn' ? 'শুরুর তারিখ' : 'Start Date'}
+                </label>
+                <input
+                  type="date"
+                  value={expenseFilterStartDate}
+                  onChange={e => setExpenseFilterStartDate(e.target.value)}
+                  className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-750 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all shadow-sm"
+                />
+              </div>
+
+              {/* End Date */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                  {language === 'bn' ? 'শেষের তারিখ' : 'End Date'}
+                </label>
+                <input
+                  type="date"
+                  value={expenseFilterEndDate}
+                  onChange={e => setExpenseFilterEndDate(e.target.value)}
+                  className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-750 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all shadow-sm"
+                />
+              </div>
             </div>
           </div>
 

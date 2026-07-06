@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { ClipboardList, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Printer } from 'lucide-react';
+import { ClipboardList, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Printer, Calendar } from 'lucide-react';
 import type { StockAdjustment } from '../../types';
 import type { Language }        from '../../translations';
 import { printStockAdjustmentLog } from '../../lib/printUtils';
@@ -13,14 +13,21 @@ interface AdjustmentAuditLogProps {
   currentPage:          number;
   totalPages:           number;
   startIndex:           number;
+  adjustmentStartDate:  string;
+  adjustmentEndDate:    string;
   onPageChange:         (page: number) => void;
+  onAdjustmentStartDateChange: (date: string) => void;
+  onAdjustmentEndDateChange:   (date: string) => void;
+  onResetAdjustmentDates:      () => void;
 }
 
 const ITEMS_PER_PAGE = 5;
 
 export default function AdjustmentAuditLog({
   language, adjustments, paginatedAdjustments,
-  currentPage, totalPages, startIndex, onPageChange,
+  currentPage, totalPages, startIndex,
+  adjustmentStartDate, adjustmentEndDate,
+  onPageChange, onAdjustmentStartDateChange, onAdjustmentEndDateChange, onResetAdjustmentDates,
 }: AdjustmentAuditLogProps) {
   const bn = language === 'bn';
 
@@ -83,6 +90,56 @@ export default function AdjustmentAuditLog({
         )
         : (
           <>
+            <div className="bg-violet-50/60 border border-violet-200 rounded-2xl p-4 shadow-sm space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] bg-violet-100 text-violet-700 font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider font-mono">
+                    {bn ? 'তারিখ ফিল্টার' : 'Date Filter'}
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-bold font-mono">
+                    {paginatedAdjustments.length} / {adjustments.length}
+                  </span>
+                </div>
+                {(adjustmentStartDate || adjustmentEndDate) && (
+                  <button
+                    type="button"
+                    onClick={onResetAdjustmentDates}
+                    className="text-[10px] text-violet-700 hover:text-violet-900 font-bold underline transition-colors cursor-pointer"
+                  >
+                    {bn ? 'ফিল্টার রিসেট' : 'Reset Date Filter'}
+                  </button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">{bn ? 'শুরুর তারিখ' : 'From Date'}</label>
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                    <input
+                      type="date"
+                      value={adjustmentStartDate}
+                      onChange={e => onAdjustmentStartDateChange(e.target.value)}
+                      className="w-full h-10 pl-9 pr-3 rounded-xl border border-violet-200 bg-white text-xs font-semibold text-slate-750 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100 transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">{bn ? 'শেষের তারিখ' : 'To Date'}</label>
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                    <input
+                      type="date"
+                      value={adjustmentEndDate}
+                      onChange={e => onAdjustmentEndDateChange(e.target.value)}
+                      className="w-full h-10 pl-9 pr-3 rounded-xl border border-violet-200 bg-white text-xs font-semibold text-slate-750 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100 transition-all"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
               <table className="w-full text-xs">
                 <thead>

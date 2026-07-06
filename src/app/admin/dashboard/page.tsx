@@ -104,6 +104,21 @@ export default function App() {
   useEffect(() => { lsSet('erp_sidebar_collapsed', String(sidebarCollapsed)); }, [sidebarCollapsed]);
   useEffect(() => { lsSet('erp_language', language); }, [language]);
 
+  // Global handler to auto-select number inputs on focus (so typed values replace the default 0)
+  useEffect(() => {
+    const handleFocus = (e: FocusEvent) => {
+      const target = e.target as HTMLInputElement;
+      if (target && target.tagName === 'INPUT' && target.type === 'number') {
+        // Run select on next tick to ensure browser focus has completed
+        setTimeout(() => target.select(), 0);
+      }
+    };
+    document.addEventListener('focusin', handleFocus);
+    return () => {
+      document.removeEventListener('focusin', handleFocus);
+    };
+  }, []);
+
   // ── Handlers ──────────────────────────────────────────────────────────────────
   const handleLogin = useCallback((role: 'admin' | 'sr') => {
     lsSet('erp_auth_role', role);

@@ -19,6 +19,7 @@ import {
   DollarSign,
   AlertTriangle,
   Search,
+  Calendar,
   Truck
 } from 'lucide-react';
 import {
@@ -32,6 +33,7 @@ import {
   DeliveryMan
 } from '../types';
 import { translations as dict, Language } from '../translations';
+import { getLocalDateString } from './dashboard/dashboardUtils';
 
 interface DirectoryModuleProps {
   products: Product[];
@@ -439,14 +441,9 @@ function RouteRow({ r, index, srs, onEdit, onDelete }: RouteRowProps) {
   return (
     <tr className="hover:bg-slate-50/50 transition-all duration-200 text-xs">
       <td className="px-4 py-3.5 text-center text-slate-400 font-mono font-medium">{index + 1}</td>
-      <td className="px-4 py-3.5 font-semibold text-slate-800">{r.name}</td>
+      <td className="px-4 py-3.5 font-semibold text-slate-850">{r.name}</td>
       <td className="px-4 py-3.5">{r.area}</td>
       <td className="px-4 py-3.5 text-slate-500">{r.territory}</td>
-      <td className="px-4 py-3.5">
-        <span className="bg-slate-100 text-slate-700 border border-slate-200 px-2 py-0.5 rounded text-[10px] font-semibold">
-          {srName}
-        </span>
-      </td>
       <td className="px-4 py-3.5 text-center">
         <div className="flex items-center justify-center gap-1.5">
           <button
@@ -505,6 +502,8 @@ export default function DirectoryModule({
   const [productCompanyFilter, setProductCompanyFilter] = useState('All');
   const [productCategoryFilter, setProductCategoryFilter] = useState('All');
   const [productStockFilter, setProductStockFilter] = useState('All'); // 'All' | 'Low'
+  const [productStartDate, setProductStartDate] = useState('');
+  const [productEndDate, setProductEndDate] = useState('');
   const [categorySearch, setCategorySearch] = useState('');
   const [unitSearch, setUnitSearch] = useState('');
 
@@ -568,6 +567,8 @@ export default function DirectoryModule({
   const [damageSearch, setDamageSearch] = useState('');
   const [damageCategoryFilter, setDamageCategoryFilter] = useState('All');
   const [damageStockFilter, setDamageStockFilter] = useState('All'); // 'All' | 'HasDamage' | 'NoDamage'
+  const [damageStartDate, setDamageStartDate] = useState('');
+  const [damageEndDate, setDamageEndDate] = useState('');
 
   // Form Fields: Shop
   const [shopName, setShopName] = useState('');
@@ -616,6 +617,16 @@ export default function DirectoryModule({
   const [routeTerritory, setRouteTerritory] = useState('');
   const [routeAssignedSR, setRouteAssignedSR] = useState('');
 
+  const matchesDateRange = useCallback((dateValue: string | undefined, startDate: string, endDate: string) => {
+    if (!startDate && !endDate) return true;
+    if (!dateValue) return false;
+
+    const normalizedDate = getLocalDateString(new Date(dateValue));
+    const matchesStart = startDate ? normalizedDate >= startDate : true;
+    const matchesEnd = endDate ? normalizedDate <= endDate : true;
+    return matchesStart && matchesEnd;
+  }, []);
+
   const formatBDT = useCallback((amount: number) => {
     return `৳${amount.toLocaleString('en-BD')}`;
   }, []);
@@ -632,6 +643,7 @@ export default function DirectoryModule({
       name: prodName,
       sku: prodSku,
       company: prodCompany,
+      createdAt: editingProduct?.createdAt || new Date().toISOString(),
       categoryId: prodCategoryId || undefined,
       uomId: prodUomId || undefined,
       defaultGodownId: prodGodownId || undefined,
@@ -688,8 +700,8 @@ export default function DirectoryModule({
   // --- SUBMIT: Shop ---
   const handleShopSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
-    if (!shopName || !shopAssignedSR) {
-      alert('Shop Name and assigned SR are required.');
+    if (!shopName) {
+      alert('Shop Name is required.');
       return;
     }
 
@@ -697,7 +709,7 @@ export default function DirectoryModule({
       name: shopName,
       market: shopMarket || 'General Market',
       phone: shopPhone || 'N/A',
-      assignedSR: shopAssignedSR,
+      assignedSR: shopAssignedSR || 'Unassigned',
       routeId: shopRouteId || undefined,
       creditLimit: Number(shopCreditLimit),
       creditDays: Number(shopCreditDays)
@@ -1123,7 +1135,8 @@ export default function DirectoryModule({
           const matchesCompany = productCompanyFilter === 'All' || p.company === productCompanyFilter;
           const matchesCategory = productCategoryFilter === 'All' || p.categoryId === productCategoryFilter;
           const matchesStock = productStockFilter === 'All' || (productStockFilter === 'Low' && p.currentStock < 600);
-          return matchesSearch && matchesCompany && matchesCategory && matchesStock;
+          const matchesDate = matchesDateRange(p.createdAt, productStartDate, productEndDate);
+          return matchesSearch && matchesCompany && matchesCategory && matchesStock && matchesDate;
         });
 
         const totalProductsStockValuation = filteredProducts.reduce((sum, p) => sum + (p.currentStock * p.defaultPP), 0);
@@ -1192,13 +1205,15 @@ export default function DirectoryModule({
                     {language === 'bn' ? 'ফিল্টার এবং লাইভ সার্চ কন্ট্রোল' : 'Live Filter & Search Control'}
                   </span>
                 </div>
-                {(productSearch || productCompanyFilter !== 'All' || productCategoryFilter !== 'All' || productStockFilter !== 'All') && (
+                {(productSearch || productCompanyFilter !== 'All' || productCategoryFilter !== 'All' || productStockFilter !== 'All' || productStartDate || productEndDate) && (
                   <button
                     onClick={() => {
                       setProductSearch('');
                       setProductCompanyFilter('All');
                       setProductCategoryFilter('All');
                       setProductStockFilter('All');
+                      setProductStartDate('');
+                      setProductEndDate('');
                     }}
                     className="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold underline transition-colors cursor-pointer"
                   >
@@ -1207,7 +1222,7 @@ export default function DirectoryModule({
                 )}
               </div>
               
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
                 {/* Search query */}
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
@@ -1272,6 +1287,36 @@ export default function DirectoryModule({
                     <option value="All">{language === 'bn' ? 'সকল লেভেল' : 'All Levels'}</option>
                     <option value="Low">{language === 'bn' ? 'স্টক সংকট (< ৬০০ পিস)' : 'Low Stock (< 600 Pcs)'}</option>
                   </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                    {language === 'bn' ? 'শুরুর তারিখ' : 'From Date'}
+                  </label>
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                    <input
+                      type="date"
+                      value={productStartDate}
+                      onChange={e => setProductStartDate(e.target.value)}
+                      className="w-full h-10 pl-9 pr-3 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-750 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-100 transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                    {language === 'bn' ? 'শেষের তারিখ' : 'To Date'}
+                  </label>
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                    <input
+                      type="date"
+                      value={productEndDate}
+                      onChange={e => setProductEndDate(e.target.value)}
+                      className="w-full h-10 pl-9 pr-3 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-750 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-100 transition-all"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -1530,11 +1575,7 @@ export default function DirectoryModule({
                           </div>
                         </div>
 
-                        <div className="flex flex-wrap gap-2 pt-1">
-                          <span className="bg-indigo-50 text-indigo-700 border border-indigo-200 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider">
-                            Agent: {c.assignedSR}
-                          </span>
-                        </div>
+
                       </div>
 
                       {/* Credit Ledger details */}
@@ -1697,8 +1738,15 @@ export default function DirectoryModule({
           } else if (damageStockFilter === 'NoDamage') {
             matchStock = (p.damagedStock || 0) === 0;
           }
+
+          const damageDates = (p.damageHistory || []).map(entry => getLocalDateString(new Date(entry.recordedAt)));
+          const matchesDamageDate = !damageStartDate && !damageEndDate
+            ? true
+            : (damageDates.length > 0
+              ? damageDates.some(date => (!damageStartDate || date >= damageStartDate) && (!damageEndDate || date <= damageEndDate))
+              : matchesDateRange(p.createdAt, damageStartDate, damageEndDate));
           
-          return matchCompany && matchCategory && matchSearch && matchStock;
+          return matchCompany && matchCategory && matchSearch && matchStock && matchesDamageDate;
         });
 
         const getDamageBreakdown = (product: Product) => {
@@ -1787,7 +1835,7 @@ export default function DirectoryModule({
                     {damageFilteredProducts.length} {language === 'bn' ? 'টি পণ্য পাওয়া গেছে' : 'products found'}
                   </span>
                 </div>
-                {(damageSearch || selectedDamageCompany !== 'All' || damageCategoryFilter !== 'All' || damageStockFilter !== 'All') && (
+                {(damageSearch || selectedDamageCompany !== 'All' || damageCategoryFilter !== 'All' || damageStockFilter !== 'All' || damageStartDate || damageEndDate) && (
                   <button
                     type="button"
                     onClick={() => {
@@ -1795,6 +1843,8 @@ export default function DirectoryModule({
                       setSelectedDamageCompany('All');
                       setDamageCategoryFilter('All');
                       setDamageStockFilter('All');
+                      setDamageStartDate('');
+                      setDamageEndDate('');
                     }}
                     className="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold underline transition-colors cursor-pointer"
                   >
@@ -1803,7 +1853,7 @@ export default function DirectoryModule({
                 )}
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
                 {/* Search query */}
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
@@ -1869,6 +1919,36 @@ export default function DirectoryModule({
                     <option value="HasDamage">{language === 'bn' ? 'ড্যামেজ আছে (> ০)' : 'Has Damage (> 0)'}</option>
                     <option value="NoDamage">{language === 'bn' ? 'কোনো ড্যামেজ নেই (= ০)' : 'No Damage (= 0)'}</option>
                   </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                    {language === 'bn' ? 'শুরুর তারিখ' : 'From Date'}
+                  </label>
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                    <input
+                      type="date"
+                      value={damageStartDate}
+                      onChange={e => setDamageStartDate(e.target.value)}
+                      className="w-full h-10 pl-9 pr-3 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-750 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-100 transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                    {language === 'bn' ? 'শেষের তারিখ' : 'To Date'}
+                  </label>
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                    <input
+                      type="date"
+                      value={damageEndDate}
+                      onChange={e => setDamageEndDate(e.target.value)}
+                      className="w-full h-10 pl-9 pr-3 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-750 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-100 transition-all"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -2438,7 +2518,6 @@ export default function DirectoryModule({
                   <th className="px-4 py-4 text-sm font-semibold">{language === 'bn' ? 'মার্কেট / রুট' : 'Market / Route'}</th>
                   <th className="px-4 py-4 text-sm font-semibold">{language === 'bn' ? 'থানা / এলাকা' : 'Thana / Area'}</th>
                   <th className="px-4 py-4 text-sm font-semibold">{language === 'bn' ? 'জেলা / জোন' : 'District / Zone'}</th>
-                  <th className="px-4 py-4 text-sm font-semibold">{language === 'bn' ? 'বরাদ্দকৃত প্রতিনিধি (SR)' : 'Assigned Representative (SR)'}</th>
                   <th className="px-4 py-4 text-sm font-semibold text-center w-24">{tCommon.actions}</th>
                 </tr>
               </thead>
@@ -2765,11 +2844,10 @@ export default function DirectoryModule({
               </div>
 
               <div>
-                <label className="mb-2 block text-xs font-semibold text-slate-705">Commission Rate (%)</label>
+                <label className="mb-2 block text-xs font-semibold text-slate-705">Default Commission (Tk)</label>
                 <input
                   type="number"
                   min="0"
-                  max="100"
                   required
                   value={srCommissionRate}
                   onChange={e => setSrCommissionRate(Number(e.target.value))}
@@ -2899,18 +2977,7 @@ export default function DirectoryModule({
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3 border-t border-slate-100 pt-3">
-                <div>
-                  <label className="mb-2 block text-[10px] font-semibold text-slate-705">{tDir.formShopSr}</label>
-                  <input
-                    type="text"
-                    readOnly
-                    placeholder="Auto mapped"
-                    value={shopAssignedSR}
-                    className="h-10 w-full rounded-lg border border-slate-200 bg-slate-100 px-3 font-semibold text-slate-500 outline-none cursor-not-allowed"
-                  />
-                </div>
-
+              <div className="grid grid-cols-2 gap-3 border-t border-slate-100 pt-3">
                 <div>
                   <label className="mb-2 block text-[10px] font-semibold text-slate-705">Credit Limit (BDT)</label>
                   <input
@@ -3211,19 +3278,7 @@ export default function DirectoryModule({
                 </div>
               </div>
 
-              <div>
-                <label className="mb-2 block text-xs font-semibold text-slate-705">Route SR Assignment *</label>
-                <select
-                  value={routeAssignedSR}
-                  onChange={e => setRouteAssignedSR(e.target.value)}
-                  className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 font-semibold outline-none focus:border-slate-800"
-                >
-                  <option value="">Unassigned SR</option>
-                  {srs.map(sr => (
-                    <option key={sr.id} value={sr.id}>{sr.name} ({sr.phone})</option>
-                  ))}
-                </select>
-              </div>
+
             </div>
 
             <div className="border-t border-slate-200 px-6 py-4 flex items-center justify-end gap-2.5 bg-slate-50/50">

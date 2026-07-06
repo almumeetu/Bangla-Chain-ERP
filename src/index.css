@@ -14,12 +14,25 @@
   --color-brand-color-5: #ffffff;
 
   /* Global light border color overrides */
-  --color-border: #f1f5f9;
+  --color-border: #e2e8f0;
   --color-slate-100: #f8fafc;
   --color-slate-150: #f8fafc;
-  --color-slate-200: #f1f5f9;
-  --color-slate-205: #f1f5f9;
+  --color-slate-200: #e2e8f0;
+  --color-slate-205: #e2e8f0;
   --color-slate-300: #e2e8f0;
+  --color-slate-350: #e2e8f0;
+
+  /* Colored border overrides for consistent light grey */
+  --color-indigo-100: #e2e8f0;
+  --color-indigo-200: #e2e8f0;
+  --color-blue-100: #e2e8f0;
+  --color-blue-200: #e2e8f0;
+  --color-emerald-100: #e2e8f0;
+  --color-emerald-200: #e2e8f0;
+  --color-rose-100: #e2e8f0;
+  --color-rose-200: #e2e8f0;
+  --color-amber-100: #e2e8f0;
+  --color-amber-200: #e2e8f0;
 
   /* Global border radius overrides to make UI look cleaner and more professional */
   --radius-3xl: 12px;
@@ -96,4 +109,27 @@
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: #cbd5e1 transparent;
+}
+
+/* Global input fields & form controls styling overrides */
+input[type="text"],
+input[type="number"],
+input[type="email"],
+input[type="password"],
+input[type="search"],
+select,
+textarea {
+  border-color: #e2e8f0 !important; /* Slightly more grey clean border */
+  color: #0f172a !important;        /* Full readable text color */
+}
+
+input[type="text"]:focus,
+input[type="number"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus,
+input[type="search"]:focus,
+select:focus,
+textarea:focus {
+  border-color: #a5b4fc !important; /* Lighter indigo active border */
+  box-shadow: 0 0 0 3px rgba(165, 180, 252, 0.2) !important; /* Lighter soft focus ring */
 }

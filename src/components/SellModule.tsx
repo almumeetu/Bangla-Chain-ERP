@@ -51,11 +51,13 @@ interface ProductCardProps {
 }
 
 function ProductCard({ product, onAddToCart, formatBDT, language }: ProductCardProps) {
-  const [qtyInput, setQtyInput]     = React.useState('20');
-  const theme     = getBrandTheme(product.company);
-  const isOut     = product.currentStock <= 0;
-  const isLow     = product.currentStock > 0 && product.currentStock < 600;
-  const stockPct  = Math.min(100, (product.currentStock / 5000) * 100);
+  const [qtyInput, setQtyInput] = React.useState('20');
+  const theme = getBrandTheme(product.company);
+  const isOut = product.currentStock <= 0;
+  const isLow = product.currentStock > 0 && product.currentStock < 600;
+  const stockPct = Math.min(100, (product.currentStock / 5000) * 100);
+  const netQtyPreview = Number(qtyInput) || 0;
+  const qtyTotalPreview = netQtyPreview * product.defaultWSP;
 
   const handleAdd = useCallback(() => {
     const q = Number(qtyInput) || 0;
@@ -64,105 +66,129 @@ function ProductCard({ product, onAddToCart, formatBDT, language }: ProductCardP
   }, [product, qtyInput, onAddToCart]);
 
   return (
-    <div className={`relative bg-white rounded-2xl border-2 border-slate-100 transition-all duration-200 shadow-sm hover:shadow-lg overflow-hidden flex flex-col ${isOut ? 'opacity-60' : theme.ring}`}>
+    <div className={`group relative overflow-hidden rounded-3xl border border-slate-200/80 bg-white transition-all duration-300 hover:border-slate-300 ${isOut ? 'opacity-60' : ''}`}>
+      {/* Brand accent top strip */}
+      <div className={`h-[3px] w-full ${theme.bar}`} />
 
-      {/* Top colour strip */}
-      <div className={`h-1.5 w-full ${theme.bar}`} />
+      <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.9),transparent_40%)]" />
 
-      {/* Out-of-stock ribbon */}
+      {/* Out-of-stock badge */}
       {isOut && (
-        <div className="absolute top-4 right-0 bg-slate-800 text-white text-[9px] font-black px-3 py-0.5 rounded-l-full uppercase tracking-widest shadow">
+        <div className="absolute right-3 top-3 rounded-full border border-slate-700/10 bg-slate-900 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-white">
           Out of Stock
         </div>
       )}
 
-      <div className="p-4 flex flex-col gap-3 flex-1">
-        {/* Header row */}
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex-1 min-w-0">
-            <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-black border uppercase tracking-wider mb-1.5 ${theme.badge}`}>
-              {product.company}
-            </span>
-            <h4 className="font-black text-slate-900 text-sm leading-snug line-clamp-2">
-              {product.name}
-            </h4>
-            <p className="text-[10px] text-slate-400 font-mono mt-0.5">{product.sku}</p>
+      <div className="relative z-10 flex flex-1 flex-col gap-4 p-4.5">
+        {/* Brand & Name Header */}
+        <div className="space-y-2">
+          <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.18em] ${theme.badge}`}>
+            {product.company}
+          </span>
+          <h4 className="line-clamp-2 text-[15px] font-extrabold leading-snug text-slate-900" title={product.name}>
+            {product.name}
+          </h4>
+          <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-slate-400">{product.sku}</p>
+        </div>
+
+        {/* Pricing Row */}
+        <div className="grid grid-cols-2 gap-3 rounded-2xl border border-slate-100 bg-white/80 p-3">
+          <div className="space-y-1">
+            <span className="block text-[9px] font-black uppercase tracking-[0.16em] text-slate-400">{language === 'bn' ? 'পাইকারি (TP)' : 'Trade (TP)'}</span>
+            <span className={`block text-[17px] font-black font-mono leading-none ${theme.accent}`}>{formatBDT(product.defaultWSP)}</span>
+          </div>
+          <div className="space-y-1 text-right">
+            <span className="block text-[9px] font-black uppercase tracking-[0.16em] text-slate-400">{language === 'bn' ? 'এমআরপি (MRP)' : 'MRP'}</span>
+            <span className="block text-[15px] font-bold font-mono leading-none text-slate-600">{formatBDT(product.defaultMRP)}</span>
           </div>
         </div>
 
-        {/* Pricing row */}
-        <div className="flex items-center gap-3 bg-slate-50 rounded-xl px-3 py-2 border border-slate-100">
-          <div className="flex-1">
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">{language === 'bn' ? 'পাইকারি' : 'Trade (TP)'}</p>
-            <p className={`text-base font-black font-mono ${theme.accent}`}>{formatBDT(product.defaultWSP)}</p>
-          </div>
-          <div className="w-px h-8 bg-slate-200" />
-          <div className="flex-1 text-right">
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">{language === 'bn' ? 'এমআরপি' : 'MRP'}</p>
-            <p className="text-sm font-bold font-mono text-slate-500">{formatBDT(product.defaultMRP)}</p>
-          </div>
-        </div>
-
-        {/* Stock bar */}
-        <div className="space-y-1">
-          <div className="flex items-center justify-between">
-            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-              {isLow && <AlertTriangle className="w-3 h-3 text-amber-500" />}
-              {language === 'bn' ? 'স্টক' : 'Stock'}
+        {/* Stock status indicator */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-3 text-[11px]">
+            <span className="flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.16em] text-slate-400">
+              {isLow && <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />}
+              {language === 'bn' ? 'স্টক' : 'Stock Status'}
             </span>
-            <span className={`text-[11px] font-black font-mono ${isOut ? 'text-rose-500' : isLow ? 'text-amber-600' : 'text-slate-700'}`}>
+            <span className={`font-mono text-[13px] font-black ${isOut ? 'text-rose-500' : isLow ? 'text-amber-600' : 'text-slate-700'}`}>
               {product.currentStock.toLocaleString()} {language === 'bn' ? 'পিস' : 'pcs'}
             </span>
           </div>
-          <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+          <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
             <div
               style={{ width: `${stockPct}%` }}
-              className={`h-full rounded-full transition-all duration-500 ${theme.bar}`}
+              className={`h-full rounded-full transition-all duration-300 ${theme.bar}`}
             />
           </div>
         </div>
 
-        {/* Qty input */}
+        {/* Wholesale bulk input adjustments */}
         {!isOut && (
-          <div className="mb-2">
-            <label className="text-[9px] font-black text-slate-500 uppercase tracking-wider block mb-1">{language === 'bn' ? 'পরিমাণ' : 'Qty'}</label>
-            <input
-              type="number" min="1"
-              value={qtyInput}
-              onChange={e => setQtyInput(e.target.value)}
-              className="h-9 w-full rounded-lg border-2 border-slate-200 px-2 font-black font-mono text-sm text-slate-800 outline-none focus:border-slate-700 text-center transition-colors"
-            />
-          </div>
-        )}
+          <div className="space-y-2.5 rounded-2xl border border-slate-100 bg-white/80 p-3">
+            <div className="flex items-end justify-between gap-2">
+              <label className="text-[9px] font-black uppercase tracking-[0.16em] text-slate-500 block">{language === 'bn' ? 'পরিমাণ (Qty)' : 'Set Quantity'}</label>
+              <span className={`rounded-full bg-slate-50 px-2.5 py-1 text-[10px] font-bold font-mono ${theme.accent}`}>
+                {language === 'bn' ? 'মোট' : 'Total'}: {formatBDT(qtyTotalPreview)}
+              </span>
+            </div>
 
-        {/* Quick preset buttons */}
-        {!isOut && (
-          <div className="flex items-center justify-between gap-1">
-            <div className="flex gap-1">
-              {[10, 25, 50, 100].map(n => (
-                <button key={n} type="button"
+            <div className="flex h-10 items-center overflow-hidden rounded-2xl border border-slate-200 bg-white">
+              <button
+                type="button"
+                onClick={() => setQtyInput(p => String(Math.max(1, (Number(p) || 0) - 1)))}
+                className="h-full w-10 border-r border-slate-200 text-sm font-black text-slate-500 transition-colors hover:bg-slate-50 cursor-pointer"
+              >
+                -
+              </button>
+              <input
+                type="number"
+                min="1"
+                value={qtyInput}
+                onChange={e => setQtyInput(e.target.value)}
+                className="flex-1 h-full border-0 text-center font-mono text-sm font-black text-slate-900 outline-none shadow-none"
+              />
+              <button
+                type="button"
+                onClick={() => setQtyInput(p => String((Number(p) || 0) + 1))}
+                className="h-full w-10 border-l border-slate-200 text-sm font-black text-slate-500 transition-colors hover:bg-slate-50 cursor-pointer"
+              >
+                +
+              </button>
+            </div>
+
+            {/* Bulk increment shortcuts */}
+            <div className="grid grid-cols-4 gap-2">
+              {[10, 50, 100, 250].map(n => (
+                <button
+                  key={n}
+                  type="button"
                   onClick={() => setQtyInput(p => String((Number(p) || 0) + n))}
-                  className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 text-[9px] font-black rounded-lg transition-colors cursor-pointer"
-                >+{n}</button>
+                  className="rounded-xl border border-slate-200 bg-slate-50 py-1.5 text-[10px] font-bold text-slate-600 transition-colors hover:border-slate-300 hover:bg-white cursor-pointer"
+                >
+                  +{n}
+                </button>
               ))}
             </div>
-            <span className={`text-[11px] font-black font-mono ${theme.accent}`}>
-              {formatBDT((Number(qtyInput) || 0) * product.defaultWSP)}
-            </span>
           </div>
         )}
       </div>
 
-      {/* Add button — full width, flush bottom */}
+      {/* Action Submit Button */}
       <button
         id={`pos-add-to-cart-${product.id}`}
         type="button"
         onClick={handleAdd}
         disabled={isOut}
-        className={`w-full py-3 text-sm font-black tracking-wide flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer ${isOut ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : `${theme.btn} text-white shadow-md`}`}
+        className={`w-full border-t px-4 py-3.5 text-xs font-black tracking-[0.2em] flex items-center justify-center gap-2 transition-all cursor-pointer ${
+          isOut 
+            ? 'border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed' 
+            : 'border-slate-200 bg-white text-slate-800 hover:bg-slate-50 hover:border-slate-300'
+        }`}
       >
-        <Plus className="w-4 h-4" />
-        {isOut ? (language === 'bn' ? 'স্টক নেই' : 'Out of Stock') : (language === 'bn' ? 'কার্টে যোগ' : 'Add to Cart')}
+        <Plus className={`w-4 h-4 ${isOut ? 'text-slate-400' : theme.accent}`} />
+        {isOut 
+          ? (language === 'bn' ? 'স্টক নেই' : 'OUT OF STOCK') 
+          : (language === 'bn' ? 'কার্টে যোগ করুন' : 'ADD TO CART')}
       </button>
     </div>
   );
@@ -219,7 +245,7 @@ function CartItemRow({ item, idx, attributes, formatBDT, onUpdateSpec, onUpdateQ
           <div className="space-y-1">
             <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Spec</label>
             <select id={`pos-cart-${idx}-spec`} value={item.selectedSpec} onChange={handleSpecChange}
-              className="w-full h-8 rounded-lg border-2 border-slate-100 bg-slate-50 px-2 text-[11px] font-bold text-slate-700 outline-none focus:border-slate-400 cursor-pointer transition-colors">
+              className="w-full h-8 rounded-lg border-2 border-slate-100 bg-slate-50 px-2 text-[11px] font-bold text-slate-700 outline-none shadow-none focus:border-slate-400 cursor-pointer transition-colors">
               {attributes.filter(a => a.status === 'Active').map(attr => (
                 <option key={attr.id} value={attr.name}>{attr.name}</option>
               ))}
@@ -233,7 +259,7 @@ function CartItemRow({ item, idx, attributes, formatBDT, onUpdateSpec, onUpdateQ
               <button id={`pos-cart-${idx}-qty-dec`} type="button" onClick={handleQtyDec}
                 className="w-7 h-full flex items-center justify-center text-slate-500 hover:bg-slate-200 font-black text-sm transition-colors cursor-pointer shrink-0">−</button>
               <input id={`pos-cart-${idx}-qty-val`} type="number" min="1" value={item.qty} onChange={handleQtyChange}
-                className="flex-1 text-center text-xs font-black font-mono text-slate-800 outline-none bg-transparent" />
+                className="flex-1 text-center text-xs font-black font-mono text-slate-800 outline-none shadow-none bg-transparent" />
               <button id={`pos-cart-${idx}-qty-inc`} type="button" onClick={handleQtyInc}
                 className="w-7 h-full flex items-center justify-center text-slate-500 hover:bg-slate-200 font-black text-sm transition-colors cursor-pointer shrink-0">+</button>
             </div>
@@ -245,12 +271,12 @@ function CartItemRow({ item, idx, attributes, formatBDT, onUpdateSpec, onUpdateQ
           <div className="space-y-1">
             <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Return Qty</label>
             <input type="number" min="0" value={item.returnedQty || 0} onChange={handleReturnChange}
-              className="w-full h-8 text-center rounded-lg border-2 border-slate-100 bg-slate-50 text-xs font-bold font-mono text-amber-600 outline-none focus:border-amber-400" />
+              className="w-full h-8 text-center rounded-lg border-2 border-slate-100 bg-slate-50 text-xs font-bold font-mono text-amber-600 outline-none shadow-none focus:border-amber-400" />
           </div>
           <div className="space-y-1">
             <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Damage Qty</label>
             <input type="number" min="0" value={item.damagedQty || 0} onChange={handleDamageChange}
-              className="w-full h-8 text-center rounded-lg border-2 border-slate-100 bg-slate-50 text-xs font-bold font-mono text-rose-600 outline-none focus:border-rose-400" />
+              className="w-full h-8 text-center rounded-lg border-2 border-slate-100 bg-slate-50 text-xs font-bold font-mono text-rose-600 outline-none shadow-none focus:border-rose-400" />
           </div>
         </div>
 
@@ -422,7 +448,7 @@ export default function SellModule({
     <div className="space-y-5">
 
       {/* ── Page Header ─────────────────────────────────────────────────────── */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-2xl px-6 py-5 text-white border border-slate-800 shadow-lg flex items-center justify-between gap-4 relative overflow-hidden">
+      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-2xl px-6 py-5 text-white border border-slate-800 flex items-center justify-between gap-4 relative overflow-hidden">
         <div className="absolute -right-16 -top-16 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
         <div className="flex items-center gap-3 relative z-10">
           <div className="w-10 h-10 rounded-2xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center shrink-0">
@@ -436,7 +462,7 @@ export default function SellModule({
         <div className="flex items-center gap-2 relative z-10">
           {lastOrder && (
             <button type="button" onClick={handlePrintLastOrder}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs border border-white/20 cursor-pointer active:scale-95 transition-all">
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs border border-white/20 cursor-pointer transition-all">
               <Printer className="w-4 h-4 text-indigo-300" />
               {language === 'bn' ? 'শেষ অর্ডার প্রিন্ট' : 'Print Last Order'}
             </button>
@@ -455,7 +481,7 @@ export default function SellModule({
         <div className="lg:col-span-6 space-y-4">
 
           {/* Filter bar */}
-          <div className="bg-white border-2 border-indigo-100 rounded-2xl p-4 shadow-sm space-y-4">
+          <div className="bg-white border-2 border-indigo-100 rounded-2xl p-4 space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-indigo-500 animate-ping" />
@@ -482,7 +508,7 @@ export default function SellModule({
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-indigo-400" />
                   <input type="text" value={searchQuery} onChange={handleSearchChange}
                     placeholder={language === 'bn' ? 'নাম / SKU...' : 'Name / SKU...'}
-                    className="h-9 w-full rounded-xl border-2 border-indigo-100 bg-indigo-50/40 pl-8 pr-2 text-xs font-bold text-slate-800 outline-none focus:border-indigo-400 focus:bg-white transition-all placeholder:text-slate-400" />
+                    className="h-9 w-full rounded-xl border-2 border-indigo-100 bg-indigo-50/40 pl-8 pr-2 text-xs font-bold text-slate-800 outline-none shadow-none focus:border-indigo-400 focus:bg-white transition-all placeholder:text-slate-400" />
                 </div>
               </div>
 
@@ -490,7 +516,7 @@ export default function SellModule({
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-orange-600 uppercase tracking-wider block">{language === 'bn' ? 'কোম্পানি' : 'Company'}</label>
                 <select value={selectedCompany} onChange={e => setSelectedCompany(e.target.value)}
-                  className="h-9 w-full rounded-xl border-2 border-orange-100 bg-orange-50/40 px-2 text-xs font-bold text-orange-800 outline-none focus:border-orange-400 transition-all cursor-pointer">
+                  className="h-9 w-full rounded-xl border-2 border-orange-100 bg-orange-50/40 px-2 text-xs font-bold text-orange-800 outline-none shadow-none focus:border-orange-400 transition-all cursor-pointer">
                   <option value="All">{language === 'bn' ? 'সকল' : 'All'}</option>
                   {uniqueCompanies.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
@@ -500,7 +526,7 @@ export default function SellModule({
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-purple-600 uppercase tracking-wider block">{language === 'bn' ? 'ক্যাটাগরি' : 'Category'}</label>
                 <select value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)}
-                  className="h-9 w-full rounded-xl border-2 border-purple-100 bg-purple-50/40 px-2 text-xs font-bold text-purple-800 outline-none focus:border-purple-400 transition-all cursor-pointer">
+                  className="h-9 w-full rounded-xl border-2 border-purple-100 bg-purple-50/40 px-2 text-xs font-bold text-purple-800 outline-none shadow-none focus:border-purple-400 transition-all cursor-pointer">
                   <option value="All">{language === 'bn' ? 'সকল' : 'All'}</option>
                   {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
@@ -510,7 +536,7 @@ export default function SellModule({
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-rose-600 uppercase tracking-wider block">{language === 'bn' ? 'স্টক' : 'Stock'}</label>
                 <select value={selectedStockFilter} onChange={e => setSelectedStockFilter(e.target.value)}
-                  className="h-9 w-full rounded-xl border-2 border-rose-100 bg-rose-50/40 px-2 text-xs font-bold text-rose-800 outline-none focus:border-rose-400 transition-all cursor-pointer">
+                  className="h-9 w-full rounded-xl border-2 border-rose-100 bg-rose-50/40 px-2 text-xs font-bold text-rose-800 outline-none shadow-none focus:border-rose-400 transition-all cursor-pointer">
                   <option value="All">{language === 'bn' ? 'সকল' : 'All'}</option>
                   <option value="InStock">{language === 'bn' ? 'আছে' : 'In Stock'}</option>
                   <option value="OutStock">{language === 'bn' ? 'শেষ' : 'Out of Stock'}</option>
@@ -526,7 +552,7 @@ export default function SellModule({
                 <span className="text-[10px] font-black text-indigo-600 uppercase tracking-wider">{language === 'bn' ? 'দ্রুত যোগ:' : 'Quick Add:'}</span>
               </div>
               <select value="" onChange={e => { const p = products.find(x => x.id === e.target.value); if (p) handleAddToCart(p); }}
-                className="flex-1 h-9 rounded-xl border-2 border-indigo-100 bg-white px-3 text-xs font-bold text-indigo-700 outline-none focus:border-indigo-400 transition-all cursor-pointer">
+                className="flex-1 h-9 rounded-xl border-2 border-indigo-100 bg-white px-3 text-xs font-bold text-indigo-700 outline-none shadow-none focus:border-indigo-400 transition-all cursor-pointer">
                 <option value="" disabled>{language === 'bn' ? 'পণ্য সরাসরি কার্টে...' : 'Select to add directly to cart...'}</option>
                 {filteredProducts.map(p => (
                   <option key={p.id} value={p.id} disabled={p.currentStock <= 0}>
@@ -557,7 +583,7 @@ export default function SellModule({
 
         {/* ══ RIGHT: Cart & Checkout ════════════════════════════════════════════ */}
         <div className="lg:col-span-6 flex flex-col min-h-0">
-          <form onSubmit={handleCheckout} className="bg-white rounded-2xl border-2 border-slate-100 shadow-xl overflow-hidden flex flex-col sticky top-4" style={{ maxHeight: 'calc(100vh - 120px)' }}>
+          <form onSubmit={handleCheckout} className="bg-white rounded-2xl border-2 border-slate-100 overflow-hidden flex flex-col sticky top-4" style={{ maxHeight: 'calc(100vh - 120px)' }}>
 
             {/* Cart header */}
             <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 px-6 py-5 shrink-0">
@@ -569,7 +595,7 @@ export default function SellModule({
                     <p className="text-xs text-slate-400 mt-0.5">{language === 'bn' ? 'পণ্য যোগ করুন, তারপর চেকআউট করুন' : 'Add products then checkout'}</p>
                   </div>
                 </div>
-                <span className={`text-sm font-black px-4 py-1.5 rounded-full border shadow-sm ${cart.length > 0 ? 'bg-indigo-500 text-white border-indigo-400 shadow-indigo-500/20' : 'bg-white/10 text-white/50 border-white/20'}`}>
+                <span className={`text-sm font-black px-4 py-1.5 rounded-full border ${cart.length > 0 ? 'bg-indigo-500 text-white border-indigo-400' : 'bg-white/10 text-white/50 border-white/20'}`}>
                   {cart.length} {language === 'bn' ? 'টি' : `item${cart.length !== 1 ? 's' : ''}`}
                 </span>
               </div>
@@ -583,7 +609,7 @@ export default function SellModule({
                     <User className="w-3.5 h-3.5" />{translations[language].challan.srSelectLabel}
                   </label>
                   <select id="pos-form-sr" value={selectedSR} onChange={handleSRChange}
-                    className="h-10 w-full rounded-xl border-2 border-purple-100 bg-white px-3 text-sm font-bold text-purple-800 outline-none focus:border-purple-400 cursor-pointer transition-all shadow-sm">
+                    className="h-10 w-full rounded-xl border-2 border-purple-100 bg-white px-3 text-sm font-bold text-purple-800 outline-none shadow-none focus:border-purple-400 cursor-pointer transition-all">
                     {srs.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
                   </select>
                 </div>
@@ -592,7 +618,7 @@ export default function SellModule({
                     <MapPin className="w-3.5 h-3.5" />{language === 'bn' ? 'রুট / মার্কেট' : 'Route / Market'}
                   </label>
                   <select id="pos-form-route" value={selectedRoute} onChange={handleRouteChange}
-                    className="h-10 w-full rounded-xl border-2 border-blue-100 bg-white px-3 text-sm font-bold text-blue-800 outline-none focus:border-blue-400 cursor-pointer transition-all shadow-sm">
+                    className="h-10 w-full rounded-xl border-2 border-blue-100 bg-white px-3 text-sm font-bold text-blue-800 outline-none shadow-none focus:border-blue-400 cursor-pointer transition-all">
                     {routes.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
                   </select>
                 </div>
@@ -647,7 +673,7 @@ export default function SellModule({
                           <TicketPercent className="w-3.5 h-3.5" />{language === 'bn' ? 'কমিশন (টাকা)' : 'Commission'}
                         </label>
                         <input id="pos-commission-input" type="number" min="0" step="0.01" value={commissionAmount} onChange={handleCommissionChange}
-                          className="h-10 w-full rounded-xl border-2 border-amber-100 bg-white px-3 text-sm font-bold text-amber-700 outline-none focus:border-amber-400 shadow-sm transition-all" />
+                          className="h-10 w-full rounded-xl border-2 border-amber-100 bg-white px-3 text-sm font-bold text-amber-700 outline-none shadow-none focus:border-amber-400 transition-all" />
                       </div>
 
                       <div className="space-y-1">
@@ -655,7 +681,7 @@ export default function SellModule({
                           <TicketPercent className="w-3.5 h-3.5" />{language === 'bn' ? 'অতিরিক্ত কমিশন' : 'Extra-Comm.'}
                         </label>
                         <input id="pos-extracommission-input" type="number" min="0" step="0.01" value={extraCommission} onChange={handleExtraCommissionChange}
-                          className="h-10 w-full rounded-xl border-2 border-amber-100 bg-white px-3 text-sm font-bold text-amber-700 outline-none focus:border-amber-400 shadow-sm transition-all" />
+                          className="h-10 w-full rounded-xl border-2 border-amber-100 bg-white px-3 text-sm font-bold text-amber-700 outline-none shadow-none focus:border-amber-400 transition-all" />
                       </div>
 
                       <div className="space-y-1">
@@ -663,7 +689,7 @@ export default function SellModule({
                           <Truck className="w-3.5 h-3.5" />{translations[language].challan.deliverySelectLabel}
                         </label>
                         <select id="pos-form-delivery" value={selectedDeliveryMan} onChange={handleDMChange}
-                          className="h-10 w-full rounded-xl border-2 border-rose-100 bg-white px-3 text-sm font-bold text-rose-700 outline-none focus:border-rose-400 cursor-pointer shadow-sm transition-all">
+                          className="h-10 w-full rounded-xl border-2 border-rose-100 bg-white px-3 text-sm font-bold text-rose-700 outline-none shadow-none focus:border-rose-400 cursor-pointer transition-all">
                           {deliveryMen.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
                         </select>
                       </div>
@@ -673,7 +699,7 @@ export default function SellModule({
                           <Truck className="w-3.5 h-3.5" />{language === 'bn' ? 'অর্ডার স্ট্যাটাস' : 'Status'}
                         </label>
                         <select id="pos-form-status" value={orderStatus} onChange={handleStatusChange}
-                          className="h-10 w-full rounded-xl border-2 border-indigo-100 bg-white px-3 text-sm font-bold text-indigo-700 outline-none focus:border-indigo-400 cursor-pointer shadow-sm transition-all">
+                          className="h-10 w-full rounded-xl border-2 border-indigo-100 bg-white px-3 text-sm font-bold text-indigo-700 outline-none shadow-none focus:border-indigo-400 cursor-pointer transition-all">
                           <option value="Delivered">{language === 'bn' ? 'ডেলিভার্ড' : 'Delivered'}</option>
                           <option value="Shipped">{language === 'bn' ? 'শিপড' : 'Shipped'}</option>
                         </select>
@@ -684,7 +710,7 @@ export default function SellModule({
                           <Calendar className="w-3.5 h-3.5" />{language === 'bn' ? 'অর্ডারের তারিখ' : 'Order Date'}
                         </label>
                         <input type="date" value={orderDate} onChange={(e) => setOrderDate(e.target.value)}
-                          className="h-10 w-full rounded-xl border-2 border-teal-100 bg-white px-3 text-sm font-bold text-teal-700 outline-none focus:border-teal-400 cursor-pointer shadow-sm transition-all" />
+                          className="h-10 w-full rounded-xl border-2 border-teal-100 bg-white px-3 text-sm font-bold text-teal-700 outline-none shadow-none focus:border-teal-400 cursor-pointer transition-all" />
                       </div>
                     </div>
                   </div>
@@ -709,7 +735,7 @@ export default function SellModule({
               </div>
 
               {/* Net total */}
-              <div className="bg-indigo-950 text-white p-5 rounded-xl space-y-4 shadow-inner">
+              <div className="bg-indigo-950 text-white p-5 rounded-xl space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-[11px] font-black text-indigo-300 uppercase tracking-widest">{language === 'bn' ? 'মোট বিল' : 'Net Total'}</p>
@@ -724,9 +750,9 @@ export default function SellModule({
 
               {/* Checkout button */}
               <button id="pos-btn-checkout" type="submit" disabled={cart.length === 0}
-                className={`w-full py-4 text-base font-black tracking-wide flex items-center justify-center gap-2 rounded-xl transition-all cursor-pointer shadow-lg
+                className={`w-full py-4 text-base font-black tracking-wide flex items-center justify-center gap-2 rounded-xl transition-all cursor-pointer
                   ${cart.length > 0
-                    ? 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white shadow-emerald-500/25 active:scale-[0.98]'
+                    ? 'bg-emerald-500 hover:bg-emerald-600 text-white'
                     : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
                   }`}>
                 <Check className="w-5 h-5" />
