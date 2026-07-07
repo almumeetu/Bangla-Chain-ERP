@@ -44,6 +44,7 @@ interface ChallanModuleProps {
   routes: Route[];
   deliveryMen: DeliveryMan[];
   products: Product[];
+  setProducts: React.Dispatch<React.SetStateAction<Product[]>>;
   attributes: ProductAttribute[];
   language: Language;
 }
@@ -55,6 +56,7 @@ export default function ChallanModule({
   routes,
   deliveryMen,
   products,
+  setProducts,
   attributes,
   language
 }: ChallanModuleProps) {
@@ -423,6 +425,20 @@ export default function ChallanModule({
       createdAt: new Date().toISOString()
     };
 
+    // If new challan is created as 'Delivered', deduct stock immutably
+    if (newStatus === 'Delivered') {
+      const updatedProducts = products.map(p => {
+        if (p.name === newProduct) {
+          return {
+            ...p,
+            currentStock: p.currentStock - totalQty
+          };
+        }
+        return p;
+      });
+      setProducts(updatedProducts);
+    }
+
     setChallans(prev => [newChallan, ...prev]);
     setShowAddModal(false);
     
@@ -484,23 +500,54 @@ export default function ChallanModule({
 
     const calculatedTotalSRComm = settlementSRCommValue;
 
-    // Update all challan items and synchronize stocks
+    // Immutably update products based on delivery state transition
+    const updatedProducts = products.map(p => {
+      let currentStock = p.currentStock;
+      let damagedStock = p.damagedStock || 0;
+
+      settlementOrder.items.forEach(ch => {
+        if (ch.productName === p.name) {
+          const itemQtyUpdates = settlementQuantities[ch.id];
+          if (itemQtyUpdates) {
+            const newReturned = Number(itemQtyUpdates.returned) || 0;
+            const newDamaged = Number(itemQtyUpdates.damaged) || 0;
+
+            const wasDelivered = ch.status === 'Delivered';
+            const isDelivered = settlementStatus === 'Delivered';
+
+            if (wasDelivered && isDelivered) {
+              const returnDiff = newReturned - (ch.returnedQty || 0);
+              currentStock += returnDiff;
+              const damageDiff = newDamaged - (ch.damagedQty || 0);
+              damagedStock += damageDiff;
+            } else if (!wasDelivered && isDelivered) {
+              const soldQty = ch.qty + ch.bonusQty - newReturned;
+              currentStock -= soldQty;
+              damagedStock += newDamaged;
+            } else if (wasDelivered && !isDelivered) {
+              const prevSoldQty = ch.qty + ch.bonusQty - ch.returnedQty;
+              currentStock += prevSoldQty;
+              damagedStock -= ch.damagedQty;
+            }
+          }
+        }
+      });
+
+      return {
+        ...p,
+        currentStock,
+        damagedStock
+      };
+    });
+    setProducts(updatedProducts);
+
+    // Update all challan items
     setChallans(prev => {
       return prev.map(ch => {
         const itemQtyUpdates = settlementQuantities[ch.id];
         if (itemQtyUpdates) {
           const newReturned = Number(itemQtyUpdates.returned) || 0;
           const newDamaged = Number(itemQtyUpdates.damaged) || 0;
-
-          // Product stock synchronization
-          const prod = products.find(p => p.name === ch.productName);
-          if (prod) {
-            const returnDiff = newReturned - (ch.returnedQty || 0);
-            prod.currentStock += returnDiff;
-
-            const damageDiff = newDamaged - (ch.damagedQty || 0);
-            prod.damagedStock = (prod.damagedStock || 0) + damageDiff;
-          }
 
           const netQty = ch.qty - newReturned - newDamaged;
           const baseAmount = Math.max(0, netQty) * ch.rate;
@@ -574,6 +621,27 @@ export default function ChallanModule({
     if (!confirm(language === 'bn' ? 'আপনি কি নিশ্চিত যে এই পুরো অর্ডারটি ডিলিট করতে চান?' : 'Are you sure you want to delete this entire order?')) return;
     const group = groupedData.find(g => g.id === groupId);
     if (!group) return;
+
+    // Revert stock of any items that were delivered
+    const updatedProducts = products.map(p => {
+      let currentStock = p.currentStock;
+      let damagedStock = p.damagedStock || 0;
+
+      group.items.forEach(item => {
+        if (item.productName === p.name && item.status === 'Delivered') {
+          currentStock += (item.qty + item.bonusQty - item.returnedQty);
+          damagedStock -= item.damagedQty;
+        }
+      });
+
+      return {
+        ...p,
+        currentStock,
+        damagedStock
+      };
+    });
+    setProducts(updatedProducts);
+
     const itemIds = group.items.map(i => i.id);
     setChallans(prev => prev.filter(c => !itemIds.includes(c.id)));
   };
@@ -602,21 +670,38 @@ export default function ChallanModule({
 
     const oldTotalQty = editingChallan.qty + (editingChallan.bonusQty || 0);
     const newTotalQty = Number(editQty) + Number(editBonusQty);
-    const qtyDiff = newTotalQty - oldTotalQty;
 
-    const prod = products.find(p => p.name === editingChallan.productName);
-    if (prod && qtyDiff > 0 && prod.currentStock < qtyDiff) {
-      alert(`Insufficient stock! Product only has ${prod.currentStock} units available.`);
-      return;
-    }
+    const wasDelivered = editingChallan.status === 'Delivered';
+    const isDelivered = editStatus === 'Delivered';
 
-    if (prod) {
-      prod.currentStock -= qtyDiff;
-      const returnDiff = Number(editReturnedQty) - (editingChallan.returnedQty || 0);
-      prod.currentStock += returnDiff;
-      const damageDiff = Number(editDamagedQty) - (editingChallan.damagedQty || 0);
-      prod.damagedStock = (prod.damagedStock || 0) + damageDiff;
-    }
+    // Immutably update products
+    const updatedProducts = products.map(p => {
+      if (p.name === editingChallan.productName) {
+        let currentStock = p.currentStock;
+        let damagedStock = p.damagedStock || 0;
+
+        if (wasDelivered && isDelivered) {
+          currentStock += (editingChallan.qty + editingChallan.bonusQty - editingChallan.returnedQty);
+          damagedStock -= editingChallan.damagedQty;
+          currentStock -= (Number(editQty) + Number(editBonusQty) - Number(editReturnedQty));
+          damagedStock += Number(editDamagedQty);
+        } else if (!wasDelivered && isDelivered) {
+          currentStock -= (Number(editQty) + Number(editBonusQty) - Number(editReturnedQty));
+          damagedStock += Number(editDamagedQty);
+        } else if (wasDelivered && !isDelivered) {
+          currentStock += (editingChallan.qty + editingChallan.bonusQty - editingChallan.returnedQty);
+          damagedStock -= editingChallan.damagedQty;
+        }
+
+        return {
+          ...p,
+          currentStock,
+          damagedStock
+        };
+      }
+      return p;
+    });
+    setProducts(updatedProducts);
 
     const netQty = Number(editQty) - Number(editReturnedQty) - Number(editDamagedQty);
     const baseAmount = Math.max(0, netQty) * Number(editRate);
@@ -1014,16 +1099,22 @@ export default function ChallanModule({
                       {g.deliveryManName}
                     </td>
                     <td className="px-5 py-4 text-center">
-                      <select
-                        id={`order-status-select-${g.id}`}
-                        value={g.status}
-                        onChange={(e) => handleGroupStatusChange(g.id, e.target.value as any)}
-                        className={`px-3 py-1 rounded-full text-[10px] font-bold border outline-none cursor-pointer bg-white transition-all uppercase tracking-wider ${statusStyle}`}
-                      >
-                        <option value="Pending">{tCommon.pending}</option>
-                        <option value="Shipped">{tCommon.shipped}</option>
-                        <option value="Delivered">{tCommon.delivered}</option>
-                      </select>
+                      {g.status === 'Delivered' ? (
+                        <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-bold border uppercase tracking-wider ${statusStyle}`}>
+                          {tCommon.delivered}
+                        </span>
+                      ) : (
+                        <select
+                          id={`order-status-select-${g.id}`}
+                          value={g.status}
+                          onChange={(e) => handleGroupStatusChange(g.id, e.target.value as any)}
+                          className={`px-3 py-1 rounded-full text-[10px] font-bold border outline-none cursor-pointer bg-white transition-all uppercase tracking-wider ${statusStyle}`}
+                        >
+                          <option value="Pending">{tCommon.pending}</option>
+                          <option value="Shipped">{tCommon.shipped}</option>
+                          <option value="Delivered">{tCommon.delivered}</option>
+                        </select>
+                      )}
                     </td>
                     <td className="px-5 py-4 text-center">
                       <div className="flex items-center justify-center gap-1.5">
@@ -1035,14 +1126,16 @@ export default function ChallanModule({
                         >
                           <Eye className="w-4 h-4" />
                         </button>
-                        <button
-                          id={`order-action-delete-${g.id}`}
-                          onClick={() => handleDeleteGroup(g.id)}
-                          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-rose-100 bg-rose-50 text-rose-600 hover:bg-rose-100 cursor-pointer shadow-sm active:scale-95 transition-all"
-                          title="Delete Order"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        {g.status !== 'Delivered' && (
+                          <button
+                            id={`order-action-delete-${g.id}`}
+                            onClick={() => handleDeleteGroup(g.id)}
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-rose-100 bg-rose-50 text-rose-600 hover:bg-rose-100 cursor-pointer shadow-sm active:scale-95 transition-all"
+                            title="Delete Order"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -1531,29 +1624,33 @@ export default function ChallanModule({
                           <td className="px-4 py-3 text-center font-mono font-bold bg-slate-50/50">{item.totalQty}</td>
                           <td className="px-4 py-3 text-right font-mono font-bold">{(item.totalAmount).toLocaleString('en-BD')}</td>
                           <td className="px-4 py-3 text-center">
-                            <div className="flex items-center justify-center gap-1.5">
-                              <button
-                                onClick={() => handleOpenEditModal(item)}
-                                className="p-1.5 rounded-lg border border-indigo-200 text-indigo-600 hover:bg-indigo-50 transition-colors"
-                                title="Edit Item"
-                              >
-                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                </svg>
-                              </button>
-                              <button
-                                onClick={() => {
-                                  if (confirm(tCommon.confirmDelete)) {
-                                    setChallans(prev => prev.filter(c => c.id !== item.id));
-                                    setViewingOrder(prev => prev ? { ...prev, items: prev.items.filter(c => c.id !== item.id) } : null);
-                                  }
-                                }}
-                                className="p-1.5 rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 transition-colors"
-                                title="Delete Item"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
+                            {viewingOrder.status !== 'Delivered' ? (
+                              <div className="flex items-center justify-center gap-1.5">
+                                <button
+                                  onClick={() => handleOpenEditModal(item)}
+                                  className="p-1.5 rounded-lg border border-indigo-200 text-indigo-600 hover:bg-indigo-50 transition-colors"
+                                  title="Edit Item"
+                                >
+                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                  </svg>
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    if (confirm(tCommon.confirmDelete)) {
+                                      setChallans(prev => prev.filter(c => c.id !== item.id));
+                                      setViewingOrder(prev => prev ? { ...prev, items: prev.items.filter(c => c.id !== item.id) } : null);
+                                    }
+                                  }}
+                                  className="p-1.5 rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 transition-colors"
+                                  title="Delete Item"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="text-[11px] text-slate-400 font-semibold">{language === 'bn' ? 'লকড' : 'Locked'}</span>
+                            )}
                           </td>
                         </tr>
                       ))}
@@ -1584,15 +1681,6 @@ export default function ChallanModule({
                   className="flex-1 py-3 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white hover:from-emerald-700 hover:to-emerald-800 font-bold rounded-lg text-sm transition-all active:scale-95 text-center shadow-sm cursor-pointer"
                 >
                   {language === 'bn' ? 'ডেলিভারি সেটেল করুন (Delivered)' : 'Settle Delivery (Delivered)'}
-                </button>
-              )}
-              {viewingOrder.status === 'Delivered' && (
-                <button
-                  type="button"
-                  onClick={() => handleGroupStatusChange(viewingOrder.id, 'Pending')}
-                  className="flex-1 py-3 bg-gradient-to-r from-amber-500 to-amber-600 text-white hover:from-amber-600 hover:to-amber-700 font-bold rounded-lg text-sm transition-all active:scale-95 text-center shadow-sm cursor-pointer"
-                >
-                  {language === 'bn' ? 'পেন্ডিং করুন (Pending)' : 'Set back to Pending'}
                 </button>
               )}
 

@@ -2787,13 +2787,14 @@ export default function DirectoryModule({
               </div>
 
               <div>
-                <label className="mb-2 block text-xs font-semibold text-slate-750">{tDir.formProductStock}</label>
+                <label className="mb-2 block text-xs font-semibold text-slate-400">
+                  {tDir.formProductStock} ({language === 'bn' ? 'স্টক অ্যাডজাস্টমেন্ট মডিউল থেকে পরিবর্তন করুন' : 'Change from Stock Adjustment Module'})
+                </label>
                 <input
                   type="number"
-                  min="0"
+                  disabled
                   value={prodStock}
-                  onChange={e => setProdStock(Number(e.target.value))}
-                  className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 font-mono font-semibold outline-none focus:border-slate-800"
+                  className="h-10 w-full rounded-lg border border-slate-200 bg-slate-100 px-3 font-mono font-semibold text-slate-500 cursor-not-allowed outline-none"
                 />
               </div>
             </div>

@@ -201,7 +201,8 @@ export default function App() {
       case 'delivery': return (
         <ChallanModule challans={db.challans} setChallans={db.syncChallans}
           srs={db.srs} routes={db.routes} deliveryMen={db.deliveryMen}
-          products={db.products} attributes={db.attributes} language={language} />
+          products={db.products} setProducts={db.syncProducts}
+          attributes={db.attributes} language={language} />
       );
       case 'stock': return (
         <StockAdjustmentModule attributes={db.attributes} setAttributes={db.syncAttributes}
