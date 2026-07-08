@@ -20,7 +20,9 @@ import {
   AlertTriangle,
   Search,
   Calendar,
-  Truck
+  Truck,
+  Grid,
+  List
 } from 'lucide-react';
 import {
   Product,
@@ -496,6 +498,7 @@ export default function DirectoryModule({
   const tDir = dict[language].directory;
 
   const [activeSubTab, setActiveSubTab] = useState<DirectoryTab>(defaultTab || 'products');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
 
   // Directory filter states
   const [productSearch, setProductSearch] = useState('');
@@ -1332,18 +1335,123 @@ export default function DirectoryModule({
                 </p>
               </div>
 
-              <button
-                type="button"
-                onClick={handleOpenProduct}
-                className="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-900 px-4 text-xs font-bold text-white hover:bg-slate-800 border border-slate-950 cursor-pointer transition-all active:scale-95 shadow-sm shrink-0"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                {tDir.registerProduct}
-              </button>
+              <div className="flex items-center gap-3 shrink-0 w-full sm:w-auto justify-between sm:justify-end">
+                {/* View Mode Toggle */}
+                <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
+                  <button
+                    type="button"
+                    onClick={() => setViewMode('list')}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                      viewMode === 'list'
+                        ? 'bg-white text-slate-800 shadow-xs'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    <List className="w-3.5 h-3.5" />
+                    <span>{language === 'bn' ? 'তালিকা' : 'List'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode('grid')}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                      viewMode === 'grid'
+                        ? 'bg-white text-slate-800 shadow-xs'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    <Grid className="w-3.5 h-3.5" />
+                    <span>{language === 'bn' ? 'গ্রিড' : 'Grid'}</span>
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleOpenProduct}
+                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-900 px-4 text-xs font-bold text-white hover:bg-slate-800 border border-slate-950 cursor-pointer transition-all active:scale-95 shadow-sm shrink-0"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  {tDir.registerProduct}
+                </button>
+              </div>
             </div>
 
-            {/* Product Card Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            {viewMode === 'list' ? (
+              <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse text-left text-xs text-slate-500">
+                    <thead className="bg-slate-50 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-200">
+                      <tr>
+                        <th className="px-5 py-3">{language === 'bn' ? 'পণ্যের বিবরণ' : 'Product Details'}</th>
+                        <th className="px-5 py-3">{language === 'bn' ? 'ক্যাটাগরি/একক' : 'Category / UOM'}</th>
+                        <th className="px-5 py-3 text-right">{language === 'bn' ? 'স্টক পরিমাণ' : 'Stock Level'}</th>
+                        <th className="px-5 py-3 text-right">{language === 'bn' ? 'স্টক মূল্য' : 'Stock Value'}</th>
+                        <th className="px-5 py-3 text-right">DP / TP / MRP</th>
+                        <th className="px-5 py-3 text-center">{language === 'bn' ? 'মার্জিন' : 'Margin'}</th>
+                        <th className="px-5 py-3 text-right">{language === 'bn' ? 'অ্যাকশন' : 'Actions'}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-medium">
+                      {filteredProducts.map(p => {
+                        const categoryName = productCategories.find(c => c.id === p.categoryId)?.name || 'N/A';
+                        const uomName = units.find(u => u.id === p.uomId)?.name || 'N/A';
+                        const marginPct = p.defaultWSP > 0 ? ((p.defaultWSP - p.defaultPP) / p.defaultWSP) * 100 : 0;
+                        const isLowStock = p.currentStock < 600;
+                        return (
+                          <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
+                            <td className="px-5 py-3.5">
+                              <div className="flex flex-col">
+                                <span className="font-bold text-slate-800 text-sm">{p.name}</span>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded text-[9px] font-bold uppercase tracking-wider border border-slate-200">{p.company}</span>
+                                  <span className="font-mono text-[10px] text-slate-405">{p.sku}</span>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-5 py-3.5">
+                              <div className="flex flex-col gap-0.5">
+                                <span className="text-slate-700">Cat: {categoryName}</span>
+                                <span className="text-slate-400 text-[10px]">UOM: {uomName}</span>
+                              </div>
+                            </td>
+                            <td className="px-5 py-3.5 text-right font-mono font-bold">
+                              <span className={isLowStock ? "text-amber-600 font-extrabold" : "text-slate-800"}>
+                                {p.currentStock.toLocaleString()}
+                              </span>
+                            </td>
+                            <td className="px-5 py-3.5 text-right font-mono text-slate-650">
+                              {formatBDT(p.currentStock * p.defaultPP)}
+                            </td>
+                            <td className="px-5 py-3.5 text-right font-mono">
+                              <div className="flex flex-col text-[11px] gap-0.5">
+                                <span>DP: <span className="text-blue-600 font-bold">{formatBDT(p.defaultPP)}</span></span>
+                                <span>TP: <span className="text-emerald-700 font-bold">{formatBDT(p.defaultWSP)}</span></span>
+                                <span>MRP: <span className="text-amber-700 font-bold">{formatBDT(p.defaultMRP)}</span></span>
+                              </div>
+                            </td>
+                            <td className="px-5 py-3.5 text-center">
+                              <span className="font-mono text-[11px] font-bold text-emerald-650 bg-emerald-50/50 border border-emerald-100 px-1.5 py-0.5 rounded">
+                                +{marginPct.toFixed(1)}%
+                              </span>
+                            </td>
+                            <td className="px-5 py-3.5 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button onClick={() => startEditProduct(p)} className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg border border-transparent hover:border-slate-200">
+                                  <Edit3 className="w-3.5 h-3.5" />
+                                </button>
+                                <button onClick={() => handleDeleteProduct(p.id)} className="p-1.5 text-rose-500 hover:text-rose-900 hover:bg-rose-50 rounded-lg border border-transparent hover:border-rose-100">
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
               {filteredProducts.map(p => {
                 const categoryName = productCategories.find(c => c.id === p.categoryId)?.name || 'N/A';
                 const uomName = units.find(u => u.id === p.uomId)?.name || 'N/A';
@@ -1504,6 +1612,7 @@ export default function DirectoryModule({
                 );
               })}
             </div>
+            )}
           </div>
         );
       })()}
@@ -1522,20 +1631,107 @@ export default function DirectoryModule({
                 </p>
               </div>
 
-              <button
-                id="btn-register-shop-top"
-                type="button"
-                onClick={handleOpenShop}
-                className="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-900 px-4 text-xs font-bold text-white hover:bg-slate-800 border border-slate-950 cursor-pointer transition-all active:scale-95 shadow-sm shrink-0"
-              >
-                <Plus className="w-3.5 h-3.5 text-white" />
-                {tDir.registerShop}
-              </button>
+              <div className="flex items-center gap-3 shrink-0 w-full sm:w-auto justify-between sm:justify-end">
+                {/* View Mode Toggle */}
+                <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
+                  <button
+                    type="button"
+                    onClick={() => setViewMode('list')}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                      viewMode === 'list'
+                        ? 'bg-white text-slate-800 shadow-xs'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    <List className="w-3.5 h-3.5" />
+                    <span>{language === 'bn' ? 'তালিকা' : 'List'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode('grid')}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                      viewMode === 'grid'
+                        ? 'bg-white text-slate-800 shadow-xs'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    <Grid className="w-3.5 h-3.5" />
+                    <span>{language === 'bn' ? 'গ্রিড' : 'Grid'}</span>
+                  </button>
+                </div>
+
+                <button
+                  id="btn-register-shop-top"
+                  type="button"
+                  onClick={handleOpenShop}
+                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-900 px-4 text-xs font-bold text-white hover:bg-slate-800 border border-slate-950 cursor-pointer transition-all active:scale-95 shadow-sm shrink-0"
+                >
+                  <Plus className="w-3.5 h-3.5 text-white" />
+                  {tDir.registerShop}
+                </button>
+              </div>
             </div>
 
             {customers.length === 0 ? (
               <div className="bg-white rounded-3xl border border-slate-200 p-8 text-center text-slate-400 font-semibold shadow-sm">
                 {language === 'bn' ? 'কোন দোকান পাওয়া যায়নি' : 'No retail customers registered.'}
+              </div>
+            ) : viewMode === 'list' ? (
+              <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse text-left text-xs text-slate-500">
+                    <thead className="bg-slate-50 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-200">
+                      <tr>
+                        <th className="px-5 py-3">{language === 'bn' ? 'দোকানের নাম / বিট' : 'Shop Name / Beat'}</th>
+                        <th className="px-5 py-3">{language === 'bn' ? 'বাজার ও ঠিকানা' : 'Market & Address'}</th>
+                        <th className="px-5 py-3">{language === 'bn' ? 'মোবাইল নম্বর' : 'Phone'}</th>
+                        <th className="px-5 py-3 text-right">Credit Limit</th>
+                        <th className="px-5 py-3 text-right">Credit Terms</th>
+                        <th className="px-5 py-3 text-right">{language === 'bn' ? 'অ্যাকশন' : 'Actions'}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-medium">
+                      {customers.map((c) => {
+                        const routeName = routes.find(r => r.id === c.routeId)?.name || 'Unassigned Beat';
+                        return (
+                          <tr key={c.id} className="hover:bg-slate-50/50 transition-colors">
+                            <td className="px-5 py-3.5">
+                              <div className="flex flex-col">
+                                <span className="font-bold text-slate-800 text-sm">{c.name}</span>
+                                <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mt-1">{routeName}</span>
+                              </div>
+                            </td>
+                            <td className="px-5 py-3.5 text-slate-700">
+                              <div className="flex flex-col">
+                                <span>{c.market}</span>
+                                <span className="text-[10px] text-slate-400">{c.address || 'N/A'}</span>
+                              </div>
+                            </td>
+                            <td className="px-5 py-3.5 font-mono text-slate-650">
+                              {c.phone}
+                            </td>
+                            <td className="px-5 py-3.5 text-right font-mono text-slate-800 font-bold">
+                              {formatBDT(c.creditLimit || 0)}
+                            </td>
+                            <td className="px-5 py-3.5 text-right font-mono text-slate-600">
+                              {c.creditDays || 0} Days
+                            </td>
+                            <td className="px-5 py-3.5 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button onClick={() => startEditShop(c)} className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg border border-transparent hover:border-slate-200">
+                                  <Edit3 className="w-3.5 h-3.5" />
+                                </button>
+                                <button onClick={() => handleDeleteShop(c.id)} className="p-1.5 text-rose-500 hover:text-rose-900 hover:bg-rose-50 rounded-lg border border-transparent hover:border-rose-100">
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -1630,27 +1826,133 @@ export default function DirectoryModule({
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={() => {
-                setEditingSr(null);
-                setSrName('');
-                setSrPhone('');
-                setSrCommissionRate(5);
-                setSrAssignedCompanies([]);
-                setSrLoginUsername('');
-                setSrLoginPassword('');
-                setShowSrModal(true);
-              }}
-              className="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-900 px-4 text-xs font-bold text-white hover:bg-slate-800 border border-slate-950 cursor-pointer transition-all active:scale-95 shadow-sm shrink-0"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              {tDir.registerSr}
-            </button>
-          </div>
+              <div className="flex items-center gap-3 shrink-0 w-full sm:w-auto justify-between sm:justify-end">
+                {/* View Mode Toggle */}
+                <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
+                  <button
+                    type="button"
+                    onClick={() => setViewMode('list')}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                      viewMode === 'list'
+                        ? 'bg-white text-slate-800 shadow-xs'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    <List className="w-3.5 h-3.5" />
+                    <span>{language === 'bn' ? 'তালিকা' : 'List'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode('grid')}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                      viewMode === 'grid'
+                        ? 'bg-white text-slate-800 shadow-xs'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    <Grid className="w-3.5 h-3.5" />
+                    <span>{language === 'bn' ? 'গ্রিড' : 'Grid'}</span>
+                  </button>
+                </div>
 
-          {/* Cards Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingSr(null);
+                    setSrName('');
+                    setSrPhone('');
+                    setSrCommissionRate(5);
+                    setSrAssignedCompanies([]);
+                    setSrLoginUsername('');
+                    setSrLoginPassword('');
+                    setShowSrModal(true);
+                  }}
+                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-900 px-4 text-xs font-bold text-white hover:bg-slate-800 border border-slate-950 cursor-pointer transition-all active:scale-95 shadow-sm shrink-0"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  {tDir.registerSr}
+                </button>
+              </div>
+            </div>
+
+            {viewMode === 'list' ? (
+              <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse text-left text-xs text-slate-500">
+                    <thead className="bg-slate-50 text-[10px] font-bold text-slate-400 tracking-wider border-b border-slate-200 uppercase">
+                      <tr>
+                        <th className="px-5 py-3">{language === 'bn' ? 'নাম' : 'Name'}</th>
+                        <th className="px-5 py-3">{language === 'bn' ? 'মোবাইল' : 'Phone'}</th>
+                        <th className="px-5 py-3 text-center">{language === 'bn' ? 'বরাদ্দ দোকান' : 'Assigned Shops'}</th>
+                        <th className="px-5 py-3 text-right">{language === 'bn' ? 'কমিশন হার' : 'Commission'}</th>
+                        <th className="px-5 py-3">{language === 'bn' ? 'অনুমোদিত কোম্পানি' : 'Assigned Brands'}</th>
+                        <th className="px-5 py-3 text-right">{language === 'bn' ? 'অ্যাকশন' : 'Actions'}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-medium">
+                      {srs.map((sr) => {
+                        const assignedShopsCount = customers.filter(c => c.assignedSR.toLowerCase() === sr.name.toLowerCase()).length;
+                        return (
+                          <tr key={sr.id} className="hover:bg-slate-50/50 transition-colors">
+                            <td className="px-5 py-3.5 font-bold text-slate-800 text-sm">
+                              {sr.name}
+                            </td>
+                            <td className="px-5 py-3.5 font-mono text-slate-650">
+                              {sr.phone}
+                            </td>
+                            <td className="px-5 py-3.5 text-center">
+                              <span className="bg-slate-100 border border-slate-200 text-slate-600 px-2 py-0.5 rounded text-[10px] font-bold">
+                                {language === 'bn' ? `${assignedShopsCount}টি দোকান` : `${assignedShopsCount} Shops`}
+                              </span>
+                            </td>
+                            <td className="px-5 py-3.5 text-right font-mono text-slate-800 font-bold">
+                              {sr.commissionRate || 5}%
+                            </td>
+                            <td className="px-5 py-3.5 text-slate-600">
+                              <div className="flex flex-wrap gap-1 max-w-[200px]">
+                                {sr.assignedCompanyIds && sr.assignedCompanyIds.length > 0 ? (
+                                  sr.assignedCompanyIds.map(cid => {
+                                    const cName = companies.find(comp => comp.id === cid)?.name || cid;
+                                    return (
+                                      <span key={cid} className="px-1.5 py-0.2 bg-purple-50 text-purple-700 border border-purple-100 rounded text-[9px] font-bold uppercase">{cName}</span>
+                                    )
+                                  })
+                                ) : (
+                                  <span className="text-slate-400 italic">None</span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-5 py-3.5 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  onClick={() => {
+                                    setEditingSr(sr);
+                                    setSrName(sr.name);
+                                    setSrPhone(sr.phone);
+                                    setSrCommissionRate(sr.commissionRate || 5);
+                                    setSrAssignedCompanies(sr.assignedCompanyIds || []);
+                                    setSrLoginUsername(sr.loginUsername || '');
+                                    setSrLoginPassword(sr.loginPassword || '');
+                                    setShowSrModal(true);
+                                  }}
+                                  className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg border border-transparent hover:border-slate-200"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5" />
+                                </button>
+                                <button onClick={() => handleDeleteSr(sr.id)} className="p-1.5 text-rose-500 hover:text-rose-900 hover:bg-rose-50 rounded-lg border border-transparent hover:border-rose-100">
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {srs.map((sr, index) => {
               const assignedShopsCount = customers.filter(c => c.assignedSR.toLowerCase() === sr.name.toLowerCase()).length;
               const initials = sr.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
@@ -1720,6 +2022,7 @@ export default function DirectoryModule({
               );
             })}
           </div>
+          )}
         </div>
       )}
 
