@@ -227,7 +227,7 @@ export default function App() {
       );
       case 'products': return (
         <DirectoryModule key="products" {...directoryBaseProps}
-          defaultTab="products" visibleTabs={['products', 'categories', 'units']}
+          defaultTab="products" visibleTabs={['products', 'units']}
           pageTitle={t.productsPage.title} pageSubtitle={t.productsPage.subtitle} />
       );
       case 'routes': return (

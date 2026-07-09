@@ -29,7 +29,7 @@ interface ReportsModuleProps {
   userRole?: 'admin' | 'sr';
 }
 
-type ReportTab = 'stock' | 'sales' | 'profit' | 'margin' | 'damage';
+type ReportTab = 'stock' | 'sales' | 'profit' | 'margin' | 'damage' | 'dp' | 'dayend';
 
 export default function ReportsModule({
   products,
@@ -343,6 +343,87 @@ export default function ReportsModule({
         };
       });
   }, [products, selectedCompanyFilter]);
+
+  // ═══════════════════════════════════════════════════════════════
+  // 5. COMPANY-WISE DP PRICE LIST REPORT
+  // ═══════════════════════════════════════════════════════════════
+  const dpPriceReportData = useMemo(() => {
+    const filteredProducts = products
+      .filter(p => selectedCompanyFilter === 'All' || p.company === selectedCompanyFilter)
+      .sort((a, b) => a.company.localeCompare(b.company) || a.name.localeCompare(b.name));
+
+    // Group by company
+    const groupedByCompany: Record<string, typeof filteredProducts> = {};
+    filteredProducts.forEach(p => {
+      if (!groupedByCompany[p.company]) groupedByCompany[p.company] = [];
+      groupedByCompany[p.company].push(p);
+    });
+
+    const companies = Object.keys(groupedByCompany).sort();
+    return { groupedByCompany, companies, total: filteredProducts.length };
+  }, [products, selectedCompanyFilter]);
+
+  // ═══════════════════════════════════════════════════════════════
+  // 6. COMPANY-WISE DAY-END SETTLEMENT DATA
+  // ═══════════════════════════════════════════════════════════════
+  const dayEndSettlementData = useMemo(() => {
+    const companyList = selectedCompanyFilter === 'All'
+      ? Array.from(new Set(products.map(p => p.company).filter(Boolean))).sort()
+      : [selectedCompanyFilter];
+
+    const result = companyList.map(companyName => {
+      const companyProducts = products
+        .filter(p => p.company === companyName)
+        .sort((a, b) => a.name.localeCompare(b.name));
+
+      const companyChallans = filteredChallans.filter(ch => ch.company === companyName);
+
+      // Damage / return rows for right panel
+      const damageRows = companyProducts
+        .filter(p => (p.damagedStock || 0) > 0)
+        .map(p => ({ productName: p.name, damagedQty: p.damagedStock || 0, type: 'Damage' as const }));
+
+      const returnRows = companyChallans
+        .filter(ch => (ch.returnedQty || 0) > 0)
+        .map(ch => ({ productName: ch.productName, damagedQty: ch.returnedQty, type: 'Return' as const }));
+
+      const productRows = companyProducts.map((p, idx) => {
+        const pChallans = companyChallans.filter(ch => ch.productName === p.name);
+        const salesQty   = pChallans.reduce((s, ch) => s + ch.qty, 0);
+        const salesAmt   = pChallans.reduce((s, ch) => s + ch.totalAmount, 0);
+        // Opening stock = current stock + sold qty (since stock was reduced after sales)
+        const openingStock = p.currentStock + salesQty;
+        const closingStock = p.currentStock;
+        const stockAmt     = closingStock * p.defaultPP;
+        const costOfSales  = salesQty * p.defaultPP;
+        const profit       = salesAmt - costOfSales;
+        const profitPct    = costOfSales > 0 ? (profit / costOfSales) * 100 : 0;
+        return {
+          slNo: idx + 1,
+          productName: p.name,
+          sku: p.sku,
+          dp: p.defaultPP,
+          tp: p.defaultWSP,
+          openingStock,
+          salesQty,
+          closingStock,
+          salesAmt,
+          stockAmt,
+          profit,
+          profitPct,
+        };
+      });
+
+      const totalSales   = productRows.reduce((s, r) => s + r.salesAmt, 0);
+      const totalStock   = productRows.reduce((s, r) => s + r.stockAmt, 0);
+      const totalProfit  = productRows.reduce((s, r) => s + r.profit, 0);
+      const totalSalesQty = productRows.reduce((s, r) => s + r.salesQty, 0);
+
+      return { companyName, productRows, totalSales, totalStock, totalProfit, totalSalesQty, damageRows, returnRows };
+    });
+
+    return result;
+  }, [products, filteredChallans, selectedCompanyFilter]);
 
   // ═══════════════════════════════════════════════════════════════
   // PDF REPORT DOWNLOAD FUNCTION
@@ -822,6 +903,26 @@ export default function ReportsModule({
             >
               {t.profitMarginTitle.replace('Tool (DP/TP Variance)', '')}
             </button>
+            <button
+              onClick={() => setActiveTab('dp')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                activeTab === 'dp'
+                  ? 'bg-white text-slate-900 shadow-sm border border-slate-200/50'
+                  : 'text-slate-500 hover:text-slate-900'
+              }`}
+            >
+              {language === 'bn' ? 'ডিপি প্রাইস' : 'DP Price List'}
+            </button>
+            <button
+              onClick={() => setActiveTab('dayend')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                activeTab === 'dayend'
+                  ? 'bg-white text-slate-900 shadow-sm border border-slate-200/50'
+                  : 'text-slate-500 hover:text-slate-900'
+              }`}
+            >
+              {language === 'bn' ? 'দিন শেষ হিসাব' : 'Day-End Settlement'}
+            </button>
           </>
         )}
       </div>
@@ -1237,6 +1338,130 @@ export default function ReportsModule({
             </table>
           </div>
 
+          {/* Company-wise Product Profit Breakdown */}
+          <div className="border-t border-slate-100 pt-5 space-y-3">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
+                {language === 'bn' ? 'কোম্পানিভিত্তিক পণ্যের লাভ বিস্তারিত' : 'Company-wise Product Profit Breakdown'}
+              </span>
+              <div className="h-px flex-1 bg-slate-100" />
+            </div>
+
+            {profitReportData.rows.map((companyRow, compIdx) => {
+              // get per-product profit rows for this company
+              const compChallans = filteredChallans.filter(ch => ch.company === companyRow.companyName);
+              const productNames = Array.from(new Set(compChallans.map(ch => ch.productName)));
+              const productRows = productNames.map(pName => {
+                const pChallans = compChallans.filter(ch => ch.productName === pName);
+                const revenue = pChallans.reduce((s, ch) => s + ch.totalAmount, 0);
+                const unitsSold = pChallans.reduce((s, ch) => s + ch.qty, 0);
+                const prod = products.find(p => p.name === pName);
+                const dp = prod ? prod.defaultPP : 0;
+                const cost = unitsSold * dp;
+                const profit = revenue - cost;
+                const margin = revenue > 0 ? (profit / revenue) * 100 : 0;
+                return { pName, unitsSold, revenue, cost, profit, margin, sku: prod?.sku ?? '' };
+              }).sort((a, b) => b.profit - a.profit);
+
+              const colors = [
+                { header: 'bg-indigo-600', light: 'bg-indigo-50', border: 'border-indigo-200', text: 'text-indigo-700', badge: 'bg-indigo-100 text-indigo-800' },
+                { header: 'bg-emerald-600', light: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', badge: 'bg-emerald-100 text-emerald-800' },
+                { header: 'bg-violet-600', light: 'bg-violet-50', border: 'border-violet-200', text: 'text-violet-700', badge: 'bg-violet-100 text-violet-800' },
+                { header: 'bg-orange-600', light: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-700', badge: 'bg-orange-100 text-orange-800' },
+                { header: 'bg-rose-600', light: 'bg-rose-50', border: 'border-rose-200', text: 'text-rose-700', badge: 'bg-rose-100 text-rose-800' },
+              ];
+              const color = colors[compIdx % colors.length];
+
+              if (productRows.length === 0) return null;
+
+              return (
+                <div key={companyRow.companyName} className={`border ${color.border} rounded-2xl overflow-hidden`}>
+                  {/* Company Header */}
+                  <div className={`${color.light} px-5 py-3 flex items-center justify-between`}>
+                    <div className="flex items-center gap-3">
+                      <div className={`w-2 h-8 rounded-full ${color.header}`} />
+                      <div>
+                        <span className={`font-extrabold text-sm ${color.text}`}>{companyRow.companyName}</span>
+                        <span className="ml-2 text-[10px] font-bold text-slate-400">
+                          {productRows.length} {language === 'bn' ? 'টি পণ্য' : 'products'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4 text-xs font-mono">
+                      <span className="text-slate-500 font-semibold">
+                        {language === 'bn' ? 'বিক্রয়:' : 'Revenue:'} <span className="font-bold text-slate-800">{formatBDT(companyRow.revenue)}</span>
+                      </span>
+                      <span className="text-slate-500 font-semibold">
+                        {language === 'bn' ? 'লাভ:' : 'Profit:'} <span className={`font-extrabold ${companyRow.profit >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>{formatBDT(companyRow.profit)}</span>
+                      </span>
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${color.badge}`}>
+                        {companyRow.margin.toFixed(1)}% {language === 'bn' ? 'মার্জিন' : 'margin'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Per-product rows */}
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50/60">
+                          <th className="px-4 py-2.5">{language === 'bn' ? 'পণ্যের নাম' : 'Product'}</th>
+                          <th className="px-4 py-2.5 text-center">{language === 'bn' ? 'বিক্রিত ইউনিট' : 'Units Sold'}</th>
+                          <th className="px-4 py-2.5 text-right text-indigo-500">{language === 'bn' ? 'ক্রয় খরচ (DP)' : 'Cost (DP)'}</th>
+                          <th className="px-4 py-2.5 text-right text-emerald-500">{language === 'bn' ? 'বিক্রয় মূল্য (TP)' : 'Revenue (TP)'}</th>
+                          <th className="px-4 py-2.5 text-right">{language === 'bn' ? 'নিট লাভ' : 'Net Profit'}</th>
+                          <th className="px-4 py-2.5 text-center">{language === 'bn' ? 'মার্জিন' : 'Margin'}</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 text-xs">
+                        {productRows.map((row, idx) => (
+                          <tr key={idx} className={`hover:bg-slate-50/40 transition-colors ${idx % 2 === 0 ? '' : 'bg-slate-50/20'}`}>
+                            <td className="px-4 py-3 font-semibold text-slate-800">
+                              <div>{row.pName}</div>
+                              {row.sku && <div className="text-[9px] text-slate-400 font-mono">{row.sku}</div>}
+                            </td>
+                            <td className="px-4 py-3 text-center font-mono font-bold text-slate-600">{row.unitsSold.toLocaleString()}</td>
+                            <td className="px-4 py-3 text-right font-mono text-indigo-600">{formatBDT(row.cost)}</td>
+                            <td className="px-4 py-3 text-right font-mono text-emerald-700 font-bold">{formatBDT(row.revenue)}</td>
+                            <td className={`px-4 py-3 text-right font-mono font-extrabold ${row.profit >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
+                              {formatBDT(row.profit)}
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${row.margin >= 0 ? color.badge : 'bg-rose-100 text-rose-700'}`}>
+                                {row.margin.toFixed(1)}%
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                        {/* Company subtotal */}
+                        <tr className={`${color.light} border-t border-slate-200 font-extrabold text-xs`}>
+                          <td className="px-4 py-3 text-slate-700">{language === 'bn' ? 'সাবটোটাল' : 'Subtotal'}</td>
+                          <td className="px-4 py-3 text-center font-mono text-slate-600">
+                            {productRows.reduce((s, r) => s + r.unitsSold, 0).toLocaleString()}
+                          </td>
+                          <td className="px-4 py-3 text-right font-mono text-indigo-700">
+                            {formatBDT(productRows.reduce((s, r) => s + r.cost, 0))}
+                          </td>
+                          <td className="px-4 py-3 text-right font-mono text-emerald-700">
+                            {formatBDT(productRows.reduce((s, r) => s + r.revenue, 0))}
+                          </td>
+                          <td className={`px-4 py-3 text-right font-mono ${companyRow.profit >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
+                            {formatBDT(companyRow.profit)}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold ${color.badge}`}>
+                              {companyRow.margin.toFixed(1)}%
+                            </span>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
           {/* Delivery Man-wise Sales Breakdown */}
           <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
             <div className="border-b border-slate-100 pb-3">
@@ -1469,6 +1694,328 @@ export default function ReportsModule({
               </table>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* TAB CONTENT: DP PRICE LIST */}
+      {activeTab === 'dp' && (
+        <div className="space-y-4">
+          {/* Header Card */}
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+              <div>
+                <h3 className="font-bold text-slate-800 text-sm">
+                  {language === 'bn' ? 'কোম্পানিভিত্তিক ডিপি প্রাইস তালিকা' : 'Company-wise DP Price List'}
+                </h3>
+                <p className="text-[10px] text-slate-400 font-semibold mt-0.5">
+                  {language === 'bn'
+                    ? `মোট ${dpPriceReportData.total}টি পণ্য · ${dpPriceReportData.companies.length}টি কোম্পানি`
+                    : `${dpPriceReportData.total} Products · ${dpPriceReportData.companies.length} Companies`}
+                </p>
+              </div>
+              <div className="flex items-center gap-3 text-[10px] font-bold">
+                <span className="px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">DP = Purchase Price</span>
+                <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">TP = Trade / Supply Price</span>
+                <span className="px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-100">MRP = Retail Price</span>
+              </div>
+            </div>
+
+            {dpPriceReportData.companies.length === 0 ? (
+              <div className="py-16 text-center text-slate-400 font-semibold text-sm">
+                {language === 'bn' ? 'কোনো পণ্য পাওয়া যায়নি।' : 'No products found.'}
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {dpPriceReportData.companies.map((companyName, compIdx) => {
+                  const compProducts = dpPriceReportData.groupedByCompany[companyName];
+                  const colors = [
+                    { bg: 'bg-indigo-600', light: 'bg-indigo-50', border: 'border-indigo-200', text: 'text-indigo-700', badge: 'bg-indigo-100 text-indigo-800' },
+                    { bg: 'bg-emerald-600', light: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', badge: 'bg-emerald-100 text-emerald-800' },
+                    { bg: 'bg-violet-600', light: 'bg-violet-50', border: 'border-violet-200', text: 'text-violet-700', badge: 'bg-violet-100 text-violet-800' },
+                    { bg: 'bg-orange-600', light: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-700', badge: 'bg-orange-100 text-orange-800' },
+                    { bg: 'bg-rose-600', light: 'bg-rose-50', border: 'border-rose-200', text: 'text-rose-700', badge: 'bg-rose-100 text-rose-800' },
+                  ];
+                  const color = colors[compIdx % colors.length];
+
+                  return (
+                    <div key={companyName} className={`border ${color.border} rounded-2xl overflow-hidden`}>
+                      {/* Company Header */}
+                      <div className={`${color.light} ${color.border} border-b px-5 py-3 flex items-center justify-between`}>
+                        <div className="flex items-center gap-3">
+                          <div className={`w-2 h-8 rounded-full ${color.bg}`} />
+                          <div>
+                            <span className={`font-extrabold text-sm ${color.text}`}>{companyName}</span>
+                            <span className="ml-2 text-[10px] font-bold text-slate-400">
+                              {compProducts.length} {language === 'bn' ? 'টি পণ্য' : 'products'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Products Table */}
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                            <tr className="border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50/60">
+                              <th className="px-4 py-2.5">{language === 'bn' ? 'পণ্যের নাম' : 'Product Name'}</th>
+                              <th className="px-4 py-2.5 text-center">{language === 'bn' ? 'এসকেইউ' : 'SKU'}</th>
+                              <th className="px-4 py-2.5 text-right text-indigo-600">DP (৳)</th>
+                              <th className="px-4 py-2.5 text-right text-emerald-600">TP (৳)</th>
+                              <th className="px-4 py-2.5 text-right text-amber-600">MRP (৳)</th>
+                              <th className="px-4 py-2.5 text-right text-slate-500">
+                                {language === 'bn' ? 'মার্জিন (TP-DP)' : 'Margin (TP−DP)'}
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 text-xs">
+                            {compProducts.map((p, idx) => {
+                              const margin = p.defaultWSP - p.defaultPP;
+                              const marginPct = p.defaultPP > 0 ? (margin / p.defaultPP) * 100 : 0;
+                              return (
+                                <tr key={p.id} className={`hover:bg-slate-50/40 transition-colors ${idx % 2 === 0 ? '' : 'bg-slate-50/20'}`}>
+                                  <td className="px-4 py-3 font-semibold text-slate-800">{p.name}</td>
+                                  <td className="px-4 py-3 text-center font-mono text-slate-400 text-[10px]">{p.sku}</td>
+                                  <td className="px-4 py-3 text-right font-mono font-bold text-indigo-700">৳{p.defaultPP.toLocaleString('en-BD')}</td>
+                                  <td className="px-4 py-3 text-right font-mono font-bold text-emerald-700">৳{p.defaultWSP.toLocaleString('en-BD')}</td>
+                                  <td className="px-4 py-3 text-right font-mono font-bold text-amber-700">৳{p.defaultMRP.toLocaleString('en-BD')}</td>
+                                  <td className="px-4 py-3 text-right">
+                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${color.badge}`}>
+                                      +৳{margin.toLocaleString('en-BD')}
+                                      <span className="opacity-70">({marginPct.toFixed(1)}%)</span>
+                                    </span>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* TAB CONTENT: DAY-END SETTLEMENT */}
+      {activeTab === 'dayend' && userRole === 'admin' && (
+        <div className="space-y-8">
+          {dayEndSettlementData.map((company, cIdx) => {
+            const headerColors = [
+              { bg: 'bg-indigo-700', light: 'bg-indigo-50', border: 'border-indigo-200', text: 'text-indigo-700', accent: 'bg-indigo-600' },
+              { bg: 'bg-emerald-700', light: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', accent: 'bg-emerald-600' },
+              { bg: 'bg-violet-700', light: 'bg-violet-50', border: 'border-violet-200', text: 'text-violet-700', accent: 'bg-violet-600' },
+              { bg: 'bg-orange-700', light: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-700', accent: 'bg-orange-600' },
+              { bg: 'bg-rose-700', light: 'bg-rose-50', border: 'border-rose-200', text: 'text-rose-700', accent: 'bg-rose-600' },
+            ];
+            const clr = headerColors[cIdx % headerColors.length];
+
+            return (
+              <div key={company.companyName} className="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden">
+
+                {/* Company Header */}
+                <div className={`${clr.bg} px-6 py-4 flex items-center justify-between`}>
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center">
+                      <span className="text-white font-black text-sm">{company.companyName.charAt(0)}</span>
+                    </div>
+                    <div>
+                      <h3 className="text-white font-extrabold text-base tracking-tight">{company.companyName}</h3>
+                      <p className="text-white/70 text-[10px] font-semibold">
+                        {language === 'bn' ? 'দিন শেষ হিসাব বিবরণী' : 'Day-End Settlement Sheet'}
+                        {' · '}{startDate} {language === 'bn' ? 'থেকে' : 'to'} {endDate}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-6 text-right">
+                    <div>
+                      <p className="text-white/60 text-[9px] font-bold uppercase tracking-wider">{language === 'bn' ? 'মোট বিক্রয়' : 'Total Sales'}</p>
+                      <p className="text-white font-black text-lg font-mono">{formatBDT(company.totalSales)}</p>
+                    </div>
+                    <div>
+                      <p className="text-white/60 text-[9px] font-bold uppercase tracking-wider">{language === 'bn' ? 'নিট লাভ' : 'Net Profit'}</p>
+                      <p className={`font-black text-lg font-mono ${company.totalProfit >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{formatBDT(company.totalProfit)}</p>
+                    </div>
+                    <div>
+                      <p className="text-white/60 text-[9px] font-bold uppercase tracking-wider">{language === 'bn' ? 'স্টক মূল্য' : 'Stock Value'}</p>
+                      <p className="text-white font-black text-lg font-mono">{formatBDT(company.totalStock)}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col xl:flex-row">
+
+                  {/* Main Product Table */}
+                  <div className="flex-1 overflow-x-auto">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className={`${clr.light} text-[10px] font-bold uppercase tracking-wider border-b ${clr.border}`}>
+                          <th className="px-3 py-2.5 text-slate-500 w-8">SL</th>
+                          <th className="px-3 py-2.5 text-slate-700">{language === 'bn' ? 'পণ্যের নাম' : 'Product Name'}</th>
+                          <th className="px-3 py-2.5 text-right text-indigo-600">DP (৳)</th>
+                          <th className="px-3 py-2.5 text-right text-emerald-600">TP (৳)</th>
+                          <th className="px-3 py-2.5 text-center text-slate-500">{language === 'bn' ? 'ওপেনিং স্টক' : 'Opening'}</th>
+                          <th className="px-3 py-2.5 text-center text-blue-600">{language === 'bn' ? 'বিক্রয় পরিমাণ' : 'Sales Qty'}</th>
+                          <th className="px-3 py-2.5 text-center text-slate-500">{language === 'bn' ? 'ক্লোজিং স্টক' : 'Closing'}</th>
+                          <th className="px-3 py-2.5 text-right text-emerald-600">{language === 'bn' ? 'বিক্রয় মূল্য' : 'Sales Amt'}</th>
+                          <th className="px-3 py-2.5 text-right text-indigo-500">{language === 'bn' ? 'স্টক মূল্য' : 'Stock Amt'}</th>
+                          <th className="px-3 py-2.5 text-right">{language === 'bn' ? 'লাভ (৳)' : 'Profit'}</th>
+                          <th className="px-3 py-2.5 text-center">{language === 'bn' ? 'মার্জিন' : '%'}</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {company.productRows.map((row, idx) => (
+                          <tr
+                            key={idx}
+                            className={`hover:bg-slate-50/60 transition-colors ${
+                              row.salesQty > 0 ? '' : 'opacity-50'
+                            } ${idx % 2 === 0 ? '' : 'bg-slate-50/30'}`}
+                          >
+                            <td className="px-3 py-2.5 text-slate-400 font-mono text-[10px]">{row.slNo}</td>
+                            <td className="px-3 py-2.5 font-semibold text-slate-800">
+                              <div>{row.productName}</div>
+                              <div className="text-[9px] text-slate-400 font-mono">{row.sku}</div>
+                            </td>
+                            <td className="px-3 py-2.5 text-right font-mono text-indigo-700">{row.dp.toLocaleString('en-BD')}</td>
+                            <td className="px-3 py-2.5 text-right font-mono text-emerald-700">{row.tp.toLocaleString('en-BD')}</td>
+                            <td className="px-3 py-2.5 text-center font-mono text-slate-500">{row.openingStock.toLocaleString()}</td>
+                            <td className="px-3 py-2.5 text-center font-mono font-bold text-blue-700">
+                              {row.salesQty > 0 ? row.salesQty.toLocaleString() : <span className="text-slate-300">—</span>}
+                            </td>
+                            <td className="px-3 py-2.5 text-center font-mono text-slate-600">{row.closingStock.toLocaleString()}</td>
+                            <td className="px-3 py-2.5 text-right font-mono font-bold text-emerald-700">
+                              {row.salesQty > 0 ? formatBDT(row.salesAmt) : <span className="text-slate-300">—</span>}
+                            </td>
+                            <td className="px-3 py-2.5 text-right font-mono text-indigo-600">{formatBDT(row.stockAmt)}</td>
+                            <td className={`px-3 py-2.5 text-right font-mono font-extrabold ${
+                              row.profit > 0 ? 'text-emerald-700' : row.profit < 0 ? 'text-rose-600' : 'text-slate-300'
+                            }`}>
+                              {row.salesQty > 0 ? formatBDT(row.profit) : <span className="text-slate-300">—</span>}
+                            </td>
+                            <td className="px-3 py-2.5 text-center">
+                              {row.salesQty > 0 ? (
+                                <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                  row.profitPct >= 5 ? 'bg-emerald-100 text-emerald-700' :
+                                  row.profitPct >= 0 ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'
+                                }`}>
+                                  {row.profitPct.toFixed(2)}%
+                                </span>
+                              ) : <span className="text-slate-200">—</span>}
+                            </td>
+                          </tr>
+                        ))}
+
+                        {/* Grand Total Row */}
+                        <tr className={`${clr.light} border-t-2 ${clr.border} font-extrabold text-xs`}>
+                          <td className="px-3 py-3" colSpan={2}>
+                            <span className={`${clr.text} font-extrabold uppercase text-[10px] tracking-wider`}>
+                              {language === 'bn' ? 'সর্বমোট' : 'Grand Total'}
+                            </span>
+                          </td>
+                          <td colSpan={2} />
+                          <td className="px-3 py-3 text-center font-mono text-slate-700">
+                            {company.productRows.reduce((s, r) => s + r.openingStock, 0).toLocaleString()}
+                          </td>
+                          <td className="px-3 py-3 text-center font-mono text-blue-700">
+                            {company.totalSalesQty.toLocaleString()}
+                          </td>
+                          <td className="px-3 py-3 text-center font-mono text-slate-700">
+                            {company.productRows.reduce((s, r) => s + r.closingStock, 0).toLocaleString()}
+                          </td>
+                          <td className="px-3 py-3 text-right font-mono text-emerald-800">{formatBDT(company.totalSales)}</td>
+                          <td className="px-3 py-3 text-right font-mono text-indigo-700">{formatBDT(company.totalStock)}</td>
+                          <td className={`px-3 py-3 text-right font-mono ${
+                            company.totalProfit >= 0 ? 'text-emerald-700' : 'text-rose-600'
+                          }`}>{formatBDT(company.totalProfit)}</td>
+                          <td className="px-3 py-3 text-center">
+                            <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-black ${
+                              company.totalProfit >= 0 ? clr.text + ' bg-white border ' + clr.border : 'text-rose-700 bg-rose-50'
+                            }`}>
+                              {company.totalSales > 0
+                                ? ((company.totalProfit / (company.totalSales - company.totalProfit)) * 100).toFixed(2)
+                                : '0.00'}%
+                            </span>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Right: Summary + Return/Damage Panel */}
+                  <div className={`xl:w-64 shrink-0 border-t xl:border-t-0 xl:border-l ${clr.border} flex flex-col`}>
+
+                    {/* Total Summary Box */}
+                    <div className={`${clr.light} p-4 border-b ${clr.border}`}>
+                      <p className={`text-[10px] font-extrabold uppercase tracking-wider ${clr.text} mb-3`}>
+                        {language === 'bn' ? 'মোট সারসংক্ষেপ' : 'Total Summary'}
+                      </p>
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-[10px] font-bold text-slate-500">{language === 'bn' ? 'মোট স্টক মূল্য' : 'Total Stock'}</span>
+                          <span className="font-mono font-extrabold text-xs text-slate-800">{formatBDT(company.totalStock)}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-[10px] font-bold text-slate-500">{language === 'bn' ? 'মোট বিক্রয়' : 'Total Sales'}</span>
+                          <span className="font-mono font-extrabold text-xs text-emerald-700">{formatBDT(company.totalSales)}</span>
+                        </div>
+                        <div className={`flex justify-between items-center pt-2 border-t ${clr.border}`}>
+                          <span className={`text-[10px] font-extrabold ${clr.text}`}>{language === 'bn' ? 'নিট লাভ' : 'Total Profit'}</span>
+                          <span className={`font-mono font-black text-sm ${
+                            company.totalProfit >= 0 ? 'text-emerald-700' : 'text-rose-600'
+                          }`}>{formatBDT(company.totalProfit)}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Return / Damage Panel */}
+                    <div className="p-4 flex-1">
+                      <p className="text-[10px] font-extrabold uppercase tracking-wider text-rose-600 mb-3">
+                        {language === 'bn' ? 'রিটার্ন / ড্যামেজ' : 'Return / Damage'}
+                      </p>
+                      {[...company.returnRows, ...company.damageRows].length === 0 ? (
+                        <p className="text-[10px] text-slate-300 font-semibold">
+                          {language === 'bn' ? 'কোনো রিটার্ন/ড্যামেজ নেই' : 'No returns or damages'}
+                        </p>
+                      ) : (
+                        <table className="w-full text-[10px]">
+                          <thead>
+                            <tr className="border-b border-rose-100 text-[9px] font-bold text-rose-400 uppercase">
+                              <th className="pb-1.5 text-left">{language === 'bn' ? 'পণ্য' : 'Product'}</th>
+                              <th className="pb-1.5 text-center">{language === 'bn' ? 'পরিমাণ' : 'Qty'}</th>
+                              <th className="pb-1.5 text-right">{language === 'bn' ? 'ধরন' : 'Type'}</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-rose-50">
+                            {[...company.returnRows, ...company.damageRows].map((r, i) => (
+                              <tr key={i}>
+                                <td className="py-1.5 font-semibold text-slate-700 leading-tight" style={{maxWidth:'100px', wordBreak:'break-word'}}>
+                                  {r.productName}
+                                </td>
+                                <td className="py-1.5 text-center font-mono font-bold text-rose-700">{r.damagedQty}</td>
+                                <td className="py-1.5 text-right">
+                                  <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                                    r.type === 'Return' ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'
+                                  }`}>{r.type}</span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
+          {dayEndSettlementData.length === 0 && (
+            <div className="bg-white border border-slate-200 rounded-3xl p-16 text-center text-slate-400 font-semibold">
+              {language === 'bn' ? 'কোনো ডেটা পাওয়া যায়নি।' : 'No settlement data available for the selected period.'}
+            </div>
+          )}
         </div>
       )}
     </div>

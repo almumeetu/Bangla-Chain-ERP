@@ -451,7 +451,7 @@ export default function SellModule({
             </div>
 
             {/* filters grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               <LabelInput label={language === 'bn' ? 'খুঁজুন' : 'Search'}>
                 <div className="relative">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
@@ -464,12 +464,6 @@ export default function SellModule({
                 <select value={selectedCompany} onChange={e => setSelectedCompany(e.target.value)} className={selectCls}>
                   <option value="All">{language === 'bn' ? 'সকল' : 'All'}</option>
                   {uniqueCompanies.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </LabelInput>
-              <LabelInput label={language === 'bn' ? 'ক্যাটাগরি' : 'Category'}>
-                <select value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)} className={selectCls}>
-                  <option value="All">{language === 'bn' ? 'সকল' : 'All'}</option>
-                  {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </LabelInput>
               <LabelInput label={language === 'bn' ? 'স্টক' : 'Stock'}>

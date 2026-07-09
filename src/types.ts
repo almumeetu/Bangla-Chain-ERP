@@ -103,6 +103,7 @@ export interface ChallanItem {
   returnedQty: number;
   damagedQty: number;
   commissionAmount: number; // commission/deduction amount in BDT
+  extraCommissionAmount?: number; // additional/extra commission amount in BDT
   createdAt: string;        // ISO Date & Time string
   srCommissionType?: 'Percentage' | 'Fixed';
   srCommissionValue?: number;

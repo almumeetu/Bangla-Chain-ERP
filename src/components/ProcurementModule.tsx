@@ -202,9 +202,11 @@ export default function ProcurementModule({
   const [procListStartDate, setProcListStartDate] = useState('');
   const [procListEndDate, setProcListEndDate] = useState('');
 
-  const suppliers = companies && companies.length > 0
-    ? companies.map(c => c.name)
-    : ['Pran', 'Olympic', 'Haque'];
+  const suppliers = Array.from(new Set(
+    companies && companies.length > 0
+      ? companies.map(c => c.name)
+      : ['Pran', 'Olympic', 'Haque']
+  ));
 
   // Create Form State
   const [supplierName, setSupplierName] = useState('');
