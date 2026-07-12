@@ -15,31 +15,26 @@ import {
   ArrowRightLeft,
   ClipboardList
 } from 'lucide-react';
-import { Product, ChallanItem, SR, CompanyBrand, ExpenseRecord, DeliveryMan, UnitOfMeasure } from '../types';
+import { Product, ChallanItem, SR, CompanyBrand, ExpenseRecord, DeliveryMan, UnitOfMeasure, ProductUnit } from '../types';
 import { translations, Language } from '../translations';
 
-function UnitDisplay({ qty, units, uomId }: { qty: number, units: UnitOfMeasure[], uomId?: string }) {
-  // If product has a specific uomId, use only that unit
-  if (uomId) {
-    const unit = units.find(u => u.id === uomId);
-    if (unit) {
-      const unitQty = qty / unit.multiplier;
-      const qtyStr = Number.isInteger(unitQty)
-        ? unitQty.toLocaleString()
-        : unitQty.toFixed(1);
-      return (
-        <div className="font-mono text-[11px]">
-          {qtyStr} {unit.symbol || unit.name}
-        </div>
-      );
-    }
+function UnitDisplay({ qty, customUnits }: { qty: number, customUnits?: ProductUnit[] }) {
+  if (customUnits && customUnits.length > 0) {
+    const primaryUnit = customUnits[0];
+    const unitQty = qty / primaryUnit.multiplier;
+    const qtyStr = Number.isInteger(unitQty)
+      ? unitQty.toLocaleString()
+      : unitQty.toFixed(1);
+    return (
+      <div className="font-mono text-[11px]">
+        {qtyStr} {primaryUnit.name}
+      </div>
+    );
   }
   
-  // Fallback: show only base unit (pieces) for totals
-  const baseUnit = units.find(u => !u.parentUnitId) || units[0];
   return (
     <div className="font-mono text-[11px]">
-      {qty.toLocaleString()} {baseUnit.symbol || baseUnit.name}
+      {qty.toLocaleString()} Pcs
     </div>
   );
 }
@@ -271,42 +266,35 @@ export default function ReportsModule({
         returns,
         damages,
         dpTotal,
-        uomId: p.uomId
+        customUnits: p.customUnits
       };
     }).filter(row => {
       const matchesCompany = selectedCompanyFilter === 'All' || row.company === selectedCompanyFilter;
       return matchesCompany && (row.unitsSold > 0 || row.returns > 0 || row.damages > 0);
     });
 
-    // E. Unit-wise Sales
-    const unitSales = units.map(unit => {
-      // For each product that uses this unit (or all, but let's calculate all sold quantity)
-      const unitChallans = filteredChallans.filter(ch => {
-        // Find product, then check if its uomId is this unit
-        const product = products.find(p => p.name.toLowerCase() === ch.productName.toLowerCase());
-        return product?.uomId === unit.id;
-      });
-      
-      const unitsSold = unitChallans.reduce((sum, ch) => sum + ch.qty, 0);
-      const revenue = unitChallans.reduce((sum, ch) => sum + ch.totalAmount, 0);
-      const returns = unitChallans.reduce((sum, ch) => sum + (ch.returnedQty || 0), 0);
-      const damages = unitChallans.reduce((sum, ch) => sum + (ch.damagedQty || 0), 0);
-      const dpTotal = unitChallans.reduce((sum, ch) => {
-        const product = products.find(p => p.name.toLowerCase() === ch.productName.toLowerCase());
-        return sum + ((product?.defaultPP || 0) * ch.qty);
-      }, 0);
-      
-      return {
-        unitId: unit.id,
-        unitName: unit.name,
-        unitSymbol: unit.symbol || unit.name,
-        unitsSold,
-        returns,
-        damages,
-        dpTotal,
-        revenue
-      };
-    }).filter(row => row.unitsSold > 0 || row.returns > 0 || row.damages > 0);
+    // E. Unit-wise Sales (UOM Grouping)
+    const unitGroups: { [unitName: string]: { unitsSold: number; returns: number; damages: number; revenue: number; dpTotal: number } } = {};
+    for (const ch of filteredChallans) {
+      const uom = ch.selectedUnitName || 'Pcs';
+      if (!unitGroups[uom]) {
+        unitGroups[uom] = { unitsSold: 0, returns: 0, damages: 0, revenue: 0, dpTotal: 0 };
+      }
+      const product = products.find(p => p.name === ch.productName);
+      const pp = product?.defaultPP || 0;
+      const dpVal = pp * ch.qty;
+
+      unitGroups[uom].unitsSold += ch.qty;
+      unitGroups[uom].returns += ch.returnedQty || 0;
+      unitGroups[uom].damages += ch.damagedQty || 0;
+      unitGroups[uom].revenue += ch.totalAmount;
+      unitGroups[uom].dpTotal += dpVal;
+    }
+
+    const unitSales = Object.entries(unitGroups).map(([unitName, data]) => ({
+      unitName,
+      ...data
+    }));
 
     return { companySales, srSales, dmSales, productSales, unitSales };
   }, [filteredChallans, products, srs, deliveryMen, selectedCompanyFilter, selectedSrFilter, selectedDeliveryManFilter]);
@@ -1061,7 +1049,7 @@ export default function ReportsModule({
                       <tr key={idx} className="hover:bg-slate-50/40 transition-colors">
                         <td className="px-4 py-3.5 font-bold text-slate-850">{row.companyName}</td>
                         <td className="px-4 py-3.5 text-center">
-                          <UnitDisplay qty={row.totalQty} units={units} />
+                          <UnitDisplay qty={row.totalQty} />
                         </td>
                         <td className="px-4 py-3.5 text-right font-mono font-bold text-indigo-700">{formatBDT(row.totalValueDP)}</td>
                         <td className="px-4 py-3.5 text-right font-mono font-bold text-emerald-700">{formatBDT(row.totalValueTP)}</td>
@@ -1070,7 +1058,7 @@ export default function ReportsModule({
                     <tr className="bg-slate-50 border-t-2 border-slate-200 font-extrabold text-slate-900">
                       <td className="px-4 py-4">{language === 'bn' ? 'সর্বমোট স্টক' : 'GRAND TOTAL STOCK'}</td>
                       <td className="px-4 py-4 text-center">
-                        <UnitDisplay qty={stockReportData.grandQty} units={units} />
+                        <UnitDisplay qty={stockReportData.grandQty} />
                       </td>
                       <td className="px-4 py-4 text-right font-mono text-indigo-605">{formatBDT(stockReportData.grandValueDP)}</td>
                       <td className="px-4 py-4 text-right font-mono text-emerald-605">{formatBDT(stockReportData.grandValueTP)}</td>
@@ -1109,10 +1097,10 @@ export default function ReportsModule({
                         <td className="px-4 py-3.5 text-slate-600">{product.company}</td>
                         <td className="px-4 py-3.5 text-slate-500 font-mono text-[10px]">{product.sku}</td>
                         <td className="px-4 py-3.5 text-center">
-                          <UnitDisplay qty={product.currentStock} units={units} uomId={product.uomId} />
+                          <UnitDisplay qty={product.currentStock} customUnits={product.customUnits} />
                         </td>
                         <td className="px-4 py-3.5 text-center">
-                          <UnitDisplay qty={product.damagedStock || 0} units={units} uomId={product.uomId} />
+                          <UnitDisplay qty={product.damagedStock || 0} customUnits={product.customUnits} />
                         </td>
                         <td className="px-4 py-3.5 text-right font-mono font-bold text-indigo-700">{formatBDT(product.currentStock * product.defaultPP)}</td>
                         <td className="px-4 py-3.5 text-right font-mono font-bold text-emerald-700">{formatBDT(product.currentStock * product.defaultWSP)}</td>
@@ -1218,11 +1206,11 @@ export default function ReportsModule({
             </div>
             <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
               <p className="text-[10px] font-bold uppercase text-slate-400 tracking-wider mb-2">{language === 'bn' ? 'মোট বিক্রিত ইউনিট' : 'Total Units Sold'}</p>
-              <UnitDisplay qty={salesReportData.companySales.reduce((sum, row) => sum + row.unitsSold, 0)} units={units} />
+              <UnitDisplay qty={salesReportData.companySales.reduce((sum, row) => sum + row.unitsSold, 0)} />
             </div>
             <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
               <p className="text-[10px] font-bold uppercase text-rose-500 tracking-wider mb-2">{language === 'bn' ? 'মোট রিটার্ন/ড্যামেজ' : 'Total Returns/Damages'}</p>
-              <UnitDisplay qty={salesReportData.companySales.reduce((sum, row) => sum + row.returns + row.damages, 0)} units={units} />
+              <UnitDisplay qty={salesReportData.companySales.reduce((sum, row) => sum + row.returns + row.damages, 0)} />
             </div>
           </div>
 
@@ -1303,13 +1291,13 @@ export default function ReportsModule({
                       <tr key={idx} className="hover:bg-slate-50/40 transition-colors">
                         <td className="px-4 py-3.5 font-bold text-slate-850">{row.companyName}</td>
                         <td className="px-4 py-3.5 text-center">
-                          <UnitDisplay qty={row.unitsSold} units={units} />
+                          <UnitDisplay qty={row.unitsSold} />
                         </td>
                         <td className="px-4 py-3.5 text-center font-mono font-bold text-amber-600">
-                          <UnitDisplay qty={row.returns} units={units} />
+                          <UnitDisplay qty={row.returns} />
                         </td>
                         <td className="px-4 py-3.5 text-center font-mono font-bold text-rose-600">
-                          <UnitDisplay qty={row.damages} units={units} />
+                          <UnitDisplay qty={row.damages} />
                         </td>
                         <td className="px-4 py-3.5 text-right font-mono font-bold text-indigo-700">{formatBDT(row.dpTotal)}</td>
                         <td className="px-4 py-3.5 text-right font-mono font-bold text-emerald-700">{formatBDT(row.revenue)}</td>
@@ -1346,13 +1334,13 @@ export default function ReportsModule({
                           <div className="text-[9px] text-slate-400 font-mono mt-0.5">{row.phone}</div>
                         </td>
                         <td className="px-4 py-3.5 text-center font-mono font-bold text-slate-700">
-                          <UnitDisplay qty={row.unitsSold} units={units} />
+                          <UnitDisplay qty={row.unitsSold} />
                         </td>
                         <td className="px-4 py-3.5 text-center font-mono font-bold text-amber-600">
-                          <UnitDisplay qty={row.returns} units={units} />
+                          <UnitDisplay qty={row.returns} />
                         </td>
                         <td className="px-4 py-3.5 text-center font-mono font-bold text-rose-600">
-                          <UnitDisplay qty={row.damages} units={units} />
+                          <UnitDisplay qty={row.damages} />
                         </td>
                         <td className="px-4 py-3.5 text-right font-mono font-bold text-indigo-700">{formatBDT(row.dpTotal)}</td>
                         <td className="px-4 py-3.5 text-right font-mono font-bold text-emerald-700">{formatBDT(row.revenue)}</td>
@@ -1393,13 +1381,13 @@ export default function ReportsModule({
                         </td>
                         <td className="px-4 py-3.5 text-center font-mono font-bold text-slate-600">{row.totalChallans}</td>
                         <td className="px-4 py-3.5 text-center font-mono font-bold text-slate-700">
-                          <UnitDisplay qty={row.unitsSold} units={units} />
+                          <UnitDisplay qty={row.unitsSold} />
                         </td>
                         <td className="px-4 py-3.5 text-center font-mono font-bold text-amber-600">
-                          <UnitDisplay qty={row.returns} units={units} />
+                          <UnitDisplay qty={row.returns} />
                         </td>
                         <td className="px-4 py-3.5 text-center font-mono font-bold text-rose-600">
-                          <UnitDisplay qty={row.damages} units={units} />
+                          <UnitDisplay qty={row.damages} />
                         </td>
                         <td className="px-4 py-3.5 text-right font-mono font-bold text-indigo-700">{formatBDT(row.dpTotal)}</td>
                         <td className="px-4 py-3.5 text-right font-mono font-bold text-emerald-700">{formatBDT(row.revenue)}</td>
@@ -1445,13 +1433,13 @@ export default function ReportsModule({
                           <div className="text-[9px] text-slate-400 font-mono mt-0.5">{row.sku} · {row.company}</div>
                         </td>
                         <td className="px-4 py-3.5 text-center font-mono font-bold text-slate-700">
-                          <UnitDisplay qty={row.unitsSold} units={units} uomId={row.uomId} />
+                          <UnitDisplay qty={row.unitsSold} customUnits={row.customUnits} />
                         </td>
                         <td className="px-4 py-3.5 text-center font-mono font-bold text-amber-600">
-                          <UnitDisplay qty={row.returns} units={units} uomId={row.uomId} />
+                          <UnitDisplay qty={row.returns} customUnits={row.customUnits} />
                         </td>
                         <td className="px-4 py-3.5 text-center font-mono font-bold text-rose-600">
-                          <UnitDisplay qty={row.damages} units={units} uomId={row.uomId} />
+                          <UnitDisplay qty={row.damages} customUnits={row.customUnits} />
                         </td>
                         <td className="px-4 py-3.5 text-right font-mono font-bold text-indigo-700">{formatBDT(row.dpTotal)}</td>
                         <td className="px-4 py-3.5 text-right font-mono font-bold text-emerald-700">{formatBDT(row.revenue)}</td>
@@ -1474,39 +1462,32 @@ export default function ReportsModule({
             <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
               <div className="border-b border-slate-100 pb-3">
                 <h3 className="font-bold text-slate-800 text-sm">
-                  {language === 'bn' ? 'ইউনিটভিত্তিক বিক্রয় বিবরণী' : 'Unit-wise Sales Breakdown'}
+                  {language === 'bn' ? 'ইউনিট ভিত্তিক বিক্রয় বিবরণী' : 'Unit-wise Sales Breakdown (UOM)'}
                 </h3>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="border-b border-slate-200 text-[10px] font-bold text-slate-450 uppercase tracking-wider bg-slate-50/50">
-                      <th className="px-4 py-3">{language === 'bn' ? 'ইউনিটের নাম' : 'Unit Name'}</th>
-                      <th className="px-4 py-3 text-center">{language === 'bn' ? 'বিক্রিত ইউনিট' : 'Units Sold (Pieces)'}</th>
-                      <th className="px-4 py-3 text-center">{language === 'bn' ? 'ফেরত পরিমাণ' : 'Return Qty (Pieces)'}</th>
-                      <th className="px-4 py-3 text-center">{language === 'bn' ? 'ক্ষতিগ্রস্ত পরিমাণ' : 'Damage Qty (Pieces)'}</th>
-                      <th className="px-4 py-3 text-right text-indigo-600">{language === 'bn' ? 'মোট বিক্রয় (DP)' : 'Total Sales (DP)'}</th>
-                      <th className="px-4 py-3 text-right text-emerald-600">{language === 'bn' ? 'মোট বিক্রয় (TP)' : 'Total Sales (TP)'}</th>
+                      <th className="px-4 py-3">{language === 'bn' ? 'ইউনিটের নাম' : 'Unit Name / UOM'}</th>
+                      <th className="px-4 py-3 text-center">{language === 'bn' ? 'মোট বিক্রিত পিস' : 'Total Pieces Sold'}</th>
+                      <th className="px-4 py-3 text-center">{language === 'bn' ? 'মোট ফেরত পিস' : 'Total Returns (Pcs)'}</th>
+                      <th className="px-4 py-3 text-center">{language === 'bn' ? 'মোট ক্ষতিগ্রস্ত পিস' : 'Total Damages (Pcs)'}</th>
+                      <th className="px-4 py-3 text-right text-indigo-600">{language === 'bn' ? 'মোট বিক্রয় মূল্য (DP)' : 'Total Sales (DP)'}</th>
+                      <th className="px-4 py-3 text-right text-emerald-600">{language === 'bn' ? 'মোট বিক্রয় মূল্য (TP)' : 'Total Sales (TP)'}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-xs">
                     {salesReportData.unitSales.map((row, idx) => (
                       <tr key={idx} className="hover:bg-slate-50/40 transition-colors">
                         <td className="px-4 py-3.5 font-bold text-slate-850">
-                          <div>{row.unitName}</div>
-                          {row.unitSymbol !== row.unitName && (
-                            <div className="text-[9px] text-slate-400 font-mono mt-0.5">Symbol: {row.unitSymbol}</div>
-                          )}
+                          <span className="inline-block px-2.5 py-1 bg-indigo-50 border border-indigo-100 text-indigo-750 font-bold rounded-lg uppercase tracking-wide">
+                            {row.unitName}
+                          </span>
                         </td>
-                        <td className="px-4 py-3.5 text-center font-mono font-bold text-slate-700">
-                          <UnitDisplay qty={row.unitsSold} units={units} />
-                        </td>
-                        <td className="px-4 py-3.5 text-center font-mono font-bold text-amber-600">
-                          <UnitDisplay qty={row.returns} units={units} />
-                        </td>
-                        <td className="px-4 py-3.5 text-center font-mono font-bold text-rose-600">
-                          <UnitDisplay qty={row.damages} units={units} />
-                        </td>
+                        <td className="px-4 py-3.5 text-center font-mono text-slate-650">{row.unitsSold.toLocaleString()} pcs</td>
+                        <td className="px-4 py-3.5 text-center font-mono text-amber-600">{row.returns.toLocaleString()} pcs</td>
+                        <td className="px-4 py-3.5 text-center font-mono text-rose-600">{row.damages.toLocaleString()} pcs</td>
                         <td className="px-4 py-3.5 text-right font-mono font-bold text-indigo-700">{formatBDT(row.dpTotal)}</td>
                         <td className="px-4 py-3.5 text-right font-mono font-bold text-emerald-700">{formatBDT(row.revenue)}</td>
                       </tr>
@@ -1514,7 +1495,7 @@ export default function ReportsModule({
                     {salesReportData.unitSales.length === 0 && (
                       <tr>
                         <td colSpan={6} className="px-4 py-8 text-center text-slate-400 font-semibold">
-                          {language === 'bn' ? 'কোনো ইউনিট বিক্রির ডেটা পাওয়া যায়নি।' : 'No unit sales data available.'}
+                          {language === 'bn' ? 'কোনো ইউনিট ভিত্তিক বিক্রির ডেটা পাওয়া যায়নি।' : 'No unit-wise sales data available.'}
                         </td>
                       </tr>
                     )}
@@ -1523,6 +1504,8 @@ export default function ReportsModule({
               </div>
             </div>
           )}
+
+
         </div>
       )}
 

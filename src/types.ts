@@ -20,6 +20,8 @@ export interface UnitOfMeasure {
   symbol?: string;   // e.g., "pc", "ctn", "doz"
   multiplier: number; // e.g., 24 (means 1 carton = 24 pcs)
   parentUnitId?: string; // Reference to parent unit for hierarchy (e.g., Dozen -> Pcs, Carton -> Dozen)
+  secondaryUnitName?: string; // e.g., "Dozen", "Box"
+  secondaryMultiplier?: number; // e.g., 20 (meaning 1 Carton = 20 Dozen)
   description?: string; // Optional description of the unit
 }
 
@@ -64,6 +66,15 @@ export interface DamageLogEntry {
   type: 'existing' | 'new';
 }
 
+export interface ProductUnit {
+  name: string;      // e.g., "Dozen", "Carton", "Box"
+  multiplier: number; // e.g., 12, 24
+  secondaryUnitName?: string;
+  secondaryMultiplier?: number;
+  customDP?: number; // Optional price overrides for this unit tier
+  customTP?: number;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -71,7 +82,7 @@ export interface Product {
   company: string; // Brand / Manufacturer Company
   createdAt: string;
   categoryId?: string;
-  uomId?: string;
+  customUnits?: ProductUnit[]; // Multiple custom units for this product
   defaultGodownId?: string;
   defaultPP: number;  // Import Price / Purchase Price in BDT
   defaultMRP: number; // Retail Market Price in BDT
@@ -109,6 +120,7 @@ export interface ChallanItem {
   extraProfitAmount?: number; // extra profit/bonus amount in BDT
   extraCommissionAmount?: number; // for backward compatibility
   createdAt: string;        // ISO Date & Time string
+  selectedUnitName?: string;  // e.g. "Dozen", "Carton", "Pcs"
   srCommissionType?: 'Percentage' | 'Fixed';
   srCommissionValue?: number;
   srCommissionAmount?: number;
@@ -187,17 +199,17 @@ export const INITIAL_DELIVERY_MEN: DeliveryMan[] = [
 // Products categorized by Company: Pran, Olympic, Haque
 export const INITIAL_PRODUCTS: Product[] = [
   // PRAN Products
-  { id: 'prod-1', name: 'Pran Mango Juice 250ml', sku: 'PRN-MJ-250', company: 'Pran', createdAt: '2026-06-01T09:15:00Z', defaultPP: 22, defaultMRP: 30, defaultWSP: 25, currentStock: 2500, damagedStock: 15, damageHistory: [{ id: 'damage-prod-1', qty: 15, recordedAt: '2026-06-03T10:00:00Z', type: 'existing' }] },
-  { id: 'prod-2', name: 'Pran UP Lemon Drink 250ml', sku: 'PRN-UP-250', company: 'Pran', createdAt: '2026-06-02T10:30:00Z', defaultPP: 21, defaultMRP: 30, defaultWSP: 24, currentStock: 1800, damagedStock: 8, damageHistory: [{ id: 'damage-prod-2', qty: 8, recordedAt: '2026-06-04T12:45:00Z', type: 'existing' }] },
-  { id: 'prod-3', name: 'Pran Premium Toast Biscuit 350g', sku: 'PRN-TB-350', company: 'Pran', createdAt: '2026-06-03T11:45:00Z', defaultPP: 55, defaultMRP: 80, defaultWSP: 65, currentStock: 1200, damagedStock: 0 },
+  { id: 'prod-1', name: 'Pran Mango Juice 250ml', sku: 'PRN-MJ-250', company: 'Pran', createdAt: '2026-06-01T09:15:00Z', customUnits: [{ name: 'Carton', multiplier: 24 }], defaultPP: 22, defaultMRP: 30, defaultWSP: 25, currentStock: 2500, damagedStock: 15, damageHistory: [{ id: 'damage-prod-1', qty: 15, recordedAt: '2026-06-03T10:00:00Z', type: 'existing' }] },
+  { id: 'prod-2', name: 'Pran UP Lemon Drink 250ml', sku: 'PRN-UP-250', company: 'Pran', createdAt: '2026-06-02T10:30:00Z', customUnits: [{ name: 'Carton', multiplier: 24 }], defaultPP: 21, defaultMRP: 30, defaultWSP: 24, currentStock: 1800, damagedStock: 8, damageHistory: [{ id: 'damage-prod-2', qty: 8, recordedAt: '2026-06-04T12:45:00Z', type: 'existing' }] },
+  { id: 'prod-3', name: 'Pran Premium Toast Biscuit 350g', sku: 'PRN-TB-350', company: 'Pran', createdAt: '2026-06-03T11:45:00Z', customUnits: [{ name: 'Carton', multiplier: 10 }], defaultPP: 55, defaultMRP: 80, defaultWSP: 65, currentStock: 1200, damagedStock: 0 },
 
   // OLYMPIC Products
-  { id: 'prod-4', name: 'Olympic Energy Plus Biscuit 60g', sku: 'OLY-EP-60', company: 'Olympic', createdAt: '2026-06-04T08:20:00Z', defaultPP: 8, defaultMRP: 15, defaultWSP: 10, currentStock: 5000, damagedStock: 25, damageHistory: [{ id: 'damage-prod-4', qty: 25, recordedAt: '2026-06-07T15:10:00Z', type: 'existing' }] },
-  { id: 'prod-5', name: 'Olympic Lexus Vegetable Cracker', sku: 'OLY-LX-120', company: 'Olympic', createdAt: '2026-06-05T13:05:00Z', defaultPP: 32, defaultMRP: 50, defaultWSP: 40, currentStock: 3200, damagedStock: 12, damageHistory: [{ id: 'damage-prod-5', qty: 12, recordedAt: '2026-06-08T09:35:00Z', type: 'existing' }] },
+  { id: 'prod-4', name: 'Olympic Energy Plus Biscuit 60g', sku: 'OLY-EP-60', company: 'Olympic', createdAt: '2026-06-04T08:20:00Z', customUnits: [{ name: 'Carton', multiplier: 48 }], defaultPP: 8, defaultMRP: 15, defaultWSP: 10, currentStock: 5000, damagedStock: 25, damageHistory: [{ id: 'damage-prod-4', qty: 25, recordedAt: '2026-06-07T15:10:00Z', type: 'existing' }] },
+  { id: 'prod-5', name: 'Olympic Lexus Vegetable Cracker', sku: 'OLY-LX-120', company: 'Olympic', createdAt: '2026-06-05T13:05:00Z', customUnits: [{ name: 'Carton', multiplier: 48 }], defaultPP: 32, defaultMRP: 50, defaultWSP: 40, currentStock: 3200, damagedStock: 12, damageHistory: [{ id: 'damage-prod-5', qty: 12, recordedAt: '2026-06-08T09:35:00Z', type: 'existing' }] },
 
   // HAQUE Products
-  { id: 'prod-6', name: 'Haque Mr. Cookie Biscuit 150g', sku: 'HAQ-MC-150', company: 'Haque', createdAt: '2026-06-06T14:10:00Z', defaultPP: 25, defaultMRP: 40, defaultWSP: 32, currentStock: 2100, damagedStock: 5, damageHistory: [{ id: 'damage-prod-6', qty: 5, recordedAt: '2026-06-09T11:20:00Z', type: 'existing' }] },
-  { id: 'prod-7', name: 'Haque Bourbon Chocolate Biscuit', sku: 'HAQ-BB-100', company: 'Haque', createdAt: '2026-06-07T16:25:00Z', defaultPP: 15, defaultMRP: 25, defaultWSP: 19, currentStock: 1500, damagedStock: 0 },
+  { id: 'prod-6', name: 'Haque Mr. Cookie Biscuit 150g', sku: 'HAQ-MC-150', company: 'Haque', createdAt: '2026-06-06T14:10:00Z', customUnits: [{ name: 'Carton', multiplier: 24 }], defaultPP: 25, defaultMRP: 40, defaultWSP: 32, currentStock: 2100, damagedStock: 5, damageHistory: [{ id: 'damage-prod-6', qty: 5, recordedAt: '2026-06-09T11:20:00Z', type: 'existing' }] },
+  { id: 'prod-7', name: 'Haque Bourbon Chocolate Biscuit', sku: 'HAQ-BB-100', company: 'Haque', createdAt: '2026-06-07T16:25:00Z', customUnits: [{ name: 'Carton', multiplier: 24 }], defaultPP: 15, defaultMRP: 25, defaultWSP: 19, currentStock: 1500, damagedStock: 0 },
 ];
 
 export const INITIAL_ATTRIBUTES: ProductAttribute[] = [

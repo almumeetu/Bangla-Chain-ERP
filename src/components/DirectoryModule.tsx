@@ -97,7 +97,8 @@ function ProductRow({ p, index, companies, categories, units, godowns, onEdit, o
   const handleDelete = useCallback(() => onDelete(p.id), [p.id, onDelete]);
 
   const categoryName = categories.find(c => c.id === p.categoryId)?.name || 'N/A';
-  const uomName = units.find(u => u.id === p.uomId)?.name || 'N/A';
+  const primaryUnit = p.customUnits && p.customUnits.length > 0 ? p.customUnits[0] : null;
+  const uomName = primaryUnit ? `${primaryUnit.name} (${primaryUnit.multiplier})` : 'Pcs';
   const godownName = godowns.find(g => g.id === p.defaultGodownId)?.name || 'Main Godown';
 
   return (
@@ -549,6 +550,7 @@ export default function DirectoryModule({
   const [showCompanyModal, setShowCompanyModal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showUnitModal, setShowUnitModal] = useState(false);
+  const [showUnitHelp, setShowUnitHelp] = useState(false);
   const [showGodownModal, setShowGodownModal] = useState(false);
   const [showRouteModal, setShowRouteModal] = useState(false);
 
@@ -569,7 +571,7 @@ export default function DirectoryModule({
   const [prodSku, setProdSku] = useState('');
   const [prodCompany, setProdCompany] = useState('');
   const [prodCategoryId, setProdCategoryId] = useState('');
-  const [prodUomId, setProdUomId] = useState('');
+  const [prodCustomUnits, setProdCustomUnits] = useState<{name: string, multiplier: number}[]>([]);
   const [prodGodownId, setProdGodownId] = useState('');
   const [prodPP, setProdPP] = useState<number>(0);
   const [prodWSP, setProdWSP] = useState<number>(0);
@@ -635,6 +637,8 @@ export default function DirectoryModule({
   const [unitSymbol, setUnitSymbol] = useState('');
   const [unitMultiplier, setUnitMultiplier] = useState<number>(1);
   const [unitParentId, setUnitParentId] = useState<string>('');
+  const [unitSecondaryName, setUnitSecondaryName] = useState('');
+  const [unitSecondaryMultiplier, setUnitSecondaryMultiplier] = useState<number>(0);
   const [unitDescription, setUnitDescription] = useState('');
 
   // Form Fields: Godown
@@ -724,7 +728,7 @@ export default function DirectoryModule({
       company: prodCompany,
       createdAt: editingProduct?.createdAt || new Date().toISOString(),
       categoryId: prodCategoryId || undefined,
-      uomId: prodUomId || undefined,
+      customUnits: prodCustomUnits.length > 0 ? prodCustomUnits : undefined,
       defaultGodownId: prodGodownId || undefined,
       defaultPP: Number(prodPP),
       defaultWSP: Number(prodWSP),
@@ -740,7 +744,7 @@ export default function DirectoryModule({
     }
 
     setShowProductModal(false);
-  }, [prodName, prodSku, prodCompany, prodCategoryId, prodUomId, prodGodownId, prodPP, prodWSP, prodMRP, prodStock, editingProduct, setProducts]);
+  }, [prodName, prodSku, prodCompany, prodCategoryId, prodCustomUnits, prodGodownId, prodPP, prodWSP, prodMRP, prodStock, editingProduct, setProducts]);
 
   // --- SUBMIT: SR ---
   const handleSrSubmit = useCallback((e: React.FormEvent) => {
@@ -913,7 +917,8 @@ export default function DirectoryModule({
       name: unitName,
       symbol: unitSymbol || undefined,
       multiplier: Number(unitMultiplier),
-      parentUnitId: unitParentId || undefined,
+      secondaryUnitName: unitSecondaryName || undefined,
+      secondaryMultiplier: unitSecondaryMultiplier ? Number(unitSecondaryMultiplier) : undefined,
       description: unitDescription || undefined
     };
 
@@ -924,7 +929,7 @@ export default function DirectoryModule({
       setUnits(prev => [...prev, unitData]);
     }
     setShowUnitModal(false);
-  }, [unitName, unitSymbol, unitMultiplier, unitParentId, unitDescription, editingUnit, setUnits]);
+  }, [unitName, unitSymbol, unitMultiplier, unitParentId, unitSecondaryName, unitSecondaryMultiplier, unitDescription, editingUnit, setUnits]);
 
   // --- SUBMIT: Godown ---
   const handleGodownSubmit = useCallback((e: React.FormEvent) => {
@@ -981,14 +986,14 @@ export default function DirectoryModule({
     setProdSku('');
     setProdCompany(companies[0]?.name || 'Pran');
     setProdCategoryId(productCategories[0]?.id || '');
-    setProdUomId(units[0]?.id || '');
+    setProdCustomUnits([]);
     setProdGodownId(godowns[0]?.id || '');
     setProdPP(0);
     setProdWSP(0);
     setProdMRP(0);
     setProdStock(0);
     setShowProductModal(true);
-  }, [companies, productCategories, units, godowns]);
+  }, [companies, productCategories, godowns]);
 
   const handleOpenShop = useCallback(() => {
     setEditingShop(null);
@@ -1024,6 +1029,8 @@ export default function DirectoryModule({
     setUnitSymbol('');
     setUnitMultiplier(1);
     setUnitParentId('');
+    setUnitSecondaryName('');
+    setUnitSecondaryMultiplier(0);
     setUnitDescription('');
     setShowUnitModal(true);
   }, []);
@@ -1053,7 +1060,7 @@ export default function DirectoryModule({
     setProdSku(p.sku);
     setProdCompany(p.company);
     setProdCategoryId(p.categoryId || '');
-    setProdUomId(p.uomId || '');
+    setProdCustomUnits(p.customUnits || []);
     setProdGodownId(p.defaultGodownId || '');
     setProdPP(p.defaultPP);
     setProdWSP(p.defaultWSP);
@@ -1096,6 +1103,8 @@ export default function DirectoryModule({
     setUnitSymbol(u.symbol || '');
     setUnitMultiplier(u.multiplier);
     setUnitParentId(u.parentUnitId || '');
+    setUnitSecondaryName(u.secondaryUnitName || '');
+    setUnitSecondaryMultiplier(u.secondaryMultiplier || 0);
     setUnitDescription(u.description || '');
     setShowUnitModal(true);
   }, []);
@@ -1190,11 +1199,11 @@ export default function DirectoryModule({
         <div className="flex flex-wrap bg-white/5 p-1 rounded-xl border border-white/10 shadow-sm gap-1 shrink-0 z-10 relative">
           {[
             { id: 'products', label: tDir.tabProducts, icon: Package },
+            { id: 'units', label: language === 'bn' ? 'পরিমাপের একক (UOM)' : 'Units of Measure (UOM)', icon: Layers },
             { id: 'srs', label: tDir.tabSrs, icon: UserCheck },
             { id: 'shops', label: tDir.tabShops || 'Retail Customers', icon: Building },
             { id: 'damage', label: tDir.tabDamage || 'Damage List', icon: AlertTriangle },
             { id: 'companies', label: tDir.tabCompanies, icon: Briefcase },
-            { id: 'units', label: tDir.tabUnits, icon: DollarSign },
             { id: 'godowns', label: tDir.tabGodowns, icon: HardDrive },
             { id: 'routes', label: tDir.tabRoutes, icon: Compass },
             { id: 'deliveryMen', label: language === 'bn' ? 'ডেলিভারি ম্যান' : 'Delivery Men', icon: Truck }
@@ -1428,6 +1437,14 @@ export default function DirectoryModule({
                 <ViewToggle />
                 <button
                   type="button"
+                  onClick={handleOpenUnit}
+                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 cursor-pointer transition-all active:scale-95 shadow-sm shrink-0"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  {language === 'bn' ? 'ইউনিট যোগ করুন' : 'Add Unit (UOM)'}
+                </button>
+                <button
+                  type="button"
                   onClick={handleOpenProduct}
                   className="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-900 px-4 text-xs font-bold text-white hover:bg-slate-800 border border-slate-950 cursor-pointer transition-all active:scale-95 shadow-sm shrink-0"
                 >
@@ -1441,9 +1458,9 @@ export default function DirectoryModule({
             {viewMode === 'grid' ? (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {filteredProducts.map(p => {
-                  const uomObj = units.find(u => u.id === p.uomId);
-                  const uomName = uomObj?.name || 'N/A';
-                  const multiplier = uomObj?.multiplier || 1;
+                  const primaryUnit = p.customUnits && p.customUnits.length > 0 ? p.customUnits[0] : null;
+                  const uomName = primaryUnit ? `${primaryUnit.name} (${primaryUnit.multiplier})` : 'Pcs';
+                  const multiplier = primaryUnit ? primaryUnit.multiplier : 1;
                   const godownName = godowns.find(g => g.id === p.defaultGodownId)?.name || 'Main Godown';
                   const marginPct = p.defaultWSP > 0 ? ((p.defaultWSP - p.defaultPP) / p.defaultWSP) * 100 : 0;
 
@@ -1538,24 +1555,16 @@ export default function DirectoryModule({
                           <div className="text-right">
                             <div className={isLowStock ? "text-amber-600 animate-pulse font-extrabold" : "text-slate-700"}>
                               {(() => {
-                                const uomObj = units.find(u => u.id === p.uomId);
-                                if (uomObj) {
-                                  const qty = p.currentStock / uomObj.multiplier;
-                                  const displayQty = qty % 1 === 0 ? qty.toLocaleString() : qty.toFixed(1);
-                                  return (
-                                    <div className="space-y-0.5">
-                                      <div className="text-xs">
-                                        {displayQty} {uomObj.symbol || uomObj.name}
-                                      </div>
-                                      <div className="text-[9px] text-slate-400">
-                                        ({p.currentStock.toLocaleString()} Pieces)
-                                      </div>
-                                    </div>
-                                  );
-                                }
+                                const qty = p.currentStock / multiplier;
+                                const displayQty = qty % 1 === 0 ? qty.toLocaleString() : qty.toFixed(1);
                                 return (
-                                  <div className="text-xs">
-                                    {p.currentStock.toLocaleString()} Pieces
+                                  <div className="space-y-0.5">
+                                    <div className="text-xs">
+                                      {displayQty} {multiplier > 1 ? 'Carton' : 'Pcs'}
+                                    </div>
+                                    <div className="text-[9px] text-slate-400">
+                                      ({p.currentStock.toLocaleString()} Pieces)
+                                    </div>
                                   </div>
                                 );
                               })()}
@@ -1580,13 +1589,12 @@ export default function DirectoryModule({
                           <div>
                             <span className="text-[8px] text-blue-500 font-extrabold uppercase tracking-wider block">{language === 'bn' ? 'DP' : 'Dealer Price (DP)'}</span>
                             {(() => {
-                              const uomObj = units.find(u => u.id === p.uomId);
-                              if (uomObj && uomObj.multiplier > 1) {
-                                const unitPrice = p.defaultPP * uomObj.multiplier;
+                              if (multiplier > 1) {
+                                const unitPrice = p.defaultPP * multiplier;
                                 return (
                                   <div className="space-y-0.5">
                                     <span className="font-mono text-sm font-black text-blue-700">{formatBDT(unitPrice)}</span>
-                                    <span className="text-[9px] text-blue-400 font-semibold block">/ {uomObj.symbol || uomObj.name}</span>
+                                    <span className="text-[9px] text-blue-400 font-semibold block">/ Carton</span>
                                     <span className="text-[9px] text-slate-500 font-semibold block border-t border-blue-100/50 mt-1 pt-0.5">{formatBDT(p.defaultPP)}/pc</span>
                                   </div>
                                 );
@@ -1601,13 +1609,12 @@ export default function DirectoryModule({
                           <div>
                             <span className="text-[8px] text-emerald-600 font-extrabold uppercase tracking-wider block">{language === 'bn' ? 'TP' : 'Trade Price (TP)'}</span>
                             {(() => {
-                              const uomObj = units.find(u => u.id === p.uomId);
-                              if (uomObj && uomObj.multiplier > 1) {
-                                const unitPrice = p.defaultWSP * uomObj.multiplier;
+                              if (multiplier > 1) {
+                                const unitPrice = p.defaultWSP * multiplier;
                                 return (
                                   <div className="space-y-0.5">
                                     <span className="font-mono text-sm font-black text-emerald-700">{formatBDT(unitPrice)}</span>
-                                    <span className="text-[9px] text-emerald-400 font-semibold block">/ {uomObj.symbol || uomObj.name}</span>
+                                    <span className="text-[9px] text-emerald-400 font-semibold block">/ Carton</span>
                                     <span className="text-[9px] text-indigo-500 font-bold block border-t border-emerald-100/50 mt-1 pt-0.5">{formatBDT(p.defaultWSP)}/pc</span>
                                   </div>
                                 );
@@ -1622,13 +1629,12 @@ export default function DirectoryModule({
                           <div>
                             <span className="text-[8px] text-amber-600 font-extrabold uppercase tracking-wider block">{language === 'bn' ? 'MRP' : 'MRP'}</span>
                             {(() => {
-                              const uomObj = units.find(u => u.id === p.uomId);
-                              if (uomObj && uomObj.multiplier > 1) {
-                                const unitPrice = p.defaultMRP * uomObj.multiplier;
+                              if (multiplier > 1) {
+                                const unitPrice = p.defaultMRP * multiplier;
                                 return (
                                   <div className="space-y-0.5">
                                     <span className="font-mono text-sm font-black text-amber-700">{formatBDT(unitPrice)}</span>
-                                    <span className="text-[9px] text-amber-400 font-semibold block">/ {uomObj.symbol || uomObj.name}</span>
+                                    <span className="text-[9px] text-amber-400 font-semibold block">/ Carton</span>
                                     <span className="text-[9px] text-slate-700 font-extrabold block border-t border-amber-100/50 mt-1 pt-0.5">{formatBDT(p.defaultMRP)}/pc</span>
                                   </div>
                                 );
@@ -1692,9 +1698,9 @@ export default function DirectoryModule({
                     <tbody className="divide-y divide-slate-100">
                       {filteredProducts.map(p => {
                         const categoryName = productCategories.find(c => c.id === p.categoryId)?.name || 'N/A';
-                        const uomObj = units.find(u => u.id === p.uomId);
-                        const uomName = uomObj?.name || 'N/A';
-                        const multiplier = uomObj?.multiplier || 1;
+                        const primaryUnit = p.customUnits && p.customUnits.length > 0 ? p.customUnits[0] : null;
+                        const uomName = primaryUnit ? `${primaryUnit.name} (${primaryUnit.multiplier})` : 'Pcs';
+                        const multiplier = primaryUnit ? primaryUnit.multiplier : 1;
                         const isLowStock = p.currentStock < 600;
                         const isEditing = inlineEditingProductId === p.id;
 
@@ -1728,14 +1734,10 @@ export default function DirectoryModule({
                                   {companies.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                                 </select>
                               </td>
-                              <td className="p-2 align-top">
-                                <select
-                                  value={inlineEditForm.uomId || ''}
-                                  onChange={e => setInlineEditForm(prev => ({ ...prev, uomId: e.target.value }))}
-                                  className="w-full h-8 px-2 rounded-lg border border-slate-300 text-xs font-bold text-slate-700 focus:border-indigo-500 outline-none"
-                                >
-                                  {units.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                                </select>
+                              <td className="p-2 align-top text-xs text-slate-500 font-medium pt-4">
+                                {p.customUnits && p.customUnits.length > 0 ? (
+                                  p.customUnits.map(u => <div key={u.name}>{u.name}: {u.multiplier}</div>)
+                                ) : 'Pcs'}
                               </td>
                               <td className="p-2 align-top text-slate-400 text-xs font-bold pt-4">
                                 {p.currentStock.toLocaleString()}
@@ -1812,26 +1814,21 @@ export default function DirectoryModule({
                                 }`}>
                                 <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${isLowStock ? "bg-rose-500 animate-pulse" : "bg-emerald-500"}`} />
                                 {(() => {
-                                  const uomObj = units.find(u => u.id === p.uomId);
-                                  if (uomObj) {
-                                    const qty = p.currentStock / uomObj.multiplier;
-                                    const displayQty = qty % 1 === 0 ? qty.toLocaleString() : qty.toFixed(1);
-                                    return `${displayQty} ${uomObj.symbol || uomObj.name}`;
-                                  }
-                                  return `${p.currentStock.toLocaleString()} ${language === 'bn' ? 'টি' : 'Units'}`;
+                                  const qty = p.currentStock / multiplier;
+                                  const displayQty = qty % 1 === 0 ? qty.toLocaleString() : qty.toFixed(1);
+                                  return `${displayQty} ${multiplier > 1 ? 'Carton' : 'Pcs'}`;
                                 })()}
                               </span>
                             </td>
                             <td className="px-5 py-3.5 text-xs text-slate-500 font-medium whitespace-nowrap">
                               {(() => {
-                                const uomObj = units.find(u => u.id === p.uomId);
-                                if (uomObj && uomObj.multiplier > 1) {
-                                  const unitPrice = p.defaultPP * uomObj.multiplier;
+                                if (multiplier > 1) {
+                                  const unitPrice = p.defaultPP * multiplier;
                                   return (
                                     <div className="space-y-0.5">
                                       <div className="font-bold text-blue-700">{formatBDT(unitPrice)}</div>
                                       <div className="text-[9px] text-slate-400 font-semibold">
-                                        / {uomObj.symbol || uomObj.name} · {formatBDT(p.defaultPP)}/pc
+                                        / Carton · {formatBDT(p.defaultPP)}/pc
                                       </div>
                                     </div>
                                   );
@@ -1841,14 +1838,13 @@ export default function DirectoryModule({
                             </td>
                             <td className="px-5 py-3.5 text-xs text-indigo-600 font-bold whitespace-nowrap">
                               {(() => {
-                                const uomObj = units.find(u => u.id === p.uomId);
-                                if (uomObj && uomObj.multiplier > 1) {
-                                  const unitPrice = p.defaultWSP * uomObj.multiplier;
+                                if (multiplier > 1) {
+                                  const unitPrice = p.defaultWSP * multiplier;
                                   return (
                                     <div className="space-y-0.5">
                                       <div className="font-bold text-emerald-700">{formatBDT(unitPrice)}</div>
                                       <div className="text-[9px] text-indigo-400 font-semibold">
-                                        / {uomObj.symbol || uomObj.name} · {formatBDT(p.defaultWSP)}/pc
+                                        / Carton · {formatBDT(p.defaultWSP)}/pc
                                       </div>
                                     </div>
                                   );
@@ -1858,14 +1854,13 @@ export default function DirectoryModule({
                             </td>
                             <td className="px-5 py-3.5 text-xs text-slate-900 font-extrabold whitespace-nowrap">
                               {(() => {
-                                const uomObj = units.find(u => u.id === p.uomId);
-                                if (uomObj && uomObj.multiplier > 1) {
-                                  const unitPrice = p.defaultMRP * uomObj.multiplier;
+                                if (multiplier > 1) {
+                                  const unitPrice = p.defaultMRP * multiplier;
                                   return (
                                     <div className="space-y-0.5">
                                       <div className="font-extrabold text-amber-700">{formatBDT(unitPrice)}</div>
                                       <div className="text-[9px] text-slate-500 font-bold">
-                                        / {uomObj.symbol || uomObj.name} · {formatBDT(p.defaultMRP)}/pc
+                                        / Carton · {formatBDT(p.defaultMRP)}/pc
                                       </div>
                                     </div>
                                   );
@@ -2545,8 +2540,9 @@ export default function DirectoryModule({
                         const damagedQty = damageBreakdown.totalDamageQty;
                         const totalQty = p.currentStock + damagedQty;
                         const itemDamageRatio = totalQty > 0 ? (damagedQty / totalQty) * 100 : 0;
-                        const uomObj = units.find(u => u.id === p.uomId);
-                        const uomName = uomObj?.name || 'N/A';
+                        const primaryUnit = p.customUnits && p.customUnits.length > 0 ? p.customUnits[0] : null;
+                        const multiplier = primaryUnit ? primaryUnit.multiplier : 1;
+                        const uomName = primaryUnit ? `${primaryUnit.name} (${primaryUnit.multiplier})` : 'Pcs';
 
                         return (
                           <tr key={p.id} className="hover:bg-slate-50 transition-colors group">
@@ -2779,7 +2775,9 @@ export default function DirectoryModule({
                 const parentUnit = uom.parentUnitId ? units.find(u => u.id === uom.parentUnitId) : null;
                 
                 let formulaText = `1 ${uom.name} = ${uom.multiplier} ${baseUnit.name}`;
-                if (parentUnit) {
+                if (uom.secondaryUnitName && uom.secondaryMultiplier && uom.secondaryMultiplier > 0) {
+                  formulaText = `1 ${uom.name} = ${uom.secondaryMultiplier} ${uom.secondaryUnitName} = ${uom.multiplier} ${baseUnit.name}`;
+                } else if (parentUnit) {
                   const parentToBase = parentUnit.multiplier;
                   const thisToParent = uom.multiplier / parentToBase;
                   formulaText = `1 ${uom.name} = ${thisToParent} ${parentUnit.name} = ${uom.multiplier} ${baseUnit.name}`;
@@ -2812,6 +2810,11 @@ export default function DirectoryModule({
                           <p className="text-xs font-mono font-semibold text-slate-800">
                             {formulaText}
                           </p>
+                          {uom.secondaryUnitName && uom.secondaryMultiplier && uom.secondaryMultiplier > 0 && (
+                            <p className="text-[10px] font-mono text-slate-500 font-semibold mt-1">
+                              Calculated: 1 {uom.secondaryUnitName} = {Number(uom.multiplier / uom.secondaryMultiplier).toFixed(1)} {baseUnit.name}
+                            </p>
+                          )}
                         </div>
                         {uom.description && (
                           <p className="text-xs text-slate-500 font-medium mt-1">
@@ -3173,45 +3176,73 @@ export default function DirectoryModule({
               </div>
 
               <div className="grid grid-cols-1 gap-3">
-                <div>
-                  <label className="mb-2 block text-[10px] font-semibold text-slate-705">{tDir.formProductUnit.replace(' *', '')}</label>
-                  <select
-                    value={prodUomId}
-                    onChange={e => setProdUomId(e.target.value)}
-                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-2 font-semibold outline-none focus:border-slate-800"
-                  >
-                    {units.map(u => (
-                      <option key={u.id} value={u.id}>{u.name}</option>
-                    ))}
-                  </select>
+                <div className="flex items-center justify-between">
+                  <label className="block text-[10px] font-bold text-slate-700">
+                    {language === 'bn' ? 'পণ্য বিক্রির একক সমূহ (ঐচ্ছিক)' : 'Sales Units configuration (Optional)'}
+                  </label>
+                  <div className="flex items-center gap-2">
+                    {units.length > 0 && (
+                      <select
+                        onChange={e => {
+                          const val = e.target.value;
+                          if (!val) return;
+                          const selectedUom = units.find(u => u.id === val);
+                          if (selectedUom) {
+                            if (!prodCustomUnits.some(cu => cu.name.toLowerCase() === selectedUom.name.toLowerCase())) {
+                              setProdCustomUnits(prev => [...prev, {
+                                name: selectedUom.name,
+                                multiplier: selectedUom.multiplier,
+                                secondaryUnitName: selectedUom.secondaryUnitName,
+                                secondaryMultiplier: selectedUom.secondaryMultiplier
+                              }]);
+                            }
+                          }
+                          e.target.value = '';
+                        }}
+                        className="text-[10px] font-bold text-slate-650 bg-slate-50 px-2 py-1 rounded-lg border border-slate-250 outline-none cursor-pointer hover:bg-slate-100 transition-colors"
+                      >
+                        <option value="">{language === 'bn' ? 'নিবন্ধিত একক দ্রুত যোগ করুন...' : 'Quick Add Unit...'}</option>
+                        {units.map(u => (
+                          <option key={u.id} value={u.id}>{u.name} ({u.multiplier} pcs)</option>
+                        ))}
+                      </select>
+                    )}
+                    <button type="button" onClick={() => setProdCustomUnits(prev => [...prev, { name: '', multiplier: 2 }])} className="text-[10px] font-bold text-indigo-650 bg-indigo-50 px-2 py-1 rounded-md hover:bg-indigo-100 transition-colors">
+                      {language === 'bn' ? '+ কাস্টম একক' : '+ Custom Unit'}
+                    </button>
+                  </div>
                 </div>
+                {prodCustomUnits.map((u, idx) => (
+                  <div key={idx} className="flex gap-2 items-center">
+                    <input
+                      type="text"
+                      value={u.name}
+                      onChange={e => { const updated = [...prodCustomUnits]; updated[idx].name = e.target.value; setProdCustomUnits(updated); }}
+                      className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:border-slate-800"
+                      placeholder={language === 'bn' ? "এককের নাম (যেমন: Dozen)" : "Unit Name (e.g. Dozen)"}
+                    />
+                    <input
+                      type="number"
+                      min="2"
+                      value={u.multiplier}
+                      onChange={e => { const updated = [...prodCustomUnits]; updated[idx].multiplier = Number(e.target.value) || 1; setProdCustomUnits(updated); }}
+                      className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 font-mono text-sm font-semibold outline-none focus:border-slate-800"
+                      placeholder={language === 'bn' ? "পিস সংখ্যা (যেমন: ১২)" : "Pieces inside (e.g. 12)"}
+                    />
+                    <button type="button" onClick={() => { const updated = [...prodCustomUnits]; updated.splice(idx, 1); setProdCustomUnits(updated); }} className="h-10 w-10 shrink-0 flex items-center justify-center bg-rose-50 text-rose-500 rounded-lg hover:bg-rose-100 transition-colors"><Trash2 className="w-4 h-4" /></button>
+                  </div>
+                ))}
               </div>
 
               {/* Unit Formula Display */}
-              {(() => {
-                const selectedUnit = units.find(u => u.id === prodUomId);
-                if (!selectedUnit) return null;
-                
-                const baseUnit = units.find(u => !u.parentUnitId) || { name: 'Unit', multiplier: 1, symbol: '' };
-                const parentUnit = selectedUnit.parentUnitId ? units.find(u => u.id === selectedUnit.parentUnitId) : null;
-                
-                let formulaText = `1 ${selectedUnit.name} = ${selectedUnit.multiplier} ${baseUnit.name}`;
-                if (parentUnit) {
-                  const parentToBase = parentUnit.multiplier;
-                  const thisToParent = selectedUnit.multiplier / parentToBase;
-                  formulaText = `1 ${selectedUnit.name} = ${thisToParent} ${parentUnit.name} = ${selectedUnit.multiplier} ${baseUnit.name}`;
-                }
-
-                return (
-                  <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg border border-indigo-100 p-3 space-y-1">
-                    <div className="text-[10px] font-bold text-indigo-700 uppercase tracking-wider">Selected Unit Details</div>
-                    <div className="font-mono text-sm font-semibold text-slate-800">{formulaText}</div>
-                    {selectedUnit.description && (
-                      <div className="text-xs text-slate-600">{selectedUnit.description}</div>
-                    )}
-                  </div>
-                );
-              })()}
+              {prodCustomUnits.length > 0 && (
+                <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg border border-indigo-100 p-3 space-y-1">
+                  <div className="text-[10px] font-bold text-indigo-700 uppercase tracking-wider">Unit Details</div>
+                  {prodCustomUnits.map((u, idx) => (
+                    <div key={idx} className="font-mono text-sm font-semibold text-slate-800">1 {prodCompany} {u.name || 'Unit'} = {u.multiplier} Pcs</div>
+                  ))}
+                </div>
+              )}
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
@@ -3593,19 +3624,57 @@ export default function DirectoryModule({
           <form onSubmit={handleUnitSubmit} className="bg-white rounded-xl border border-slate-200 w-full max-w-md shadow-2xl flex flex-col justify-between overflow-hidden">
             <div className="border-b border-slate-200 px-6 py-4 bg-slate-50 flex items-center justify-between">
               <span className="font-semibold text-slate-800 text-sm flex items-center gap-1.5">
-                <DollarSign className="w-4.5 h-4.5 text-slate-750" />
-                {editingUnit ? 'Edit Unit of Measure' : tDir.registerUnit}
+                <Layers className="w-4.5 h-4.5 text-indigo-600" />
+                {editingUnit 
+                  ? (language === 'bn' ? 'পরিমাপের একক পরিবর্তন করুন' : 'Edit Unit of Measure') 
+                  : (language === 'bn' ? 'নতুন একক নিবন্ধন (UOM)' : tDir.registerUnit)}
               </span>
-              <button type="button" onClick={() => setShowUnitModal(false)} className="text-slate-400 hover:text-slate-855">✕</button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowUnitHelp(!showUnitHelp)}
+                  className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-[10px] font-bold border border-indigo-200 cursor-pointer transition-all active:scale-95 shrink-0"
+                >
+                  {showUnitHelp ? 'Hide Guide / গাইড বন্ধ করুন ✕' : 'Show Help / গাইড দেখুন 📖'}
+                </button>
+                <button type="button" onClick={() => setShowUnitModal(false)} className="text-slate-400 hover:text-slate-855 text-sm p-1">✕</button>
+              </div>
             </div>
 
             <div className="p-6 space-y-4 text-xs max-h-[75vh] overflow-y-auto">
+              {showUnitHelp && (
+                <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-2xl border border-indigo-100 p-4 space-y-2 text-slate-700 animate-fade-in shadow-sm">
+                  <div className="font-bold text-xs text-indigo-800 flex items-center gap-1">
+                    📖 একক সেটআপ নির্দেশিকা (UOM Setup Guide)
+                  </div>
+                  <ul className="list-disc pl-4 space-y-1.5 text-[10px] leading-relaxed text-slate-600">
+                    <li>
+                      <strong>ইউনিটের নাম (Unit Name):</strong> যেমন <code>Carton</code> বা <code>বক্স</code>। এটি আপনার পণ্যের প্রধান বড় একক।
+                    </li>
+                    <li>
+                      <strong>মোট পিস সংখ্যা (Conversion Multiplier):</strong> ১টি মেইন ইউনিটের ভেতরে মোট কত পিস পণ্য থাকে। যেমন: ১ কার্টনে যদি ২৪০ পিস থাকে, তবে এখানে <code>240</code> লিখবেন।
+                    </li>
+                    <li>
+                      <strong>মাঝারি বা উপ-একক (Intermediate Unit):</strong> মেইন ইউনিট ও পিসের মাঝামাঝি কোনো একক থাকলে তার নাম দিন। যেমন: <code>Dozen</code> বা <code>প্যাকেট</code>।
+                    </li>
+                    <li>
+                      <strong>উপ-এককের সংখ্যা (Count in Unit):</strong> ১টি মেইন ইউনিটের ভেতরে কতটি মাঝারি একক থাকে। যেমন: ১ কার্টনে ২০ ডজন থাকলে লিখবেন <code>20</code>। সিস্টেম নিজে থেকেই হিসাব করবে: ১ ডজন = ১২ পিস।
+                    </li>
+                  </ul>
+                  <div className="text-[9px] font-bold text-indigo-500 border-t border-indigo-100/70 pt-1.5 mt-1">
+                    * এই হিসাবটি সেট করার পর, আপনার যেকোনো পণ্যের ফর্মে এটি সরাসরি নির্বাচন করা যাবে এবং বিক্রির সময় সঠিক হিসাব দেখাবে।
+                  </div>
+                </div>
+              )}
+
               <div>
-                <label className="mb-2 block text-xs font-semibold text-slate-705">Unit Name *</label>
+                <label className="mb-2 block text-xs font-bold text-slate-700">
+                  {language === 'bn' ? 'ইউনিটের নাম (যেমন: কার্টন, বড় বক্স) *' : 'Unit Name (e.g. Carton, Case) *'}
+                </label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Carton, Dozen, Piece"
+                  placeholder="e.g. Carton"
                   value={unitName}
                   onChange={e => setUnitName(e.target.value)}
                   className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3.5 font-semibold outline-none focus:border-slate-800 focus:bg-white"
@@ -3613,10 +3682,12 @@ export default function DirectoryModule({
               </div>
 
               <div>
-                <label className="mb-2 block text-xs font-semibold text-slate-705">Symbol (Short Name)</label>
+                <label className="mb-2 block text-xs font-bold text-slate-700">
+                  {language === 'bn' ? 'সংক্ষিপ্ত নাম বা প্রতীক (যেমন: ctn, doz) *' : 'Symbol / Short Name (e.g. ctn, doz) *'}
+                </label>
                 <input
                   type="text"
-                  placeholder="e.g. ctn, doz, pc"
+                  placeholder="e.g. ctn"
                   value={unitSymbol}
                   onChange={e => setUnitSymbol(e.target.value)}
                   className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3.5 font-semibold outline-none focus:border-slate-800 focus:bg-white"
@@ -3624,21 +3695,9 @@ export default function DirectoryModule({
               </div>
 
               <div>
-                <label className="mb-2 block text-xs font-semibold text-slate-705">Parent Unit (For Hierarchy)</label>
-                <select
-                  value={unitParentId}
-                  onChange={e => setUnitParentId(e.target.value)}
-                  className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 font-semibold outline-none focus:border-slate-800"
-                >
-                  <option value="">No Parent (Base Unit)</option>
-                  {units.map(u => (
-                    <option key={u.id} value={u.id}>{u.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="mb-2 block text-xs font-semibold text-slate-705">Conversion Multiplier (How many of base unit?)</label>
+                <label className="mb-2 block text-xs font-bold text-slate-700">
+                  {language === 'bn' ? 'মোট পিস সংখ্যা (১ মেইন ইউনিটে মোট কত পিস?) *' : 'Total Pieces in 1 Main Unit (Conversion to Pieces) *'}
+                </label>
                 <input
                   type="number"
                   min="1"
@@ -3650,28 +3709,62 @@ export default function DirectoryModule({
                 />
               </div>
 
+              <div className="grid grid-cols-2 gap-3 bg-indigo-50/40 p-3.5 rounded-xl border border-indigo-100/60">
+                <div>
+                  <label className="mb-1 block text-[10px] font-black text-indigo-700 uppercase tracking-wide">
+                    {language === 'bn' ? 'মাঝারি/উপ-একক (যেমন: ডজন, বক্স)' : 'Sub-Unit Name (e.g., Dozen, Box)'}
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Dozen"
+                    value={unitSecondaryName}
+                    onChange={e => setUnitSecondaryName(e.target.value)}
+                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 font-semibold outline-none focus:border-slate-800"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] font-black text-indigo-700 uppercase tracking-wide">
+                    {language === 'bn' ? `১ ${unitName || 'ইউনিট'}-এ উপ-একক সংখ্যা` : `Qty of Sub-Units inside 1 ${unitName || 'Unit'}`}
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    placeholder="e.g. 20"
+                    value={unitSecondaryMultiplier || ''}
+                    onChange={e => setUnitSecondaryMultiplier(Number(e.target.value) || 0)}
+                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 font-mono font-semibold outline-none focus:border-slate-800"
+                  />
+                </div>
+              </div>
+
               {/* Formula Display */}
               {(() => {
-                const baseUnit = units.find(u => !u.parentUnitId) || { name: 'Base Unit', multiplier: 1, symbol: '' as string | undefined };
-                const parentUnit = unitParentId ? units.find(u => u.id === unitParentId) : null;
+                const baseUnit = units.find(u => !u.parentUnitId) || { name: 'Pcs', multiplier: 1, symbol: '' as string | undefined };
                 
                 let formulaText = `1 ${unitName || 'Unit'} = ${unitMultiplier} ${baseUnit.name}`;
-                if (parentUnit) {
-                  const parentToBase = parentUnit.multiplier;
-                  const thisToParent = unitMultiplier / parentToBase;
-                  formulaText = `1 ${unitName || 'Unit'} = ${thisToParent} ${parentUnit.name} = ${unitMultiplier} ${baseUnit.name}`;
+                if (unitSecondaryName && unitSecondaryMultiplier > 0) {
+                  formulaText = `1 ${unitName || 'Unit'} = ${unitSecondaryMultiplier} ${unitSecondaryName} = ${unitMultiplier} ${baseUnit.name}`;
                 }
                 
                 return (
                   <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg border border-indigo-100 p-3 space-y-1">
-                    <div className="text-[10px] font-bold text-indigo-700 uppercase tracking-wider">Unit Formula Preview</div>
-                    <div className="font-mono text-sm font-semibold text-slate-800">{formulaText}</div>
+                    <div className="text-[10px] font-bold text-indigo-700 uppercase tracking-wider">
+                      {language === 'bn' ? 'একক রূপান্তর প্রিভিউ (Unit Preview)' : 'Unit Formula Preview'}
+                    </div>
+                    <div className="font-mono text-sm font-bold text-indigo-900">{formulaText}</div>
+                    {unitSecondaryName && unitSecondaryMultiplier > 0 && (
+                      <div className="text-[10px] font-semibold text-slate-500 font-mono">
+                        Calculated: 1 {unitSecondaryName} = {Number(unitMultiplier / unitSecondaryMultiplier).toFixed(1)} {baseUnit.name}
+                      </div>
+                    )}
                   </div>
                 );
               })()}
 
               <div>
-                <label className="mb-2 block text-xs font-semibold text-slate-705">Description</label>
+                <label className="mb-2 block text-xs font-bold text-slate-705">
+                  {language === 'bn' ? 'অতিরিক্ত বিবরণ (যেমন: রুট ব্যবহারের নিয়ম)' : 'Additional Description (Optional)'}
+                </label>
                 <input
                   type="text"
                   placeholder="e.g. 1 carton = 20 dozen = 240 pieces"

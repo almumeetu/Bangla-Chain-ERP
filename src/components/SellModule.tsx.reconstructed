@@ -1,39 +1,6 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
-import {
-  ShoppingBag, Trash2, Plus, Check, Search,
-  TicketPercent, Sparkles, Printer, AlertTriangle,
-  Package, ChevronRight, Zap, User, Truck, MapPin, Calendar,
-  LayoutGrid, List, X
-} from 'lucide-react';
-import { Product, ProductAttribute, SR, Route, ChallanItem, DeliveryMan, Category, UnitOfMeasure } from '../types';
-import { translations, Language } from '../translations';
-import { printSalesOrder, type SalesOrderData } from '../lib/printUtils';
-
-interface SellModuleProps {
-  products: Product[];
-  setProducts: React.Dispatch<React.SetStateAction<Product[]>>;
-  attributes: ProductAttribute[];
-  srs: SR[];
-  routes: Route[];
-  deliveryMen: DeliveryMan[];
-  setChallans: React.Dispatch<React.SetStateAction<ChallanItem[]>>;
-  categories: Category[];
-  units: UnitOfMeasure[];
-  onNavigate: (tab: any) => void;
-  language: Language;
-}
-
-interface CartItem {
-  product: Product;
-  selectedSpec: string;
-  selectedUnitName: string; // The name of the custom unit, or "Pcs"
-  baseQty: number; // Quantity in base units (pieces)
-  bonusQty: number;
-  returnedQty: number;
-  damagedQty: number;
-}
+import React, { useState, useCallback }
 
 function getCartItemTotals(item: CartItem) {
   const customUnits = item.product.customUnits || [];
@@ -83,6 +50,39 @@ function getCartItemTotals(item: CartItem) {
     totalTP,
     selectedMultiplier
   };
+} from 'react';
+import {
+  ShoppingBag, Trash2, Plus, Check, Search,
+  TicketPercent, Sparkles, Printer, AlertTriangle,
+  Package, ChevronRight, Zap, User, Truck, MapPin, Calendar,
+  LayoutGrid, List, X
+} from 'lucide-react';
+import { Product, ProductAttribute, SR, Route, ChallanItem, DeliveryMan, Category, UnitOfMeasure } from '../types';
+import { translations, Language } from '../translations';
+import { printSalesOrder, type SalesOrderData } from '../lib/printUtils';
+
+interface SellModuleProps {
+  products: Product[];
+  setProducts: React.Dispatch<React.SetStateAction<Product[]>>;
+  attributes: ProductAttribute[];
+  srs: SR[];
+  routes: Route[];
+  deliveryMen: DeliveryMan[];
+  setChallans: React.Dispatch<React.SetStateAction<ChallanItem[]>>;
+  categories: Category[];
+  units: UnitOfMeasure[];
+  onNavigate: (tab: any) => void;
+  language: Language;
+}
+
+interface CartItem {
+  product: Product;
+  selectedSpec: string;
+  selectedUnitName: string; // The name of the custom unit, or "Pcs"
+  baseQty: number; // Quantity in base units (pieces)
+  bonusQty: number;
+  returnedQty: number;
+  damagedQty: number;
 }
 
 // ── Brand colour helpers ──────────────────────────────────────────────────────
@@ -93,6 +93,57 @@ function getBrandTheme(company: string) {
   if (c.includes('haque'))   return { badge: 'bg-emerald-50 text-emerald-600 border-emerald-200',bar: 'bg-emerald-400', accent: 'text-emerald-600', btn: 'bg-emerald-500 hover:bg-emerald-600', dot: 'bg-emerald-400' };
   if (c.includes('coca'))    return { badge: 'bg-red-50 text-red-600 border-red-200',            bar: 'bg-red-400',     accent: 'text-red-600',     btn: 'bg-red-500 hover:bg-red-600',        dot: 'bg-red-400' };
   return                            { badge: 'bg-violet-50 text-violet-600 border-violet-200',   bar: 'bg-violet-400',  accent: 'text-violet-600',  btn: 'bg-violet-500 hover:bg-violet-600',  dot: 'bg-violet-400' };
+}
+
+// ── Totals Calculation Helper (Dynamic UOM Price Overrides) ──
+export function getCartItemTotals(item: CartItem) {
+  const netQty = Math.max(0, item.baseQty - (item.returnedQty || 0) - (item.damagedQty || 0));
+  
+  const list: { name: string; multiplier: number }[] = [{ name: 'Pcs', multiplier: 1 }];
+  if (item.product.customUnits) {
+    for (const cu of item.product.customUnits) {
+      if (!list.some(x => x.name.toLowerCase() === cu.name.toLowerCase())) {
+        list.push({ name: cu.name, multiplier: cu.multiplier });
+      }
+      if (cu.secondaryUnitName && cu.secondaryMultiplier && cu.secondaryMultiplier > 0) {
+        const secMult = cu.multiplier / cu.secondaryMultiplier;
+        if (!list.some(x => x.name.toLowerCase() === cu.secondaryUnitName!.toLowerCase())) {
+          list.push({ name: cu.secondaryUnitName, multiplier: secMult });
+        }
+      }
+    }
+  }
+  const selectedUnit = list.find(u => u.name === item.selectedUnitName) || { name: 'Pcs', multiplier: 1 };
+  const selectedMultiplier = selectedUnit.multiplier;
+
+  let unitDP = item.product.defaultPP * selectedMultiplier;
+  let unitTP = item.product.defaultWSP * selectedMultiplier;
+
+  if (selectedUnit.name !== 'Pcs') {
+    const directUom = item.product.customUnits?.find(u => u.name === selectedUnit.name);
+    if (directUom) {
+      if (directUom.customDP !== undefined) unitDP = directUom.customDP;
+      if (directUom.customTP !== undefined) unitTP = directUom.customTP;
+    } else {
+      const parentUom = item.product.customUnits?.find(u => u.secondaryUnitName === selectedUnit.name);
+      if (parentUom && parentUom.secondaryMultiplier && parentUom.secondaryMultiplier > 0) {
+        const parentDP = parentUom.customDP !== undefined ? parentUom.customDP : item.product.defaultPP * parentUom.multiplier;
+        const parentTP = parentUom.customTP !== undefined ? parentUom.customTP : item.product.defaultWSP * parentUom.multiplier;
+        unitDP = parentDP / parentUom.secondaryMultiplier;
+        unitTP = parentTP / parentUom.secondaryMultiplier;
+      }
+    }
+  }
+
+  const qtyInSelectedUnit = netQty / selectedMultiplier;
+
+  return {
+    unitDP,
+    unitTP,
+    selectedMultiplier,
+    totalDP: unitDP * qtyInSelectedUnit,
+    totalTP: unitTP * qtyInSelectedUnit
+  };
 }
 
 // ── UnitDisplay Component (Reusable)
@@ -121,10 +172,11 @@ interface ProductCardProps {
   onAddToCart: (p: Product, q?: number, b?: number) => void;
   formatBDT: (amt: number) => string;
   language: Language;
+  units: UnitOfMeasure[];
   listView?: boolean;
 }
 
-function ProductCard({ product, onAddToCart, formatBDT, language, listView }: ProductCardProps) {
+function ProductCard({ product, onAddToCart, formatBDT, language, units, listView }: ProductCardProps) {
   const theme = getBrandTheme(product.company);
   const isOut = product.currentStock <= 0;
   const isLow = product.currentStock > 0 && product.currentStock < 600;
@@ -133,27 +185,6 @@ function ProductCard({ product, onAddToCart, formatBDT, language, listView }: Pr
   const handleAdd = useCallback(() => {
     onAddToCart(product); // Now uses default 1 of product's unit
   }, [product, onAddToCart]);
-
-  const stockDisplay = React.useMemo(() => {
-    if (product.customUnits && product.customUnits.length > 0) {
-      const cu = product.customUnits[0];
-      const qtyInUnit = product.currentStock / cu.multiplier;
-      const displayQty = Number.isInteger(qtyInUnit) ? qtyInUnit.toLocaleString() : qtyInUnit.toFixed(1);
-      return (
-        <>
-          <div className="font-mono font-bold text-slate-700">
-            {displayQty} {cu.name}
-          </div>
-          <div className="text-[7px] text-slate-400">({product.currentStock.toLocaleString()} Pcs)</div>
-        </>
-      );
-    }
-    return (
-      <div className="font-mono font-bold text-slate-700">
-        {product.currentStock.toLocaleString()} Pcs
-      </div>
-    );
-  }, [product.currentStock, product.customUnits]);
 
   // ── LIST ROW ──
   if (listView) {
@@ -180,9 +211,22 @@ function ProductCard({ product, onAddToCart, formatBDT, language, listView }: Pr
               </div>
             </div>
           </div>
-          <div className="shrink-0 text-right min-w-[70px]">
+          <div className="shrink-0 text-right">
             <div className="text-[8px] font-medium text-slate-400 uppercase tracking-widest mb-0.5">Stock</div>
-            {stockDisplay}
+            {(() => {
+              const primaryUnit = product.customUnits && product.customUnits.length > 0 ? product.customUnits[0] : null;
+              const multiplier = primaryUnit ? primaryUnit.multiplier : 1;
+              const unitName = primaryUnit ? primaryUnit.name : 'Pcs';
+              const qtyInUnit = product.currentStock / multiplier;
+              return (
+                <>
+                  <div className="text-[10px] font-mono font-bold text-slate-700">
+                    {Number.isInteger(qtyInUnit) ? qtyInUnit.toLocaleString() : qtyInUnit.toFixed(1)} {unitName}
+                  </div>
+                  <div className="text-[7px] text-slate-400">({product.currentStock.toLocaleString()} pcs)</div>
+                </>
+              );
+            })()}
           </div>
         </div>
         <button
@@ -222,6 +266,267 @@ function ProductCard({ product, onAddToCart, formatBDT, language, listView }: Pr
           <p className="text-[7px] font-mono uppercase tracking-widest text-slate-400 mt-0.5">{product.sku}</p>
         </div>
 
+        {/* Toggle rates editing button */}
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => setShowEditRates(!showEditRates)}
+            className="text-[9px] font-bold text-indigo-650 hover:text-indigo-800 transition-colors flex items-center gap-1 cursor-pointer outline-none select-none"
+          >
+            ⚙️ {showEditRates 
+              ? (language === 'bn' ? 'রেট এডিটর বন্ধ করুন' : 'Hide Rates Editor') 
+              : (language === 'bn' ? 'রেট ও একক এডিট করুন' : 'Edit Rates & Units')}
+          </button>
+        </div>
+
+        {showEditRates && (
+          <div className="bg-indigo-50/30 border border-indigo-100/70 rounded-2xl p-3 space-y-3.5 text-[10px] animate-fade-in shadow-inner">
+            {/* Header / Guide */}
+            <div className="bg-white/80 backdrop-blur-sm border border-indigo-50 rounded-xl p-2.5 space-y-1">
+              <div className="font-extrabold text-slate-800 text-[10px] flex items-center gap-1.5">
+                💡 {language === 'bn' ? 'রেট ও একক পরিবর্তন গাইড' : 'Rates & Units Guide'}
+              </div>
+              <p className="text-[8px] text-slate-500 leading-normal font-medium">
+                {language === 'bn' 
+                  ? 'এখানে আপনি পণ্যটির মূল রেট (পিস প্রতি) এবং কার্টন/ডজন এককের অনুপাত ও বিশেষ রেট যোগ বা পরিবর্তন করতে পারবেন।' 
+                  : 'Modify base prices per piece, configure multipliers (e.g. pieces in a carton), and set bulk discounts.'}
+              </p>
+            </div>
+
+            {/* Base Unit (Pcs) Section */}
+            <div className="border border-slate-200/60 bg-white p-3 rounded-xl space-y-2.5 shadow-sm">
+              <div className="font-extrabold text-indigo-650 flex items-center gap-1.5 uppercase text-[8px] tracking-wider">
+                📦 {language === 'bn' ? 'বেস রেট (পিস প্রতি)' : 'Base Price (Per Piece)'}
+              </div>
+              <div className="grid grid-cols-2 gap-2.5">
+                <div>
+                  <label className="block text-[8px] font-bold text-slate-500 uppercase mb-1">
+                    {language === 'bn' ? 'ডিলার ক্রয় মূল্য (DP)' : 'Dealer Price (DP)'}
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-2.5 top-2 text-slate-450 text-[10px] font-bold">৳</span>
+                    <input
+                      type="number"
+                      value={item.product.defaultPP}
+                      onChange={e => {
+                        const val = Number(e.target.value) || 0;
+                        onUpdateProductPP(idx, val);
+                      }}
+                      className="h-8 w-full rounded-lg border border-slate-200 bg-slate-50/30 pl-6 pr-2 font-mono font-bold text-slate-800 outline-none focus:border-indigo-400 focus:bg-white transition-all text-[11px]"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[8px] font-bold text-slate-500 uppercase mb-1">
+                    {language === 'bn' ? 'ট্রেড বিক্রয় মূল্য (TP)' : 'Trade Price (TP)'}
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-2.5 top-2 text-slate-450 text-[10px] font-bold">৳</span>
+                    <input
+                      type="number"
+                      value={item.product.defaultWSP}
+                      onChange={e => {
+                        const val = Number(e.target.value) || 0;
+                        onUpdateProductWSP(idx, val);
+                      }}
+                      className="h-8 w-full rounded-lg border border-slate-200 bg-slate-50/30 pl-6 pr-2 font-mono font-bold text-slate-800 outline-none focus:border-indigo-400 focus:bg-white transition-all text-[11px]"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Custom Units Section */}
+            <div className="space-y-2">
+              <div className="flex justify-between items-center px-1">
+                <span className="font-extrabold text-slate-700 uppercase text-[8px] tracking-wider">
+                  ⚙️ {language === 'bn' ? 'কার্টন ও অন্যান্য কাস্টম একক' : 'Custom Units (Carton / Dozen)'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newCustomUnits = [...(item.product.customUnits || [])];
+                    newCustomUnits.push({
+                      name: 'Carton',
+                      multiplier: 12,
+                      customDP: undefined,
+                      customTP: undefined
+                    });
+                    onUpdateCustomUnits(idx, newCustomUnits);
+                  }}
+                  className="px-2.5 py-1 bg-indigo-650 hover:bg-indigo-750 text-white rounded-lg text-[8px] font-extrabold tracking-wide transition-all cursor-pointer outline-none flex items-center gap-1 shadow-sm active:scale-[0.97]"
+                >
+                  ➕ {language === 'bn' ? 'নতুন একক যোগ করুন' : 'Add Custom Unit'}
+                </button>
+              </div>
+
+              {(!item.product.customUnits || item.product.customUnits.length === 0) ? (
+                <div className="text-center py-4 text-slate-400 border border-dashed border-slate-200/80 bg-white/50 rounded-xl font-medium text-[9px]">
+                  {language === 'bn' ? 'কোনো কাস্টম একক (কার্টন/ডজন) সেট করা নেই।' : 'No custom units added. Tap "Add Custom Unit" above to configure Carton/Dozen.'}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {item.product.customUnits.map((targetUom, uomIdx) => {
+                    const effectiveDP = targetUom.customDP !== undefined ? targetUom.customDP : item.product.defaultPP * targetUom.multiplier;
+                    const effectiveTP = targetUom.customTP !== undefined ? targetUom.customTP : item.product.defaultWSP * targetUom.multiplier;
+                    
+                    return (
+                      <div key={uomIdx} className="border border-slate-200 bg-white p-3.5 rounded-xl space-y-3 relative shadow-sm transition-all hover:border-slate-350">
+                        {/* Remove button */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newCustomUnits = (item.product.customUnits || []).filter((_, uIdx) => uIdx !== uomIdx);
+                            onUpdateCustomUnits(idx, newCustomUnits);
+                          }}
+                          className="absolute top-2.5 right-2.5 p-1 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer"
+                          title="Delete Unit"
+                        >
+                          🗑️
+                        </button>
+
+                        {/* Unit name and multiplier */}
+                        <div className="grid grid-cols-2 gap-3 pr-6">
+                          <div>
+                            <label className="block text-[8px] font-bold text-slate-500 uppercase mb-1">
+                              {language === 'bn' ? 'এককের নাম (যেমন: Carton)' : 'Unit Name (e.g. Carton)'}
+                            </label>
+                            <input
+                              type="text"
+                              value={targetUom.name}
+                              onChange={e => {
+                                const newCustomUnits = [...(item.product.customUnits || [])];
+                                newCustomUnits[uomIdx] = { ...targetUom, name: e.target.value };
+                                onUpdateCustomUnits(idx, newCustomUnits);
+                              }}
+                              className="h-8 w-full rounded-lg border border-slate-200 bg-slate-50/30 px-2.5 font-bold text-slate-800 outline-none focus:border-indigo-400 focus:bg-white text-[10px]"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[8px] font-bold text-slate-500 uppercase mb-1">
+                              {language === 'bn' ? '১ এককে পিস সংখ্যা' : 'Pcs in 1 Unit (Multiplier)'}
+                            </label>
+                            <input
+                              type="number"
+                              value={targetUom.multiplier}
+                              onChange={e => {
+                                const newCustomUnits = [...(item.product.customUnits || [])];
+                                newCustomUnits[uomIdx] = { ...targetUom, multiplier: Number(e.target.value) || 1 };
+                                onUpdateCustomUnits(idx, newCustomUnits);
+                              }}
+                              className="h-8 w-full rounded-lg border border-slate-200 bg-slate-50/30 px-2.5 font-mono font-bold text-slate-800 outline-none focus:border-indigo-400 focus:bg-white text-[10px]"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Dynamic Formula Preview Indicator */}
+                        <div className="bg-indigo-50/50 rounded-lg px-2.5 py-1.5 text-[8px] text-indigo-700 font-bold flex items-center justify-between">
+                          <span>📝 {language === 'bn' ? `হিসাব সূত্র: ১ ${targetUom.name} = ${targetUom.multiplier} পিস` : `Formula: 1 ${targetUom.name} = ${targetUom.multiplier} Pcs`}</span>
+                          <span>({language === 'bn' ? 'স্বয়ংক্রিয় হিসাব' : 'Auto conversion active'})</span>
+                        </div>
+
+                        {/* Prices for UOM */}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-[8px] font-bold text-slate-500 uppercase mb-1">
+                              {language === 'bn' ? `ডিলার মূল্য (DP per ${targetUom.name})` : `Dealer Price (DP per ${targetUom.name})`}
+                            </label>
+                            <div className="relative">
+                              <span className="absolute left-2.5 top-2 text-slate-450 text-[10px] font-bold">৳</span>
+                              <input
+                                type="number"
+                                value={targetUom.customDP !== undefined ? targetUom.customDP : ''}
+                                placeholder={(item.product.defaultPP * targetUom.multiplier).toString()}
+                                onChange={e => {
+                                  const val = e.target.value === '' ? undefined : Number(e.target.value);
+                                  const newCustomUnits = [...(item.product.customUnits || [])];
+                                  newCustomUnits[uomIdx] = { ...targetUom, customDP: val };
+                                  onUpdateCustomUnits(idx, newCustomUnits);
+                                }}
+                                className="h-8 w-full rounded-lg border border-slate-200 bg-slate-50/30 pl-6 pr-2 font-mono font-bold text-slate-850 outline-none focus:border-indigo-400 focus:bg-white text-[10px]"
+                              />
+                            </div>
+                            <span className="text-[7.5px] text-slate-400 mt-1 block">
+                              {language === 'bn' ? `১ পিস = ৳${(effectiveDP / targetUom.multiplier).toFixed(2)}` : `1 pc = ৳${(effectiveDP / targetUom.multiplier).toFixed(2)}`}
+                            </span>
+                          </div>
+                          <div>
+                            <label className="block text-[8px] font-bold text-slate-500 uppercase mb-1">
+                              {language === 'bn' ? `ট্রেড মূল্য (TP per ${targetUom.name})` : `Trade Price (TP per ${targetUom.name})`}
+                            </label>
+                            <div className="relative">
+                              <span className="absolute left-2.5 top-2 text-slate-450 text-[10px] font-bold">৳</span>
+                              <input
+                                type="number"
+                                value={targetUom.customTP !== undefined ? targetUom.customTP : ''}
+                                placeholder={(item.product.defaultWSP * targetUom.multiplier).toString()}
+                                onChange={e => {
+                                  const val = e.target.value === '' ? undefined : Number(e.target.value);
+                                  const newCustomUnits = [...(item.product.customUnits || [])];
+                                  newCustomUnits[uomIdx] = { ...targetUom, customTP: val };
+                                  onUpdateCustomUnits(idx, newCustomUnits);
+                                }}
+                                className="h-8 w-full rounded-lg border border-slate-200 bg-slate-50/30 pl-6 pr-2 font-mono font-bold text-slate-855 outline-none focus:border-indigo-400 focus:bg-white text-[10px]"
+                              />
+                            </div>
+                            <span className="text-[7.5px] text-slate-400 mt-1 block">
+                              {language === 'bn' ? `১ পিস = ৳${(effectiveTP / targetUom.multiplier).toFixed(2)}` : `1 pc = ৳${(effectiveTP / targetUom.multiplier).toFixed(2)}`}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Secondary hierarchical relations */}
+                        <div className="grid grid-cols-2 gap-3 pt-2.5 border-t border-dashed border-slate-150">
+                          <div>
+                            <label className="block text-[8px] font-bold text-slate-500 uppercase mb-1">
+                              {language === 'bn' ? 'উপ-একক (যেমন: Dozen - ঐচ্ছিক)' : 'Sub-Unit (e.g. Dozen - Optional)'}
+                            </label>
+                            <input
+                              type="text"
+                              value={targetUom.secondaryUnitName || ''}
+                              onChange={e => {
+                                const newCustomUnits = [...(item.product.customUnits || [])];
+                                newCustomUnits[uomIdx] = { ...targetUom, secondaryUnitName: e.target.value };
+                                onUpdateCustomUnits(idx, newCustomUnits);
+                              }}
+                              placeholder="e.g. Dozen"
+                              className="h-7 w-full rounded-lg border border-slate-200 bg-slate-50/30 px-2 text-[9px] font-bold text-slate-800 outline-none focus:border-indigo-400 focus:bg-white"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[8px] font-bold text-slate-500 uppercase mb-1">
+                              {language === 'bn' ? `১ ${targetUom.name}-এ উপ-একক সংখ্যা` : `Sub-Units inside 1 ${targetUom.name}`}
+                            </label>
+                            <input
+                              type="number"
+                              value={targetUom.secondaryMultiplier || ''}
+                              onChange={e => {
+                                const newCustomUnits = [...(item.product.customUnits || [])];
+                                newCustomUnits[uomIdx] = { ...targetUom, secondaryMultiplier: Number(e.target.value) || undefined };
+                                onUpdateCustomUnits(idx, newCustomUnits);
+                              }}
+                              placeholder="e.g. 2"
+                              className="h-7 w-full rounded-lg border border-slate-200 bg-slate-50/40 px-2 text-[9px] font-mono font-bold text-slate-800 outline-none focus:border-indigo-400 focus:bg-white"
+                            />
+                          </div>
+                        </div>
+
+                        {targetUom.secondaryUnitName && targetUom.secondaryMultiplier && (
+                          <div className="bg-slate-50 border border-slate-100 rounded-lg p-2 text-[8px] font-semibold text-slate-500">
+                            🔄 {language === 'bn' 
+                              ? `হিসাব: ১ ${targetUom.name} = ${targetUom.secondaryMultiplier} ${targetUom.secondaryUnitName} (যার প্রতিটিতে ${targetUom.multiplier / targetUom.secondaryMultiplier} পিস থাকবে)`
+                              : `Calculation: 1 ${targetUom.name} = ${targetUom.secondaryMultiplier} ${targetUom.secondaryUnitName} (${targetUom.multiplier / targetUom.secondaryMultiplier} pcs each)`}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-2">
           <div className="bg-indigo-50 rounded-xl px-2.5 py-1.5 border border-indigo-100/50">
             <p className="text-[7px] font-black text-indigo-500 uppercase tracking-wider mb-0.5">DP</p>
@@ -241,7 +546,20 @@ function ProductCard({ product, onAddToCart, formatBDT, language, listView }: Pr
             </span>
           </div>
           <div className="space-y-0.5">
-            {stockDisplay}
+            {(() => {
+              const primaryUnit = product.customUnits && product.customUnits.length > 0 ? product.customUnits[0] : null;
+              const multiplier = primaryUnit ? primaryUnit.multiplier : 1;
+              const unitName = primaryUnit ? primaryUnit.name : 'Pcs';
+              const qtyInUnit = product.currentStock / multiplier;
+              return (
+                <>
+                  <div className="text-[9px] font-mono font-black text-slate-700">
+                    {Number.isInteger(qtyInUnit) ? qtyInUnit.toLocaleString() : qtyInUnit.toFixed(1)} {unitName}
+                  </div>
+                  <div className="text-[7px] text-slate-400">({product.currentStock.toLocaleString()} pcs)</div>
+                </>
+              );
+            })()}
           </div>
           <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden mt-0.5">
             <div className={`h-full rounded-full transition-all duration-700 ${theme.bar}`} style={{ width: `${stockPct}%` }} />
@@ -270,81 +588,34 @@ interface CartItemRowProps {
   item: CartItem;
   idx: number;
   attributes: ProductAttribute[];
+  units: UnitOfMeasure[];
   formatBDT: (amt: number) => string;
   onUpdateSpec: (idx: number, spec: string) => void;
   onUpdateQty: (idx: number, qty: number) => void;
-  onUpdateUnit: (idx: number, unitName: string) => void;
-  onUpdateProductPP: (idx: number, pp: number) => void;
-  onUpdateProductWSP: (idx: number, wsp: number) => void;
-  onUpdateCustomUnits: (idx: number, customUnits: any[]) => void;
+  onUpdateUnit: (idx: number, unitId: string) => void;
   onRemove: (idx: number) => void;
-  language: Language;
 }
 
-function CartItemRow({ 
-  item, 
-  idx, 
-  attributes, 
-  formatBDT, 
-  onUpdateSpec, 
-  onUpdateQty, 
-  onUpdateUnit, 
-  onUpdateProductPP,
-  onUpdateProductWSP,
-  onUpdateCustomUnits,
-  onRemove,
-  language
-}: CartItemRowProps) {
+function CartItemRow({ item, idx, attributes, units, formatBDT, onUpdateSpec, onUpdateQty, onUpdateUnit, onRemove }: CartItemRowProps) {
   const theme = getBrandTheme(item.product.company);
-  const [showEditRates, setShowEditRates] = useState(false);
 
-  const selectableUnits = React.useMemo(() => {
-    const list: { name: string; multiplier: number }[] = [{ name: 'Pcs', multiplier: 1 }];
-    if (item.product.customUnits && item.product.customUnits.length > 0) {
-      const cu = item.product.customUnits[0];
-      if (!list.some(x => x.name.toLowerCase() === cu.name.toLowerCase())) {
-        list.push({ name: cu.name, multiplier: cu.multiplier });
-      }
-      if (cu.secondaryUnitName && cu.secondaryMultiplier && cu.secondaryMultiplier > 0) {
-        const secMult = cu.multiplier / cu.secondaryMultiplier;
-        if (!list.some(x => x.name.toLowerCase() === cu.secondaryUnitName!.toLowerCase())) {
-          list.push({ name: cu.secondaryUnitName, multiplier: secMult });
-        }
-      }
-    }
-    return list;
-  }, [item.product.customUnits]);
-
-  const selectedUnit = selectableUnits.find(u => u.name === item.selectedUnitName) || { name: 'Pcs', multiplier: 1 };
-  const multiplier = selectedUnit.multiplier;
-  const isCustomUnit = selectedUnit.name !== 'Pcs';
-  const qtyInSelectedUnit = item.baseQty / multiplier;
-
-  const totals = getCartItemTotals(item);
-  const lineTotalDP = totals.totalDP;
-  const lineTotalTP = totals.totalTP;
+  const productUnit = item.product.uomId ? units.find(u => u.id === item.product.uomId) : null;
+  const selectedUnit = units.find(u => u.id === item.selectedUnitId) || productUnit || units[0];
+  const baseUnit = units.find(u => !u.parentUnitId) || units[0];
+  const qtyInSelectedUnit = item.baseQty / selectedUnit.multiplier;
 
   const handleRemove = useCallback(() => onRemove(idx), [idx, onRemove]);
   const handleSpecChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => onUpdateSpec(idx, e.target.value), [idx, onUpdateSpec]);
   const handleUnitChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => onUpdateUnit(idx, e.target.value), [idx, onUpdateUnit]);
   const handleQtyChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const newQtyInUnit = Number(e.target.value);
-    const newBaseQty = isCustomUnit ? newQtyInUnit * multiplier : newQtyInUnit;
+    const newBaseQty = newQtyInUnit * selectedUnit.multiplier;
     onUpdateQty(idx, newBaseQty);
-  }, [idx, onUpdateQty, isCustomUnit, multiplier]);
+  }, [idx, onUpdateQty, selectedUnit.multiplier]);
   const handleQtyDec = useCallback(() => {
-    const step = isCustomUnit ? multiplier : 1;
-    const newBaseQty = Math.max(0, item.baseQty - step);
+    const newBaseQty = Math.max(0, item.baseQty - selectedUnit.multiplier);
     onUpdateQty(idx, newBaseQty);
-  }, [idx, onUpdateQty, item.baseQty, isCustomUnit, multiplier]);
-  const handleQtyInc = useCallback(() => {
-    const step = isCustomUnit ? multiplier : 1;
-    const newBaseQty = item.baseQty + step;
-    onUpdateQty(idx, newBaseQty);
-  }, [idx, onUpdateQty, item.baseQty, isCustomUnit, multiplier]);
-
-  const netQty = Math.max(0, item.baseQty - (item.returnedQty || 0) - (item.damagedQty || 0));
-  return (
+  }, [idx, onUpdateQty, item.baseQty, selectedUn  return (
     <div className="rounded-2xl border border-slate-100 bg-white overflow-hidden hover:border-slate-350 transition-all duration-200 hover:shadow-md">
       <div className={`h-1.5 w-full ${theme.bar}`} />
       <div className="p-3.5 space-y-2.5">
@@ -676,6 +947,16 @@ function CartItemRow({
       </div>
     </div>
   );
+}] font-black font-mono text-indigo-700">{formatBDT(lineTotalDP)}</p>
+          </div>
+          <div className="bg-emerald-50 rounded-xl px-3 py-1.5 border border-emerald-100/50">
+            <span className="text-[8px] text-emerald-500 font-medium">TP Total</span>
+            <p className="text-[12px] font-black font-mono text-emerald-700">{formatBDT(lineTotalTP)}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ── Main SellModule ───────────────────────────────────────────────────────────
@@ -732,17 +1013,7 @@ export default function SellModule({
 
   const handleAddToCart = useCallback((product: Product, customQty?: number, customBonus?: number) => {
     const defaultSpec = attributes.filter(a => a.status === 'Active')[0]?.name || 'Default';
-    
-    // Default unit name is "Pcs" unless product has custom units config
-    const defaultUnitName = (product.customUnits && product.customUnits.length > 0) 
-      ? product.customUnits[0].name 
-      : 'Pcs';
-      
-    // Multiplier for the default unit
-    const multiplier = (product.customUnits && product.customUnits.length > 0)
-      ? product.customUnits[0].multiplier
-      : 1;
-
+    const multiplier = product.cartonSize || 1;
     const existingIdx = cart.findIndex(i => i.product.id === product.id && i.selectedSpec === defaultSpec);
     const baseQty = (customQty ?? (customQty === undefined ? 1 : 0)) * multiplier;
     const bonus = customBonus ?? 0;
@@ -755,13 +1026,7 @@ export default function SellModule({
       });
     } else {
       setCart(prev => [...prev, {
-        product, 
-        selectedSpec: defaultSpec, 
-        selectedUnitName: defaultUnitName, 
-        baseQty, 
-        bonusQty: bonus, 
-        returnedQty: 0, 
-        damagedQty: 0
+        product, selectedSpec: defaultSpec, isCartonSelected: multiplier > 1, baseQty, bonusQty: bonus, returnedQty: 0, damagedQty: 0
       }]);
     }
   }, [cart, attributes]);
@@ -771,45 +1036,8 @@ export default function SellModule({
     setCart(p => { const u = [...p]; u[i].baseQty = v; return u; });
   }, []);
 
-  const handleUpdateUnit = useCallback((i: number, unitName: string) => {
-    setCart(p => { const u = [...p]; u[i].selectedUnitName = unitName; return u; });
-  }, []);
-
-  const handleUpdateProductPP = useCallback((i: number, pp: number) => {
-    setCart(p => {
-      const u = [...p];
-      u[i].product = { ...u[i].product, defaultPP: pp };
-      return u;
-    });
-  }, []);
-
-  const handleUpdateProductWSP = useCallback((i: number, wsp: number) => {
-    setCart(p => {
-      const u = [...p];
-      u[i].product = { ...u[i].product, defaultWSP: wsp };
-      return u;
-    });
-  }, []);
-
-  const handleUpdateCustomUnits = useCallback((i: number, customUnits: any[]) => {
-    setCart(p => {
-      const u = [...p];
-      u[i].product = { ...u[i].product, customUnits };
-      // Fallback if deleted
-      if (customUnits.length === 0) {
-        u[i].selectedUnitName = 'Pcs';
-      } else {
-        const cu = customUnits[0];
-        const validNames = [cu.name];
-        if (cu.secondaryUnitName && cu.secondaryMultiplier) {
-          validNames.push(cu.secondaryUnitName);
-        }
-        if (!validNames.includes(u[i].selectedUnitName) && u[i].selectedUnitName !== 'Pcs') {
-          u[i].selectedUnitName = cu.name;
-        }
-      }
-      return u;
-    });
+  const handleUpdateUnit = useCallback((i: number, isCarton: boolean) => {
+    setCart(p => { const u = [...p]; u[i].isCartonSelected = isCarton; return u; });
   }, []);
 
   const handleUpdateSpec = useCallback((i: number, v: string) => {
@@ -820,12 +1048,10 @@ export default function SellModule({
   }, []);
 
   const cartSubtotalDP = cart.reduce((s, item) => {
-    const netQty = item.baseQty - (item.returnedQty || 0) - (item.damagedQty || 0);
-    return s + item.product.defaultPP * Math.max(0, netQty);
+    return s + getCartItemTotals(item).totalDP;
   }, 0);
   const cartSubtotalTP = cart.reduce((s, item) => {
-    const netQty = item.baseQty - (item.returnedQty || 0) - (item.damagedQty || 0);
-    return s + item.product.defaultWSP * Math.max(0, netQty);
+    return s + getCartItemTotals(item).totalTP;
   }, 0);
   const netTotal = cartSubtotalTP;
 
@@ -854,26 +1080,28 @@ export default function SellModule({
     const orderIdSuffix    = Date.now();
 
     const newChallans: ChallanItem[] = cart.map((item, idx) => {
-      const netQty      = item.baseQty - (item.returnedQty || 0) - (item.damagedQty || 0);
-      const baseAmount  = item.product.defaultWSP * Math.max(0, netQty);
-      const finalPrice  = baseAmount;
+      const totals = getCartItemTotals(item);
+      const finalPrice = totals.totalTP;
+      const effectiveRate = totals.unitTP / totals.selectedMultiplier;
       return {
         id: `ch-${orderIdSuffix}-${idx}`,
         productName: item.product.name, company: item.product.company,
         attribute: item.selectedSpec, qty: item.baseQty, bonusQty: item.bonusQty,
-        totalQty: item.baseQty + item.bonusQty, rate: item.product.defaultWSP,
+        totalQty: item.baseQty + item.bonusQty, rate: effectiveRate,
         totalAmount: finalPrice, srName: selectedSR, routeName: selectedRoute,
         deliveryManName: selectedDeliveryMan, status: 'Pending',
         returnedQty: item.returnedQty || 0, damagedQty: item.damagedQty || 0,
-        commissionAmount: 0, createdAt: orderTimestamp
+        commissionAmount: 0, createdAt: orderTimestamp,
+        selectedUnitName: item.selectedUnitName
       };
     });
     setChallans(prev => [...newChallans, ...prev]);
     const orderData: SalesOrderData = {
       items: cart.map(i => {
-        const netQty = i.baseQty - (i.returnedQty || 0) - (i.damagedQty || 0);
-        const baseAmount = i.product.defaultWSP * Math.max(0, netQty);
-        return { productName: i.product.name, company: i.product.company, spec: i.selectedSpec, qty: i.baseQty, bonusQty: i.bonusQty, rate: i.product.defaultWSP, total: baseAmount };
+        const totals = getCartItemTotals(i);
+        const finalPrice = totals.totalTP;
+        const effectiveRate = totals.unitTP / totals.selectedMultiplier;
+        return { productName: i.product.name, company: i.product.company, spec: i.selectedSpec, qty: i.baseQty, bonusQty: i.bonusQty, rate: effectiveRate, total: finalPrice };
       }),
       srName: selectedSR, routeName: selectedRoute, deliveryMan: selectedDeliveryMan,
       commissionPct: 0, subtotal: cartSubtotalTP, commissionAmt: 0,
@@ -1004,7 +1232,7 @@ export default function SellModule({
               : 'flex flex-col gap-2.5'
           }`}>
             {filteredProducts.map(p => (
-              <ProductCard key={p.id} product={p} onAddToCart={handleAddToCart} formatBDT={formatBDT} language={language} listView={viewMode === 'list'} />
+              <ProductCard key={p.id} product={p} onAddToCart={handleAddToCart} formatBDT={formatBDT} language={language} units={units} listView={viewMode === 'list'} />
             ))}
             {filteredProducts.length === 0 && (
               <div className="col-span-3 py-24 flex flex-col items-center justify-center gap-3 text-slate-400 bg-white rounded-3xl border border-dashed border-slate-200">
@@ -1076,9 +1304,11 @@ export default function SellModule({
                   <CartItemRow key={idx} item={item} idx={idx} attributes={attributes}
                     formatBDT={formatBDT} onUpdateSpec={handleUpdateSpec}
                     onUpdateQty={handleUpdateQty} onUpdateUnit={handleUpdateUnit}
-                    onUpdateProductPP={handleUpdateProductPP} onUpdateProductWSP={handleUpdateProductWSP}
+                    onUpdateProductPP={handleUpdateProductPP}
+                    onUpdateProductWSP={handleUpdateProductWSP}
                     onUpdateCustomUnits={handleUpdateCustomUnits}
-                    onRemove={handleRemoveFromCart} language={language} />
+                    onRemove={handleRemoveFromCart}
+                    language={language} />
                 ))
               )}
             </div>
