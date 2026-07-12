@@ -17,7 +17,10 @@ export interface Category {
 export interface UnitOfMeasure {
   id: string;
   name: string;      // e.g., "Pcs", "Carton", "Case"
+  symbol?: string;   // e.g., "pc", "ctn", "doz"
   multiplier: number; // e.g., 24 (means 1 carton = 24 pcs)
+  parentUnitId?: string; // Reference to parent unit for hierarchy (e.g., Dozen -> Pcs, Carton -> Dozen)
+  description?: string; // Optional description of the unit
 }
 
 export interface Godown {
@@ -103,6 +106,8 @@ export interface ChallanItem {
   returnedQty: number;
   damagedQty: number;
   commissionAmount: number; // commission/deduction amount in BDT
+  extraProfitAmount?: number; // extra profit/bonus amount in BDT
+  extraCommissionAmount?: number; // for backward compatibility
   createdAt: string;        // ISO Date & Time string
   srCommissionType?: 'Percentage' | 'Fixed';
   srCommissionValue?: number;
@@ -376,10 +381,9 @@ export const INITIAL_CATEGORIES: Category[] = [
 ];
 
 export const INITIAL_UNITS: UnitOfMeasure[] = [
-  { id: 'uom-1', name: 'Pcs', multiplier: 1 },
-  { id: 'uom-2', name: 'Carton (24)', multiplier: 24 },
-  { id: 'uom-3', name: 'Carton (48)', multiplier: 48 },
-  { id: 'uom-4', name: 'Case (12)', multiplier: 12 }
+  { id: 'uom-1', name: 'Piece', symbol: 'pc', multiplier: 1, description: 'Single unit' },
+  { id: 'uom-2', name: 'Dozen', symbol: 'doz', multiplier: 12, parentUnitId: 'uom-1', description: '12 pieces' },
+  { id: 'uom-3', name: 'Carton', symbol: 'ctn', multiplier: 240, parentUnitId: 'uom-2', description: '20 dozens = 240 pieces' }
 ];
 
 export const INITIAL_GODOWNS: Godown[] = [

@@ -96,6 +96,7 @@ export default function AccountingModule({
     const end = new Date(`${toDate}T23:59:59`);
 
     const validChallans = challans.filter(ch => {
+      if (ch.status !== 'Delivered') return false;
       const chDate = getChallanDate(ch.id);
       const d = new Date(chDate);
       return d >= start && d <= end;

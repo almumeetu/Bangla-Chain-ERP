@@ -378,7 +378,8 @@ export interface SalesOrderData {
   commissionPct:  number;
   subtotal:       number;
   commissionAmt:  number;
-  extraCommissionAmt?: number;
+  extraProfitAmt?: number;
+  extraCommissionAmt?: number; // for backward compatibility
   netTotal:       number;
   orderIds:       string[];
 }
@@ -427,7 +428,8 @@ export function printSalesOrder(order: SalesOrderData): void {
     <div class="summary"><table>
       <tr><td>Subtotal:</td><td class="text-right">৳${order.subtotal.toFixed(0)}</td></tr>
       ${order.commissionPct > 0 ? `<tr><td>Commission:</td><td class="text-right" style="color:#2563eb">−৳${(order.commissionAmt || 0).toFixed(0)}</td></tr>` : ''}
-      ${order.extraCommissionAmt && order.extraCommissionAmt > 0 ? `<tr><td>Extra Comm.:</td><td class="text-right" style="color:#2563eb">−৳${order.extraCommissionAmt.toFixed(0)}</td></tr>` : ''}
+      ${order.extraProfitAmt && order.extraProfitAmt > 0 ? `<tr><td>Extra Profit:</td><td class="text-right" style="color:#10b981">+৳${order.extraProfitAmt.toFixed(0)}</td></tr>` : ''}
+      ${!order.extraProfitAmt && order.extraCommissionAmt && order.extraCommissionAmt > 0 ? `<tr><td>Extra Comm.:</td><td class="text-right" style="color:#2563eb">−৳${order.extraCommissionAmt.toFixed(0)}</td></tr>` : ''}
       <tr class="total"><td><b>NET TOTAL:</b></td><td class="text-right"><b>৳${order.netTotal.toFixed(0)}</b></td></tr>
     </table></div>
 

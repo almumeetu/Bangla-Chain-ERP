@@ -18,7 +18,8 @@ import {
   User,
   ShoppingBag,
   Users,
-  Printer
+  Printer,
+  Pencil
 } from 'lucide-react';
 import { ChallanItem, SR, Route, DeliveryMan, Product, ProductAttribute } from '../types';
 import { translations, Language } from '../translations';
@@ -44,6 +45,7 @@ interface ChallanModuleProps {
   routes: Route[];
   deliveryMen: DeliveryMan[];
   products: Product[];
+  setProducts: React.Dispatch<React.SetStateAction<Product[]>>;
   attributes: ProductAttribute[];
   language: Language;
 }
@@ -55,6 +57,7 @@ export default function ChallanModule({
   routes,
   deliveryMen,
   products,
+  setProducts,
   attributes,
   language
 }: ChallanModuleProps) {
@@ -95,31 +98,71 @@ export default function ChallanModule({
   const [settlementStatus, setSettlementStatus] = useState<'Pending' | 'Shipped' | 'Delivered'>('Pending');
   const [settlementQuantities, setSettlementQuantities] = useState<Record<string, { returned: number, damaged: number }>>({});
   const [settlementSRCommValue, setSettlementSRCommValue] = useState<number>(0);
+  const [settlementExtraCommValue, setSettlementExtraCommValue] = useState<number>(0);
 
   // New Challan Creation Modal State
   const [showAddModal, setShowAddModal] = useState(false);
+  const [selectedCompany, setSelectedCompany] = useState(''); // Selected brand for the Challan (e.g. Pran, Olympic, Haque)
+  const [newChallanItems, setNewChallanItems] = useState<{
+    id: string;
+    productName: string;
+    attribute: string;
+    qty: number;
+    bonusQty: number;
+    rate: number;
+  }[]>([]);
+
+  // Current product selection in creation sub-form
   const [newProduct, setNewProduct] = useState('');
   const [newAttribute, setNewAttribute] = useState('');
   const [newQty, setNewQty] = useState<number>(10);
   const [newBonusQty, setNewBonusQty] = useState<number>(0);
+
   const [newCommissionAmount, setNewCommissionAmount] = useState<number>(0);
+  const [newExtraProfitAmount, setNewExtraProfitAmount] = useState<number>(0);
   const [newSR, setNewSR] = useState('');
   const [newRoute, setNewRoute] = useState('');
   const [newDeliveryMan, setNewDeliveryMan] = useState('');
   const [newStatus, setNewStatus] = useState<'Pending' | 'Shipped' | 'Delivered'>('Pending');
 
-  // Editing state for Challan
-  const [editingChallan, setEditingChallan] = useState<ChallanItem | null>(null);
-  const [editQty, setEditQty] = useState<number>(0);
-  const [editBonusQty, setEditBonusQty] = useState<number>(0);
-  const [editCommissionAmount, setEditCommissionAmount] = useState<number>(0);
-  const [editRate, setEditRate] = useState<number>(0);
+  const updateNewChallanItemQty = (itemId: string, delta: number) => {
+    setNewChallanItems(prev => prev.map(item => {
+      if (item.id === itemId) {
+        return { ...item, qty: Math.max(1, item.qty + delta) };
+      }
+      return item;
+    }));
+  };
+
+  const updateNewChallanItemBonusQty = (itemId: string, delta: number) => {
+    setNewChallanItems(prev => prev.map(item => {
+      if (item.id === itemId) {
+        return { ...item, bonusQty: Math.max(0, item.bonusQty + delta) };
+      }
+      return item;
+    }));
+  };
+
+  const filteredSrsForNewChallan = React.useMemo(() => {
+    if (!selectedCompany) return srs;
+    return srs.filter(sr => {
+      return sr.assignedCompanyIds?.some(cid => {
+        const isIdMatch = (cid === 'comp-1' && selectedCompany.toLowerCase() === 'pran') ||
+                          (cid === 'comp-2' && selectedCompany.toLowerCase() === 'olympic') ||
+                          (cid === 'comp-3' && selectedCompany.toLowerCase() === 'haque');
+        return isIdMatch || cid.toLowerCase() === selectedCompany.toLowerCase();
+      });
+    });
+  }, [selectedCompany, srs]);
+
+  // Editing state for Grouped Order
+  const [editingOrder, setEditingOrder] = useState<GroupedOrder | null>(null);
+  const [editOrderItems, setEditOrderItems] = useState<ChallanItem[]>([]);
   const [editSR, setEditSR] = useState('');
   const [editRoute, setEditRoute] = useState('');
   const [editDeliveryMan, setEditDeliveryMan] = useState('');
   const [editStatus, setEditStatus] = useState<'Pending' | 'Shipped' | 'Delivered'>('Pending');
-  const [editReturnedQty, setEditReturnedQty] = useState<number>(0);
-  const [editDamagedQty, setEditDamagedQty] = useState<number>(0);
+  const [editModeEnabled, setEditModeEnabled] = useState(false);
 
   // Filter application
   const handleSearch = (e?: React.FormEvent) => {
@@ -348,14 +391,15 @@ export default function ChallanModule({
       totalNetValue += itemNet;
     });
 
-    const srCommission = settlementSRCommValue;
+    const srCommission = Number(settlementSRCommValue) || 0;
+    const extraCommission = Number(settlementExtraCommValue) || 0;
 
     const srCommRateDisplay = language === 'bn' ? 'নির্ধারিত মূল্য' : 'Fixed Price';
 
     const dmCommRate = 2; // Default 2% Delivery Fee
     const deliveryManPay = totalSoldValue * (dmCommRate / 100);
 
-    const netToOwner = totalNetValue - srCommission - deliveryManPay;
+    const netToOwner = totalNetValue - srCommission - extraCommission - deliveryManPay;
 
     return {
       totalDispatchedQty,
@@ -370,11 +414,12 @@ export default function ChallanModule({
       totalNetValue,
       srCommRate: srCommRateDisplay,
       srCommission,
+      extraCommission,
       dmCommRate,
       deliveryManPay,
       netToOwner
     };
-  }, [settlementOrder, settlementQuantities, srs, settlementSRCommValue, language]);
+  }, [settlementOrder, settlementQuantities, srs, settlementSRCommValue, settlementExtraCommValue, language]);
 
   // Auto-fill price or get default wholesale price for selected product
   const getProductWSP = (prodName: string) => {
@@ -385,53 +430,90 @@ export default function ChallanModule({
   // Create Challan Handler
   const handleCreateChallan = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newProduct || !newSR || !newRoute || !newDeliveryMan) {
-      alert('Please fill out all required fields (Product, SR, Route, and Delivery Man)');
+    if (newChallanItems.length === 0) {
+      alert(language === 'bn' ? 'অনুগ্রহ করে কমপক্ষে একটি পণ্য যোগ করুন' : 'Please add at least one product.');
+      return;
+    }
+    if (!newSR || !newRoute || !newDeliveryMan) {
+      alert('Please fill out all required fields (Salesman SR, Market Route, and Delivery Man)');
       return;
     }
 
-    const rate = getProductWSP(newProduct);
-    const totalQty = Number(newQty) + Number(newBonusQty);
-    const baseAmount = Number(newQty) * rate;
-    const commissionAmount = Number(newCommissionAmount) || 0;
-    const totalAmount = baseAmount - commissionAmount;
-
-    const prodObj = products.find(p => p.name === newProduct);
-    const company = prodObj ? prodObj.company : 'Pran';
+    const createdAt = new Date().toISOString();
+    const totalGross = newChallanItems.reduce((sum, item) => sum + (item.qty * item.rate), 0);
+    const challanComm = Number(newCommissionAmount) || 0;
+    const challanExtraProfit = Number(newExtraProfitAmount) || 0;
 
     const srObj = srs.find(s => s.name === newSR);
     const commissionRate = srObj ? srObj.commissionRate : 5;
-    const srCommissionAmount = totalAmount * (commissionRate / 100);
 
-    const newChallan: ChallanItem = {
-      id: `ch-${Date.now()}`,
-      productName: newProduct,
-      company,
-      attribute: newAttribute || 'None',
-      qty: Number(newQty),
-      bonusQty: Number(newBonusQty),
-      totalQty,
-      rate,
-      totalAmount,
-      srName: newSR,
-      routeName: newRoute,
-      deliveryManName: newDeliveryMan,
-      status: newStatus,
-      returnedQty: 0,
-      damagedQty: 0,
-      commissionAmount,
-      createdAt: new Date().toISOString()
-    };
+    const newItemsList: ChallanItem[] = newChallanItems.map((item, index) => {
+      const baseAmount = item.qty * item.rate;
+      const share = totalGross > 0 ? baseAmount / totalGross : 0;
+      const itemComm = challanComm * share;
+      const itemExtraProfit = challanExtraProfit * share;
+      const totalAmount = baseAmount - itemComm + itemExtraProfit;
+      const srCommissionAmount = totalAmount * (commissionRate / 100);
 
-    setChallans(prev => [newChallan, ...prev]);
+      const prodObj = products.find(p => p.name === item.productName);
+      const company = prodObj ? prodObj.company : selectedCompany || 'Pran';
+
+      return {
+        id: `ch-${Date.now()}-${index}`,
+        productName: item.productName,
+        company,
+        attribute: item.attribute || 'None',
+        qty: item.qty,
+        bonusQty: item.bonusQty,
+        totalQty: item.qty + item.bonusQty,
+        rate: item.rate,
+        totalAmount,
+        srName: newSR,
+        routeName: newRoute,
+        deliveryManName: newDeliveryMan,
+        status: newStatus,
+        returnedQty: 0,
+        damagedQty: 0,
+        commissionAmount: itemComm,
+        extraProfitAmount: itemExtraProfit,
+        extraCommissionAmount: itemExtraProfit, // for backward compatibility
+        createdAt,
+        srCommissionType: 'Fixed',
+        srCommissionValue: commissionRate,
+        srCommissionAmount
+      };
+    });
+
+    // Reevaluate stock deduction if Delivered
+    if (newStatus === 'Delivered') {
+      let tempProducts = [...products];
+      newChallanItems.forEach(item => {
+        const totalQty = item.qty + item.bonusQty;
+        tempProducts = tempProducts.map(p => {
+          if (p.name === item.productName) {
+            return {
+              ...p,
+              currentStock: p.currentStock - totalQty
+            };
+          }
+          return p;
+        });
+      });
+      setProducts(tempProducts);
+    }
+
+    setChallans(prev => [...newItemsList, ...prev]);
     setShowAddModal(false);
     
     // Reset form states
+    setNewChallanItems([]);
+    setSelectedCompany('');
     setNewProduct('');
     setNewAttribute('');
     setNewQty(10);
     setNewBonusQty(0);
     setNewCommissionAmount(0);
+    setNewExtraProfitAmount(0);
     setNewSR('');
     setNewRoute('');
     setNewDeliveryMan('');
@@ -457,8 +539,10 @@ export default function ChallanModule({
     const initialValue = firstItem?.srCommissionAmount !== undefined 
       ? firstItem.srCommissionAmount 
       : defaultAmount;
+    const initialExtra = group.items.reduce((sum, it) => sum + (it.extraCommissionAmount || 0), 0);
 
     setSettlementSRCommValue(initialValue);
+    setSettlementExtraCommValue(initialExtra);
 
     setSettlementOrder(group);
     setSettlementStatus(newStatus);
@@ -484,23 +568,54 @@ export default function ChallanModule({
 
     const calculatedTotalSRComm = settlementSRCommValue;
 
-    // Update all challan items and synchronize stocks
+    // Immutably update products based on delivery state transition
+    const updatedProducts = products.map(p => {
+      let currentStock = p.currentStock;
+      let damagedStock = p.damagedStock || 0;
+
+      settlementOrder.items.forEach(ch => {
+        if (ch.productName === p.name) {
+          const itemQtyUpdates = settlementQuantities[ch.id];
+          if (itemQtyUpdates) {
+            const newReturned = Number(itemQtyUpdates.returned) || 0;
+            const newDamaged = Number(itemQtyUpdates.damaged) || 0;
+
+            const wasDelivered = ch.status === 'Delivered';
+            const isDelivered = settlementStatus === 'Delivered';
+
+            if (wasDelivered && isDelivered) {
+              const returnDiff = newReturned - (ch.returnedQty || 0);
+              currentStock += returnDiff;
+              const damageDiff = newDamaged - (ch.damagedQty || 0);
+              damagedStock += damageDiff;
+            } else if (!wasDelivered && isDelivered) {
+              const soldQty = ch.qty + ch.bonusQty - newReturned;
+              currentStock -= soldQty;
+              damagedStock += newDamaged;
+            } else if (wasDelivered && !isDelivered) {
+              const prevSoldQty = ch.qty + ch.bonusQty - ch.returnedQty;
+              currentStock += prevSoldQty;
+              damagedStock -= ch.damagedQty;
+            }
+          }
+        }
+      });
+
+      return {
+        ...p,
+        currentStock,
+        damagedStock
+      };
+    });
+    setProducts(updatedProducts);
+
+    // Update all challan items
     setChallans(prev => {
       return prev.map(ch => {
         const itemQtyUpdates = settlementQuantities[ch.id];
         if (itemQtyUpdates) {
           const newReturned = Number(itemQtyUpdates.returned) || 0;
           const newDamaged = Number(itemQtyUpdates.damaged) || 0;
-
-          // Product stock synchronization
-          const prod = products.find(p => p.name === ch.productName);
-          if (prod) {
-            const returnDiff = newReturned - (ch.returnedQty || 0);
-            prod.currentStock += returnDiff;
-
-            const damageDiff = newDamaged - (ch.damagedQty || 0);
-            prod.damagedStock = (prod.damagedStock || 0) + damageDiff;
-          }
 
           const netQty = ch.qty - newReturned - newDamaged;
           const baseAmount = Math.max(0, netQty) * ch.rate;
@@ -510,13 +625,18 @@ export default function ChallanModule({
           const itemSRCommAmount = totalUpdatedNetValue > 0 && itemUpdate
             ? calculatedTotalSRComm * (itemUpdate.netValue / totalUpdatedNetValue)
             : 0;
+          const itemExtraCommAmount = totalUpdatedNetValue > 0 && itemUpdate
+            ? settlementExtraCommValue * (itemUpdate.netValue / totalUpdatedNetValue)
+            : 0;
 
           return {
             ...ch,
             status: settlementStatus,
             returnedQty: newReturned,
             damagedQty: newDamaged,
-            totalAmount,
+            totalAmount: baseAmount - itemSRCommAmount - itemExtraCommAmount,
+            commissionAmount: itemSRCommAmount,
+            extraCommissionAmount: itemExtraCommAmount,
             srCommissionValue: settlementSRCommValue,
             srCommissionAmount: itemSRCommAmount
           };
@@ -542,13 +662,18 @@ export default function ChallanModule({
           const itemSRCommAmount = totalUpdatedNetValue > 0 && itemUpdate
             ? calculatedTotalSRComm * (itemUpdate.netValue / totalUpdatedNetValue)
             : 0;
+          const itemExtraCommAmount = totalUpdatedNetValue > 0 && itemUpdate
+            ? settlementExtraCommValue * (itemUpdate.netValue / totalUpdatedNetValue)
+            : 0;
 
           return {
             ...item,
             status: settlementStatus,
             returnedQty: newReturned,
             damagedQty: newDamaged,
-            totalAmount,
+            totalAmount: baseAmount - itemSRCommAmount - itemExtraCommAmount,
+            commissionAmount: itemSRCommAmount,
+            extraCommissionAmount: itemExtraCommAmount,
             srCommissionValue: settlementSRCommValue,
             srCommissionAmount: itemSRCommAmount
           };
@@ -574,6 +699,27 @@ export default function ChallanModule({
     if (!confirm(language === 'bn' ? 'আপনি কি নিশ্চিত যে এই পুরো অর্ডারটি ডিলিট করতে চান?' : 'Are you sure you want to delete this entire order?')) return;
     const group = groupedData.find(g => g.id === groupId);
     if (!group) return;
+
+    // Revert stock of any items that were delivered
+    const updatedProducts = products.map(p => {
+      let currentStock = p.currentStock;
+      let damagedStock = p.damagedStock || 0;
+
+      group.items.forEach(item => {
+        if (item.productName === p.name && item.status === 'Delivered') {
+          currentStock += (item.qty + item.bonusQty - item.returnedQty);
+          damagedStock -= item.damagedQty;
+        }
+      });
+
+      return {
+        ...p,
+        currentStock,
+        damagedStock
+      };
+    });
+    setProducts(updatedProducts);
+
     const itemIds = group.items.map(i => i.id);
     setChallans(prev => prev.filter(c => !itemIds.includes(c.id)));
   };
@@ -582,78 +728,119 @@ export default function ChallanModule({
     setChallans(prev => prev.map(ch => ch.id === id ? { ...ch, status: newStatus } : ch));
   };
 
-  const handleOpenEditModal = (challan: ChallanItem) => {
-    setEditingChallan(challan);
-    setEditQty(challan.qty);
-    setEditBonusQty(challan.bonusQty);
-    setEditCommissionAmount(challan.commissionAmount ?? 0);
-    setEditRate(challan.rate);
-    setEditSR(challan.srName);
-    setEditRoute(challan.routeName);
-    setEditDeliveryMan(challan.deliveryManName);
-    setEditStatus(challan.status);
-    setEditReturnedQty(challan.returnedQty || 0);
-    setEditDamagedQty(challan.damagedQty || 0);
+  const handleOpenEditOrderModal = (group: GroupedOrder) => {
+    setEditingOrder(group);
+    setEditSR(group.srName);
+    setEditRoute(group.routeName);
+    setEditDeliveryMan(group.deliveryManName);
+    setEditStatus(group.status);
+    setEditOrderItems(group.items.map(item => ({ ...item })));
   };
 
-  const handleSaveEditChallan = (e: React.FormEvent) => {
+  const handleEditOrderItemChange = (itemId: string, field: 'qty' | 'returnedQty' | 'damagedQty', val: number) => {
+    setEditOrderItems(prev => prev.map(item => {
+      if (item.id === itemId) {
+        const updated = { ...item, [field]: val };
+        updated.totalQty = updated.qty + (updated.bonusQty || 0);
+        const netQty = Math.max(0, updated.qty - (updated.returnedQty || 0) - (updated.damagedQty || 0));
+        updated.totalAmount = netQty * updated.rate - (updated.commissionAmount || 0);
+        return updated;
+      }
+      return item;
+    }));
+  };
+
+  const handleRemoveEditOrderItem = (itemId: string) => {
+    setEditOrderItems(prev => prev.filter(item => item.id !== itemId));
+  };
+
+  const handleSaveEditOrder = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingChallan) return;
+    if (!editingOrder) return;
 
-    const oldTotalQty = editingChallan.qty + (editingChallan.bonusQty || 0);
-    const newTotalQty = Number(editQty) + Number(editBonusQty);
-    const qtyDiff = newTotalQty - oldTotalQty;
-
-    const prod = products.find(p => p.name === editingChallan.productName);
-    if (prod && qtyDiff > 0 && prod.currentStock < qtyDiff) {
-      alert(`Insufficient stock! Product only has ${prod.currentStock} units available.`);
-      return;
+    // 1. Revert original stock if original status was Delivered
+    let tempProducts = [...products];
+    if (editingOrder.status === 'Delivered') {
+      editingOrder.items.forEach(oldItem => {
+        tempProducts = tempProducts.map(p => {
+          if (p.name === oldItem.productName) {
+            const restoredStock = oldItem.qty + (oldItem.bonusQty || 0) - (oldItem.returnedQty || 0);
+            const restoredDamage = oldItem.damagedQty || 0;
+            return {
+              ...p,
+              currentStock: p.currentStock + restoredStock,
+              damagedStock: Math.max(0, (p.damagedStock || 0) - restoredDamage)
+            };
+          }
+          return p;
+        });
+      });
     }
 
-    if (prod) {
-      prod.currentStock -= qtyDiff;
-      const returnDiff = Number(editReturnedQty) - (editingChallan.returnedQty || 0);
-      prod.currentStock += returnDiff;
-      const damageDiff = Number(editDamagedQty) - (editingChallan.damagedQty || 0);
-      prod.damagedStock = (prod.damagedStock || 0) + damageDiff;
+    // 2. Reduce stock if new status is Delivered
+    if (editStatus === 'Delivered') {
+      editOrderItems.forEach(newItem => {
+        tempProducts = tempProducts.map(p => {
+          if (p.name === newItem.productName) {
+            const soldStock = newItem.qty + (newItem.bonusQty || 0) - (newItem.returnedQty || 0);
+            const newDamage = newItem.damagedQty || 0;
+            return {
+              ...p,
+              currentStock: p.currentStock - soldStock,
+              damagedStock: (p.damagedStock || 0) + newDamage
+            };
+          }
+          return p;
+        });
+      });
     }
+    setProducts(tempProducts);
 
-    const netQty = Number(editQty) - Number(editReturnedQty) - Number(editDamagedQty);
-    const baseAmount = Math.max(0, netQty) * Number(editRate);
-    const commissionAmount = Number(editCommissionAmount) || 0;
-    const totalAmount = baseAmount - commissionAmount;
+    // 3. Update Challans list: remove old items and add modified final items
+    const oldItemIds = editingOrder.items.map(i => i.id);
+    const filteredChallans = challans.filter(c => !oldItemIds.includes(c.id));
 
-    const updatedItem = {
-      ...editingChallan,
-      qty: Number(editQty),
-      bonusQty: Number(editBonusQty),
-      totalQty: newTotalQty,
-      rate: Number(editRate),
-      totalAmount,
-      srName: editSR,
-      routeName: editRoute,
-      deliveryManName: editDeliveryMan,
-      status: editStatus,
-      returnedQty: Number(editReturnedQty),
-      damagedQty: Number(editDamagedQty),
-      commissionAmount
-    };
-
-    setChallans(prev => prev.map(ch => ch.id === updatedItem.id ? updatedItem : ch));
-    
-    setViewingOrder(prev => {
-      if (!prev) return prev;
-      const newItems = prev.items.map(i => i.id === updatedItem.id ? updatedItem : i);
+    // Get a unique ISO timestamp for edit tracking if date changes, otherwise keep original
+    // Since items are grouped by key containing item.createdAt, keep the original createdAt timestamp
+    // so they stay in the same order chronological position!
+    const finalChallanItems = editOrderItems.map(item => {
+      const netQty = Math.max(0, item.qty - (item.returnedQty || 0) - (item.damagedQty || 0));
+      const totalAmount = netQty * item.rate - (item.commissionAmount || 0);
       return {
-        ...prev,
-        items: newItems,
-        totalQty: newItems.reduce((acc, curr) => acc + curr.totalQty, 0),
-        totalAmount: newItems.reduce((acc, curr) => acc + curr.totalAmount, 0)
+        ...item,
+        srName: editSR,
+        routeName: editRoute,
+        deliveryManName: editDeliveryMan,
+        status: editStatus,
+        totalQty: item.qty + (item.bonusQty || 0),
+        totalAmount
       };
     });
 
-    setEditingChallan(null);
-    alert('Challan updated successfully and stock levels synchronized!');
+    setChallans([...filteredChallans, ...finalChallanItems]);
+
+    // Update viewingOrder if open
+    if (viewingOrder && viewingOrder.id === editingOrder.id) {
+      if (finalChallanItems.length === 0) {
+        setViewingOrder(null);
+      } else {
+        setViewingOrder({
+          id: `${viewingOrder.createdAt}_${editSR}_${editRoute}_${editDeliveryMan}`,
+          items: finalChallanItems,
+          createdAt: viewingOrder.createdAt,
+          srName: editSR,
+          routeName: editRoute,
+          deliveryManName: editDeliveryMan,
+          status: editStatus,
+          totalAmount: finalChallanItems.reduce((acc, curr) => acc + curr.totalAmount, 0),
+          totalQty: finalChallanItems.reduce((acc, curr) => acc + curr.totalQty, 0),
+          itemCount: finalChallanItems.length
+        });
+      }
+    }
+
+    setEditingOrder(null);
+    alert(language === 'bn' ? 'অর্ডার সফলভাবে আপডেট করা হয়েছে এবং স্টক সমন্বয় করা হয়েছে!' : 'Order updated successfully and stock levels synchronized!');
   };
 
   // CSV Exporter (Active filtered sheet)
@@ -1014,16 +1201,9 @@ export default function ChallanModule({
                       {g.deliveryManName}
                     </td>
                     <td className="px-5 py-4 text-center">
-                      <select
-                        id={`order-status-select-${g.id}`}
-                        value={g.status}
-                        onChange={(e) => handleGroupStatusChange(g.id, e.target.value as any)}
-                        className={`px-3 py-1 rounded-full text-[10px] font-bold border outline-none cursor-pointer bg-white transition-all uppercase tracking-wider ${statusStyle}`}
-                      >
-                        <option value="Pending">{tCommon.pending}</option>
-                        <option value="Shipped">{tCommon.shipped}</option>
-                        <option value="Delivered">{tCommon.delivered}</option>
-                      </select>
+                      <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-bold border uppercase tracking-wider ${statusStyle}`}>
+                        {g.status === 'Delivered' ? tCommon.delivered : g.status === 'Shipped' ? tCommon.shipped : tCommon.pending}
+                      </span>
                     </td>
                     <td className="px-5 py-4 text-center">
                       <div className="flex items-center justify-center gap-1.5">
@@ -1036,13 +1216,23 @@ export default function ChallanModule({
                           <Eye className="w-4 h-4" />
                         </button>
                         <button
-                          id={`order-action-delete-${g.id}`}
-                          onClick={() => handleDeleteGroup(g.id)}
-                          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-rose-100 bg-rose-50 text-rose-600 hover:bg-rose-100 cursor-pointer shadow-sm active:scale-95 transition-all"
-                          title="Delete Order"
+                          id={`order-action-edit-${g.id}`}
+                          onClick={() => handleOpenEditOrderModal(g)}
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 hover:border-blue-400 cursor-pointer shadow-sm active:scale-95 transition-all"
+                          title="Edit Order"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Pencil className="w-4 h-4" />
                         </button>
+                        {g.status !== 'Delivered' && (
+                          <button
+                            id={`order-action-delete-${g.id}`}
+                            onClick={() => handleDeleteGroup(g.id)}
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-rose-100 bg-rose-50 text-rose-600 hover:bg-rose-100 cursor-pointer shadow-sm active:scale-95 transition-all"
+                            title="Delete Order"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -1114,10 +1304,9 @@ export default function ChallanModule({
         )}
       </div>
 
-      {/* Creation Modal */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl border border-slate-200 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col justify-between animate-scale-up">
+          <div className="bg-white rounded-xl border border-slate-200 w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col justify-between animate-scale-up">
             
             {/* Header: custom style guide gradient header */}
             <div className="border-b border-slate-200 px-6 py-5 bg-gradient-to-r from-slate-50 to-white flex items-center justify-between shrink-0">
@@ -1136,187 +1325,395 @@ export default function ChallanModule({
 
             <form onSubmit={handleCreateChallan} className="modal-body p-6 space-y-5">
               
-              {/* Product and Attribute row */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Brand Company Select */}
+              <div className="grid grid-cols-1 gap-4">
                 <div>
-                  <label className="mb-2 block text-sm font-semibold text-slate-700">{tChallan.productSelect}</label>
+                  <label className="mb-2 block text-sm font-semibold text-slate-700">
+                    {language === 'bn' ? 'কোম্পানি / ব্র্যান্ড নির্বাচন করুন *' : 'Select Company / Brand *'}
+                  </label>
                   <select
-                    id="new-challan-product-select"
+                    id="new-challan-company-select"
                     required
-                    value={newProduct}
+                    value={selectedCompany}
                     onChange={(e) => {
-                      setNewProduct(e.target.value);
-                      const activeAttrs = attributes.filter(a => a.status === 'Active');
-                      if (activeAttrs.length > 0) {
-                        setNewAttribute(activeAttrs[0].name);
+                      const comp = e.target.value;
+                      setSelectedCompany(comp);
+                      setNewChallanItems([]); // clear items if company changes
+                      setNewProduct('');
+                      setNewAttribute('');
+
+                      // Filter SRs and auto-select
+                      if (comp) {
+                        const matchingSrs = srs.filter(sr => {
+                          return sr.assignedCompanyIds?.some(cid => {
+                            const isIdMatch = (cid === 'comp-1' && comp.toLowerCase() === 'pran') ||
+                                              (cid === 'comp-2' && comp.toLowerCase() === 'olympic') ||
+                                              (cid === 'comp-3' && comp.toLowerCase() === 'haque');
+                            return isIdMatch || cid.toLowerCase() === comp.toLowerCase();
+                          });
+                        });
+                        if (matchingSrs.length > 0) {
+                          const firstSr = matchingSrs[0];
+                          setNewSR(firstSr.name);
+                          // Mapped route for this SR
+                          const matchingRoute = routes.find(r => r.assignedSRId === firstSr.id);
+                          if (matchingRoute) {
+                            setNewRoute(matchingRoute.name);
+                            const dmObj = deliveryMen.find(dm => dm.id === matchingRoute.assignedDeliveryManId);
+                            if (dmObj) {
+                              setNewDeliveryMan(dmObj.name);
+                            } else {
+                              setNewDeliveryMan('');
+                            }
+                          } else {
+                            setNewRoute('');
+                            setNewDeliveryMan('');
+                          }
+                        } else {
+                          setNewSR('');
+                          setNewRoute('');
+                          setNewDeliveryMan('');
+                        }
+                      } else {
+                        setNewSR('');
+                        setNewRoute('');
+                        setNewDeliveryMan('');
                       }
                     }}
                     className="h-11 w-full rounded-lg border-2 border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all"
                   >
-                    <option value="">{tChallan.chooseProduct}</option>
-                    {products.map(p => (
-                      <option key={p.id} value={p.name}>{p.name} ({tChallan.rateHeader}: ৳{p.defaultWSP})</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-slate-700">{tChallan.attributeSelect}</label>
-                  <select
-                    id="new-challan-attribute-select"
-                    value={newAttribute}
-                    onChange={(e) => setNewAttribute(e.target.value)}
-                    className="h-11 w-full rounded-lg border-2 border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all"
-                  >
-                    <option value="">{tChallan.noneBulk}</option>
-                    {attributes.filter(a => a.status === 'Active').map(attr => (
-                      <option key={attr.id} value={attr.name}>{attr.name}</option>
-                    ))}
+                    <option value="">{language === 'bn' ? 'কোম্পানি নির্বাচন করুন' : 'Select Company'}</option>
+                    <option value="Pran">PRAN</option>
+                    <option value="Olympic">Olympic</option>
+                    <option value="Haque">Haque</option>
                   </select>
                 </div>
               </div>
 
-              {/* Quantities & Price Previews */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 bg-slate-50 p-4.5 rounded-lg border border-slate-200">
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-slate-700">{tChallan.primaryQty}</label>
-                  <input
-                    id="new-challan-qty-input"
-                    type="number"
-                    min="1"
-                    required
-                    value={newQty}
-                    onChange={(e) => setNewQty(Number(e.target.value))}
-                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold outline-none transition-colors focus:border-blue-500"
-                  />
-                </div>
+              {selectedCompany && (
+                <>
+                  {/* SR & Delivery Agent Selection */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <label className="mb-2 block text-sm font-semibold text-slate-700">{tChallan.srSelectLabel}</label>
+                      <select
+                        id="new-challan-sr-select"
+                        required
+                        value={newSR}
+                        onChange={(e) => {
+                          const selectedSRName = e.target.value;
+                          setNewSR(selectedSRName);
+                          // Auto-update route and delivery man mapped to this SR
+                          const srObj = srs.find(s => s.name === selectedSRName);
+                          if (srObj) {
+                            const routeObj = routes.find(r => r.assignedSRId === srObj.id);
+                            if (routeObj) {
+                              setNewRoute(routeObj.name);
+                              const dmObj = deliveryMen.find(dm => dm.id === routeObj.assignedDeliveryManId);
+                              if (dmObj) {
+                                setNewDeliveryMan(dmObj.name);
+                              } else {
+                                setNewDeliveryMan('');
+                              }
+                            } else {
+                              setNewRoute('');
+                              setNewDeliveryMan('');
+                            }
+                          } else {
+                            setNewRoute('');
+                            setNewDeliveryMan('');
+                          }
+                        }}
+                        className="h-11 w-full rounded-lg border-2 border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all"
+                      >
+                        <option value="">{tChallan.selectSr}</option>
+                        {filteredSrsForNewChallan.map(sr => (
+                          <option key={sr.id} value={sr.name}>{sr.name}</option>
+                        ))}
+                      </select>
+                    </div>
 
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-slate-700">{tChallan.bonusQty}</label>
-                  <input
-                    id="new-challan-bonus-qty-input"
-                    type="number"
-                    min="0"
-                    value={newBonusQty}
-                    onChange={(e) => setNewBonusQty(Number(e.target.value))}
-                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold outline-none transition-colors focus:border-blue-500"
-                  />
-                </div>
+                    <div>
+                      <label className="mb-2 block text-sm font-semibold text-slate-700">{tChallan.deliverySelectLabel}</label>
+                      <select
+                        id="new-challan-delivery-select"
+                        required
+                        value={newDeliveryMan}
+                        onChange={(e) => setNewDeliveryMan(e.target.value)}
+                        className="h-11 w-full rounded-lg border-2 border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all"
+                      >
+                        <option value="">{tChallan.selectDelivery}</option>
+                        {deliveryMen.map(dm => (
+                          <option key={dm.id} value={dm.name}>{dm.name} ({dm.vehicle})</option>
+                        ))}
+                      </select>
+                    </div>
 
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-slate-700">{language === 'bn' ? 'কমিশন (টাকা)' : 'Commission (Tk)'}</label>
-                  <input
-                    id="new-challan-commission-input"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={newCommissionAmount}
-                    onChange={(e) => setNewCommissionAmount(Number(e.target.value))}
-                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold outline-none transition-colors focus:border-blue-500"
-                  />
-                </div>
-
-              </div>
-
-              {/* SR & Delivery Agent Selection */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-slate-700">{tChallan.srSelectLabel}</label>
-                  <select
-                    id="new-challan-sr-select"
-                    required
-                    value={newSR}
-                    onChange={(e) => {
-                      setNewSR(e.target.value);
-                      setNewRoute('');
-                    }}
-                    className="h-11 w-full rounded-lg border-2 border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all"
-                  >
-                    <option value="">{tChallan.selectSr}</option>
-                    {srs.map(sr => (
-                      <option key={sr.id} value={sr.name}>{sr.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-slate-700">{tChallan.deliverySelectLabel}</label>
-                  <select
-                    id="new-challan-delivery-select"
-                    required
-                    value={newDeliveryMan}
-                    onChange={(e) => setNewDeliveryMan(e.target.value)}
-                    className="h-11 w-full rounded-lg border-2 border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all"
-                  >
-                    <option value="">{tChallan.selectDelivery}</option>
-                    {deliveryMen.map(dm => (
-                      <option key={dm.id} value={dm.name}>{dm.name} ({dm.vehicle})</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Status and Customers */}
-              {/* Route Beat Selection */}
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-700">{language === 'bn' ? 'মার্কেট / রুট *' : 'Market / Route *'}</label>
-                <select
-                  id="new-challan-route-select"
-                  required
-                  value={newRoute}
-                  onChange={(e) => {
-                    const routeName = e.target.value;
-                    setNewRoute(routeName);
-                    const routeObj = routes.find(r => r.name === routeName);
-                    if (routeObj) {
-                      const srObj = srs.find(s => s.id === routeObj.assignedSRId);
-                      if (srObj) {
-                        setNewSR(srObj.name);
-                      }
-                      const dmObj = deliveryMen.find(dm => dm.id === routeObj.assignedDeliveryManId);
-                      if (dmObj) {
-                        setNewDeliveryMan(dmObj.name);
-                      }
-                    }
-                  }}
-                  className="h-11 w-full rounded-lg border-2 border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all"
-                >
-                  <option value="">{language === 'bn' ? 'মার্কেট / রুট নির্বাচন করুন' : 'Select Market / Route'}</option>
-                  {routes
-                    .filter(r => {
-                      const srObj = srs.find(s => s.name === newSR);
-                      return !srObj || r.assignedSRId === srObj.id;
-                    })
-                    .map(r => (
-                      <option key={r.id} value={r.name}>{r.name}</option>
-                    ))}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-slate-700">{tChallan.statusLabel}</label>
-                  <select
-                    id="new-challan-status-select"
-                    value={newStatus}
-                    onChange={(e: any) => setNewStatus(e.target.value)}
-                    className="h-11 w-full rounded-lg border-2 border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all"
-                  >
-                    <option value="Pending">{tCommon.pending}</option>
-                    <option value="Shipped">{tCommon.shipped}</option>
-                    <option value="Delivered">{tCommon.delivered}</option>
-                  </select>
-                </div>
-
-                <div className="flex items-center justify-end">
-                  <div className="text-right">
-                    <span className="text-[11px] text-slate-400 font-semibold uppercase block tracking-wider">{tChallan.estimatedWholesalePrice}</span>
-                    <span className="text-2xl font-semibold text-emerald-600 font-mono">
-                      ৳{((newQty || 0) * getProductWSP(newProduct)).toLocaleString('en-BD')}
-                    </span>
+                    <div>
+                      <label className="mb-2 block text-sm font-semibold text-slate-700">{language === 'bn' ? 'মার্কেট / রুট *' : 'Market / Route *'}</label>
+                      <select
+                        id="new-challan-route-select"
+                        required
+                        value={newRoute}
+                        onChange={(e) => {
+                          const routeName = e.target.value;
+                          setNewRoute(routeName);
+                          const routeObj = routes.find(r => r.name === routeName);
+                          if (routeObj) {
+                            const srObj = srs.find(s => s.id === routeObj.assignedSRId);
+                            if (srObj) {
+                              setNewSR(srObj.name);
+                            }
+                            const dmObj = deliveryMen.find(dm => dm.id === routeObj.assignedDeliveryManId);
+                            if (dmObj) {
+                              setNewDeliveryMan(dmObj.name);
+                            }
+                          }
+                        }}
+                        className="h-11 w-full rounded-lg border-2 border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all"
+                      >
+                        <option value="">{language === 'bn' ? 'মার্কেট / রুট নির্বাচন করুন' : 'Select Market / Route'}</option>
+                        {routes
+                          .filter(r => {
+                            const srObj = srs.find(s => s.name === newSR);
+                            return !srObj || r.assignedSRId === srObj.id;
+                          })
+                          .map(r => (
+                            <option key={r.id} value={r.name}>{r.name}</option>
+                          ))}
+                      </select>
+                    </div>
                   </div>
-                </div>
-              </div>
+
+                  {/* Add Product Sub-Form */}
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4.5 space-y-4">
+                    <p className="font-bold text-slate-800 text-xs uppercase tracking-wider">
+                      {language === 'bn' ? 'পণ্য যোগ করুন' : 'Add Product to Challan'}
+                    </p>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="mb-2 block text-sm font-semibold text-slate-700">{tChallan.productSelect}</label>
+                        <select
+                          id="sub-challan-product-select"
+                          value={newProduct}
+                          onChange={(e) => {
+                            setNewProduct(e.target.value);
+                            const activeAttrs = attributes.filter(a => a.status === 'Active');
+                            if (activeAttrs.length > 0) {
+                              setNewAttribute(activeAttrs[0].name);
+                            }
+                          }}
+                          className="h-11 w-full rounded-lg border-2 border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-blue-500 transition-all"
+                        >
+                          <option value="">{tChallan.chooseProduct}</option>
+                          {products
+                            .filter(p => p.company.toLowerCase() === selectedCompany.toLowerCase())
+                            .map(p => (
+                              <option key={p.id} value={p.name}>{p.name} (TP: ৳{p.defaultWSP})</option>
+                            ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="mb-2 block text-sm font-semibold text-slate-700">{tChallan.attributeSelect}</label>
+                        <select
+                          id="sub-challan-attribute-select"
+                          value={newAttribute}
+                          onChange={(e) => setNewAttribute(e.target.value)}
+                          className="h-11 w-full rounded-lg border-2 border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-blue-500 transition-all"
+                        >
+                          <option value="">{tChallan.noneBulk}</option>
+                          {attributes.filter(a => a.status === 'Active').map(attr => (
+                            <option key={attr.id} value={attr.name}>{attr.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
+                      <div>
+                        <label className="mb-2 block text-sm font-semibold text-slate-700">{tChallan.primaryQty}</label>
+                        <input
+                          id="sub-challan-qty-input"
+                          type="number"
+                          min="1"
+                          value={newQty}
+                          onChange={(e) => setNewQty(Number(e.target.value))}
+                          className="h-10 w-full rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold outline-none transition-colors focus:border-blue-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="mb-2 block text-sm font-semibold text-slate-700">{tChallan.bonusQty}</label>
+                        <input
+                          id="sub-challan-bonus-qty-input"
+                          type="number"
+                          min="0"
+                          value={newBonusQty}
+                          onChange={(e) => setNewBonusQty(Number(e.target.value))}
+                          className="h-10 w-full rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold outline-none transition-colors focus:border-blue-500"
+                        />
+                      </div>
+
+                      <div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!newProduct) {
+                              alert(language === 'bn' ? 'অনুগ্রহ করে একটি পণ্য সিলেক্ট করুন' : 'Please select a product.');
+                              return;
+                            }
+                            const rate = getProductWSP(newProduct);
+                            setNewChallanItems(prev => [
+                              ...prev,
+                              {
+                                id: `temp-${Date.now()}`,
+                                productName: newProduct,
+                                attribute: newAttribute || 'None',
+                                qty: Number(newQty),
+                                bonusQty: Number(newBonusQty),
+                                rate
+                              }
+                            ]);
+                            setNewProduct('');
+                            setNewAttribute('');
+                            setNewQty(10);
+                            setNewBonusQty(0);
+                          }}
+                          className="h-10 w-full rounded-lg bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 transition-all cursor-pointer shadow-sm border border-indigo-700 flex items-center justify-center gap-1.5"
+                        >
+                          <Plus className="w-4.5 h-4.5" />
+                          {language === 'bn' ? 'তালিকায় যোগ করুন' : 'Add to List'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Added Products Table */}
+                  {newChallanItems.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="font-bold text-slate-800 text-sm border-b border-slate-200 pb-2">
+                        {language === 'bn' ? 'যোগকৃত পণ্যের তালিকা' : 'Added Products'}
+                      </p>
+                      <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                        <table className="w-full text-left text-xs border-collapse">
+                          <thead className="bg-slate-100 text-slate-700">
+                            <tr>
+                              <th className="px-3 py-2.5 font-semibold">Product Name</th>
+                              <th className="px-3 py-2.5">Variant</th>
+                              <th className="px-3 py-2.5 text-center">Billing Qty</th>
+                              <th className="px-3 py-2.5 text-center">Bonus Qty</th>
+                              <th className="px-3 py-2.5 text-right">TP (৳)</th>
+                              <th className="px-3 py-2.5 text-right">Total (৳)</th>
+                              <th className="px-3 py-2.5 text-center w-12">Action</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-200 bg-white">
+                            {newChallanItems.map((item) => (
+                              <tr key={item.id} className="hover:bg-slate-50/50">
+                                <td className="px-3 py-2 font-bold text-slate-800">{item.productName}</td>
+                                <td className="px-3 py-2 text-slate-500">{item.attribute}</td>
+                                <td className="px-3 py-2 text-center font-mono font-bold">{item.qty}</td>
+                                <td className="px-3 py-2 text-center font-mono text-slate-500">{item.bonusQty}</td>
+                                <td className="px-3 py-2 text-right font-mono font-semibold">৳{item.rate}</td>
+                                <td className="px-3 py-2 text-right font-mono font-bold">৳{(item.qty * item.rate).toLocaleString('en-BD')}</td>
+                                <td className="px-3 py-2 text-center">
+                                  <button
+                                    type="button"
+                                    onClick={() => setNewChallanItems(prev => prev.filter(x => x.id !== item.id))}
+                                    className="p-1 rounded bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors cursor-pointer"
+                                    title="Remove Item"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Status, Commission inputs & Live breakdown */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-slate-200 pt-4">
+                    <div>
+                      <label className="mb-2 block text-sm font-semibold text-slate-700">{tChallan.statusLabel}</label>
+                      <select
+                        id="new-challan-status-select"
+                        value={newStatus}
+                        onChange={(e: any) => setNewStatus(e.target.value)}
+                        className="h-11 w-full rounded-lg border-2 border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all"
+                      >
+                        <option value="Pending">{tCommon.pending}</option>
+                        <option value="Shipped">{tCommon.shipped}</option>
+                        <option value="Delivered">{tCommon.delivered}</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block text-sm font-semibold text-slate-700">{language === 'bn' ? 'কমিশন (টাকা)' : 'Commission (Tk)'}</label>
+                      <input
+                        id="new-challan-commission-input"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={newCommissionAmount}
+                        onChange={(e) => setNewCommissionAmount(Number(e.target.value))}
+                        className="h-11 w-full rounded-lg border border-indigo-200 bg-indigo-50/30 px-4 text-sm font-semibold outline-none transition-colors focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block text-sm font-semibold text-slate-700">{language === 'bn' ? 'অতিরিক্ত লাভ (টাকা)' : 'Extra Profit (Tk)'}</label>
+                      <input
+                        id="new-challan-extra-profit-input"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={newExtraProfitAmount}
+                        onChange={(e) => setNewExtraProfitAmount(Number(e.target.value))}
+                        className="h-11 w-full rounded-lg border border-emerald-200 bg-emerald-50/30 px-4 text-sm font-semibold outline-none transition-colors focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-end">
+                    {/* Live net breakdown */}
+                    {(() => {
+                      const gross = newChallanItems.reduce((sum, item) => sum + (item.qty * item.rate), 0);
+                      const comm = Number(newCommissionAmount) || 0;
+                      const extraProfit = Number(newExtraProfitAmount) || 0;
+                      const net = gross - comm + extraProfit;
+                      return (
+                        <div className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-1.5 text-xs">
+                          <div className="flex justify-between text-slate-500 font-semibold">
+                            <span>{language === 'bn' ? 'মোট পরিমাণ' : 'Gross Amount'}</span>
+                            <span className="font-mono text-slate-700">৳{gross.toLocaleString('en-BD')}</span>
+                          </div>
+                          {comm > 0 && (
+                            <div className="flex justify-between text-indigo-600 font-semibold">
+                              <span>{language === 'bn' ? 'কমিশন' : 'Commission'}</span>
+                              <span className="font-mono">- ৳{comm.toLocaleString('en-BD')}</span>
+                            </div>
+                          )}
+                          {extraProfit > 0 && (
+                            <div className="flex justify-between text-emerald-600 font-semibold">
+                              <span>{language === 'bn' ? 'অতিরিক্ত লাভ' : 'Extra Profit'}</span>
+                              <span className="font-mono">+ ৳{extraProfit.toLocaleString('en-BD')}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between border-t border-slate-200 pt-1.5 font-bold text-sm">
+                            <span className="text-slate-700">{language === 'bn' ? 'নিট পরিমাণ' : 'Net Amount'}</span>
+                            <span className="font-mono text-emerald-600">৳{net.toLocaleString('en-BD')}</span>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </>
+              )}
 
               {/* Action bar / footer: styled with border-t bg-slate-50 */}
               <div className="border-t border-slate-200 px-6 py-5 flex items-center justify-end gap-3 bg-slate-50 -mx-6 -mb-6 rounded-b-xl shrink-0">
@@ -1356,152 +1753,73 @@ export default function ChallanModule({
               <button
                 id="challan-modal-view-close"
                 onClick={() => setViewingOrder(null)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-655 hover:bg-slate-100 transition-colors cursor-pointer"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="modal-body p-6 space-y-5 text-sm overflow-y-auto">
-              <div className="flex justify-between bg-slate-50 p-4 rounded-lg border border-slate-200 shadow-sm">
+            <div className="modal-body p-5 space-y-4 text-sm overflow-y-auto">
+
+              {/* Order ID + Meta row */}
+              <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
                 <div>
-                  <p className="text-slate-400 font-semibold uppercase text-[10px] tracking-wider">Order ID / Date</p>
-                  <p className="font-mono text-slate-850 font-semibold text-sm">ORD-{new Date(viewingOrder.createdAt).getTime().toString().slice(-6)}</p>
-                  <p className="text-xs text-slate-500 font-medium">{new Date(viewingOrder.createdAt).toLocaleString()}</p>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Order ID</p>
+                  <p className="font-mono font-bold text-slate-800 text-sm">ORD-{new Date(viewingOrder.createdAt).getTime().toString().slice(-6)}</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">{new Date(viewingOrder.createdAt).toLocaleString()}</p>
                 </div>
-                <div className="text-right">
-                  <p className="text-slate-400 font-semibold uppercase text-[10px] tracking-wider mb-1">{tChallan.statusUpper}</p>
-                  <span className={`px-2.5 py-0.5 rounded text-xs font-semibold border inline-block ${
+                <div className="text-right flex flex-col items-end gap-1.5">
+                  <span className={`px-2.5 py-1 rounded-lg text-xs font-bold border ${
                     viewingOrder.status === 'Delivered' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                    viewingOrder.status === 'Shipped' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                    'bg-amber-50 text-amber-705 border-amber-200'
+                    viewingOrder.status === 'Shipped'   ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                                         'bg-amber-50 text-amber-700 border-amber-200'
                   }`}>
                     {viewingOrder.status === 'Delivered' ? tCommon.delivered :
-                     viewingOrder.status === 'Shipped' ? tCommon.shipped :
+                     viewingOrder.status === 'Shipped'   ? tCommon.shipped :
                      tCommon.pending}
                   </span>
+                  <div className="flex gap-3 text-xs text-slate-500 font-semibold">
+                    <span>SR: <span className="text-slate-800">{viewingOrder.srName}</span></span>
+                    <span>·</span>
+                    <span>{viewingOrder.routeName}</span>
+                    <span>·</span>
+                    <span>{viewingOrder.deliveryManName}</span>
+                  </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-4 bg-slate-50 p-4 rounded-lg border border-slate-200">
-                <div>
-                  <p className="text-slate-455 font-semibold text-xs mb-1">SR Name</p>
-                  <p className="font-bold text-slate-800">{viewingOrder.srName}</p>
-                </div>
-                <div>
-                  <p className="text-slate-455 font-semibold text-xs mb-1">Route</p>
-                  <p className="font-bold text-slate-800">{viewingOrder.routeName}</p>
-                </div>
-                <div>
-                  <p className="text-slate-455 font-semibold text-xs mb-1">Delivery Agent</p>
-                  <p className="font-bold text-slate-800">{viewingOrder.deliveryManName}</p>
-                </div>
+              {/* Settlement numbers — compact horizontal row */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[
+                  { label: language === 'bn' ? 'চালানি সরবরাহ' : 'Dispatched', value: `৳${settlement?.totalDispatchedValue.toLocaleString('en-BD')}`, sub: `${settlement?.totalDispatchedQty} units`, color: 'text-slate-800', bg: 'bg-slate-50 border-slate-200' },
+                  { label: language === 'bn' ? 'মোট বিক্রয়' : 'Sold', value: `৳${settlement?.totalSoldValue.toLocaleString('en-BD')}`, sub: `${settlement?.totalSoldQty} sold`, color: 'text-blue-700', bg: 'bg-blue-50/60 border-blue-100' },
+                  { label: language === 'bn' ? 'মোট ফেরত' : 'Returned', value: `৳${settlement?.totalReturnedValue.toLocaleString('en-BD')}`, sub: `${settlement?.totalReturnedQty} returned`, color: 'text-amber-700', bg: 'bg-amber-50/60 border-amber-100' },
+                  { label: language === 'bn' ? 'মোট ড্যামেজ' : 'Damaged', value: `৳${settlement?.totalDamagedValue.toLocaleString('en-BD')}`, sub: `${settlement?.totalDamagedQty} damaged`, color: 'text-rose-700', bg: 'bg-rose-50/60 border-rose-100' },
+                ].map((m, i) => (
+                  <div key={i} className={`rounded-xl border p-3 ${m.bg}`}>
+                    <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">{m.label}</p>
+                    <p className={`font-mono font-extrabold text-base mt-0.5 ${m.color}`}>{m.value}</p>
+                    <p className="text-[10px] text-slate-400 font-semibold">{m.sub}</p>
+                  </div>
+                ))}
               </div>
 
-              {/* Financial & Settlement Summary Dashboard */}
-              <div className="space-y-3">
-                <p className="font-bold text-slate-800 text-sm border-b border-slate-200 pb-2">
-                  {language === 'bn' ? 'চালান হিসাব-নিকাশ ও সেটেলমেন্ট' : 'Challan Accounts & Settlement'}
-                </p>
-                
-                {/* Metrics Grid */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 shadow-sm">
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                      {language === 'bn' ? 'মোট চালানি সরবরাহ' : 'Total Dispatched'}
-                    </p>
-                    <p className="text-lg font-mono font-extrabold text-slate-850 mt-1">
-                      ৳{settlement?.totalDispatchedValue.toLocaleString('en-BD')}
-                    </p>
-                    <p className="text-[10px] text-slate-500 font-bold mt-0.5">
-                      {settlement?.totalDispatchedQty} {language === 'bn' ? 'পিস' : 'units'}
-                    </p>
+              {/* Cash flow + Net receivable */}
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="flex-1 bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-1.5">
+                  <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">{language === 'bn' ? 'ক্যাশ ফ্লো' : 'Cash Flow'}</p>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">{language === 'bn' ? 'নেট কালেকশন' : 'Net Collection'}:</span>
+                    <span className="font-mono font-bold text-slate-800">৳{settlement?.totalNetValue.toLocaleString('en-BD')}</span>
                   </div>
-
-                  <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-3.5 shadow-sm">
-                    <p className="text-[10px] text-blue-500 font-bold uppercase tracking-wider">
-                      {language === 'bn' ? 'মোট বিক্রয় মূল্য' : 'Total Sold'}
-                    </p>
-                    <p className="text-lg font-mono font-extrabold text-blue-900 mt-1">
-                      ৳{settlement?.totalSoldValue.toLocaleString('en-BD')}
-                    </p>
-                    <p className="text-[10px] text-blue-500 font-bold mt-0.5">
-                      {settlement?.totalSoldQty} {language === 'bn' ? 'পিস বিক্রি' : 'units sold'}
-                    </p>
-                  </div>
-
-                  <div className="bg-amber-50/50 border border-amber-100 rounded-xl p-3.5 shadow-sm">
-                    <p className="text-[10px] text-amber-600 font-bold uppercase tracking-wider">
-                      {language === 'bn' ? 'মোট ফেরত মূল্য' : 'Total Returned'}
-                    </p>
-                    <p className="text-lg font-mono font-extrabold text-amber-900 mt-1">
-                      ৳{settlement?.totalReturnedValue.toLocaleString('en-BD')}
-                    </p>
-                    <p className="text-[10px] text-amber-650 font-bold mt-0.5">
-                      {settlement?.totalReturnedQty} {language === 'bn' ? 'পিস ফেরত' : 'units returned'}
-                    </p>
-                  </div>
-
-                  <div className="bg-rose-50/50 border border-rose-100 rounded-xl p-3.5 shadow-sm">
-                    <p className="text-[10px] text-rose-600 font-bold uppercase tracking-wider">
-                      {language === 'bn' ? 'মোট ড্যামেজ মূল্য' : 'Total Damaged'}
-                    </p>
-                    <p className="text-lg font-mono font-extrabold text-rose-900 mt-1">
-                      ৳{settlement?.totalDamagedValue.toLocaleString('en-BD')}
-                    </p>
-                    <p className="text-[10px] text-rose-500 font-bold mt-0.5">
-                      {settlement?.totalDamagedQty} {language === 'bn' ? 'পিস নষ্ট' : 'units damaged'}
-                    </p>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">{language === 'bn' ? 'ডিসকাউন্ট' : 'Discounts'}:</span>
+                    <span className="font-mono text-slate-600">৳{settlement?.totalCommission.toLocaleString('en-BD')}</span>
                   </div>
                 </div>
-
-                {/* Detailed financial accounting card */}
-                <div className="bg-gradient-to-br from-slate-50 via-white to-slate-50 border border-slate-200 rounded-xl p-4 shadow-sm">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 divide-y md:divide-y-0 md:divide-x divide-slate-200">
-                    
-                    {/* Left Column: Cash flow */}
-                    <div className="space-y-2">
-                      <h5 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
-                        {language === 'bn' ? 'আদায় ও লাভ' : 'Cash Flow'}
-                      </h5>
-                      <div className="flex justify-between text-xs">
-                        <span className="text-slate-500 font-medium">{language === 'bn' ? 'আদায়যোগ্য বাজার মূল্য' : 'Net Market Collection'}:</span>
-                        <span className="font-mono font-bold text-slate-800">৳{settlement?.totalNetValue.toLocaleString('en-BD')}</span>
-                      </div>
-                      <div className="flex justify-between text-xs">
-                        <span className="text-slate-500 font-medium">{language === 'bn' ? 'আইটেম ডিসকাউন্ট/কমিশন' : 'Item Discounts'}:</span>
-                        <span className="font-mono text-slate-800">৳{settlement?.totalCommission.toLocaleString('en-BD')}</span>
-                      </div>
-                    </div>
-
-                    {/* Middle Column: Commissions */}
-                    <div className="space-y-2 md:pl-6">
-                      <h5 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
-                        {language === 'bn' ? 'কমিশন ও খরচ' : 'Commissions & Fees'}
-                      </h5>
-                      <div className="flex justify-between text-xs">
-                        <span className="text-slate-500 font-medium">{language === 'bn' ? 'এসআর কমিশন:' : 'SR Commission:'}</span>
-                        <span className="font-mono font-bold text-rose-650">-৳{settlement?.srCommission.toLocaleString('en-BD')}</span>
-                      </div>
-                      <div className="flex justify-between text-xs">
-                        <span className="text-slate-500 font-medium">Delivery Agent Fee ({settlement?.dmCommRate}%):</span>
-                        <span className="font-mono font-bold text-rose-650">-৳{settlement?.deliveryManPay.toLocaleString('en-BD')}</span>
-                      </div>
-                    </div>
-
-                    {/* Right Column: Owner payout */}
-                    <div className="space-y-2 md:pl-6 flex flex-col justify-center">
-                      <div className="p-2.5 rounded-lg bg-emerald-50/60 border border-emerald-200 shadow-sm">
-                        <h5 className="text-[10px] font-extrabold text-emerald-800 uppercase tracking-wider">
-                          {language === 'bn' ? 'মালিকের নিট পাওনা (পাবেন)' : 'Owner Net Receivable'}
-                        </h5>
-                        <p className="text-xl font-mono font-black text-emerald-700 mt-1">
-                          ৳{settlement?.netToOwner.toLocaleString('en-BD')}
-                        </p>
-                      </div>
-                    </div>
-
-                  </div>
+                <div className="sm:w-52 bg-emerald-50 border border-emerald-200 rounded-xl p-3.5 flex flex-col justify-center">
+                  <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-600">{language === 'bn' ? 'মালিকের নিট পাওনা' : 'Owner Net Receivable'}</p>
+                  <p className="text-2xl font-mono font-black text-emerald-700 mt-1">৳{settlement?.netToOwner.toLocaleString('en-BD')}</p>
                 </div>
               </div>
 
@@ -1512,51 +1830,40 @@ export default function ChallanModule({
                     <thead className="bg-slate-100 text-slate-700">
                       <tr>
                         <th className="px-4 py-3 font-semibold">Product</th>
+                        <th className="px-4 py-3 font-semibold text-right text-indigo-600">DP (৳)</th>
+                        <th className="px-4 py-3 font-semibold text-right text-emerald-600">TP (৳)</th>
                         <th className="px-4 py-3 font-semibold text-center">Qty</th>
                         <th className="px-4 py-3 font-semibold text-center">Bonus</th>
                         <th className="px-4 py-3 font-semibold text-center">Total</th>
                         <th className="px-4 py-3 font-semibold text-right">Amount (৳)</th>
-                        <th className="px-4 py-3 font-semibold text-center">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200 bg-white">
-                      {viewingOrder.items.map((item, idx) => (
+                      {viewingOrder.items.map((item, idx) => {
+                        const prod = products.find(p => p.name === item.productName);
+                        return (
                         <tr key={idx} className="hover:bg-slate-50">
                           <td className="px-4 py-3">
                             <p className="font-bold text-slate-800">{item.productName}</p>
                             <p className="text-[10px] text-slate-500">{item.attribute}</p>
                           </td>
+                          <td className="px-4 py-3 text-right">
+                            <span className="font-mono font-bold text-indigo-700 text-xs">
+                              {prod ? prod.defaultPP.toLocaleString('en-BD') : '—'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <span className="font-mono font-bold text-emerald-700 text-xs">
+                              {prod ? prod.defaultWSP.toLocaleString('en-BD') : '—'}
+                            </span>
+                          </td>
                           <td className="px-4 py-3 text-center font-mono">{item.qty}</td>
                           <td className="px-4 py-3 text-center font-mono text-slate-500">+{item.bonusQty}</td>
                           <td className="px-4 py-3 text-center font-mono font-bold bg-slate-50/50">{item.totalQty}</td>
                           <td className="px-4 py-3 text-right font-mono font-bold">{(item.totalAmount).toLocaleString('en-BD')}</td>
-                          <td className="px-4 py-3 text-center">
-                            <div className="flex items-center justify-center gap-1.5">
-                              <button
-                                onClick={() => handleOpenEditModal(item)}
-                                className="p-1.5 rounded-lg border border-indigo-200 text-indigo-600 hover:bg-indigo-50 transition-colors"
-                                title="Edit Item"
-                              >
-                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                </svg>
-                              </button>
-                              <button
-                                onClick={() => {
-                                  if (confirm(tCommon.confirmDelete)) {
-                                    setChallans(prev => prev.filter(c => c.id !== item.id));
-                                    setViewingOrder(prev => prev ? { ...prev, items: prev.items.filter(c => c.id !== item.id) } : null);
-                                  }
-                                }}
-                                className="p-1.5 rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 transition-colors"
-                                title="Delete Item"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -1565,7 +1872,7 @@ export default function ChallanModule({
                 </div>
               </div>
             </div>
-
+ 
             <div className="border-t border-slate-200 px-6 py-4 flex flex-wrap items-center justify-end gap-3 bg-slate-50 shrink-0 rounded-b-xl">
               {/* Quick status transition actions */}
               {viewingOrder.status === 'Pending' && (
@@ -1586,16 +1893,7 @@ export default function ChallanModule({
                   {language === 'bn' ? 'ডেলিভারি সেটেল করুন (Delivered)' : 'Settle Delivery (Delivered)'}
                 </button>
               )}
-              {viewingOrder.status === 'Delivered' && (
-                <button
-                  type="button"
-                  onClick={() => handleGroupStatusChange(viewingOrder.id, 'Pending')}
-                  className="flex-1 py-3 bg-gradient-to-r from-amber-500 to-amber-600 text-white hover:from-amber-600 hover:to-amber-700 font-bold rounded-lg text-sm transition-all active:scale-95 text-center shadow-sm cursor-pointer"
-                >
-                  {language === 'bn' ? 'পেন্ডিং করুন (Pending)' : 'Set back to Pending'}
-                </button>
-              )}
-
+ 
               <button
                 id="viewing-challan-btn-print-sheet"
                 type="button"
@@ -1613,6 +1911,17 @@ export default function ChallanModule({
               >
                 <Printer className="w-4 h-4" />
                 Print / Export PDF
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setViewingOrder(null);
+                  handleOpenEditOrderModal(viewingOrder);
+                }}
+                className="flex-1 py-3 bg-blue-600 hover:bg-blue-750 text-white font-semibold rounded-lg text-sm transition-all active:scale-95 text-center shadow-md cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <Pencil className="w-4 h-4" />
+                {language === 'bn' ? 'সম্পাদনা করুন' : 'Edit Order'}
               </button>
               <button
                 id="viewing-challan-btn-close"
@@ -1766,7 +2075,7 @@ export default function ChallanModule({
                     <span className="font-mono font-bold text-slate-800 text-sm">৳{transitionSettlement?.totalDispatchedValue.toLocaleString('en-BD')}</span>
                   </div>
                   <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
-                    <span className="text-blue-600 font-bold block">{language === 'bn' ? 'বিক্রয় মূল্য' : 'Sold Value'}</span>
+                    <span className="text-blue-600 font-bold block">{language === 'bn' ? 'বিক্রয় মূল্য' : 'Sold Value'}</span>
                     <span className="font-mono font-extrabold text-blue-900 text-sm">৳{transitionSettlement?.totalSoldValue.toLocaleString('en-BD')}</span>
                   </div>
                   <div className="bg-amber-50 border border-amber-100 rounded-lg p-3">
@@ -1779,39 +2088,36 @@ export default function ChallanModule({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-3 border-t border-slate-200 text-xs">
+                <div className="pt-3 border-t border-slate-200 text-xs">
                   <div className="flex flex-col justify-center">
-                    <span className="text-slate-550 block font-bold mb-1">{language === 'bn' ? 'আদায়যোগ্য বাজার মূল্য' : 'Net Market Collection'}:</span>
+                    <span className="text-slate-550 block font-bold mb-1">{language === 'bn' ? 'আদায়যোগ্য বাজার মূল্য' : 'Net Market Collection'}:</span>
                     <span className="font-mono font-black text-slate-800 text-base">৳{transitionSettlement?.totalNetValue.toLocaleString('en-BD')}</span>
                   </div>
-                  
-                  {/* Interactive SR Commission Block */}
-                  <div className="space-y-1.5 p-2.5 rounded-lg bg-indigo-50/50 border border-indigo-100/80 shadow-sm flex flex-col justify-between">
-                    <span className="text-indigo-900 block font-bold text-[10px] uppercase tracking-wider">
-                      {language === 'bn' ? 'এসআর কমিশন (টাকা)' : 'SR Commission (Tk)'}
-                    </span>
-                    
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-bold text-indigo-700 font-mono text-sm">৳</span>
-                      <input
-                        type="number"
-                        min="0"
-                        step="1"
-                        value={settlementSRCommValue}
-                        onChange={(e) => setSettlementSRCommValue(Math.max(0, Number(e.target.value) || 0))}
-                        className="h-8 w-full px-2 font-mono font-semibold rounded border border-slate-200 bg-white focus:border-indigo-500 outline-none text-xs text-slate-800"
-                      />
-                    </div>
+                </div>
 
-                    <div className="flex justify-between items-center text-[10px] mt-1 pt-1 border-t border-indigo-100">
-                      <span className="text-slate-500 font-bold">{language === 'bn' ? 'মোট কমিশন:' : 'Total Commission:'}</span>
-                      <span className="font-mono font-black text-rose-600 text-xs">-৳{transitionSettlement?.srCommission.toLocaleString('en-BD')}</span>
-                    </div>
+                {/* Fixed Commission and Extra Commission adjustment during settlement */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t border-slate-200">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">{language === 'bn' ? 'কমিশন (টাকা)' : 'Commission (Tk)'}</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={settlementSRCommValue}
+                      onChange={(e) => setSettlementSRCommValue(Number(e.target.value))}
+                      className="h-9 w-full rounded-lg border border-indigo-200 bg-white px-3 text-xs font-semibold outline-none focus:border-indigo-500"
+                    />
                   </div>
-
-                  <div className="flex flex-col justify-center">
-                    <span className="text-slate-555 block font-bold mb-1">Delivery Agent Fee ({transitionSettlement?.dmCommRate}%):</span>
-                    <span className="font-mono font-black text-rose-650 text-base">-৳{transitionSettlement?.deliveryManPay.toLocaleString('en-BD')}</span>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">{language === 'bn' ? 'অতিরিক্ত কমিশন (টাকা)' : 'Extra Commission (Tk)'}</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={settlementExtraCommValue}
+                      onChange={(e) => setSettlementExtraCommValue(Number(e.target.value))}
+                      className="h-9 w-full rounded-lg border border-purple-200 bg-white px-3 text-xs font-semibold outline-none focus:border-purple-500"
+                    />
                   </div>
                 </div>
 
@@ -1847,200 +2153,283 @@ export default function ChallanModule({
         </div>
       )}
 
-      {/* Edit Challan Modal */}
-      {editingChallan && (
+      {/* Edit Order Modal */}
+      {editingOrder && (
         <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl border border-slate-200 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col justify-between animate-scale-up">
+          <div className="bg-white rounded-xl border border-slate-200 w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col justify-between animate-scale-up">
             
             <div className="border-b border-slate-200 px-6 py-5 bg-gradient-to-r from-slate-50 to-white flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
-                <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-                <h3 className="font-semibold text-slate-800 text-lg">{language === 'bn' ? 'চলান ও বিক্রয় সংশোধন' : 'Edit Delivery Order & Sale'}</h3>
+                <Pencil className="w-5 h-5 text-blue-600" />
+                <h3 className="font-semibold text-slate-800 text-lg">
+                  {language === 'bn' ? 'অর্ডার সংশোধন ও আপডেট' : 'Edit Order & Sales Details'}
+                </h3>
               </div>
-              <button
-                id="challan-modal-edit-close"
-                onClick={() => setEditingChallan(null)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                {/* Edit Mode Lock Toggle */}
+                <button
+                  type="button"
+                  onClick={() => setEditModeEnabled(prev => !prev)}
+                  className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                    editModeEnabled
+                      ? 'bg-blue-600 text-white border-blue-700 shadow-md'
+                      : 'bg-amber-50 text-amber-700 border-amber-300 hover:bg-amber-100'
+                  }`}
+                >
+                  {editModeEnabled ? (
+                    <><span>🔓</span> {language === 'bn' ? 'সম্পাদনা চলছে' : 'Editing Enabled'}</>
+                  ) : (
+                    <><span>🔒</span> {language === 'bn' ? 'সম্পাদনা লক' : 'Click to Edit'}</>
+                  )}
+                </button>
+                <button
+                  id="challan-modal-edit-close"
+                  type="button"
+                  onClick={() => { setEditingOrder(null); setEditModeEnabled(false); }}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
-            <form onSubmit={handleSaveEditChallan} className="modal-body p-6 space-y-5">
-              <div className="p-4 bg-slate-50 rounded-lg border border-slate-200 space-y-1">
-                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Product Description</span>
-                <p className="font-bold text-slate-800 text-sm">{editingChallan.productName} ({editingChallan.attribute})</p>
-                <p className="text-xs text-slate-500 font-medium">Company: {editingChallan.company || 'N/A'}</p>
+            {/* Locked notice banner */}
+            {!editModeEnabled && (
+              <div className="mx-6 mt-4 flex items-center gap-2.5 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs font-semibold text-amber-800">
+                <span className="text-base">🔒</span>
+                <span>{language === 'bn' ? 'ভিউ মোড — পরিবর্তন করতে উপরে "Click to Edit" বাটনে ক্লিক করুন।' : 'View mode — click the "Click to Edit" button above to unlock and make changes.'}</span>
               </div>
+            )}
 
-              {/* Quantities & Price edit */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-                <div>
-                  <label className="mb-2 block text-xs font-semibold text-slate-700">Billing Quantity *</label>
-                  <input
-                    id="edit-challan-qty-input"
-                    type="number"
-                    min="1"
-                    required
-                    value={editQty}
-                    onChange={(e) => setEditQty(Number(e.target.value))}
-                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition-colors focus:border-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="mb-2 block text-xs font-semibold text-slate-700">Bonus Quantity *</label>
-                  <input
-                    id="edit-challan-bonus-qty-input"
-                    type="number"
-                    min="0"
-                    required
-                    value={editBonusQty}
-                    onChange={(e) => setEditBonusQty(Number(e.target.value))}
-                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition-colors focus:border-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="mb-2 block text-xs font-semibold text-slate-700">Commission (Tk)</label>
-                  <input
-                    id="edit-challan-commission-input"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={editCommissionAmount}
-                    onChange={(e) => setEditCommissionAmount(Number(e.target.value))}
-                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold outline-none transition-colors focus:border-blue-500"
-                  />
-                </div>
-              </div>
-
-              {/* Returns & Damages */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-rose-50/50 p-4.5 rounded-lg border border-rose-100">
-                <div>
-                  <label className="mb-2 block text-xs font-semibold text-rose-800">Returned Quantity (Returns Log)</label>
-                  <input
-                    id="edit-challan-returned-qty"
-                    type="number"
-                    min="0"
-                    value={editReturnedQty}
-                    onChange={(e) => setEditReturnedQty(Number(e.target.value))}
-                    className="h-10 w-full rounded-lg border border-rose-200 bg-white px-3 text-sm font-semibold outline-none transition-colors focus:border-rose-500"
-                  />
-                </div>
-                <div>
-                  <label className="mb-2 block text-xs font-semibold text-rose-800">Damaged Quantity (Damages Log)</label>
-                  <input
-                    id="edit-challan-damaged-qty"
-                    type="number"
-                    min="0"
-                    value={editDamagedQty}
-                    onChange={(e) => setEditDamagedQty(Number(e.target.value))}
-                    className="h-10 w-full rounded-lg border border-rose-200 bg-white px-3 text-sm font-semibold outline-none transition-colors focus:border-rose-500"
-                  />
-                </div>
-              </div>
-
-              {/* SR & Route & Delivery Agent */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <label className="mb-2 block text-xs font-semibold text-slate-700">Sales Officer (SR)</label>
-                  <select
-                    id="edit-challan-sr-select"
-                    value={editSR}
-                    onChange={(e) => setEditSR(e.target.value)}
-                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold outline-none focus:border-blue-500 transition-colors"
-                  >
-                    {srs.map(sr => (
-                      <option key={sr.id} value={sr.name}>{sr.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-2 block text-xs font-semibold text-slate-700">{language === 'bn' ? 'মার্কেট / রুট' : 'Market / Route'}</label>
-                  <select
-                    id="edit-challan-route-select"
-                    value={editRoute}
-                    onChange={(e) => {
-                      const routeName = e.target.value;
-                      setEditRoute(routeName);
-                      const routeObj = routes.find(r => r.name === routeName);
-                      if (routeObj) {
-                        const srObj = srs.find(s => s.id === routeObj.assignedSRId);
-                        if (srObj) {
-                          setEditSR(srObj.name);
-                        }
-                        const dmObj = deliveryMen.find(dm => dm.id === routeObj.assignedDeliveryManId);
-                        if (dmObj) {
-                          setEditDeliveryMan(dmObj.name);
-                        }
-                      }
-                    }}
-                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold outline-none focus:border-blue-500 transition-colors"
-                  >
-                    {routes.map(r => (
-                      <option key={r.id} value={r.name}>{r.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-2 block text-xs font-semibold text-slate-700">Delivery Agent</label>
-                  <select
-                    id="edit-challan-delivery-select"
-                    value={editDeliveryMan}
-                    onChange={(e) => setEditDeliveryMan(e.target.value)}
-                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold outline-none focus:border-blue-500 transition-colors"
-                  >
-                    {deliveryMen.map(dm => (
-                      <option key={dm.id} value={dm.name}>{dm.name}</option>
-                    ))}
-                  </select>
+            <form onSubmit={handleSaveEditOrder} className="modal-body p-6 space-y-5 text-sm">
+              
+              {/* Order Settings Section */}
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-4">
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                  {language === 'bn' ? 'অর্ডার লেভেল সেটিংস' : 'Order Level Settings'}
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                  <div>
+                    <label className="mb-1.5 block text-xs font-semibold text-slate-700">SR / Salesperson</label>
+                    {editModeEnabled ? (
+                      <select
+                        value={editSR}
+                        onChange={(e) => setEditSR(e.target.value)}
+                        className="h-10 w-full rounded-xl border border-blue-300 bg-white px-3 text-xs font-semibold outline-none focus:border-blue-500 transition-colors"
+                      >
+                        {srs.map(sr => <option key={sr.id} value={sr.name}>{sr.name}</option>)}
+                      </select>
+                    ) : (
+                      <div className="h-10 w-full rounded-xl border border-slate-200 bg-slate-100 px-3 flex items-center text-xs font-semibold text-slate-700 select-none">{editSR}</div>
+                    )}
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-xs font-semibold text-slate-700">Route Beat</label>
+                    {editModeEnabled ? (
+                      <select
+                        value={editRoute}
+                        onChange={(e) => {
+                          const routeName = e.target.value;
+                          setEditRoute(routeName);
+                          const routeObj = routes.find(r => r.name === routeName);
+                          if (routeObj) {
+                            const srObj = srs.find(s => s.id === routeObj.assignedSRId);
+                            if (srObj) setEditSR(srObj.name);
+                            const dmObj = deliveryMen.find(dm => dm.id === routeObj.assignedDeliveryManId);
+                            if (dmObj) setEditDeliveryMan(dmObj.name);
+                          }
+                        }}
+                        className="h-10 w-full rounded-xl border border-blue-300 bg-white px-3 text-xs font-semibold outline-none focus:border-blue-500 transition-colors"
+                      >
+                        {routes.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
+                      </select>
+                    ) : (
+                      <div className="h-10 w-full rounded-xl border border-slate-200 bg-slate-100 px-3 flex items-center text-xs font-semibold text-slate-700 select-none">{editRoute}</div>
+                    )}
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-xs font-semibold text-slate-700">Delivery Agent</label>
+                    {editModeEnabled ? (
+                      <select
+                        value={editDeliveryMan}
+                        onChange={(e) => setEditDeliveryMan(e.target.value)}
+                        className="h-10 w-full rounded-xl border border-blue-300 bg-white px-3 text-xs font-semibold outline-none focus:border-blue-500 transition-colors"
+                      >
+                        {deliveryMen.map(dm => <option key={dm.id} value={dm.name}>{dm.name}</option>)}
+                      </select>
+                    ) : (
+                      <div className="h-10 w-full rounded-xl border border-slate-200 bg-slate-100 px-3 flex items-center text-xs font-semibold text-slate-700 select-none">{editDeliveryMan}</div>
+                    )}
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-xs font-semibold text-slate-700">Order Status</label>
+                    {editModeEnabled ? (
+                      <select
+                        value={editStatus}
+                        onChange={(e: any) => setEditStatus(e.target.value)}
+                        className="h-10 w-full rounded-xl border border-blue-300 bg-white px-3 text-xs font-semibold outline-none focus:border-blue-500 transition-colors"
+                      >
+                        <option value="Pending">Pending</option>
+                        <option value="Shipped">Shipped</option>
+                        <option value="Delivered">Delivered</option>
+                      </select>
+                    ) : (
+                      <div className="h-10 w-full rounded-xl border border-slate-200 bg-slate-100 px-3 flex items-center text-xs font-semibold select-none">
+                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider ${
+                          editStatus === 'Delivered' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                          editStatus === 'Shipped' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                          'bg-amber-50 text-amber-700 border-amber-200'
+                        }`}>{editStatus}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              {/* Status Selector */}
-              <div>
-                <label className="mb-2 block text-xs font-semibold text-slate-700">Delivery Status</label>
-                <select
-                  id="edit-challan-status"
-                  value={editStatus}
-                  onChange={(e: any) => setEditStatus(e.target.value)}
-                  className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold outline-none focus:border-blue-500 transition-colors"
-                >
-                  <option value="Pending">Pending</option>
-                  <option value="Shipped">Shipped</option>
-                  <option value="Delivered">Delivered</option>
-                </select>
+              {/* Order Products List */}
+              <div className="space-y-2">
+                <p className="font-bold text-slate-800 text-sm border-b border-slate-200 pb-2">
+                  {language === 'bn' ? 'পণ্য সংশোধন তালিকা' : 'Modify Order Products'}
+                </p>
+                <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-slate-100 text-slate-700">
+                      <tr>
+                        <th className="px-3 py-2.5 font-semibold">Product Name</th>
+                        <th className="px-3 py-2.5 text-right text-indigo-650">DP (৳)</th>
+                        <th className="px-3 py-2.5 text-right text-emerald-650">TP (৳)</th>
+                        <th className="px-3 py-2.5 text-center w-24">Billing Qty</th>
+                        <th className="px-3 py-2.5 text-center w-24">Returned Qty</th>
+                        <th className="px-3 py-2.5 text-center w-24">Damaged Qty</th>
+                        <th className="px-3 py-2.5 text-right">Amount (৳)</th>
+                        <th className="px-3 py-2.5 text-center w-12">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-250 bg-white">
+                      {editOrderItems.map((item, idx) => {
+                        const prod = products.find(p => p.name === item.productName);
+                        return (
+                          <tr key={idx} className="hover:bg-slate-50/50">
+                            <td className="px-3 py-2">
+                              <p className="font-bold text-slate-800">{item.productName}</p>
+                              <p className="text-[10px] text-slate-500">{item.attribute}</p>
+                            </td>
+                            <td className="px-3 py-2 text-right font-mono text-indigo-700 font-bold">
+                              {prod ? prod.defaultPP.toLocaleString('en-BD') : '—'}
+                            </td>
+                            <td className="px-3 py-2 text-right font-mono text-emerald-700 font-bold">
+                              {prod ? prod.defaultWSP.toLocaleString('en-BD') : '—'}
+                            </td>
+                            <td className="px-3 py-2 text-center">
+                              {editModeEnabled ? (
+                                <input
+                                  type="number" min="1" required
+                                  value={item.qty}
+                                  onChange={(e) => handleEditOrderItemChange(item.id, 'qty', Number(e.target.value))}
+                                  className="w-20 h-8 rounded-lg border border-blue-300 text-center font-semibold font-mono text-xs focus:border-blue-500 outline-none bg-blue-50/20"
+                                />
+                              ) : (
+                                <span className="inline-block w-20 h-8 rounded-lg border border-slate-200 bg-slate-100 text-center font-mono font-semibold text-xs leading-8 select-none">{item.qty}</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2 text-center">
+                              {editModeEnabled ? (
+                                <input
+                                  type="number" min="0"
+                                  value={item.returnedQty || 0}
+                                  onChange={(e) => handleEditOrderItemChange(item.id, 'returnedQty', Number(e.target.value))}
+                                  className="w-20 h-8 rounded-lg border border-blue-300 text-center font-semibold font-mono text-xs focus:border-blue-500 outline-none bg-blue-50/20"
+                                />
+                              ) : (
+                                <span className="inline-block w-20 h-8 rounded-lg border border-slate-200 bg-slate-100 text-center font-mono font-semibold text-xs leading-8 text-rose-600 select-none">{item.returnedQty || 0}</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2 text-center">
+                              {editModeEnabled ? (
+                                <input
+                                  type="number" min="0"
+                                  value={item.damagedQty || 0}
+                                  onChange={(e) => handleEditOrderItemChange(item.id, 'damagedQty', Number(e.target.value))}
+                                  className="w-20 h-8 rounded-lg border border-blue-300 text-center font-semibold font-mono text-xs focus:border-blue-500 outline-none bg-blue-50/20"
+                                />
+                              ) : (
+                                <span className="inline-block w-20 h-8 rounded-lg border border-slate-200 bg-slate-100 text-center font-mono font-semibold text-xs leading-8 text-rose-600 select-none">{item.damagedQty || 0}</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2 text-right font-mono font-bold text-slate-900">
+                              {(item.totalAmount).toLocaleString('en-BD')}
+                            </td>
+                            <td className="px-3 py-2 text-center">
+                              {editModeEnabled ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveEditOrderItem(item.id)}
+                                  className="p-1 rounded bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors cursor-pointer"
+                                  title="Remove Item"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              ) : (
+                                <span className="inline-block p-1 rounded bg-slate-100 text-slate-300 cursor-not-allowed">
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {editOrderItems.length === 0 && (
+                        <tr>
+                          <td colSpan={8} className="py-8 text-center text-slate-400 font-semibold">
+                            {language === 'bn' ? 'অর্ডারে কোনো পণ্য নেই।' : 'No products left in this order.'}
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
 
-              {/* Price Calculations Margin */}
-              <div className="flex items-center justify-between border-t border-slate-200 pt-4 bg-slate-50 p-4 rounded-lg">
-                <div>
-                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Estimated Total Value</span>
-                  <span className="font-mono text-xl font-bold text-slate-900">৳{(editQty * editRate).toLocaleString('en-BD')}</span>
-                </div>
-                <div className="text-right">
-                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">SR Commission Margin</span>
-                  <span className="font-mono text-lg font-bold text-blue-600">৳{((editQty * editRate) * 0.05).toLocaleString('en-BD')}</span>
-                </div>
+              {/* Dynamic summary calculations */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 border-t border-slate-200 pt-4">
+                {[
+                  { label: language === 'bn' ? 'চালানি সরবরাহ' : 'Dispatched', value: `৳${editOrderItems.reduce((acc, curr) => acc + (curr.qty * curr.rate), 0).toLocaleString('en-BD')}`, bg: 'bg-slate-50' },
+                  { label: language === 'bn' ? 'মোট বিক্রয়' : 'Sales Value', value: `৳${editOrderItems.reduce((acc, curr) => acc + (Math.max(0, curr.qty - (curr.returnedQty || 0) - (curr.damagedQty || 0)) * curr.rate), 0).toLocaleString('en-BD')}`, bg: 'bg-blue-50/50', text: 'text-blue-700' },
+                  { label: language === 'bn' ? 'মোট ফেরত' : 'Returned Value', value: `৳${editOrderItems.reduce((acc, curr) => acc + ((curr.returnedQty || 0) * curr.rate), 0).toLocaleString('en-BD')}`, bg: 'bg-amber-50/50', text: 'text-amber-700' },
+                  { label: language === 'bn' ? 'মোট ড্যামেজ' : 'Damaged Value', value: `৳${editOrderItems.reduce((acc, curr) => acc + ((curr.damagedQty || 0) * curr.rate), 0).toLocaleString('en-BD')}`, bg: 'bg-rose-50/50', text: 'text-rose-700' },
+                ].map((m, i) => (
+                  <div key={i} className={`rounded-xl border border-slate-200 p-2.5 ${m.bg}`}>
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block">{m.label}</span>
+                    <span className={`font-mono font-extrabold text-sm mt-0.5 block ${m.text || 'text-slate-800'}`}>{m.value}</span>
+                  </div>
+                ))}
               </div>
 
-              {/* Footer Actions */}
-              <div className="border-t border-slate-200 pt-4 flex items-center justify-end gap-3 bg-slate-50 -mx-6 -mb-6 p-6 rounded-b-xl">
+              {/* Payout / Net Collection */}
+              <div className="flex flex-col sm:flex-row justify-between items-center bg-emerald-50 border border-emerald-250 p-4 rounded-xl gap-2">
+                <span className="font-extrabold text-emerald-800 text-xs">
+                  {language === 'bn' ? 'মালিকের নিট পাওনা (পাবেন)' : 'Owner Net Receivable'}
+                </span>
+                <span className="font-mono font-black text-emerald-700 text-xl">
+                  ৳{editOrderItems.reduce((acc, curr) => acc + curr.totalAmount, 0).toLocaleString('en-BD')}
+                </span>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-2">
                 <button
-                  id="edit-challan-btn-cancel"
                   type="button"
-                  onClick={() => setEditingChallan(null)}
-                  className="py-2.5 px-5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold rounded-lg text-sm transition-all shadow-sm cursor-pointer"
+                  onClick={() => { setEditingOrder(null); setEditModeEnabled(false); }}
+                  className="py-2.5 px-5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold rounded-xl text-sm transition-all cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
-                  id="edit-challan-btn-save"
                   type="submit"
-                  className="py-2.5 px-6 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-lg text-sm transition-all shadow-md cursor-pointer active:scale-95"
+                  disabled={editOrderItems.length === 0 || !editModeEnabled}
+                  className="py-2.5 px-6 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl text-sm transition-all shadow-md cursor-pointer disabled:bg-slate-200 disabled:text-slate-450 disabled:cursor-not-allowed active:scale-95"
                 >
-                  Save Adjustments
+                  {editModeEnabled ? 'Save Order Changes' : (language === 'bn' ? 'সম্পাদনা সক্রিয় করুন' : 'Enable Edit to Save')}
                 </button>
               </div>
 

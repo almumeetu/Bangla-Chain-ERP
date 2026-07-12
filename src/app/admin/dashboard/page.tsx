@@ -195,13 +195,14 @@ export default function App() {
         <SellModule products={db.products} setProducts={db.syncProducts}
           attributes={db.attributes} srs={db.srs} routes={db.routes}
           deliveryMen={db.deliveryMen} setChallans={db.syncChallans}
-          categories={db.productCategories}
+          categories={db.productCategories} units={db.units}
           onNavigate={handleNavigate} language={language} />
       );
       case 'delivery': return (
         <ChallanModule challans={db.challans} setChallans={db.syncChallans}
           srs={db.srs} routes={db.routes} deliveryMen={db.deliveryMen}
-          products={db.products} attributes={db.attributes} language={language} />
+          products={db.products} setProducts={db.syncProducts}
+          attributes={db.attributes} language={language} />
       );
       case 'stock': return (
         <StockAdjustmentModule attributes={db.attributes} setAttributes={db.syncAttributes}
@@ -226,7 +227,7 @@ export default function App() {
       );
       case 'products': return (
         <DirectoryModule key="products" {...directoryBaseProps}
-          defaultTab="products" visibleTabs={['products', 'categories', 'units']}
+          defaultTab="products" visibleTabs={['products', 'units']}
           pageTitle={t.productsPage.title} pageSubtitle={t.productsPage.subtitle} />
       );
       case 'routes': return (
@@ -244,7 +245,7 @@ export default function App() {
       case 'reports': return (
         <ReportsModule products={db.products} challans={db.challans} srs={db.srs}
           companies={db.companies} expenses={db.expenses} deliveryMen={db.deliveryMen}
-          language={language} userRole={userRole} />
+          units={db.units} language={language} userRole={userRole} />
       );
       case 'settings': return (
         <SettingsModule shopName={db.shopName} setShopName={db.syncShopName}

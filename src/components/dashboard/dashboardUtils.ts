@@ -115,10 +115,10 @@ export function useDashboardMetrics(
   }, [challans, todayStr, yesterdayStr]);
 
   function sumSales(list: ChallanItem[]) {
-    return list.reduce((s, ch) => s + Math.max(0, ch.totalAmount - (ch.returnedQty ?? 0) * ch.rate), 0);
+    return list.filter(ch => ch.status === 'Delivered').reduce((s, ch) => s + Math.max(0, ch.totalAmount - (ch.returnedQty ?? 0) * ch.rate), 0);
   }
   function sumCOGS(list: ChallanItem[]) {
-    return list.reduce((s, ch) => {
+    return list.filter(ch => ch.status === 'Delivered').reduce((s, ch) => {
       const pp = products.find(p => p.name === ch.productName)?.defaultPP ?? ch.rate * 0.65;
       return s + (ch.qty - (ch.returnedQty ?? 0)) * pp;
     }, 0);
@@ -155,8 +155,9 @@ export function useDashboardMetrics(
     const map = new Map<string, { count: number; total: number }>();
     srs.forEach(sr => {
       const srChallans = challans.filter(ch => ch.srName === sr.name);
+      const srDeliveredChallans = srChallans.filter(ch => ch.status === 'Delivered');
       const total      = sumSales(srChallans);
-      map.set(sr.id, { count: srChallans.length, total });
+      map.set(sr.id, { count: srDeliveredChallans.length, total });
     });
     return map;
   }, [srs, challans]);

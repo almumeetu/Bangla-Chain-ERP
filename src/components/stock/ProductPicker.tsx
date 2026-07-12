@@ -62,7 +62,7 @@ export default function ProductPicker({
             className="w-full h-8.5 pl-8.5 pr-3 rounded-lg border border-indigo-200 bg-white text-xs font-semibold text-slate-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all placeholder:text-slate-400"
           />
         </div>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-1">
           <div className="space-y-1">
             <label className="text-[9px] font-bold text-orange-600 uppercase tracking-wider block">{bn ? 'কোম্পানি' : 'Company'}</label>
             <select
@@ -73,19 +73,6 @@ export default function ProductPicker({
               <option value="All">{bn ? 'সকল কোম্পানি' : 'All Companies'}</option>
               {uniqueCompanies.map(c => (
                 <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-1">
-            <label className="text-[9px] font-bold text-purple-600 uppercase tracking-wider block">{bn ? 'ক্যাটাগরি' : 'Category'}</label>
-            <select
-              value={selectedCategory}
-              onChange={e => onCategoryChange(e.target.value)}
-              className="w-full h-8.5 rounded-lg border border-purple-200 bg-purple-50/20 px-2.5 text-xs font-bold text-purple-800 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100 transition-all cursor-pointer"
-            >
-              <option value="All">{bn ? 'সকল ক্যাটাগরি' : 'All Categories'}</option>
-              {categories.map(cat => (
-                <option key={cat.id} value={cat.id}>{cat.name}</option>
               ))}
             </select>
           </div>

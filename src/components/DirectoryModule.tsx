@@ -21,7 +21,7 @@ import {
   Search,
   Calendar,
   Truck,
-  Grid,
+  LayoutGrid,
   List
 } from 'lucide-react';
 import {
@@ -397,8 +397,8 @@ function GodownRow({ g, index, onEdit, onDelete }: GodownRowProps) {
       <td className="px-4 py-3.5 text-slate-550">{g.location || 'N/A'}</td>
       <td className="px-4 py-3.5 text-center">
         <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold border ${g.isDamageGodown
-            ? 'bg-rose-50 text-rose-700 border-rose-200'
-            : 'bg-emerald-50 text-emerald-705 border-emerald-200'
+          ? 'bg-rose-50 text-rose-700 border-rose-200'
+          : 'bg-emerald-50 text-emerald-705 border-emerald-200'
           }`}>
           {g.isDamageGodown ? 'Damage/Return godown' : 'Salable godown'}
         </span>
@@ -500,7 +500,30 @@ export default function DirectoryModule({
   const [activeSubTab, setActiveSubTab] = useState<DirectoryTab>(defaultTab || 'products');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
 
-  // Directory filter states
+  const ViewToggle = () => (
+    <div className="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200">
+      <button
+        type="button"
+        onClick={() => setViewMode('grid')}
+        className={`p-1.5 rounded-md flex items-center justify-center transition-all ${viewMode === 'grid'
+          ? 'bg-white shadow-sm text-indigo-600 border border-slate-200'
+          : 'text-slate-400 hover:text-slate-600'
+          }`}
+      >
+        <LayoutGrid className="w-4 h-4" />
+      </button>
+      <button
+        type="button"
+        onClick={() => setViewMode('list')}
+        className={`p-1.5 rounded-md flex items-center justify-center transition-all ${viewMode === 'list'
+          ? 'bg-white shadow-sm text-indigo-600 border border-slate-200'
+          : 'text-slate-400 hover:text-slate-600'
+          }`}
+      >
+        <List className="w-4 h-4" />
+      </button>
+    </div>
+  );
   const [productSearch, setProductSearch] = useState('');
   const [productCompanyFilter, setProductCompanyFilter] = useState('All');
   const [productCategoryFilter, setProductCategoryFilter] = useState('All');
@@ -531,6 +554,8 @@ export default function DirectoryModule({
 
   // Editing States
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [inlineEditingProductId, setInlineEditingProductId] = useState<string | null>(null);
+  const [inlineEditForm, setInlineEditForm] = useState<Partial<Product>>({});
   const [editingSr, setEditingSr] = useState<SR | null>(null);
   const [editingShop, setEditingShop] = useState<any | null>(null);
   const [editingCompany, setEditingCompany] = useState<CompanyBrand | null>(null);
@@ -607,7 +632,10 @@ export default function DirectoryModule({
 
   // Form Fields: Unit
   const [unitName, setUnitName] = useState('');
+  const [unitSymbol, setUnitSymbol] = useState('');
   const [unitMultiplier, setUnitMultiplier] = useState<number>(1);
+  const [unitParentId, setUnitParentId] = useState<string>('');
+  const [unitDescription, setUnitDescription] = useState('');
 
   // Form Fields: Godown
   const [godownName, setGodownName] = useState('');
@@ -632,6 +660,54 @@ export default function DirectoryModule({
 
   const formatBDT = useCallback((amount: number) => {
     return `৳${amount.toLocaleString('en-BD')}`;
+  }, []);
+
+  const getCompanyBadgeStyle = useCallback((companyName: string) => {
+    if (!companyName || companyName === 'N/A') return 'bg-slate-100 text-slate-500 border-slate-200';
+    const colors = [
+      'bg-blue-50 text-blue-700 border-blue-200',
+      'bg-purple-50 text-purple-700 border-purple-200',
+      'bg-emerald-50 text-emerald-700 border-emerald-200',
+      'bg-amber-50 text-amber-700 border-amber-200',
+      'bg-rose-50 text-rose-700 border-rose-200',
+      'bg-cyan-50 text-cyan-700 border-cyan-200',
+      'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200',
+    ];
+    let hash = 0;
+    for (let i = 0; i < companyName.length; i++) {
+      hash = companyName.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const index = Math.abs(hash) % colors.length;
+    return colors[index];
+  }, []);
+
+  const getPerPiecePrice = useCallback((totalPrice: number, mult: number) => {
+    if (!mult || mult <= 1) return '';
+    const perPiece = totalPrice / mult;
+    return `৳${perPiece % 1 === 0 ? perPiece.toLocaleString('en-BD') : perPiece.toFixed(2)}`;
+  }, []);
+
+  // --- INLINE EDIT: Product ---
+  const startInlineEditProduct = useCallback((p: Product) => {
+    setInlineEditingProductId(p.id);
+    setInlineEditForm({ ...p });
+  }, []);
+
+  const saveInlineEditProduct = useCallback(() => {
+    if (inlineEditingProductId && inlineEditForm.name && inlineEditForm.sku && inlineEditForm.company) {
+      setProducts(prev => prev.map(p =>
+        p.id === inlineEditingProductId ? { ...p, ...inlineEditForm } as Product : p
+      ));
+      setInlineEditingProductId(null);
+      setInlineEditForm({});
+    } else {
+      alert('Please fill out Product Name, SKU, and Company.');
+    }
+  }, [inlineEditingProductId, inlineEditForm, setProducts]);
+
+  const cancelInlineEditProduct = useCallback(() => {
+    setInlineEditingProductId(null);
+    setInlineEditForm({});
   }, []);
 
   // --- SUBMIT: Product ---
@@ -832,14 +908,23 @@ export default function DirectoryModule({
       return;
     }
 
+    const unitData = {
+      id: editingUnit ? editingUnit.id : `uom-${Date.now()}`,
+      name: unitName,
+      symbol: unitSymbol || undefined,
+      multiplier: Number(unitMultiplier),
+      parentUnitId: unitParentId || undefined,
+      description: unitDescription || undefined
+    };
+
     if (editingUnit) {
-      setUnits(prev => prev.map(u => u.id === editingUnit.id ? { ...u, name: unitName, multiplier: Number(unitMultiplier) } : u));
+      setUnits(prev => prev.map(u => u.id === editingUnit.id ? { ...u, ...unitData } : u));
       setEditingUnit(null);
     } else {
-      setUnits(prev => [...prev, { id: `uom-${Date.now()}`, name: unitName, multiplier: Number(unitMultiplier) }]);
+      setUnits(prev => [...prev, unitData]);
     }
     setShowUnitModal(false);
-  }, [unitName, unitMultiplier, editingUnit, setUnits]);
+  }, [unitName, unitSymbol, unitMultiplier, unitParentId, unitDescription, editingUnit, setUnits]);
 
   // --- SUBMIT: Godown ---
   const handleGodownSubmit = useCallback((e: React.FormEvent) => {
@@ -936,7 +1021,10 @@ export default function DirectoryModule({
   const handleOpenUnit = useCallback(() => {
     setEditingUnit(null);
     setUnitName('');
+    setUnitSymbol('');
     setUnitMultiplier(1);
+    setUnitParentId('');
+    setUnitDescription('');
     setShowUnitModal(true);
   }, []);
 
@@ -1005,7 +1093,10 @@ export default function DirectoryModule({
   const startEditUnit = useCallback((u: UnitOfMeasure) => {
     setEditingUnit(u);
     setUnitName(u.name);
+    setUnitSymbol(u.symbol || '');
     setUnitMultiplier(u.multiplier);
+    setUnitParentId(u.parentUnitId || '');
+    setUnitDescription(u.description || '');
     setShowUnitModal(true);
   }, []);
 
@@ -1103,7 +1194,6 @@ export default function DirectoryModule({
             { id: 'shops', label: tDir.tabShops || 'Retail Customers', icon: Building },
             { id: 'damage', label: tDir.tabDamage || 'Damage List', icon: AlertTriangle },
             { id: 'companies', label: tDir.tabCompanies, icon: Briefcase },
-            { id: 'categories', label: tDir.tabCategories, icon: Sliders },
             { id: 'units', label: tDir.tabUnits, icon: DollarSign },
             { id: 'godowns', label: tDir.tabGodowns, icon: HardDrive },
             { id: 'routes', label: tDir.tabRoutes, icon: Compass },
@@ -1119,8 +1209,8 @@ export default function DirectoryModule({
                   type="button"
                   onClick={() => setActiveSubTab(tab.id as DirectoryTab)}
                   className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${isActive
-                      ? 'bg-white text-slate-950 shadow-md font-bold'
-                      : 'text-slate-300 hover:text-white hover:bg-white/5'
+                    ? 'bg-white text-slate-950 shadow-md font-bold'
+                    : 'text-slate-300 hover:text-white hover:bg-white/5'
                     }`}
                 >
                   <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-slate-900' : 'text-slate-400'}`} />
@@ -1183,7 +1273,17 @@ export default function DirectoryModule({
               </div>
 
               {/* Card 3: Low Stock Alerts */}
-              <div className="bg-gradient-to-br from-amber-50/70 to-orange-50/20 rounded-2xl border border-amber-100 p-5 shadow-sm flex items-center gap-4 relative overflow-hidden group hover:shadow-md transition-all duration-300">
+              <button
+                type="button"
+                onClick={() => {
+                  setProductStockFilter(productStockFilter === 'Low' ? 'All' : 'Low');
+                  setViewMode('list');
+                }}
+                className={`bg-gradient-to-br from-amber-50/70 to-orange-50/20 rounded-2xl p-5 shadow-sm flex items-center gap-4 relative overflow-hidden group hover:shadow-md transition-all duration-300 text-left w-full cursor-pointer ${productStockFilter === 'Low'
+                  ? 'border-2 border-amber-500 ring-4 ring-amber-100 bg-amber-50/40'
+                  : 'border border-amber-100'
+                  }`}
+              >
                 <div className="absolute right-0 bottom-0 w-24 h-24 bg-amber-500/5 rounded-tl-full pointer-events-none" />
                 <div className="p-3 bg-amber-500 rounded-xl text-white shadow-sm shadow-amber-200">
                   <AlertTriangle className="w-6 h-6 animate-pulse" />
@@ -1195,8 +1295,13 @@ export default function DirectoryModule({
                   <span className="text-2xl font-black text-slate-855 font-mono tracking-tight">
                     {lowStockCount} <span className="text-xs font-bold text-slate-500">{language === 'bn' ? 'টি সংকটে' : 'Items'}</span>
                   </span>
+                  {productStockFilter === 'Low' && (
+                    <span className="text-[9px] text-amber-700 font-extrabold block mt-0.5 animate-bounce">
+                      {language === 'bn' ? '✓ ফিল্টার সক্রিয়' : '✓ Filter Active'}
+                    </span>
+                  )}
                 </div>
-              </div>
+              </button>
             </div>
 
             {/* Highly highlighted interactive Filter bar */}
@@ -1224,7 +1329,7 @@ export default function DirectoryModule({
                   </button>
                 )}
               </div>
-              
+
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
                 {/* Search query */}
                 <div className="space-y-1.5">
@@ -1260,22 +1365,6 @@ export default function DirectoryModule({
                   </select>
                 </div>
 
-                {/* Category Filter */}
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-purple-600 uppercase tracking-wider block">
-                    {language === 'bn' ? 'ক্যাটাগরি ফিল্টার' : 'Filter by Category'}
-                  </label>
-                  <select
-                    value={productCategoryFilter}
-                    onChange={e => setProductCategoryFilter(e.target.value)}
-                    className="h-10 w-full rounded-xl border border-purple-200 bg-purple-50/10 px-3 text-xs font-bold text-purple-855 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100 transition-all cursor-pointer"
-                  >
-                    <option value="All">{language === 'bn' ? 'সকল ক্যাটাগরি' : 'All Categories'}</option>
-                    {productCategories.map(cat => (
-                      <option key={cat.id} value={cat.id}>{cat.name}</option>
-                    ))}
-                  </select>
-                </div>
 
                 {/* Stock Level Filter */}
                 <div className="space-y-1.5">
@@ -1335,35 +1424,8 @@ export default function DirectoryModule({
                 </p>
               </div>
 
-              <div className="flex items-center gap-3 shrink-0 w-full sm:w-auto justify-between sm:justify-end">
-                {/* View Mode Toggle */}
-                <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
-                  <button
-                    type="button"
-                    onClick={() => setViewMode('list')}
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
-                      viewMode === 'list'
-                        ? 'bg-white text-slate-800 shadow-xs'
-                        : 'text-slate-500 hover:text-slate-800'
-                    }`}
-                  >
-                    <List className="w-3.5 h-3.5" />
-                    <span>{language === 'bn' ? 'তালিকা' : 'List'}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setViewMode('grid')}
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
-                      viewMode === 'grid'
-                        ? 'bg-white text-slate-800 shadow-xs'
-                        : 'text-slate-500 hover:text-slate-800'
-                    }`}
-                  >
-                    <Grid className="w-3.5 h-3.5" />
-                    <span>{language === 'bn' ? 'গ্রিড' : 'Grid'}</span>
-                  </button>
-                </div>
-
+              <div className="flex items-center gap-3">
+                <ViewToggle />
                 <button
                   type="button"
                   onClick={handleOpenProduct}
@@ -1375,71 +1437,459 @@ export default function DirectoryModule({
               </div>
             </div>
 
-            {viewMode === 'list' ? (
-              <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
+            {/* Product View */}
+            {viewMode === 'grid' ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {filteredProducts.map(p => {
+                  const uomObj = units.find(u => u.id === p.uomId);
+                  const uomName = uomObj?.name || 'N/A';
+                  const multiplier = uomObj?.multiplier || 1;
+                  const godownName = godowns.find(g => g.id === p.defaultGodownId)?.name || 'Main Godown';
+                  const marginPct = p.defaultWSP > 0 ? ((p.defaultWSP - p.defaultPP) / p.defaultWSP) * 100 : 0;
+
+                  const isLowStock = p.currentStock < 600;
+
+                  let brandTheme = {
+                    border: "hover:border-purple-300",
+                    bgGradient: "from-purple-50/30 via-white to-white border-slate-200",
+                    badge: "bg-purple-50 text-purple-700 border-purple-200",
+                    valText: "text-purple-700",
+                    valBg: "bg-purple-50/40 border-purple-100",
+                    shadow: "shadow-purple-100/50"
+                  };
+
+                  const compLower = p.company.toLowerCase();
+                  if (compLower === 'pran') {
+                    brandTheme = {
+                      border: "hover:border-orange-300",
+                      bgGradient: "from-orange-50/30 via-white to-white border-slate-200",
+                      badge: "bg-orange-50 text-orange-700 border-orange-200",
+                      valText: "text-orange-700",
+                      valBg: "bg-orange-50/40 border-orange-100",
+                      shadow: "shadow-orange-100/50"
+                    };
+                  } else if (compLower === 'olympic') {
+                    brandTheme = {
+                      border: "hover:border-blue-300",
+                      bgGradient: "from-blue-50/30 via-white to-white border-slate-200",
+                      badge: "bg-blue-50 text-blue-700 border-blue-200",
+                      valText: "text-blue-700",
+                      valBg: "bg-blue-50/40 border-blue-100",
+                      shadow: "shadow-blue-100/50"
+                    };
+                  } else if (compLower === 'haque') {
+                    brandTheme = {
+                      border: "hover:border-emerald-300",
+                      bgGradient: "from-emerald-50/30 via-white to-white border-slate-200",
+                      badge: "bg-emerald-50 text-emerald-700 border-emerald-200",
+                      valText: "text-emerald-700",
+                      valBg: "bg-emerald-50/40 border-emerald-100",
+                      shadow: "shadow-emerald-100/50"
+                    };
+                  } else if (compLower === 'coca-cola' || compLower === 'coca cola') {
+                    brandTheme = {
+                      border: "hover:border-red-300",
+                      bgGradient: "from-red-50/30 via-white to-white border-slate-200",
+                      badge: "bg-red-50 text-red-700 border-red-200",
+                      valText: "text-red-700",
+                      valBg: "bg-red-50/40 border-red-100",
+                      shadow: "shadow-red-100/50"
+                    };
+                  }
+
+                  return (
+                    <div
+                      key={p.id}
+                      className={`bg-gradient-to-br ${brandTheme.bgGradient} rounded-3xl border p-5 shadow-sm hover:shadow-md ${brandTheme.border} transition-all duration-300 flex flex-col justify-between space-y-4 group relative overflow-hidden`}
+                    >
+                      <div className="absolute -right-20 -top-20 w-36 h-36 rounded-full bg-slate-50 group-hover:bg-blue-500/5 transition-all duration-500 pointer-events-none" />
+
+                      <div className="space-y-2.5 relative z-10">
+                        <div className="flex items-center justify-between">
+                          <span
+                            title={p.company}
+                            className={`inline-block px-2.5 py-1 rounded-md text-[10px] font-semibold uppercase tracking-wider max-w-[120px] truncate align-middle border ${getCompanyBadgeStyle(p.company)}`}
+                          >
+                            {p.company}
+                          </span>
+                          <span className="font-mono text-[9px] font-bold text-slate-400 uppercase tracking-wide">
+                            {p.sku}
+                          </span>
+                        </div>
+
+                        <h4 className="font-bold text-slate-800 text-sm sm:text-base group-hover:text-slate-900 transition-colors line-clamp-1 leading-snug">
+                          {p.name}
+                        </h4>
+
+                        <div className="flex flex-wrap items-center gap-1.5 text-[9px] font-bold uppercase tracking-wide">
+                          {uomName !== 'N/A' && (
+                            <span className="bg-purple-50 text-purple-700 border border-purple-100 px-2 py-0.5 rounded">UOM: {uomName}</span>
+                          )}
+                          {godownName !== 'Main Godown' && godownName !== 'N/A' && (
+                            <span className="bg-amber-50 text-amber-700 border border-amber-100 px-2 py-0.5 rounded">{godownName}</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Stock Meter */}
+                      <div className="space-y-1.5 relative z-10 pt-1">
+                        <div className="flex items-center justify-between text-[10px] font-bold text-slate-500">
+                          <span>{language === 'bn' ? 'স্টক লেভেল' : 'Stock Level'}</span>
+                          <div className="text-right">
+                            <div className={isLowStock ? "text-amber-600 animate-pulse font-extrabold" : "text-slate-700"}>
+                              {(() => {
+                                const uomObj = units.find(u => u.id === p.uomId);
+                                if (uomObj) {
+                                  const qty = p.currentStock / uomObj.multiplier;
+                                  const displayQty = qty % 1 === 0 ? qty.toLocaleString() : qty.toFixed(1);
+                                  return (
+                                    <div className="space-y-0.5">
+                                      <div className="text-xs">
+                                        {displayQty} {uomObj.symbol || uomObj.name}
+                                      </div>
+                                      <div className="text-[9px] text-slate-400">
+                                        ({p.currentStock.toLocaleString()} Pieces)
+                                      </div>
+                                    </div>
+                                  );
+                                }
+                                return (
+                                  <div className="text-xs">
+                                    {p.currentStock.toLocaleString()} Pieces
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                            <span className={`text-[10px] ${brandTheme.valText} ${brandTheme.valBg} border px-2 py-0.5 rounded font-mono block mt-1 font-bold`}>
+                              Val: ৳{(p.currentStock * p.defaultPP).toLocaleString('en-BD')}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                          <div
+                            style={{ width: `${Math.min(100, (p.currentStock / 5000) * 100)}%` }}
+                            className={`h-full rounded-full transition-all duration-500 ${isLowStock ? 'bg-amber-500' : 'bg-emerald-500'
+                              }`}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Prices Grid */}
+                      <div className="grid grid-cols-3 gap-2 relative z-10 pt-1 text-center">
+                        <div className="bg-blue-50/40 rounded-xl p-2 border border-blue-100 flex flex-col justify-between">
+                          <div>
+                            <span className="text-[8px] text-blue-500 font-extrabold uppercase tracking-wider block">{language === 'bn' ? 'DP' : 'Dealer Price (DP)'}</span>
+                            {(() => {
+                              const uomObj = units.find(u => u.id === p.uomId);
+                              if (uomObj && uomObj.multiplier > 1) {
+                                const unitPrice = p.defaultPP * uomObj.multiplier;
+                                return (
+                                  <div className="space-y-0.5">
+                                    <span className="font-mono text-sm font-black text-blue-700">{formatBDT(unitPrice)}</span>
+                                    <span className="text-[9px] text-blue-400 font-semibold block">/ {uomObj.symbol || uomObj.name}</span>
+                                    <span className="text-[9px] text-slate-500 font-semibold block border-t border-blue-100/50 mt-1 pt-0.5">{formatBDT(p.defaultPP)}/pc</span>
+                                  </div>
+                                );
+                              }
+                              return (
+                                <span className="font-mono text-xs font-black text-blue-700">{formatBDT(p.defaultPP)}</span>
+                              );
+                            })()}
+                          </div>
+                        </div>
+                        <div className="bg-emerald-50/40 rounded-xl p-2 border border-emerald-100 flex flex-col justify-between">
+                          <div>
+                            <span className="text-[8px] text-emerald-600 font-extrabold uppercase tracking-wider block">{language === 'bn' ? 'TP' : 'Trade Price (TP)'}</span>
+                            {(() => {
+                              const uomObj = units.find(u => u.id === p.uomId);
+                              if (uomObj && uomObj.multiplier > 1) {
+                                const unitPrice = p.defaultWSP * uomObj.multiplier;
+                                return (
+                                  <div className="space-y-0.5">
+                                    <span className="font-mono text-sm font-black text-emerald-700">{formatBDT(unitPrice)}</span>
+                                    <span className="text-[9px] text-emerald-400 font-semibold block">/ {uomObj.symbol || uomObj.name}</span>
+                                    <span className="text-[9px] text-indigo-500 font-bold block border-t border-emerald-100/50 mt-1 pt-0.5">{formatBDT(p.defaultWSP)}/pc</span>
+                                  </div>
+                                );
+                              }
+                              return (
+                                <span className="font-mono text-xs font-black text-emerald-800">{formatBDT(p.defaultWSP)}</span>
+                              );
+                            })()}
+                          </div>
+                        </div>
+                        <div className="bg-amber-50/40 rounded-xl p-2 border border-amber-100 flex flex-col justify-between">
+                          <div>
+                            <span className="text-[8px] text-amber-600 font-extrabold uppercase tracking-wider block">{language === 'bn' ? 'MRP' : 'MRP'}</span>
+                            {(() => {
+                              const uomObj = units.find(u => u.id === p.uomId);
+                              if (uomObj && uomObj.multiplier > 1) {
+                                const unitPrice = p.defaultMRP * uomObj.multiplier;
+                                return (
+                                  <div className="space-y-0.5">
+                                    <span className="font-mono text-sm font-black text-amber-700">{formatBDT(unitPrice)}</span>
+                                    <span className="text-[9px] text-amber-400 font-semibold block">/ {uomObj.symbol || uomObj.name}</span>
+                                    <span className="text-[9px] text-slate-700 font-extrabold block border-t border-amber-100/50 mt-1 pt-0.5">{formatBDT(p.defaultMRP)}/pc</span>
+                                  </div>
+                                );
+                              }
+                              return (
+                                <span className="font-mono text-xs font-black text-amber-700">{formatBDT(p.defaultMRP)}</span>
+                              );
+                            })()}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Margin Info & Actions */}
+                      <div className="pt-3 border-t border-slate-100 flex items-center justify-between relative z-10">
+                        <div className="space-y-0.5">
+                          <span className="text-[9px] text-slate-400 uppercase font-bold block">{language === 'bn' ? 'পাইকারি মার্জিন' : 'Wholesale Margin'}</span>
+                          <span className="font-mono text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 inline-block">
+                            +{marginPct.toFixed(1)}%
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => startEditProduct(p)}
+                            className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer border border-transparent hover:border-slate-200"
+                            title="Edit product"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteProduct(p.id)}
+                            className="p-2 text-rose-500 hover:text-rose-900 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer border border-transparent hover:border-rose-100"
+                            title="Delete product"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
-                  <table className="w-full border-collapse text-left text-xs text-slate-500">
-                    <thead className="bg-slate-50 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-200">
-                      <tr>
-                        <th className="px-5 py-3">{language === 'bn' ? 'পণ্যের বিবরণ' : 'Product Details'}</th>
-                        <th className="px-5 py-3">{language === 'bn' ? 'ক্যাটাগরি/একক' : 'Category / UOM'}</th>
-                        <th className="px-5 py-3 text-right">{language === 'bn' ? 'স্টক পরিমাণ' : 'Stock Level'}</th>
-                        <th className="px-5 py-3 text-right">{language === 'bn' ? 'স্টক মূল্য' : 'Stock Value'}</th>
-                        <th className="px-5 py-3 text-right">DP / TP / MRP</th>
-                        <th className="px-5 py-3 text-center">{language === 'bn' ? 'মার্জিন' : 'Margin'}</th>
-                        <th className="px-5 py-3 text-right">{language === 'bn' ? 'অ্যাকশন' : 'Actions'}</th>
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-100/70 border-b border-slate-200 text-slate-600 text-[10px] uppercase font-extrabold tracking-wider">
+                        <th className="px-5 py-4">{language === 'bn' ? 'পণ্য' : 'Product'}</th>
+                        <th className="px-5 py-4">{language === 'bn' ? 'ব্র্যান্ড/কোম্পানি' : 'Brand/Company'}</th>
+                        <th className="px-5 py-4">{language === 'bn' ? 'একক (UOM)' : 'UOM'}</th>
+                        <th className="px-5 py-4">{language === 'bn' ? 'স্টক' : 'Stock'}</th>
+                        <th className="px-5 py-4">{language === 'bn' ? 'ডিলার প্রাইস (DP)' : 'Dealer Price (DP)'}</th>
+                        <th className="px-5 py-4">{language === 'bn' ? 'ট্রেড প্রাইস (TP)' : 'Trade Price (TP)'}</th>
+                        <th className="px-5 py-4">{language === 'bn' ? 'এমআরপি' : 'MRP'}</th>
+                        <th className="px-5 py-4 text-right">{language === 'bn' ? 'অ্যাকশন' : 'Actions'}</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 font-medium">
+                    <tbody className="divide-y divide-slate-100">
                       {filteredProducts.map(p => {
                         const categoryName = productCategories.find(c => c.id === p.categoryId)?.name || 'N/A';
-                        const uomName = units.find(u => u.id === p.uomId)?.name || 'N/A';
-                        const marginPct = p.defaultWSP > 0 ? ((p.defaultWSP - p.defaultPP) / p.defaultWSP) * 100 : 0;
+                        const uomObj = units.find(u => u.id === p.uomId);
+                        const uomName = uomObj?.name || 'N/A';
+                        const multiplier = uomObj?.multiplier || 1;
                         const isLowStock = p.currentStock < 600;
-                        return (
-                          <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
-                            <td className="px-5 py-3.5">
-                              <div className="flex flex-col">
-                                <span className="font-bold text-slate-800 text-sm">{p.name}</span>
-                                <div className="flex items-center gap-2 mt-1">
-                                  <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded text-[9px] font-bold uppercase tracking-wider border border-slate-200">{p.company}</span>
-                                  <span className="font-mono text-[10px] text-slate-405">{p.sku}</span>
+                        const isEditing = inlineEditingProductId === p.id;
+
+                        if (isEditing) {
+                          return (
+                            <tr key={p.id} className="bg-indigo-50/30 transition-colors">
+                              <td className="p-2 align-top">
+                                <div className="space-y-2">
+                                  <input
+                                    type="text"
+                                    value={inlineEditForm.name || ''}
+                                    onChange={e => setInlineEditForm(prev => ({ ...prev, name: e.target.value }))}
+                                    className="w-full h-8 px-2 rounded-lg border border-slate-300 text-sm font-bold text-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-200 outline-none"
+                                    placeholder="Product Name"
+                                  />
+                                  <input
+                                    type="text"
+                                    value={inlineEditForm.sku || ''}
+                                    onChange={e => setInlineEditForm(prev => ({ ...prev, sku: e.target.value }))}
+                                    className="w-full h-7 px-2 rounded-lg border border-slate-300 text-[10px] font-mono font-bold text-slate-600 focus:border-indigo-500 outline-none"
+                                    placeholder="SKU"
+                                  />
                                 </div>
-                              </div>
+                              </td>
+                              <td className="p-2 align-top">
+                                <select
+                                  value={inlineEditForm.company || ''}
+                                  onChange={e => setInlineEditForm(prev => ({ ...prev, company: e.target.value }))}
+                                  className="w-full h-8 px-2 rounded-lg border border-slate-300 text-xs font-bold text-slate-700 focus:border-indigo-500 outline-none"
+                                >
+                                  {companies.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                                </select>
+                              </td>
+                              <td className="p-2 align-top">
+                                <select
+                                  value={inlineEditForm.uomId || ''}
+                                  onChange={e => setInlineEditForm(prev => ({ ...prev, uomId: e.target.value }))}
+                                  className="w-full h-8 px-2 rounded-lg border border-slate-300 text-xs font-bold text-slate-700 focus:border-indigo-500 outline-none"
+                                >
+                                  {units.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                                </select>
+                              </td>
+                              <td className="p-2 align-top text-slate-400 text-xs font-bold pt-4">
+                                {p.currentStock.toLocaleString()}
+                              </td>
+                              <td className="p-2 align-top">
+                                <input
+                                  type="number"
+                                  value={inlineEditForm.defaultPP || 0}
+                                  onChange={e => setInlineEditForm(prev => ({ ...prev, defaultPP: Number(e.target.value) }))}
+                                  className="w-full h-8 px-2 rounded-lg border border-slate-300 text-xs font-mono font-bold text-blue-700 focus:border-indigo-500 outline-none"
+                                />
+                              </td>
+                              <td className="p-2 align-top">
+                                <input
+                                  type="number"
+                                  value={inlineEditForm.defaultWSP || 0}
+                                  onChange={e => setInlineEditForm(prev => ({ ...prev, defaultWSP: Number(e.target.value) }))}
+                                  className="w-full h-8 px-2 rounded-lg border border-slate-300 text-xs font-mono font-bold text-emerald-700 focus:border-indigo-500 outline-none"
+                                />
+                              </td>
+                              <td className="p-2 align-top">
+                                <input
+                                  type="number"
+                                  value={inlineEditForm.defaultMRP || 0}
+                                  onChange={e => setInlineEditForm(prev => ({ ...prev, defaultMRP: Number(e.target.value) }))}
+                                  className="w-full h-8 px-2 rounded-lg border border-slate-300 text-xs font-mono font-bold text-amber-700 focus:border-indigo-500 outline-none"
+                                />
+                              </td>
+                              <td className="p-2 align-top text-right">
+                                <div className="flex flex-col items-end gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={saveInlineEditProduct}
+                                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition-colors w-full"
+                                  >
+                                    Save
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={cancelInlineEditProduct}
+                                    className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold rounded-lg transition-colors w-full"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        }
+
+                        return (
+                          <tr key={p.id} className="hover:bg-slate-50 transition-colors group">
+                            <td className="px-5 py-3.5">
+                              <div className="font-bold text-slate-900 text-sm mb-0.5">{p.name}</div>
+                              <div className="text-[10px] font-medium text-slate-400 uppercase tracking-wide">{p.sku}</div>
                             </td>
                             <td className="px-5 py-3.5">
-                              <div className="flex flex-col gap-0.5">
-                                <span className="text-slate-700">Cat: {categoryName}</span>
-                                <span className="text-slate-400 text-[10px]">UOM: {uomName}</span>
-                              </div>
-                            </td>
-                            <td className="px-5 py-3.5 text-right font-mono font-bold">
-                              <span className={isLowStock ? "text-amber-600 font-extrabold" : "text-slate-800"}>
-                                {p.currentStock.toLocaleString()}
+                              <span
+                                title={p.company}
+                                className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider max-w-[120px] truncate align-middle border shadow-sm ${getCompanyBadgeStyle(p.company)}`}
+                              >
+                                {p.company}
                               </span>
                             </td>
-                            <td className="px-5 py-3.5 text-right font-mono text-slate-650">
-                              {formatBDT(p.currentStock * p.defaultPP)}
-                            </td>
-                            <td className="px-5 py-3.5 text-right font-mono">
-                              <div className="flex flex-col text-[11px] gap-0.5">
-                                <span>DP: <span className="text-blue-600 font-bold">{formatBDT(p.defaultPP)}</span></span>
-                                <span>TP: <span className="text-emerald-700 font-bold">{formatBDT(p.defaultWSP)}</span></span>
-                                <span>MRP: <span className="text-amber-700 font-bold">{formatBDT(p.defaultMRP)}</span></span>
-                              </div>
-                            </td>
-                            <td className="px-5 py-3.5 text-center">
-                              <span className="font-mono text-[11px] font-bold text-emerald-650 bg-emerald-50/50 border border-emerald-100 px-1.5 py-0.5 rounded">
-                                +{marginPct.toFixed(1)}%
+                            <td className="px-5 py-3.5">
+                              <span className="inline-block px-2 py-0.5 rounded bg-slate-50 border border-slate-200/60 text-slate-650 text-[10px] font-bold tracking-wide uppercase whitespace-nowrap">
+                                {uomName !== 'N/A' ? uomName : 'N/A'}
                               </span>
+                            </td>
+                            <td className="px-5 py-3.5 whitespace-nowrap">
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide border ${isLowStock
+                                ? "bg-rose-50 text-rose-600 border-rose-100"
+                                : "bg-emerald-50 text-emerald-700 border-emerald-100"
+                                }`}>
+                                <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${isLowStock ? "bg-rose-500 animate-pulse" : "bg-emerald-500"}`} />
+                                {(() => {
+                                  const uomObj = units.find(u => u.id === p.uomId);
+                                  if (uomObj) {
+                                    const qty = p.currentStock / uomObj.multiplier;
+                                    const displayQty = qty % 1 === 0 ? qty.toLocaleString() : qty.toFixed(1);
+                                    return `${displayQty} ${uomObj.symbol || uomObj.name}`;
+                                  }
+                                  return `${p.currentStock.toLocaleString()} ${language === 'bn' ? 'টি' : 'Units'}`;
+                                })()}
+                              </span>
+                            </td>
+                            <td className="px-5 py-3.5 text-xs text-slate-500 font-medium whitespace-nowrap">
+                              {(() => {
+                                const uomObj = units.find(u => u.id === p.uomId);
+                                if (uomObj && uomObj.multiplier > 1) {
+                                  const unitPrice = p.defaultPP * uomObj.multiplier;
+                                  return (
+                                    <div className="space-y-0.5">
+                                      <div className="font-bold text-blue-700">{formatBDT(unitPrice)}</div>
+                                      <div className="text-[9px] text-slate-400 font-semibold">
+                                        / {uomObj.symbol || uomObj.name} · {formatBDT(p.defaultPP)}/pc
+                                      </div>
+                                    </div>
+                                  );
+                                }
+                                return <div>{formatBDT(p.defaultPP)}</div>;
+                              })()}
+                            </td>
+                            <td className="px-5 py-3.5 text-xs text-indigo-600 font-bold whitespace-nowrap">
+                              {(() => {
+                                const uomObj = units.find(u => u.id === p.uomId);
+                                if (uomObj && uomObj.multiplier > 1) {
+                                  const unitPrice = p.defaultWSP * uomObj.multiplier;
+                                  return (
+                                    <div className="space-y-0.5">
+                                      <div className="font-bold text-emerald-700">{formatBDT(unitPrice)}</div>
+                                      <div className="text-[9px] text-indigo-400 font-semibold">
+                                        / {uomObj.symbol || uomObj.name} · {formatBDT(p.defaultWSP)}/pc
+                                      </div>
+                                    </div>
+                                  );
+                                }
+                                return <div>{formatBDT(p.defaultWSP)}</div>;
+                              })()}
+                            </td>
+                            <td className="px-5 py-3.5 text-xs text-slate-900 font-extrabold whitespace-nowrap">
+                              {(() => {
+                                const uomObj = units.find(u => u.id === p.uomId);
+                                if (uomObj && uomObj.multiplier > 1) {
+                                  const unitPrice = p.defaultMRP * uomObj.multiplier;
+                                  return (
+                                    <div className="space-y-0.5">
+                                      <div className="font-extrabold text-amber-700">{formatBDT(unitPrice)}</div>
+                                      <div className="text-[9px] text-slate-500 font-bold">
+                                        / {uomObj.symbol || uomObj.name} · {formatBDT(p.defaultMRP)}/pc
+                                      </div>
+                                    </div>
+                                  );
+                                }
+                                return <div>{formatBDT(p.defaultMRP)}</div>;
+                              })()}
                             </td>
                             <td className="px-5 py-3.5 text-right">
-                              <div className="flex items-center justify-end gap-1.5">
-                                <button onClick={() => startEditProduct(p)} className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg border border-transparent hover:border-slate-200">
-                                  <Edit3 className="w-3.5 h-3.5" />
+                              <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button
+                                  type="button"
+                                  onClick={() => startInlineEditProduct(p)}
+                                  className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
+                                  title="Inline Edit"
+                                >
+                                  <Edit3 className="w-4 h-4" />
                                 </button>
-                                <button onClick={() => handleDeleteProduct(p.id)} className="p-1.5 text-rose-500 hover:text-rose-900 hover:bg-rose-50 rounded-lg border border-transparent hover:border-rose-100">
-                                  <Trash2 className="w-3.5 h-3.5" />
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteProduct(p.id)}
+                                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                                  title="Delete product"
+                                >
+                                  <Trash2 className="w-4 h-4" />
                                 </button>
                               </div>
                             </td>
@@ -1450,168 +1900,6 @@ export default function DirectoryModule({
                   </table>
                 </div>
               </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-              {filteredProducts.map(p => {
-                const categoryName = productCategories.find(c => c.id === p.categoryId)?.name || 'N/A';
-                const uomName = units.find(u => u.id === p.uomId)?.name || 'N/A';
-                const godownName = godowns.find(g => g.id === p.defaultGodownId)?.name || 'Main Godown';
-                const marginPct = p.defaultWSP > 0 ? ((p.defaultWSP - p.defaultPP) / p.defaultWSP) * 100 : 0;
-
-                const isLowStock = p.currentStock < 600;
-
-                let brandTheme = {
-                  border: "hover:border-purple-300",
-                  bgGradient: "from-purple-50/30 via-white to-white border-slate-200",
-                  badge: "bg-purple-50 text-purple-700 border-purple-200",
-                  valText: "text-purple-700",
-                  valBg: "bg-purple-50/40 border-purple-100",
-                  shadow: "shadow-purple-100/50"
-                };
-
-                const compLower = p.company.toLowerCase();
-                if (compLower === 'pran') {
-                  brandTheme = {
-                    border: "hover:border-orange-300",
-                    bgGradient: "from-orange-50/30 via-white to-white border-slate-200",
-                    badge: "bg-orange-50 text-orange-700 border-orange-200",
-                    valText: "text-orange-700",
-                    valBg: "bg-orange-50/40 border-orange-100",
-                    shadow: "shadow-orange-100/50"
-                  };
-                } else if (compLower === 'olympic') {
-                  brandTheme = {
-                    border: "hover:border-blue-300",
-                    bgGradient: "from-blue-50/30 via-white to-white border-slate-200",
-                    badge: "bg-blue-50 text-blue-700 border-blue-200",
-                    valText: "text-blue-700",
-                    valBg: "bg-blue-50/40 border-blue-100",
-                    shadow: "shadow-blue-100/50"
-                  };
-                } else if (compLower === 'haque') {
-                  brandTheme = {
-                    border: "hover:border-emerald-300",
-                    bgGradient: "from-emerald-50/30 via-white to-white border-slate-200",
-                    badge: "bg-emerald-50 text-emerald-700 border-emerald-200",
-                    valText: "text-emerald-700",
-                    valBg: "bg-emerald-50/40 border-emerald-100",
-                    shadow: "shadow-emerald-100/50"
-                  };
-                } else if (compLower === 'coca-cola' || compLower === 'coca cola') {
-                  brandTheme = {
-                    border: "hover:border-red-300",
-                    bgGradient: "from-red-50/30 via-white to-white border-slate-200",
-                    badge: "bg-red-50 text-red-700 border-red-200",
-                    valText: "text-red-700",
-                    valBg: "bg-red-50/40 border-red-100",
-                    shadow: "shadow-red-100/50"
-                  };
-                }
-
-                return (
-                  <div
-                    key={p.id}
-                    className={`bg-gradient-to-br ${brandTheme.bgGradient} rounded-3xl border p-5 shadow-sm hover:shadow-md ${brandTheme.border} transition-all duration-300 flex flex-col justify-between space-y-4 group relative overflow-hidden`}
-                  >
-                    <div className="absolute -right-20 -top-20 w-36 h-36 rounded-full bg-slate-50 group-hover:bg-blue-500/5 transition-all duration-500 pointer-events-none" />
-
-                    <div className="space-y-2.5 relative z-10">
-                      <div className="flex items-center justify-between">
-                        <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold border uppercase tracking-wider ${brandTheme.badge}`}>
-                          {p.company}
-                        </span>
-                        <span className="font-mono text-[9px] font-bold text-slate-400 uppercase tracking-wide">
-                          {p.sku}
-                        </span>
-                      </div>
-
-                      <h4 className="font-bold text-slate-800 text-sm sm:text-base group-hover:text-slate-900 transition-colors line-clamp-1 leading-snug">
-                        {p.name}
-                      </h4>
-
-                      <div className="flex flex-wrap items-center gap-1.5 text-[9px] font-bold uppercase tracking-wide">
-                        {categoryName !== 'N/A' && (
-                          <span className="bg-sky-50 text-sky-700 border border-sky-100 px-2 py-0.5 rounded">Cat: {categoryName}</span>
-                        )}
-                        {uomName !== 'N/A' && (
-                          <span className="bg-purple-50 text-purple-700 border border-purple-100 px-2 py-0.5 rounded">UOM: {uomName}</span>
-                        )}
-                        {godownName !== 'Main Godown' && godownName !== 'N/A' && (
-                          <span className="bg-amber-50 text-amber-700 border border-amber-100 px-2 py-0.5 rounded">{godownName}</span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Stock Meter */}
-                    <div className="space-y-1.5 relative z-10 pt-1">
-                      <div className="flex items-center justify-between text-[10px] font-bold text-slate-500">
-                        <span>{language === 'bn' ? 'স্টক লেভেল' : 'Stock Level'}</span>
-                        <div className="text-right">
-                          <span className={isLowStock ? "text-amber-600 animate-pulse font-extrabold" : "text-slate-700"}>
-                            {p.currentStock.toLocaleString()} {language === 'bn' ? 'টি' : 'Units'}
-                          </span>
-                          <span className={`text-[10px] ${brandTheme.valText} ${brandTheme.valBg} border px-2 py-0.5 rounded font-mono block mt-0.5 font-bold`}>
-                            Val: ৳{(p.currentStock * p.defaultPP).toLocaleString('en-BD')}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                        <div
-                          style={{ width: `${Math.min(100, (p.currentStock / 5000) * 100)}%` }}
-                          className={`h-full rounded-full transition-all duration-500 ${isLowStock ? 'bg-amber-500' : 'bg-emerald-500'
-                            }`}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Prices Grid */}
-                    <div className="grid grid-cols-3 gap-2 relative z-10 pt-1 text-center">
-                      <div className="bg-blue-50/40 rounded-xl p-2 border border-blue-100">
-                        <span className="text-[8px] text-blue-500 font-extrabold uppercase tracking-wider block">{language === 'bn' ? 'DP' : 'Dealer Price (DP)'}</span>
-                        <span className="font-mono text-xs font-black text-blue-700">{formatBDT(p.defaultPP)}</span>
-                      </div>
-                      <div className="bg-emerald-50/40 rounded-xl p-2 border border-emerald-100">
-                        <span className="text-[8px] text-emerald-600 font-extrabold uppercase tracking-wider block">{language === 'bn' ? 'TP' : 'Trade Price (TP)'}</span>
-                        <span className="font-mono text-xs font-black text-emerald-800">{formatBDT(p.defaultWSP)}</span>
-                      </div>
-                      <div className="bg-amber-50/40 rounded-xl p-2 border border-amber-100">
-                        <span className="text-[8px] text-amber-600 font-extrabold uppercase tracking-wider block">{language === 'bn' ? 'MRP' : 'MRP'}</span>
-                        <span className="font-mono text-xs font-black text-amber-700">{formatBDT(p.defaultMRP)}</span>
-                      </div>
-                    </div>
-
-                    {/* Margin Info & Actions */}
-                    <div className="pt-3 border-t border-slate-100 flex items-center justify-between relative z-10">
-                      <div className="space-y-0.5">
-                        <span className="text-[9px] text-slate-400 uppercase font-bold block">{language === 'bn' ? 'পাইকারি মার্জিন' : 'Wholesale Margin'}</span>
-                        <span className="font-mono text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 inline-block">
-                          +{marginPct.toFixed(1)}%
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => startEditProduct(p)}
-                          className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer border border-transparent hover:border-slate-200"
-                          title="Edit product"
-                        >
-                          <Edit3 className="w-4 h-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteProduct(p.id)}
-                          className="p-2 text-rose-500 hover:text-rose-900 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer border border-transparent hover:border-rose-100"
-                          title="Delete product"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
             )}
           </div>
         );
@@ -1631,35 +1919,8 @@ export default function DirectoryModule({
                 </p>
               </div>
 
-              <div className="flex items-center gap-3 shrink-0 w-full sm:w-auto justify-between sm:justify-end">
-                {/* View Mode Toggle */}
-                <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
-                  <button
-                    type="button"
-                    onClick={() => setViewMode('list')}
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
-                      viewMode === 'list'
-                        ? 'bg-white text-slate-800 shadow-xs'
-                        : 'text-slate-500 hover:text-slate-800'
-                    }`}
-                  >
-                    <List className="w-3.5 h-3.5" />
-                    <span>{language === 'bn' ? 'তালিকা' : 'List'}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setViewMode('grid')}
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
-                      viewMode === 'grid'
-                        ? 'bg-white text-slate-800 shadow-xs'
-                        : 'text-slate-500 hover:text-slate-800'
-                    }`}
-                  >
-                    <Grid className="w-3.5 h-3.5" />
-                    <span>{language === 'bn' ? 'গ্রিড' : 'Grid'}</span>
-                  </button>
-                </div>
-
+              <div className="flex items-center gap-3">
+                <ViewToggle />
                 <button
                   id="btn-register-shop-top"
                   type="button"
@@ -1676,75 +1937,18 @@ export default function DirectoryModule({
               <div className="bg-white rounded-3xl border border-slate-200 p-8 text-center text-slate-400 font-semibold shadow-sm">
                 {language === 'bn' ? 'কোন দোকান পাওয়া যায়নি' : 'No retail customers registered.'}
               </div>
-            ) : viewMode === 'list' ? (
-              <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse text-left text-xs text-slate-500">
-                    <thead className="bg-slate-50 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-200">
-                      <tr>
-                        <th className="px-5 py-3">{language === 'bn' ? 'দোকানের নাম / বিট' : 'Shop Name / Beat'}</th>
-                        <th className="px-5 py-3">{language === 'bn' ? 'বাজার ও ঠিকানা' : 'Market & Address'}</th>
-                        <th className="px-5 py-3">{language === 'bn' ? 'মোবাইল নম্বর' : 'Phone'}</th>
-                        <th className="px-5 py-3 text-right">Credit Limit</th>
-                        <th className="px-5 py-3 text-right">Credit Terms</th>
-                        <th className="px-5 py-3 text-right">{language === 'bn' ? 'অ্যাকশন' : 'Actions'}</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 font-medium">
-                      {customers.map((c) => {
-                        const routeName = routes.find(r => r.id === c.routeId)?.name || 'Unassigned Beat';
-                        return (
-                          <tr key={c.id} className="hover:bg-slate-50/50 transition-colors">
-                            <td className="px-5 py-3.5">
-                              <div className="flex flex-col">
-                                <span className="font-bold text-slate-800 text-sm">{c.name}</span>
-                                <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mt-1">{routeName}</span>
-                              </div>
-                            </td>
-                            <td className="px-5 py-3.5 text-slate-700">
-                              <div className="flex flex-col">
-                                <span>{c.market}</span>
-                                <span className="text-[10px] text-slate-400">{c.address || 'N/A'}</span>
-                              </div>
-                            </td>
-                            <td className="px-5 py-3.5 font-mono text-slate-650">
-                              {c.phone}
-                            </td>
-                            <td className="px-5 py-3.5 text-right font-mono text-slate-800 font-bold">
-                              {formatBDT(c.creditLimit || 0)}
-                            </td>
-                            <td className="px-5 py-3.5 text-right font-mono text-slate-600">
-                              {c.creditDays || 0} Days
-                            </td>
-                            <td className="px-5 py-3.5 text-right">
-                              <div className="flex items-center justify-end gap-1.5">
-                                <button onClick={() => startEditShop(c)} className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg border border-transparent hover:border-slate-200">
-                                  <Edit3 className="w-3.5 h-3.5" />
-                                </button>
-                                <button onClick={() => handleDeleteShop(c.id)} className="p-1.5 text-rose-500 hover:text-rose-900 hover:bg-rose-50 rounded-lg border border-transparent hover:border-rose-100">
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            ) : (
+            ) : viewMode === 'grid' ? (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {customers.map((c, index) => {
                   const routeName = routes.find(r => r.id === c.routeId)?.name || 'Unassigned Beat';
-                  
+
                   return (
-                    <div 
+                    <div
                       key={c.id}
                       className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm hover:shadow-md hover:border-slate-800 transition-all duration-300 flex flex-col justify-between space-y-4 group relative overflow-hidden"
                     >
                       <div className="absolute -right-20 -top-20 w-36 h-36 rounded-full bg-slate-50 group-hover:bg-slate-100/50 transition-all duration-500 pointer-events-none" />
-                      
+
                       <div className="space-y-3 relative z-10">
                         <div className="flex items-center justify-between">
                           <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center text-white text-xs shadow-sm">
@@ -1759,7 +1963,7 @@ export default function DirectoryModule({
                           <h4 className="font-extrabold text-slate-900 text-sm sm:text-base leading-snug group-hover:text-slate-950 transition-colors">
                             {c.name}
                           </h4>
-                          
+
                           <div className="flex items-center gap-1.5 text-xs text-slate-400 font-semibold">
                             <MapPin className="w-3.5 h-3.5 text-slate-400" />
                             <span>{c.market}</span>
@@ -1808,6 +2012,63 @@ export default function DirectoryModule({
                   );
                 })}
               </div>
+            ) : (
+              <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-100/70 border-b border-slate-200 text-slate-600 text-[10px] uppercase font-extrabold tracking-wider">
+                        <th className="px-5 py-4">{language === 'bn' ? 'দোকানের নাম' : 'Shop Name'}</th>
+                        <th className="px-5 py-4">{language === 'bn' ? 'ঠিকানা/মার্কেট' : 'Address/Market'}</th>
+                        <th className="px-5 py-4">{language === 'bn' ? 'মোবাইল' : 'Phone'}</th>
+                        <th className="px-5 py-4">{language === 'bn' ? 'অ্যাসাইনড রুট' : 'Assigned Beat'}</th>
+                        <th className="px-5 py-4">{language === 'bn' ? 'ক্রেডিট লিমিট' : 'Credit Limit'}</th>
+                        <th className="px-5 py-4">{language === 'bn' ? 'ক্রেডিট দিন' : 'Terms (Days)'}</th>
+                        <th className="px-5 py-4 text-right">{language === 'bn' ? 'অ্যাকশন' : 'Actions'}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {customers.map((c, index) => {
+                        const routeName = routes.find(r => r.id === c.routeId)?.name || 'Unassigned Beat';
+                        return (
+                          <tr key={c.id} className="hover:bg-slate-50 transition-colors group">
+                            <td className="px-5 py-3.5 font-bold text-slate-900 text-sm">{c.name}</td>
+                            <td className="px-5 py-3.5 text-xs font-semibold text-slate-600">{c.market}</td>
+                            <td className="px-5 py-3.5 text-xs font-medium text-slate-500">{c.phone}</td>
+                            <td className="px-5 py-3.5">
+                              <span className="px-2.5 py-1 bg-slate-100 text-slate-700 rounded-md text-[10px] font-semibold uppercase tracking-wider">
+                                {routeName}
+                              </span>
+                            </td>
+                            <td className="px-5 py-3.5 font-semibold text-slate-800">{formatBDT(c.creditLimit || 0)}</td>
+                            <td className="px-5 py-3.5 font-semibold text-slate-700">{c.creditDays || 0}</td>
+                            <td className="px-5 py-3.5 text-right">
+                              <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button
+                                  type="button"
+                                  onClick={() => startEditShop(c)}
+                                  className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
+                                  title="Edit shop details"
+                                >
+                                  <Edit3 className="w-4 h-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteShop(c.id)}
+                                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                                  title="Delete shop"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             )}
           </div>
         );
@@ -1826,133 +2087,27 @@ export default function DirectoryModule({
               </p>
             </div>
 
-              <div className="flex items-center gap-3 shrink-0 w-full sm:w-auto justify-between sm:justify-end">
-                {/* View Mode Toggle */}
-                <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
-                  <button
-                    type="button"
-                    onClick={() => setViewMode('list')}
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
-                      viewMode === 'list'
-                        ? 'bg-white text-slate-800 shadow-xs'
-                        : 'text-slate-500 hover:text-slate-800'
-                    }`}
-                  >
-                    <List className="w-3.5 h-3.5" />
-                    <span>{language === 'bn' ? 'তালিকা' : 'List'}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setViewMode('grid')}
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
-                      viewMode === 'grid'
-                        ? 'bg-white text-slate-800 shadow-xs'
-                        : 'text-slate-500 hover:text-slate-800'
-                    }`}
-                  >
-                    <Grid className="w-3.5 h-3.5" />
-                    <span>{language === 'bn' ? 'গ্রিড' : 'Grid'}</span>
-                  </button>
-                </div>
+            <button
+              type="button"
+              onClick={() => {
+                setEditingSr(null);
+                setSrName('');
+                setSrPhone('');
+                setSrCommissionRate(5);
+                setSrAssignedCompanies([]);
+                setSrLoginUsername('');
+                setSrLoginPassword('');
+                setShowSrModal(true);
+              }}
+              className="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-900 px-4 text-xs font-bold text-white hover:bg-slate-800 border border-slate-950 cursor-pointer transition-all active:scale-95 shadow-sm shrink-0"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              {tDir.registerSr}
+            </button>
+          </div>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditingSr(null);
-                    setSrName('');
-                    setSrPhone('');
-                    setSrCommissionRate(5);
-                    setSrAssignedCompanies([]);
-                    setSrLoginUsername('');
-                    setSrLoginPassword('');
-                    setShowSrModal(true);
-                  }}
-                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-900 px-4 text-xs font-bold text-white hover:bg-slate-800 border border-slate-950 cursor-pointer transition-all active:scale-95 shadow-sm shrink-0"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  {tDir.registerSr}
-                </button>
-              </div>
-            </div>
-
-            {viewMode === 'list' ? (
-              <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse text-left text-xs text-slate-500">
-                    <thead className="bg-slate-50 text-[10px] font-bold text-slate-400 tracking-wider border-b border-slate-200 uppercase">
-                      <tr>
-                        <th className="px-5 py-3">{language === 'bn' ? 'নাম' : 'Name'}</th>
-                        <th className="px-5 py-3">{language === 'bn' ? 'মোবাইল' : 'Phone'}</th>
-                        <th className="px-5 py-3 text-center">{language === 'bn' ? 'বরাদ্দ দোকান' : 'Assigned Shops'}</th>
-                        <th className="px-5 py-3 text-right">{language === 'bn' ? 'কমিশন হার' : 'Commission'}</th>
-                        <th className="px-5 py-3">{language === 'bn' ? 'অনুমোদিত কোম্পানি' : 'Assigned Brands'}</th>
-                        <th className="px-5 py-3 text-right">{language === 'bn' ? 'অ্যাকশন' : 'Actions'}</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 font-medium">
-                      {srs.map((sr) => {
-                        const assignedShopsCount = customers.filter(c => c.assignedSR.toLowerCase() === sr.name.toLowerCase()).length;
-                        return (
-                          <tr key={sr.id} className="hover:bg-slate-50/50 transition-colors">
-                            <td className="px-5 py-3.5 font-bold text-slate-800 text-sm">
-                              {sr.name}
-                            </td>
-                            <td className="px-5 py-3.5 font-mono text-slate-650">
-                              {sr.phone}
-                            </td>
-                            <td className="px-5 py-3.5 text-center">
-                              <span className="bg-slate-100 border border-slate-200 text-slate-600 px-2 py-0.5 rounded text-[10px] font-bold">
-                                {language === 'bn' ? `${assignedShopsCount}টি দোকান` : `${assignedShopsCount} Shops`}
-                              </span>
-                            </td>
-                            <td className="px-5 py-3.5 text-right font-mono text-slate-800 font-bold">
-                              {sr.commissionRate || 5}%
-                            </td>
-                            <td className="px-5 py-3.5 text-slate-600">
-                              <div className="flex flex-wrap gap-1 max-w-[200px]">
-                                {sr.assignedCompanyIds && sr.assignedCompanyIds.length > 0 ? (
-                                  sr.assignedCompanyIds.map(cid => {
-                                    const cName = companies.find(comp => comp.id === cid)?.name || cid;
-                                    return (
-                                      <span key={cid} className="px-1.5 py-0.2 bg-purple-50 text-purple-700 border border-purple-100 rounded text-[9px] font-bold uppercase">{cName}</span>
-                                    )
-                                  })
-                                ) : (
-                                  <span className="text-slate-400 italic">None</span>
-                                )}
-                              </div>
-                            </td>
-                            <td className="px-5 py-3.5 text-right">
-                              <div className="flex items-center justify-end gap-1.5">
-                                <button
-                                  onClick={() => {
-                                    setEditingSr(sr);
-                                    setSrName(sr.name);
-                                    setSrPhone(sr.phone);
-                                    setSrCommissionRate(sr.commissionRate || 5);
-                                    setSrAssignedCompanies(sr.assignedCompanyIds || []);
-                                    setSrLoginUsername(sr.loginUsername || '');
-                                    setSrLoginPassword(sr.loginPassword || '');
-                                    setShowSrModal(true);
-                                  }}
-                                  className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg border border-transparent hover:border-slate-200"
-                                >
-                                  <Edit3 className="w-3.5 h-3.5" />
-                                </button>
-                                <button onClick={() => handleDeleteSr(sr.id)} className="p-1.5 text-rose-500 hover:text-rose-900 hover:bg-rose-50 rounded-lg border border-transparent hover:border-rose-100">
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {srs.map((sr, index) => {
               const assignedShopsCount = customers.filter(c => c.assignedSR.toLowerCase() === sr.name.toLowerCase()).length;
               const initials = sr.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
@@ -2022,7 +2177,6 @@ export default function DirectoryModule({
               );
             })}
           </div>
-          )}
         </div>
       )}
 
@@ -2031,10 +2185,10 @@ export default function DirectoryModule({
         const damageFilteredProducts = products.filter(p => {
           const matchCompany = selectedDamageCompany === 'All' || p.company === selectedDamageCompany;
           const matchCategory = damageCategoryFilter === 'All' || p.categoryId === damageCategoryFilter;
-          
+
           const search = damageSearch.toLowerCase();
           const matchSearch = !search || p.name.toLowerCase().includes(search) || p.sku.toLowerCase().includes(search);
-          
+
           let matchStock = true;
           if (damageStockFilter === 'HasDamage') {
             matchStock = (p.damagedStock || 0) > 0;
@@ -2048,7 +2202,7 @@ export default function DirectoryModule({
             : (damageDates.length > 0
               ? damageDates.some(date => (!damageStartDate || date >= damageStartDate) && (!damageEndDate || date <= damageEndDate))
               : matchesDateRange(p.createdAt, damageStartDate, damageEndDate));
-          
+
           return matchCompany && matchCategory && matchSearch && matchStock && matchesDamageDate;
         });
 
@@ -2072,6 +2226,22 @@ export default function DirectoryModule({
 
         return (
           <div className="space-y-6">
+            {/* Header Banner */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4.5 border border-slate-200 rounded-2xl shadow-sm">
+              <div className="space-y-0.5">
+                <h3 className="text-sm font-bold text-slate-800">
+                  {language === 'bn' ? 'ড্যামেজ পণ্য বিবরণী' : 'Product Damage Directory'}
+                </h3>
+                <p className="text-[11px] text-slate-400 font-semibold">
+                  {language === 'bn' ? 'নষ্ট বা ভাঙা পণ্যের পরিমাণ সমন্বয় ও আর্থিক ক্ষতির হিসাব' : 'Track and reconcile product damages, estimate financial losses, and reconcile inventory'}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <ViewToggle />
+              </div>
+            </div>
+
             {/* Top KPI Cards section */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
@@ -2223,173 +2393,239 @@ export default function DirectoryModule({
                     <option value="NoDamage">{language === 'bn' ? 'কোনো ড্যামেজ নেই (= ০)' : 'No Damage (= 0)'}</option>
                   </select>
                 </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-                    {language === 'bn' ? 'শুরুর তারিখ' : 'From Date'}
-                  </label>
-                  <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
-                    <input
-                      type="date"
-                      value={damageStartDate}
-                      onChange={e => setDamageStartDate(e.target.value)}
-                      className="w-full h-10 pl-9 pr-3 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-750 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-100 transition-all"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-                    {language === 'bn' ? 'শেষের তারিখ' : 'To Date'}
-                  </label>
-                  <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
-                    <input
-                      type="date"
-                      value={damageEndDate}
-                      onChange={e => setDamageEndDate(e.target.value)}
-                      className="w-full h-10 pl-9 pr-3 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-750 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-100 transition-all"
-                    />
-                  </div>
-                </div>
               </div>
             </div>
 
-            {/* Grid of Lucrative Product Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-              {damageFilteredProducts.map(p => {
-                const damageBreakdown = getDamageBreakdown(p);
-                const damagedQty = damageBreakdown.totalDamageQty;
-                const existingDamageQty = damageBreakdown.existingDamageQty;
-                const newDamageQty = damageBreakdown.newDamageQty;
-                const totalQty = p.currentStock + damagedQty;
-                const itemDamageRatio = totalQty > 0 ? (damagedQty / totalQty) * 100 : 0;
+            {/* Grid/List View Conditional Rendering */}
+            {viewMode === 'grid' ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {damageFilteredProducts.map(p => {
+                  const damageBreakdown = getDamageBreakdown(p);
+                  const damagedQty = damageBreakdown.totalDamageQty;
+                  const existingDamageQty = damageBreakdown.existingDamageQty;
+                  const newDamageQty = damageBreakdown.newDamageQty;
+                  const totalQty = p.currentStock + damagedQty;
+                  const itemDamageRatio = totalQty > 0 ? (damagedQty / totalQty) * 100 : 0;
 
-                // Color theme based on company
-                let themePillStyle = "bg-purple-50 text-purple-700 border-purple-200";
-                if (p.company.toLowerCase() === 'pran') {
-                  themePillStyle = "bg-orange-50 text-orange-700 border-orange-200";
-                } else if (p.company.toLowerCase() === 'olympic') {
-                  themePillStyle = "bg-blue-50 text-blue-700 border-blue-200";
-                } else if (p.company.toLowerCase() === 'haque') {
-                  themePillStyle = "bg-emerald-50 text-emerald-700 border-emerald-200";
-                }
+                  return (
+                    <div
+                      key={p.id}
+                      className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm hover:shadow-md hover:border-slate-800 transition-all duration-300 flex flex-col justify-between space-y-4 group relative overflow-hidden"
+                    >
+                      {/* Corner decorative gradient glow on hover */}
+                      <div className="absolute -right-20 -top-20 w-36 h-36 rounded-full bg-slate-50 group-hover:bg-rose-500/5 transition-all duration-500 pointer-events-none" />
 
-                return (
-                  <div
-                    key={p.id}
-                    className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm hover:shadow-md hover:border-slate-800 transition-all duration-300 flex flex-col justify-between space-y-4 group relative overflow-hidden"
-                  >
-                    {/* Corner decorative gradient glow on hover */}
-                    <div className="absolute -right-20 -top-20 w-36 h-36 rounded-full bg-slate-50 group-hover:bg-rose-500/5 transition-all duration-500 pointer-events-none" />
-
-                    <div className="space-y-3 relative z-10">
-                      <div className="flex items-center justify-between">
-                        <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold border uppercase tracking-wider ${themePillStyle}`}>
-                          {p.company}
-                        </span>
-                        <span className="font-mono text-[9px] font-bold text-slate-400 uppercase tracking-wide">
-                          {p.sku}
-                        </span>
-                      </div>
-
-                      <h4 className="font-bold text-slate-800 text-sm sm:text-base group-hover:text-slate-900 transition-colors line-clamp-2 leading-snug">
-                        {p.name}
-                      </h4>
-                    </div>
-
-                    {/* Stock breakdowns */}
-                    <div className="grid grid-cols-2 gap-3 relative z-10 pt-1">
-                      <div className="bg-emerald-50/30 rounded-2xl p-3 border border-emerald-100">
-                        <span className="text-[9px] text-emerald-600 font-bold uppercase tracking-wider block">
-                          {language === 'bn' ? 'বিক্রয়যোগ্য স্টক' : 'Salable Stock'}
-                        </span>
-                        <span className="font-mono text-sm font-black text-slate-800">
-                          {p.currentStock.toLocaleString()} <span className="text-[10px] font-semibold text-slate-400">{language === 'bn' ? 'টি' : 'Units'}</span>
-                        </span>
-                        <span className="text-[9px] text-slate-450 font-mono block mt-0.5">
-                          Val: ৳{(p.currentStock * p.defaultPP).toLocaleString('en-BD')}
-                        </span>
-                      </div>
-
-                      <div className="bg-rose-50/30 rounded-2xl p-3 border border-rose-100">
-                        <span className="text-[9px] text-rose-600 font-bold uppercase tracking-wider block">
-                          {language === 'bn' ? 'ড্যামেজ স্টক' : 'Damaged Stock'}
-                        </span>
-                        <span className="font-mono text-sm font-black text-slate-800">
-                          {damagedQty.toLocaleString()} <span className="text-[10px] font-semibold text-slate-400">{language === 'bn' ? 'টি' : 'Units'}</span>
-                        </span>
-                        <span className="text-[9px] text-slate-450 font-mono block mt-0.5">
-                          Val: ৳{(damagedQty * p.defaultPP).toLocaleString('en-BD')}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Visual Damage progress meter */}
-                    <div className="space-y-1.5 relative z-10">
-                      <div className="flex items-center justify-between text-[10px] font-bold text-slate-500">
-                        <span>{language === 'bn' ? 'ক্ষয়ক্ষতির অনুপাত' : 'Damage Ratio'}</span>
-                        <span className={damagedQty > 0 ? "text-rose-600" : "text-slate-400"}>
-                          {itemDamageRatio.toFixed(1)}%
-                        </span>
-                      </div>
-                      <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                        <div
-                          style={{ width: `${Math.min(100, itemDamageRatio)}%` }}
-                          className={`h-full rounded-full transition-all duration-500 ${itemDamageRatio > 10 ? 'bg-rose-500' : itemDamageRatio > 0 ? 'bg-amber-500' : 'bg-slate-300'
-                            }`}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2 relative z-10">
-                      <div className="grid grid-cols-2 gap-2 text-[10px]">
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-2">
-                          <div className="text-[8px] text-slate-400 uppercase font-bold">
-                            {language === 'bn' ? 'পুরাতন ড্যামেজ' : 'Old Damage'}
-                          </div>
-                          <div className="font-mono font-black text-slate-700">{existingDamageQty.toLocaleString()}</div>
+                      <div className="space-y-3 relative z-10">
+                        <div className="flex items-center justify-between">
+                          <span
+                            title={p.company}
+                            className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider max-w-[120px] truncate align-middle border shadow-sm ${getCompanyBadgeStyle(p.company)}`}
+                          >
+                            {p.company}
+                          </span>
+                          <span className="font-mono text-[9px] font-bold text-slate-400 uppercase tracking-wide">
+                            {p.sku}
+                          </span>
                         </div>
-                        <div className="rounded-xl border border-rose-200 bg-rose-50 p-2">
-                          <div className="text-[8px] text-rose-500 uppercase font-bold">
-                            {language === 'bn' ? 'নতুন ড্যামেজ' : 'New Damage'}
-                          </div>
-                          <div className="font-mono font-black text-rose-700">{newDamageQty.toLocaleString()}</div>
+
+                        <h4 className="font-bold text-slate-800 text-sm sm:text-base group-hover:text-slate-900 transition-colors line-clamp-2 leading-snug">
+                          {p.name}
+                        </h4>
+                      </div>
+
+                      {/* Stock breakdowns */}
+                      <div className="grid grid-cols-2 gap-3 relative z-10 pt-1">
+                        <div className="bg-emerald-50/30 rounded-2xl p-3 border border-emerald-100">
+                          <span className="text-[9px] text-emerald-600 font-bold uppercase tracking-wider block">
+                            {language === 'bn' ? 'বিক্রয়যোগ্য স্টক' : 'Salable Stock'}
+                          </span>
+                          <span className="font-mono text-sm font-black text-slate-800">
+                            {p.currentStock.toLocaleString()} <span className="text-[10px] font-semibold text-slate-400">{language === 'bn' ? 'টি' : 'Units'}</span>
+                          </span>
+                          <span className="text-[9px] text-slate-450 font-mono block mt-0.5">
+                            Val: ৳{(p.currentStock * p.defaultPP).toLocaleString('en-BD')}
+                          </span>
+                        </div>
+
+                        <div className="bg-rose-50/30 rounded-2xl p-3 border border-rose-100">
+                          <span className="text-[9px] text-rose-600 font-bold uppercase tracking-wider block">
+                            {language === 'bn' ? 'ড্যামেজ স্টক' : 'Damaged Stock'}
+                          </span>
+                          <span className="font-mono text-sm font-black text-slate-800">
+                            {damagedQty.toLocaleString()} <span className="text-[10px] font-semibold text-slate-400">{language === 'bn' ? 'টি' : 'Units'}</span>
+                          </span>
+                          <span className="text-[9px] text-slate-450 font-mono block mt-0.5">
+                            Val: ৳{(damagedQty * p.defaultPP).toLocaleString('en-BD')}
+                          </span>
                         </div>
                       </div>
-                    </div>
 
-                    {/* Loss Estimate & Adjust Action */}
-                    <div className="pt-3 border-t border-slate-100 flex items-center justify-between relative z-10">
-                      <div className="space-y-0.5">
-                        <span className="text-[9px] text-slate-400 uppercase font-bold block">
-                          {language === 'bn' ? 'আর্থিক ক্ষতি প্রাক্কলন' : 'Loss Estimate'}
-                        </span>
-                        <span className="font-mono text-xs font-black text-rose-600">
-                          {formatBDT(damagedQty * p.defaultPP)}
-                        </span>
+                      {/* Visual Damage progress meter */}
+                      <div className="space-y-1.5 relative z-10">
+                        <div className="flex items-center justify-between text-[10px] font-bold text-slate-500">
+                          <span>{language === 'bn' ? 'ক্ষয়ক্ষতির অনুপাত' : 'Damage Ratio'}</span>
+                          <span className={damagedQty > 0 ? "text-rose-600" : "text-slate-400"}>
+                            {itemDamageRatio.toFixed(1)}%
+                          </span>
+                        </div>
+                        <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                          <div
+                            style={{ width: `${Math.min(100, itemDamageRatio)}%` }}
+                            className={`h-full rounded-full transition-all duration-500 ${itemDamageRatio > 10 ? 'bg-rose-500' : itemDamageRatio > 0 ? 'bg-amber-500' : 'bg-slate-300'
+                              }`}
+                          />
+                        </div>
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={() => handleOpenDamageModal(p)}
-                        className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-950 px-3.5 text-xs font-bold shadow-sm transition-all active:scale-95 cursor-pointer"
-                      >
-                        <Edit3 className="w-3.5 h-3.5" />
-                        {language === 'bn' ? 'সমন্বয়' : 'Adjust'}
-                      </button>
+                      <div className="space-y-2 relative z-10">
+                        <div className="grid grid-cols-2 gap-2 text-[10px]">
+                          <div className="rounded-xl border border-slate-200 bg-slate-50 p-2">
+                            <div className="text-[8px] text-slate-400 uppercase font-bold">
+                              {language === 'bn' ? 'পুরাতন ড্যামেজ' : 'Old Damage'}
+                            </div>
+                            <div className="font-mono font-black text-slate-700">{existingDamageQty.toLocaleString()}</div>
+                          </div>
+                          <div className="rounded-xl border border-rose-200 bg-rose-50 p-2">
+                            <div className="text-[8px] text-rose-500 uppercase font-bold">
+                              {language === 'bn' ? 'নতুন ড্যামেজ' : 'New Damage'}
+                            </div>
+                            <div className="font-mono font-black text-rose-700">{newDamageQty.toLocaleString()}</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Loss Estimate & Adjust Action */}
+                      <div className="pt-3 border-t border-slate-100 flex items-center justify-between relative z-10">
+                        <div className="space-y-0.5">
+                          <span className="text-[9px] text-slate-400 uppercase font-bold block">
+                            {language === 'bn' ? 'আর্থিক ক্ষতি প্রাক্কলন' : 'Loss Estimate'}
+                          </span>
+                          <span className="font-mono text-xs font-black text-rose-600">
+                            {formatBDT(damagedQty * p.defaultPP)}
+                          </span>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleOpenDamageModal(p)}
+                          className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-950 px-3.5 text-xs font-bold shadow-sm transition-all active:scale-95 cursor-pointer"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                          {language === 'bn' ? 'সমন্বয়' : 'Adjust'}
+                        </button>
+                      </div>
                     </div>
+                  );
+                })}
+
+                {damageFilteredProducts.length === 0 && (
+                  <div className="col-span-full py-16 text-center text-slate-400 font-semibold text-sm bg-white rounded-2xl border border-slate-200 animate-fade-in">
+                    {language === 'bn' ? 'কোনো ড্যামেজ পণ্য পাওয়া যায়নি।' : 'No damaged products found for this brand.'}
                   </div>
-                );
-              })}
+                )}
+              </div>
+            ) : (
+              <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden animate-fade-in">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-100/70 border-b border-slate-200 text-slate-600 text-[10px] uppercase font-extrabold tracking-wider">
+                        <th className="px-5 py-4">{language === 'bn' ? 'পণ্য' : 'Product'}</th>
+                        <th className="px-5 py-4">{language === 'bn' ? 'ব্র্যান্ড/কোম্পানি' : 'Brand/Company'}</th>
+                        <th className="px-5 py-4">{language === 'bn' ? 'বিক্রয়যোগ্য স্টক' : 'Salable Stock'}</th>
+                        <th className="px-5 py-4">{language === 'bn' ? 'ড্যামেজ স্টক' : 'Damaged Stock'}</th>
+                        <th className="px-5 py-4">{language === 'bn' ? 'ড্যামেজের হার' : 'Damage Ratio'}</th>
+                        <th className="px-5 py-4">{language === 'bn' ? 'আর্থিক ক্ষতি প্রাক্কলন' : 'Loss Estimate'}</th>
+                        <th className="px-5 py-4 text-right">{language === 'bn' ? 'অ্যাকশন' : 'Actions'}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {damageFilteredProducts.map(p => {
+                        const damageBreakdown = getDamageBreakdown(p);
+                        const damagedQty = damageBreakdown.totalDamageQty;
+                        const totalQty = p.currentStock + damagedQty;
+                        const itemDamageRatio = totalQty > 0 ? (damagedQty / totalQty) * 100 : 0;
+                        const uomObj = units.find(u => u.id === p.uomId);
+                        const uomName = uomObj?.name || 'N/A';
 
-              {damageFilteredProducts.length === 0 && (
-                <div className="col-span-full py-16 text-center text-slate-400 font-semibold text-sm bg-white rounded-2xl border border-slate-200">
-                  {language === 'bn' ? 'কোনো ড্যামেজ পণ্য পাওয়া যায়নি।' : 'No damaged products found for this brand.'}
+                        return (
+                          <tr key={p.id} className="hover:bg-slate-50 transition-colors group">
+                            <td className="px-5 py-3.5">
+                              <div className="font-bold text-slate-900 text-sm mb-0.5">{p.name}</div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wide">{p.sku}</span>
+                                {uomName !== 'N/A' && (
+                                  <span className="inline-block px-1.5 py-0.5 rounded bg-slate-50 border border-slate-200/60 text-slate-500 text-[9px] font-bold uppercase tracking-wide">
+                                    {uomName}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-5 py-3.5">
+                              <span
+                                title={p.company}
+                                className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider max-w-[120px] truncate align-middle border shadow-sm ${getCompanyBadgeStyle(p.company)}`}
+                              >
+                                {p.company}
+                              </span>
+                            </td>
+                            <td className="px-5 py-3.5 whitespace-nowrap">
+                              <div className="text-xs font-bold text-slate-800">{p.currentStock.toLocaleString()} Units</div>
+                              <div className="text-[9px] text-slate-400 font-mono mt-0.5">Val: {formatBDT(p.currentStock * p.defaultPP)}</div>
+                            </td>
+                            <td className="px-5 py-3.5 whitespace-nowrap">
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide border ${damagedQty > 0
+                                ? "bg-rose-50 text-rose-600 border-rose-100"
+                                : "bg-slate-50 text-slate-500 border-slate-200"
+                                }`}>
+                                <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${damagedQty > 0 ? "bg-rose-500 animate-pulse" : "bg-slate-400"}`} />
+                                {damagedQty.toLocaleString()} Units
+                              </span>
+                              {damagedQty > 0 && (
+                                <div className="text-[9px] text-slate-400 font-mono mt-0.5">Val: {formatBDT(damagedQty * p.defaultPP)}</div>
+                              )}
+                            </td>
+                            <td className="px-5 py-3.5 whitespace-nowrap">
+                              <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold border ${itemDamageRatio > 10
+                                ? "bg-rose-50 text-rose-600 border-rose-100"
+                                : itemDamageRatio > 0
+                                  ? "bg-amber-50 text-amber-600 border-amber-100"
+                                  : "bg-slate-50 text-slate-500 border-slate-200"
+                                }`}>
+                                {itemDamageRatio.toFixed(1)}%
+                              </span>
+                            </td>
+                            <td className="px-5 py-3.5 text-xs text-rose-600 font-extrabold whitespace-nowrap">
+                              {formatBDT(damagedQty * p.defaultPP)}
+                            </td>
+                            <td className="px-5 py-3.5 text-right">
+                              <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenDamageModal(p)}
+                                  className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white px-3 text-xs font-bold shadow-sm transition-all cursor-pointer"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5" />
+                                  {language === 'bn' ? 'সমন্বয়' : 'Adjust'}
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+
+                      {damageFilteredProducts.length === 0 && (
+                        <tr>
+                          <td colSpan={7} className="py-16 text-center text-slate-400 font-semibold text-sm bg-white">
+                            {language === 'bn' ? 'কোনো ড্যামেজ পণ্য পাওয়া যায়নি।' : 'No damaged products found for this brand.'}
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         );
       })()}
@@ -2486,113 +2722,6 @@ export default function DirectoryModule({
         </div>
       )}
 
-      {/* SUB-TAB: Categories */}
-      {activeSubTab === 'categories' && (() => {
-        const filteredCategories = productCategories.filter(cat =>
-          cat.name.toLowerCase().includes(categorySearch.toLowerCase()) ||
-          (cat.description || '').toLowerCase().includes(categorySearch.toLowerCase())
-        );
-
-        return (
-          <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4.5 border border-slate-200 rounded-2xl shadow-sm">
-              <div className="space-y-0.5">
-                <h3 className="text-sm font-bold text-slate-800">
-                  {language === 'bn' ? 'পণ্যের ক্যাটাগরি সমূহ' : 'Product Categories'}
-                </h3>
-                <p className="text-[11px] text-slate-400 font-semibold">
-                  {language === 'bn' ? 'পণ্যের শ্রেণীবিভাগ ও শ্রেণীবিন্যাস ক্লাস' : 'Taxonomy classes used to classify different product varieties'}
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleOpenCategory}
-                className="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-900 px-4 text-xs font-bold text-white hover:bg-slate-800 border border-slate-950 cursor-pointer transition-all active:scale-95 shadow-sm shrink-0"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                {tDir.registerCategory}
-              </button>
-            </div>
-
-            {/* Highlighted Search Bar */}
-            <div className="bg-indigo-50/30 border border-indigo-200 rounded-2xl p-4 shadow-sm">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-500" />
-                <input
-                  type="text"
-                  value={categorySearch}
-                  onChange={e => setCategorySearch(e.target.value)}
-                  placeholder={language === 'bn' ? 'ক্যাটাগরি অনুসন্ধান করুন...' : 'Search category name or description...'}
-                  className="w-full h-10 pl-10 pr-4 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-750 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all placeholder:text-slate-450"
-                />
-              </div>
-            </div>
-
-            {/* Cards Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredCategories.map((cat, index) => {
-              const categoryProductsCount = products.filter(p => p.categoryId === cat.id).length;
-
-              const colorGradients = [
-                'from-teal-500 to-emerald-600',
-                'from-sky-500 to-indigo-600',
-                'from-amber-500 to-rose-500',
-                'from-violet-500 to-purple-600'
-              ];
-              const gradient = colorGradients[index % colorGradients.length];
-
-              return (
-                <div
-                  key={cat.id}
-                  className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm hover:shadow-md hover:border-slate-800 transition-all duration-300 flex flex-col justify-between space-y-4 group relative overflow-hidden"
-                >
-                  <div className="absolute -right-20 -top-20 w-36 h-36 rounded-full bg-slate-50 group-hover:bg-slate-100/50 transition-all duration-500 pointer-events-none" />
-
-                  <div className="space-y-3 relative z-10">
-                    <div className="flex items-center justify-between">
-                      <span className={`w-8 h-8 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center font-bold text-white text-xs shadow-sm`}>
-                        {cat.name[0].toUpperCase()}
-                      </span>
-                      <span className="bg-slate-100 text-slate-600 border border-slate-200 px-2 py-0.5 rounded text-[10px] font-bold">
-                        {language === 'bn' ? `${categoryProductsCount}টি পণ্য ম্যাপড` : `${categoryProductsCount} Products`}
-                      </span>
-                    </div>
-
-                    <div className="space-y-1">
-                      <h4 className="font-bold text-slate-800 group-hover:text-slate-900 transition-colors text-sm sm:text-base leading-snug">
-                        {cat.name}
-                      </h4>
-                      <p className="text-xs text-slate-500 font-medium leading-relaxed">
-                        {cat.description || 'No description provided.'}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-1 relative z-10">
-                    <button
-                      type="button"
-                      onClick={() => startEditCategory(cat)}
-                      className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all border border-transparent hover:border-slate-200 cursor-pointer"
-                      title="Edit category"
-                    >
-                      <Edit3 className="w-4 h-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteCategory(cat.id)}
-                      className="p-2 text-rose-500 hover:text-rose-900 hover:bg-rose-50 rounded-xl transition-all border border-transparent hover:border-rose-100 cursor-pointer"
-                      title="Delete category"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      ); })()}
 
       {/* SUB-TAB: Units (UOM) */}
       {activeSubTab === 'units' && (() => {
@@ -2639,65 +2768,84 @@ export default function DirectoryModule({
             {/* Cards Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredUnits.map((uom, index) => {
-              const colorGradients = [
-                'from-violet-500 to-indigo-600',
-                'from-amber-500 to-orange-600',
-                'from-emerald-500 to-teal-600',
-                'from-sky-500 to-blue-600'
-              ];
-              const gradient = colorGradients[index % colorGradients.length];
+                const colorGradients = [
+                  'from-violet-500 to-indigo-600',
+                  'from-amber-500 to-orange-600',
+                  'from-emerald-500 to-teal-600',
+                  'from-sky-500 to-blue-600'
+                ];
+                const gradient = colorGradients[index % colorGradients.length];
+                const baseUnit = units.find(u => !u.parentUnitId) || { name: 'Unit', multiplier: 1, symbol: '' };
+                const parentUnit = uom.parentUnitId ? units.find(u => u.id === uom.parentUnitId) : null;
+                
+                let formulaText = `1 ${uom.name} = ${uom.multiplier} ${baseUnit.name}`;
+                if (parentUnit) {
+                  const parentToBase = parentUnit.multiplier;
+                  const thisToParent = uom.multiplier / parentToBase;
+                  formulaText = `1 ${uom.name} = ${thisToParent} ${parentUnit.name} = ${uom.multiplier} ${baseUnit.name}`;
+                }
 
-              return (
-                <div
-                  key={uom.id}
-                  className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm hover:shadow-md hover:border-slate-800 transition-all duration-300 flex flex-col justify-between space-y-4 group relative overflow-hidden"
-                >
-                  <div className="absolute -right-20 -top-20 w-36 h-36 rounded-full bg-slate-50 group-hover:bg-slate-100/50 transition-all duration-500 pointer-events-none" />
+                return (
+                  <div
+                    key={uom.id}
+                    className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm hover:shadow-md hover:border-slate-800 transition-all duration-300 flex flex-col justify-between space-y-4 group relative overflow-hidden"
+                  >
+                    <div className="absolute -right-20 -top-20 w-36 h-36 rounded-full bg-slate-50 group-hover:bg-slate-100/50 transition-all duration-500 pointer-events-none" />
 
-                  <div className="space-y-3 relative z-10">
-                    <div className="flex items-center justify-between">
-                      <span className={`w-8 h-8 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center font-bold text-white text-xs shadow-sm`}>
-                        {uom.name[0].toUpperCase()}
-                      </span>
-                      <span className="bg-slate-100 text-slate-600 border border-slate-200 px-2 py-0.5 rounded text-[10px] font-bold">
-                        {language === 'bn' ? `১ ${uom.name} = ${uom.multiplier} টি` : `Multiplier: x${uom.multiplier}`}
-                      </span>
+                    <div className="space-y-3 relative z-10">
+                      <div className="flex items-center justify-between">
+                        <span className={`w-8 h-8 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center font-bold text-white text-xs shadow-sm`}>
+                          {uom.symbol ? uom.symbol[0].toUpperCase() : uom.name[0].toUpperCase()}
+                        </span>
+                        <span className="bg-gradient-to-r from-indigo-100 to-purple-100 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded text-[10px] font-bold">
+                          {uom.symbol ? `${uom.symbol}` : ''}
+                        </span>
+                      </div>
+
+                      <div className="space-y-1">
+                        <h4 className="font-bold text-slate-800 group-hover:text-slate-900 transition-colors text-sm sm:text-base leading-snug">
+                          {uom.name}
+                        </h4>
+                        {/* Formula Display */}
+                        <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg border border-indigo-100 p-2">
+                          <p className="text-[10px] font-bold text-indigo-700 uppercase tracking-wider mb-1">Formula</p>
+                          <p className="text-xs font-mono font-semibold text-slate-800">
+                            {formulaText}
+                          </p>
+                        </div>
+                        {uom.description && (
+                          <p className="text-xs text-slate-500 font-medium mt-1">
+                            {uom.description}
+                          </p>
+                        )}
+                      </div>
                     </div>
 
-                    <div className="space-y-1">
-                      <h4 className="font-bold text-slate-800 group-hover:text-slate-900 transition-colors text-sm sm:text-base leading-snug">
-                        {uom.name}
-                      </h4>
-                      <p className="text-xs text-slate-500 font-semibold font-mono">
-                        {language === 'bn' ? `সমানুপাতী পরিমাণ: ${uom.multiplier} পিস` : `Equivalence standard: ${uom.multiplier} Units (pcs)`}
-                      </p>
+                    <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-1 relative z-10">
+                      <button
+                        type="button"
+                        onClick={() => startEditUnit(uom)}
+                        className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all border border-transparent hover:border-slate-200 cursor-pointer"
+                        title="Edit unit"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteUnit(uom.id)}
+                        className="p-2 text-rose-500 hover:text-rose-900 hover:bg-rose-50 rounded-xl transition-all border border-transparent hover:border-rose-100 cursor-pointer"
+                        title="Delete unit"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
-
-                  <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-1 relative z-10">
-                    <button
-                      type="button"
-                      onClick={() => startEditUnit(uom)}
-                      className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all border border-transparent hover:border-slate-200 cursor-pointer"
-                      title="Edit unit"
-                    >
-                      <Edit3 className="w-4 h-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteUnit(uom.id)}
-                      className="p-2 text-rose-500 hover:text-rose-900 hover:bg-rose-50 rounded-xl transition-all border border-transparent hover:border-rose-100 cursor-pointer"
-                      title="Delete unit"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        </div>
-      ); })()}
+        );
+      })()}
 
       {/* SUB-TAB: Warehouses / Godowns */}
       {activeSubTab === 'godowns' && (
@@ -2748,8 +2896,8 @@ export default function DirectoryModule({
                         <HardDrive className="w-4 h-4 text-white" />
                       </span>
                       <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold border ${g.isDamageGodown
-                          ? 'bg-rose-50 text-rose-700 border-rose-200'
-                          : 'bg-emerald-50 text-emerald-705 border-emerald-200'
+                        ? 'bg-rose-50 text-rose-700 border-rose-200'
+                        : 'bg-emerald-50 text-emerald-705 border-emerald-200'
                         }`}>
                         {g.isDamageGodown
                           ? (language === 'bn' ? 'ড্যামেজ/ফেরত গুদাম' : 'Damage/Return')
@@ -3024,21 +3172,7 @@ export default function DirectoryModule({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="mb-2 block text-[10px] font-semibold text-slate-705">{tDir.formProductCategory.replace(' *', '')}</label>
-                  <select
-                    value={prodCategoryId}
-                    onChange={e => setProdCategoryId(e.target.value)}
-                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-2 font-semibold outline-none focus:border-slate-800"
-                  >
-                    <option value="">No Category</option>
-                    {productCategories.map(c => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
-                </div>
-
+              <div className="grid grid-cols-1 gap-3">
                 <div>
                   <label className="mb-2 block text-[10px] font-semibold text-slate-705">{tDir.formProductUnit.replace(' *', '')}</label>
                   <select
@@ -3052,6 +3186,32 @@ export default function DirectoryModule({
                   </select>
                 </div>
               </div>
+
+              {/* Unit Formula Display */}
+              {(() => {
+                const selectedUnit = units.find(u => u.id === prodUomId);
+                if (!selectedUnit) return null;
+                
+                const baseUnit = units.find(u => !u.parentUnitId) || { name: 'Unit', multiplier: 1, symbol: '' };
+                const parentUnit = selectedUnit.parentUnitId ? units.find(u => u.id === selectedUnit.parentUnitId) : null;
+                
+                let formulaText = `1 ${selectedUnit.name} = ${selectedUnit.multiplier} ${baseUnit.name}`;
+                if (parentUnit) {
+                  const parentToBase = parentUnit.multiplier;
+                  const thisToParent = selectedUnit.multiplier / parentToBase;
+                  formulaText = `1 ${selectedUnit.name} = ${thisToParent} ${parentUnit.name} = ${selectedUnit.multiplier} ${baseUnit.name}`;
+                }
+
+                return (
+                  <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg border border-indigo-100 p-3 space-y-1">
+                    <div className="text-[10px] font-bold text-indigo-700 uppercase tracking-wider">Selected Unit Details</div>
+                    <div className="font-mono text-sm font-semibold text-slate-800">{formulaText}</div>
+                    {selectedUnit.description && (
+                      <div className="text-xs text-slate-600">{selectedUnit.description}</div>
+                    )}
+                  </div>
+                );
+              })()}
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
@@ -3090,13 +3250,15 @@ export default function DirectoryModule({
               </div>
 
               <div>
-                <label className="mb-2 block text-xs font-semibold text-slate-750">{tDir.formProductStock}</label>
+                <label className={`mb-2 block text-xs font-semibold ${editingProduct ? 'text-slate-400' : 'text-slate-700'}`}>
+                  {tDir.formProductStock} {editingProduct ? `(${language === 'bn' ? 'স্টক অ্যাডজাস্টমেন্ট মডিউল থেকে পরিবর্তন করুন' : 'Change from Stock Adjustment Module'})` : `(${language === 'bn' ? 'প্রারম্ভিক' : 'Opening'})`}
+                </label>
                 <input
                   type="number"
-                  min="0"
+                  disabled={!!editingProduct}
                   value={prodStock}
                   onChange={e => setProdStock(Number(e.target.value))}
-                  className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 font-mono font-semibold outline-none focus:border-slate-800"
+                  className={`h-10 w-full rounded-lg border border-slate-200 px-3 font-mono font-semibold outline-none ${editingProduct ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-slate-50 focus:border-slate-800'}`}
                 />
               </div>
             </div>
@@ -3428,7 +3590,7 @@ export default function DirectoryModule({
       {/* MODAL: Unit Setup */}
       {showUnitModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <form onSubmit={handleUnitSubmit} className="bg-white rounded-xl border border-slate-200 w-full max-w-sm shadow-2xl flex flex-col justify-between overflow-hidden">
+          <form onSubmit={handleUnitSubmit} className="bg-white rounded-xl border border-slate-200 w-full max-w-md shadow-2xl flex flex-col justify-between overflow-hidden">
             <div className="border-b border-slate-200 px-6 py-4 bg-slate-50 flex items-center justify-between">
               <span className="font-semibold text-slate-800 text-sm flex items-center gap-1.5">
                 <DollarSign className="w-4.5 h-4.5 text-slate-750" />
@@ -3437,13 +3599,13 @@ export default function DirectoryModule({
               <button type="button" onClick={() => setShowUnitModal(false)} className="text-slate-400 hover:text-slate-855">✕</button>
             </div>
 
-            <div className="p-6 space-y-4 text-xs">
+            <div className="p-6 space-y-4 text-xs max-h-[75vh] overflow-y-auto">
               <div>
-                <label className="mb-2 block text-xs font-semibold text-slate-705">{tDir.formUnitName}</label>
+                <label className="mb-2 block text-xs font-semibold text-slate-705">Unit Name *</label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Case of 24"
+                  placeholder="e.g. Carton, Dozen, Piece"
                   value={unitName}
                   onChange={e => setUnitName(e.target.value)}
                   className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3.5 font-semibold outline-none focus:border-slate-800 focus:bg-white"
@@ -3451,15 +3613,71 @@ export default function DirectoryModule({
               </div>
 
               <div>
-                <label className="mb-2 block text-xs font-semibold text-slate-705">{tDir.formUnitMultiplier}</label>
+                <label className="mb-2 block text-xs font-semibold text-slate-705">Symbol (Short Name)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. ctn, doz, pc"
+                  value={unitSymbol}
+                  onChange={e => setUnitSymbol(e.target.value)}
+                  className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3.5 font-semibold outline-none focus:border-slate-800 focus:bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-xs font-semibold text-slate-705">Parent Unit (For Hierarchy)</label>
+                <select
+                  value={unitParentId}
+                  onChange={e => setUnitParentId(e.target.value)}
+                  className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 font-semibold outline-none focus:border-slate-800"
+                >
+                  <option value="">No Parent (Base Unit)</option>
+                  {units.map(u => (
+                    <option key={u.id} value={u.id}>{u.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-xs font-semibold text-slate-705">Conversion Multiplier (How many of base unit?)</label>
                 <input
                   type="number"
                   min="1"
                   required
-                  placeholder="e.g. 24"
+                  placeholder="e.g. 240"
                   value={unitMultiplier}
                   onChange={e => setUnitMultiplier(Number(e.target.value))}
                   className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3.5 font-mono font-semibold outline-none focus:border-slate-800 focus:bg-white"
+                />
+              </div>
+
+              {/* Formula Display */}
+              {(() => {
+                const baseUnit = units.find(u => !u.parentUnitId) || { name: 'Base Unit', multiplier: 1, symbol: '' as string | undefined };
+                const parentUnit = unitParentId ? units.find(u => u.id === unitParentId) : null;
+                
+                let formulaText = `1 ${unitName || 'Unit'} = ${unitMultiplier} ${baseUnit.name}`;
+                if (parentUnit) {
+                  const parentToBase = parentUnit.multiplier;
+                  const thisToParent = unitMultiplier / parentToBase;
+                  formulaText = `1 ${unitName || 'Unit'} = ${thisToParent} ${parentUnit.name} = ${unitMultiplier} ${baseUnit.name}`;
+                }
+                
+                return (
+                  <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg border border-indigo-100 p-3 space-y-1">
+                    <div className="text-[10px] font-bold text-indigo-700 uppercase tracking-wider">Unit Formula Preview</div>
+                    <div className="font-mono text-sm font-semibold text-slate-800">{formulaText}</div>
+                  </div>
+                );
+              })()}
+
+              <div>
+                <label className="mb-2 block text-xs font-semibold text-slate-705">Description</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 1 carton = 20 dozen = 240 pieces"
+                  value={unitDescription}
+                  onChange={e => setUnitDescription(e.target.value)}
+                  className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3.5 font-semibold outline-none focus:border-slate-800 focus:bg-white"
                 />
               </div>
             </div>

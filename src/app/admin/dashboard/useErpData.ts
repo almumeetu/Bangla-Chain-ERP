@@ -42,9 +42,9 @@ function makeSyncer<T extends Identifiable>(
   upsert:   (item: T)    => Promise<void>,
   remove:   (id: string) => Promise<void>,
 ) {
-  return (updater: (prev: T[]) => T[]) => {
+  return (updaterOrValue: T[] | ((prev: T[]) => T[])) => {
     setState(prev => {
-      const next    = updater(prev);
+      const next    = typeof updaterOrValue === 'function' ? updaterOrValue(prev) : updaterOrValue;
       const added   = next.filter(n => !prev.find(p => p.id === n.id));
       const updated = next.filter(n =>  prev.find(p => p.id === n.id && JSON.stringify(p) !== JSON.stringify(n)));
       const removed = prev.filter(p => !next.find(n => n.id === p.id));
@@ -77,21 +77,21 @@ export interface ErpDataStore {
   shopSubBrand:      string;
   shopLogo:          string;
 
-  syncProducts:          (u: (prev: Product[])          => Product[])          => void;
-  syncSrs:               (u: (prev: SR[])               => SR[])               => void;
-  syncDeliveryMen:       (u: (prev: DeliveryMan[])      => DeliveryMan[])      => void;
-  syncCustomers:         (u: (prev: Customer[])         => Customer[])         => void;
-  syncAttributes:        (u: (prev: ProductAttribute[]) => ProductAttribute[]) => void;
-  syncChallans:          (u: (prev: ChallanItem[])      => ChallanItem[])      => void;
-  syncProcurements:      (u: (prev: Procurement[])      => Procurement[])      => void;
-  syncAdjustments:       (u: (prev: StockAdjustment[])  => StockAdjustment[])  => void;
-  syncExpenseCategories: (u: (prev: ExpenseCategory[])  => ExpenseCategory[])  => void;
-  syncExpenses:          (u: (prev: ExpenseRecord[])    => ExpenseRecord[])    => void;
-  syncCompanies:         (u: (prev: CompanyBrand[])     => CompanyBrand[])     => void;
-  syncProductCategories: (u: (prev: Category[])         => Category[])         => void;
-  syncUnits:             (u: (prev: UnitOfMeasure[])    => UnitOfMeasure[])    => void;
-  syncGodowns:           (u: (prev: Godown[])           => Godown[])           => void;
-  syncRoutes:            (u: (prev: Route[])            => Route[])            => void;
+  syncProducts:          (u: Product[]          | ((prev: Product[])          => Product[]))          => void;
+  syncSrs:               (u: SR[]               | ((prev: SR[])               => SR[]))               => void;
+  syncDeliveryMen:       (u: DeliveryMan[]      | ((prev: DeliveryMan[])      => DeliveryMan[]))      => void;
+  syncCustomers:         (u: Customer[]         | ((prev: Customer[])         => Customer[]))         => void;
+  syncAttributes:        (u: ProductAttribute[] | ((prev: ProductAttribute[]) => ProductAttribute[])) => void;
+  syncChallans:          (u: ChallanItem[]      | ((prev: ChallanItem[])      => ChallanItem[]))      => void;
+  syncProcurements:      (u: Procurement[]      | ((prev: Procurement[])      => Procurement[]))      => void;
+  syncAdjustments:       (u: StockAdjustment[]  | ((prev: StockAdjustment[])  => StockAdjustment[]))  => void;
+  syncExpenseCategories: (u: ExpenseCategory[]  | ((prev: ExpenseCategory[])  => ExpenseCategory[]))  => void;
+  syncExpenses:          (u: ExpenseRecord[]    | ((prev: ExpenseRecord[])    => ExpenseRecord[]))    => void;
+  syncCompanies:         (u: CompanyBrand[]     | ((prev: CompanyBrand[])     => CompanyBrand[]))     => void;
+  syncProductCategories: (u: Category[]         | ((prev: Category[])         => Category[]))         => void;
+  syncUnits:             (u: UnitOfMeasure[]    | ((prev: UnitOfMeasure[])    => UnitOfMeasure[]))    => void;
+  syncGodowns:           (u: Godown[]           | ((prev: Godown[])           => Godown[]))           => void;
+  syncRoutes:            (u: Route[]            | ((prev: Route[])            => Route[]))            => void;
   syncShopName:     (val: string | ((p: string) => string)) => void;
   syncShopSubBrand: (val: string | ((p: string) => string)) => void;
   syncShopLogo:     (val: string | ((p: string) => string)) => void;
@@ -158,9 +158,9 @@ export function useErpData(
   const syncGodowns           = makeSyncer(setGodowns,           upsertGodown,           deleteGodown);
   const syncRoutes            = makeSyncer(setRoutes,            upsertRoute,            deleteRoute);
 
-  function syncAdjustments(updater: (prev: StockAdjustment[]) => StockAdjustment[]) {
+  function syncAdjustments(updaterOrValue: StockAdjustment[] | ((prev: StockAdjustment[]) => StockAdjustment[])) {
     setAdjustments(prev => {
-      const next  = updater(prev);
+      const next  = typeof updaterOrValue === 'function' ? updaterOrValue(prev) : updaterOrValue;
       const added = next.filter(n => !prev.find(p => p.id === n.id));
       added.forEach(a => insertStockAdjustment(a).catch(console.error));
       return next;
