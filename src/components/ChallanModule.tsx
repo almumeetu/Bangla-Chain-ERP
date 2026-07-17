@@ -96,9 +96,17 @@ export default function ChallanModule({
   // Settlement modal states
   const [settlementOrder, setSettlementOrder] = useState<GroupedOrder | null>(null);
   const [settlementStatus, setSettlementStatus] = useState<'Pending' | 'Shipped' | 'Delivered'>('Pending');
-  const [settlementQuantities, setSettlementQuantities] = useState<Record<string, { returned: number, damaged: number }>>({});
+  const [settlementQuantities, setSettlementQuantities] = useState<Record<string, {
+    returned: number;
+    damaged: number;
+    returnedCartons: number;
+    returnedPcs: number;
+    damagedCartons: number;
+    damagedPcs: number;
+  }>>({});
   const [settlementSRCommValue, setSettlementSRCommValue] = useState<number>(0);
   const [settlementExtraCommValue, setSettlementExtraCommValue] = useState<number>(0);
+  const [settlementDSRCommRate, setSettlementDSRCommRate] = useState<number>(0);
 
   // New Challan Creation Modal State
   const [showAddModal, setShowAddModal] = useState(false);
@@ -305,22 +313,14 @@ export default function ChallanModule({
       totalNetValue += item.totalAmount || 0;
     });
 
-    const firstItem = viewingOrder.items[0];
-    const hasSavedComm = viewingOrder.items.some(item => item.srCommissionAmount !== undefined);
-    
-    const srObj = srs.find(s => s.name.toLowerCase() === viewingOrder.srName.toLowerCase());
-    const defaultAmount = srObj ? srObj.commissionRate : 0;
-      
-    const srCommission = hasSavedComm
-      ? viewingOrder.items.reduce((sum, item) => sum + (item.srCommissionAmount || 0), 0)
-      : defaultAmount;
-
     const srCommRateDisplay = language === 'bn' ? 'নির্ধারিত মূল্য' : 'Fixed Price';
 
-    const dmCommRate = 2; // Default 2% Delivery Man Commission
-    const deliveryManPay = totalSoldValue * (dmCommRate / 100);
+    // No auto commission — all deductions start at 0, entered manually during settlement
+    const srCommission = 0;
+    const dmCommRate = 0;
+    const deliveryManPay = 0;
 
-    const netToOwner = totalNetValue - srCommission - deliveryManPay;
+    const netToOwner = totalNetValue;
 
     return {
       totalDispatchedQty,
@@ -368,7 +368,7 @@ export default function ChallanModule({
       totalDispatchedQty += dispatchedQty;
       totalDispatchedValue += dispatchedValue;
       
-      const qUpdates = settlementQuantities[item.id] || { returned: 0, damaged: 0 };
+      const qUpdates = settlementQuantities[item.id] || { returned: 0, damaged: 0, returnedCartons: 0, returnedPcs: 0, damagedCartons: 0, damagedPcs: 0 };
       const returned = Number(qUpdates.returned) || 0;
       const returnedVal = returned * rate;
       totalReturnedQty += returned;
@@ -392,14 +392,17 @@ export default function ChallanModule({
     });
 
     const srCommission = Number(settlementSRCommValue) || 0;
-    const extraCommission = Number(settlementExtraCommValue) || 0;
+    const extraProfit = Number(settlementExtraCommValue) || 0;  // Extra Profit ADDS to owner
+    const dsrCommission = Number(settlementDSRCommRate) || 0;   // DSR fixed commission deducted
 
     const srCommRateDisplay = language === 'bn' ? 'নির্ধারিত মূল্য' : 'Fixed Price';
 
-    const dmCommRate = 2; // Default 2% Delivery Fee
-    const deliveryManPay = totalSoldValue * (dmCommRate / 100);
+    // No auto commission — all deductions start at 0, entered manually during settlement
+    const dmCommRate = 0;
+    const deliveryManPay = 0;
 
-    const netToOwner = totalNetValue - srCommission - extraCommission - deliveryManPay;
+    // Formula: netToOwner = netMarketCollection - srCommission - dsrCommission - deliveryManPay + extraProfit
+    const netToOwner = totalNetValue - srCommission - dsrCommission - deliveryManPay + extraProfit;
 
     return {
       totalDispatchedQty,
@@ -414,12 +417,13 @@ export default function ChallanModule({
       totalNetValue,
       srCommRate: srCommRateDisplay,
       srCommission,
-      extraCommission,
+      extraProfit,
+      dsrCommission,
       dmCommRate,
       deliveryManPay,
       netToOwner
     };
-  }, [settlementOrder, settlementQuantities, srs, settlementSRCommValue, settlementExtraCommValue, language]);
+  }, [settlementOrder, settlementQuantities, srs, settlementSRCommValue, settlementExtraCommValue, settlementDSRCommRate, language]);
 
   // Auto-fill price or get default wholesale price for selected product
   const getProductWSP = (prodName: string) => {
@@ -445,7 +449,8 @@ export default function ChallanModule({
     const challanExtraProfit = Number(newExtraProfitAmount) || 0;
 
     const srObj = srs.find(s => s.name === newSR);
-    const commissionRate = srObj ? srObj.commissionRate : 5;
+    // No auto commission rate — all commission is entered manually
+    const commissionRate = 0;
 
     const newItemsList: ChallanItem[] = newChallanItems.map((item, index) => {
       const baseAmount = item.qty * item.rate;
@@ -453,7 +458,7 @@ export default function ChallanModule({
       const itemComm = challanComm * share;
       const itemExtraProfit = challanExtraProfit * share;
       const totalAmount = baseAmount - itemComm + itemExtraProfit;
-      const srCommissionAmount = totalAmount * (commissionRate / 100);
+      const srCommissionAmount = 0; // No auto SR commission
 
       const prodObj = products.find(p => p.name === item.productName);
       const company = prodObj ? prodObj.company : selectedCompany || 'Pran';
@@ -524,25 +529,32 @@ export default function ChallanModule({
     const group = groupedData.find(g => g.id === groupId);
     if (!group) return;
 
-    // Initialize quantity records
-    const initialQtys: Record<string, { returned: number, damaged: number }> = {};
+    // No auto commission — all fields start at 0, entered manually
+    setSettlementSRCommValue(0);
+    setSettlementExtraCommValue(0);
+    setSettlementDSRCommRate(0);
+
+    // Build split-return initial quantities (Carton + Piece breakdowns for Piece products)
+    const initialQtys: Record<string, {
+      returned: number; damaged: number;
+      returnedCartons: number; returnedPcs: number;
+      damagedCartons: number; damagedPcs: number;
+    }> = {};
     group.items.forEach(item => {
+      const prod = products.find(p => p.name === item.productName);
+      const isPiece = (prod?.primaryUnit ?? 'Piece') === 'Piece';
+      const cs = Math.max(1, prod?.cartonSize || 24);
+      const prevRet = item.returnedQty || 0;
+      const prevDmg = item.damagedQty || 0;
       initialQtys[item.id] = {
-        returned: item.returnedQty || 0,
-        damaged: item.damagedQty || 0
+        returned: prevRet,
+        damaged:  prevDmg,
+        returnedCartons: isPiece ? Math.floor(prevRet / cs) : prevRet,
+        returnedPcs:     isPiece ? prevRet % cs : 0,
+        damagedCartons:  isPiece ? Math.floor(prevDmg / cs) : prevDmg,
+        damagedPcs:      isPiece ? prevDmg % cs : 0,
       };
     });
-
-    const firstItem = group.items[0];
-    const srObj = srs.find(s => s.name.toLowerCase() === group.srName.toLowerCase());
-    const defaultAmount = srObj ? srObj.commissionRate : 0;
-    const initialValue = firstItem?.srCommissionAmount !== undefined 
-      ? firstItem.srCommissionAmount 
-      : defaultAmount;
-    const initialExtra = group.items.reduce((sum, it) => sum + (it.extraCommissionAmount || 0), 0);
-
-    setSettlementSRCommValue(initialValue);
-    setSettlementExtraCommValue(initialExtra);
 
     setSettlementOrder(group);
     setSettlementStatus(newStatus);
@@ -1994,63 +2006,139 @@ export default function ChallanModule({
                       <tr>
                         <th className="px-4 py-3 font-semibold">Product</th>
                         <th className="px-4 py-3 font-semibold text-center w-24">Sent Qty</th>
-                        <th className="px-4 py-3 font-semibold text-center w-28">Returned Qty</th>
-                        <th className="px-4 py-3 font-semibold text-center w-28">Damaged Qty</th>
+                        <th className="px-4 py-3 font-semibold text-center">
+                          {language === 'bn' ? 'ফেরত (কার্টন + পিস)' : 'Return (Ctn + Pcs)'}
+                        </th>
+                        <th className="px-4 py-3 font-semibold text-center">
+                          {language === 'bn' ? 'ড্যামেজ (কার্টন + পিস)' : 'Damage (Ctn + Pcs)'}
+                        </th>
                         <th className="px-4 py-3 font-semibold text-center w-24">Sold Qty</th>
                         <th className="px-4 py-3 font-semibold text-right w-28">Net Amount (৳)</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200 bg-white">
                       {settlementOrder.items.map((item) => {
-                        const qUpdates = settlementQuantities[item.id] || { returned: 0, damaged: 0 };
+                        const prod = products.find(p => p.name === item.productName);
+                        const isPiece = (prod?.primaryUnit ?? 'Piece') === 'Piece';
+                        const cs = Math.max(1, prod?.cartonSize || 24);
+                        const qUpdates = settlementQuantities[item.id] || {
+                          returned: 0, damaged: 0,
+                          returnedCartons: 0, returnedPcs: 0,
+                          damagedCartons: 0, damagedPcs: 0
+                        };
                         const returned = qUpdates.returned;
-                        const damaged = qUpdates.damaged;
+                        const damaged  = qUpdates.damaged;
                         const sold = Math.max(0, item.qty - returned - damaged);
                         const netAmount = (sold * item.rate) - (item.commissionAmount || 0);
+
+                        const updateSplitQty = (
+                          field: 'returnedCartons' | 'returnedPcs' | 'damagedCartons' | 'damagedPcs',
+                          rawVal: number
+                        ) => {
+                          setSettlementQuantities(prev => {
+                            const cur = prev[item.id] || { returned: 0, damaged: 0, returnedCartons: 0, returnedPcs: 0, damagedCartons: 0, damagedPcs: 0 };
+                            const next = { ...cur, [field]: Math.max(0, rawVal) };
+                            if (isPiece) {
+                              next.returned = next.returnedCartons * cs + next.returnedPcs;
+                              next.damaged  = next.damagedCartons  * cs + next.damagedPcs;
+                            } else {
+                              next.returned = next.returnedCartons;
+                              next.damaged  = next.damagedCartons;
+                            }
+                            const max = item.qty;
+                            if (next.returned + next.damaged > max) {
+                              next.returned = Math.min(next.returned, max);
+                              next.damaged  = Math.max(0, max - next.returned);
+                              if (isPiece) {
+                                next.returnedCartons = Math.floor(next.returned / cs);
+                                next.returnedPcs     = next.returned % cs;
+                                next.damagedCartons  = Math.floor(next.damaged / cs);
+                                next.damagedPcs      = next.damaged % cs;
+                              } else {
+                                next.returnedCartons = next.returned;
+                                next.damagedCartons  = next.damaged;
+                              }
+                            }
+                            return { ...prev, [item.id]: next };
+                          });
+                        };
 
                         return (
                           <tr key={item.id} className="hover:bg-slate-50">
                             <td className="px-4 py-3">
                               <p className="font-bold text-slate-800">{item.productName}</p>
-                              <p className="text-[10px] text-slate-500">{item.attribute} • Rate: ৳{item.rate}</p>
+                              <p className="text-[10px] text-slate-500">
+                                {item.attribute} • Rate: ৳{item.rate}
+                                {isPiece && <span className="ml-1 text-indigo-500 font-bold">({cs} pcs/ctn)</span>}
+                              </p>
                             </td>
                             <td className="px-4 py-3 text-center font-mono font-bold text-slate-700">
-                              {item.qty}
+                              {item.qty} {isPiece ? 'Pcs' : 'Ctn'}
                             </td>
-                            <td className="px-4 py-3 text-center">
-                              <input
-                                type="number"
-                                min="0"
-                                max={item.qty - damaged}
-                                value={returned}
-                                onChange={(e) => {
-                                  const val = Math.min(item.qty - damaged, Math.max(0, Number(e.target.value) || 0));
-                                  setSettlementQuantities(prev => ({
-                                    ...prev,
-                                    [item.id]: { ...prev[item.id], returned: val }
-                                  }));
-                                }}
-                                className="h-8 w-20 text-center font-mono font-semibold rounded border border-slate-200 focus:border-indigo-500 outline-none text-slate-800"
-                              />
+                            {/* Return column */}
+                            <td className="px-4 py-3">
+                              {isPiece ? (
+                                <div className="flex items-center gap-1 justify-center">
+                                  <div className="text-center">
+                                    <p className="text-[9px] text-slate-400 mb-0.5">Ctn</p>
+                                    <input type="number" min="0"
+                                      value={qUpdates.returnedCartons}
+                                      onChange={e => updateSplitQty('returnedCartons', Number(e.target.value))}
+                                      className="h-8 w-14 text-center font-mono font-semibold rounded border border-amber-200 focus:border-amber-500 outline-none bg-amber-50" />
+                                  </div>
+                                  <span className="text-slate-300 text-xs mt-3">+</span>
+                                  <div className="text-center">
+                                    <p className="text-[9px] text-slate-400 mb-0.5">Pcs</p>
+                                    <input type="number" min="0" max={cs - 1}
+                                      value={qUpdates.returnedPcs}
+                                      onChange={e => updateSplitQty('returnedPcs', Number(e.target.value))}
+                                      className="h-8 w-14 text-center font-mono font-semibold rounded border border-amber-200 focus:border-amber-500 outline-none bg-amber-50" />
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="text-center">
+                                  <p className="text-[9px] text-slate-400 mb-0.5">Ctn</p>
+                                  <input type="number" min="0" max={item.qty - damaged}
+                                    value={qUpdates.returnedCartons}
+                                    onChange={e => updateSplitQty('returnedCartons', Number(e.target.value))}
+                                    className="h-8 w-16 text-center font-mono font-semibold rounded border border-amber-200 focus:border-amber-500 outline-none bg-amber-50" />
+                                </div>
+                              )}
+                              {returned > 0 && <p className="text-[9px] text-amber-600 text-center mt-0.5 font-mono">= {returned} {isPiece ? 'pcs' : 'ctn'}</p>}
                             </td>
-                            <td className="px-4 py-3 text-center">
-                              <input
-                                type="number"
-                                min="0"
-                                max={item.qty - returned}
-                                value={damaged}
-                                onChange={(e) => {
-                                  const val = Math.min(item.qty - returned, Math.max(0, Number(e.target.value) || 0));
-                                  setSettlementQuantities(prev => ({
-                                    ...prev,
-                                    [item.id]: { ...prev[item.id], damaged: val }
-                                  }));
-                                }}
-                                className="h-8 w-20 text-center font-mono font-semibold rounded border border-slate-200 focus:border-indigo-500 outline-none text-slate-800"
-                              />
+                            {/* Damage column */}
+                            <td className="px-4 py-3">
+                              {isPiece ? (
+                                <div className="flex items-center gap-1 justify-center">
+                                  <div className="text-center">
+                                    <p className="text-[9px] text-slate-400 mb-0.5">Ctn</p>
+                                    <input type="number" min="0"
+                                      value={qUpdates.damagedCartons}
+                                      onChange={e => updateSplitQty('damagedCartons', Number(e.target.value))}
+                                      className="h-8 w-14 text-center font-mono font-semibold rounded border border-rose-200 focus:border-rose-500 outline-none bg-rose-50" />
+                                  </div>
+                                  <span className="text-slate-300 text-xs mt-3">+</span>
+                                  <div className="text-center">
+                                    <p className="text-[9px] text-slate-400 mb-0.5">Pcs</p>
+                                    <input type="number" min="0" max={cs - 1}
+                                      value={qUpdates.damagedPcs}
+                                      onChange={e => updateSplitQty('damagedPcs', Number(e.target.value))}
+                                      className="h-8 w-14 text-center font-mono font-semibold rounded border border-rose-200 focus:border-rose-500 outline-none bg-rose-50" />
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="text-center">
+                                  <p className="text-[9px] text-slate-400 mb-0.5">Ctn</p>
+                                  <input type="number" min="0" max={item.qty - returned}
+                                    value={qUpdates.damagedCartons}
+                                    onChange={e => updateSplitQty('damagedCartons', Number(e.target.value))}
+                                    className="h-8 w-16 text-center font-mono font-semibold rounded border border-rose-200 focus:border-rose-500 outline-none bg-rose-50" />
+                                </div>
+                              )}
+                              {damaged > 0 && <p className="text-[9px] text-rose-600 text-center mt-0.5 font-mono">= {damaged} {isPiece ? 'pcs' : 'ctn'}</p>}
                             </td>
                             <td className="px-4 py-3 text-center font-mono font-bold text-blue-655 bg-blue-50/10">
-                              {sold}
+                              {sold} {isPiece ? 'Pcs' : 'Ctn'}
                             </td>
                             <td className="px-4 py-3 text-right font-mono font-extrabold text-slate-800">
                               ৳{netAmount.toLocaleString('en-BD')}
@@ -2095,8 +2183,8 @@ export default function ChallanModule({
                   </div>
                 </div>
 
-                {/* Fixed Commission and Extra Commission adjustment during settlement */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t border-slate-200">
+                {/* Commission, DSR Commission, and Extra Profit adjustment during settlement */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-slate-200">
                   <div>
                     <label className="block text-[11px] font-bold text-slate-700 mb-1">{language === 'bn' ? 'কমিশন (টাকা)' : 'Commission (Tk)'}</label>
                     <input
@@ -2109,14 +2197,25 @@ export default function ChallanModule({
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">{language === 'bn' ? 'অতিরিক্ত কমিশন (টাকা)' : 'Extra Commission (Tk)'}</label>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">{language === 'bn' ? 'ডিএসআর কমিশন (টাকা)' : 'DSR Commission (Tk)'}</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={settlementDSRCommRate}
+                      onChange={(e) => setSettlementDSRCommRate(Number(e.target.value))}
+                      className="h-9 w-full rounded-lg border border-orange-200 bg-white px-3 text-xs font-semibold outline-none focus:border-orange-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-emerald-700 mb-1">{language === 'bn' ? 'অতিরিক্ত মুনাফা (টাকা) ↑' : 'Extra Profit (Tk) ↑'}</label>
                     <input
                       type="number"
                       min="0"
                       step="0.01"
                       value={settlementExtraCommValue}
                       onChange={(e) => setSettlementExtraCommValue(Number(e.target.value))}
-                      className="h-9 w-full rounded-lg border border-purple-200 bg-white px-3 text-xs font-semibold outline-none focus:border-purple-500"
+                      className="h-9 w-full rounded-lg border border-emerald-200 bg-white px-3 text-xs font-semibold outline-none focus:border-emerald-500"
                     />
                   </div>
                 </div>

@@ -278,11 +278,13 @@ function CartItemRow({
             <p className="text-[11px] font-semibold text-slate-800 leading-tight line-clamp-1">{item.product.name}</p>
             <div className="flex gap-2 mt-0.5">
               <p className="text-[8px] font-mono text-indigo-500">
-                Carton Price: {formatBDT(pricePerCarton)} (Size: {cartonSize})
+                Carton Price: {formatBDT(pricePerCarton)} {item.product.primaryUnit !== 'Carton' && `(Size: ${cartonSize})`}
               </p>
-              <p className="text-[8px] font-mono text-emerald-500">
-                Piece Price: {formatBDT(pricePerPiece)}
-              </p>
+              {item.product.primaryUnit !== 'Carton' && (
+                <p className="text-[8px] font-mono text-emerald-500">
+                  Piece Price: {formatBDT(pricePerPiece)}
+                </p>
+              )}
             </div>
           </div>
           <button type="button" onClick={handleRemove}
@@ -291,7 +293,7 @@ function CartItemRow({
           </button>
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
+        <div className={item.product.primaryUnit === 'Carton' ? "block" : "grid grid-cols-2 gap-2"}>
           <div>
             <label className="block text-[8px] font-medium text-slate-400 uppercase tracking-widest mb-1">Cartons</label>
             <div className="flex h-8 items-center rounded-xl border border-slate-200 bg-slate-50 overflow-hidden">
@@ -305,36 +307,49 @@ function CartItemRow({
                 className="w-8 h-full flex items-center justify-center text-slate-500 hover:bg-slate-200 font-black text-lg transition-all duration-200 cursor-pointer shrink-0">+</button>
             </div>
           </div>
-          <div>
-            <label className="block text-[8px] font-medium text-slate-400 uppercase tracking-widest mb-1">Pieces</label>
-            <div className="flex h-8 items-center rounded-xl border border-slate-200 bg-slate-50 overflow-hidden">
-              <button type="button" onClick={() => onUpdatePcs(idx, Math.max(0, item.pcs - 1))}
-                className="w-8 h-full flex items-center justify-center text-slate-500 hover:bg-slate-200 font-black text-lg transition-all duration-200 cursor-pointer shrink-0">−</button>
-              <input type="number" min="0"
-                value={item.pcs}
-                onChange={e => onUpdatePcs(idx, Math.max(0, Number(e.target.value)))}
-                className="flex-1 text-center text-[11px] font-black font-mono text-slate-800 outline-none bg-transparent" />
-              <button type="button" onClick={() => onUpdatePcs(idx, item.pcs + 1)}
-                className="w-8 h-full flex items-center justify-center text-slate-500 hover:bg-slate-200 font-black text-lg transition-all duration-200 cursor-pointer shrink-0">+</button>
+          {item.product.primaryUnit !== 'Carton' && (
+            <div>
+              <label className="block text-[8px] font-medium text-slate-400 uppercase tracking-widest mb-1">Pieces</label>
+              <div className="flex h-8 items-center rounded-xl border border-slate-200 bg-slate-50 overflow-hidden">
+                <button type="button" onClick={() => onUpdatePcs(idx, Math.max(0, item.pcs - 1))}
+                  className="w-8 h-full flex items-center justify-center text-slate-500 hover:bg-slate-200 font-black text-lg transition-all duration-200 cursor-pointer shrink-0">−</button>
+                <input type="number" min="0"
+                  value={item.pcs}
+                  onChange={e => onUpdatePcs(idx, Math.max(0, Number(e.target.value)))}
+                  className="flex-1 text-center text-[11px] font-black font-mono text-slate-800 outline-none bg-transparent" />
+                <button type="button" onClick={() => onUpdatePcs(idx, item.pcs + 1)}
+                  className="w-8 h-full flex items-center justify-center text-slate-500 hover:bg-slate-200 font-black text-lg transition-all duration-200 cursor-pointer shrink-0">+</button>
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         <div className="bg-slate-50 rounded-xl px-3 py-1.5 border border-slate-100/50 text-[10px] space-y-1">
-          <div className="flex justify-between text-slate-500 font-medium">
-            <span>Carton amount:</span>
-            <span className="font-mono text-slate-700 font-bold">{item.cartons} × {formatBDT(pricePerCarton)} = {formatBDT(cartonTotal)}</span>
-          </div>
-          <div className="flex justify-between text-slate-500 font-medium">
-            <span>Piece amount:</span>
-            <span className="font-mono text-slate-700 font-bold">{item.pcs} × {formatBDT(pricePerPiece)} = {formatBDT(pieceTotal)}</span>
-          </div>
+          {item.product.primaryUnit === 'Carton' ? (
+            <div className="flex justify-between text-slate-500 font-medium">
+              <span>Carton amount:</span>
+              <span className="font-mono text-slate-700 font-bold">{item.cartons} × {formatBDT(pricePerCarton)} = {formatBDT(cartonTotal)}</span>
+            </div>
+          ) : (
+            <>
+              <div className="flex justify-between text-slate-500 font-medium">
+                <span>Carton amount:</span>
+                <span className="font-mono text-slate-700 font-bold">{item.cartons} × {formatBDT(pricePerCarton)} = {formatBDT(cartonTotal)}</span>
+              </div>
+              <div className="flex justify-between text-slate-500 font-medium">
+                <span>Piece amount:</span>
+                <span className="font-mono text-slate-700 font-bold">{item.pcs} × {formatBDT(pricePerPiece)} = {formatBDT(pieceTotal)}</span>
+              </div>
+            </>
+          )}
           <div className="border-t border-dashed border-slate-200 pt-1 flex justify-between font-bold text-indigo-700">
             <span>Line Total:</span>
             <span className="font-mono">{formatBDT(lineTotal)}</span>
           </div>
           <div className="text-[8px] text-slate-450 font-mono text-right">
-            (Total Quantity: {item.cartons * cartonSize + item.pcs} Pcs)
+            {item.product.primaryUnit === 'Carton'
+              ? `(Total Quantity: ${item.cartons} Carton${item.cartons !== 1 ? 's' : ''})`
+              : `(Total Quantity: ${item.cartons * cartonSize + item.pcs} Pcs)`}
           </div>
         </div>
       </div>
@@ -504,7 +519,9 @@ export default function SellModule({
         deliveryManName: selectedDeliveryMan, status: 'Pending',
         returnedQty: item.returnedQty || 0, damagedQty: item.damagedQty || 0,
         commissionAmount: 0, createdAt: orderTimestamp,
-        selectedUnitName: `${item.cartons} ctn, ${item.pcs} pcs`
+        selectedUnitName: item.product.primaryUnit === 'Carton'
+          ? `${item.cartons} ctn`
+          : `${item.cartons} ctn, ${item.pcs} pcs`
       };
     });
 

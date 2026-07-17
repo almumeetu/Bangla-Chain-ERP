@@ -1151,7 +1151,7 @@ export default function ProcurementModule({
                                 className="h-10 w-full rounded-xl border border-indigo-200 bg-indigo-50/50 px-2 text-center text-xs font-bold text-indigo-800 font-mono outline-none focus:border-indigo-500 transition-all"
                               />
                               <div className="text-[9px] text-center text-slate-400 font-mono mt-0.5">
-                                ×{cs} pcs
+                                {prod?.primaryUnit === 'Carton' ? (language === 'bn' ? 'কার্টন একক' : 'Carton Unit') : `×${cs} pcs`}
                               </div>
                             </td>
 
@@ -1161,12 +1161,19 @@ export default function ProcurementModule({
                                 id={`proc-row-${idx}-pcs`}
                                 type="number"
                                 min="0"
-                                value={item.pcs ?? ''}
+                                disabled={prod?.primaryUnit === 'Carton'}
+                                value={prod?.primaryUnit === 'Carton' ? '' : (item.pcs ?? '')}
                                 onChange={(e) => handleRowChange(idx, 'pcs', Number(e.target.value))}
-                                className="h-10 w-full rounded-xl border border-emerald-200 bg-emerald-50/50 px-2 text-center text-xs font-bold text-emerald-800 font-mono outline-none focus:border-emerald-500 transition-all"
+                                className={`h-10 w-full rounded-xl border px-2 text-center text-xs font-bold font-mono outline-none transition-all ${
+                                  prod?.primaryUnit === 'Carton'
+                                    ? 'border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed'
+                                    : 'border-emerald-200 bg-emerald-50/50 text-emerald-800 focus:border-emerald-500'
+                                }`}
                               />
                               <div className="text-[9px] text-center text-slate-400 font-mono mt-0.5">
-                                = {(item.cartons || 0) * cs + (item.pcs || 0)} Pcs
+                                {prod?.primaryUnit === 'Carton'
+                                  ? (language === 'bn' ? `মোট: ${item.cartons || 0} কার্টন` : `Total: ${item.cartons || 0} Ctn`)
+                                  : `= ${(item.cartons || 0) * cs + (item.pcs || 0)} Pcs`}
                               </div>
                             </td>
 

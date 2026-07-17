@@ -356,7 +356,7 @@ function UnitRow({ uom, index, onEdit, onDelete }: UnitRowProps) {
     <tr className="hover:bg-slate-50/50 transition-all duration-200 text-xs">
       <td className="px-4 py-3.5 text-center text-slate-400 font-mono font-medium">{index + 1}</td>
       <td className="px-4 py-3.5 font-semibold text-slate-800">{uom.name}</td>
-      <td className="px-4 py-3.5 font-mono text-slate-650">{uom.multiplier} Pcs equivalence</td>
+      <td className="px-4 py-3.5 font-mono text-slate-650">{uom.symbol || '—'}</td>
       <td className="px-4 py-3.5 text-center">
         <div className="flex items-center justify-center gap-1.5">
           <button
@@ -550,7 +550,6 @@ export default function DirectoryModule({
   const [showCompanyModal, setShowCompanyModal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showUnitModal, setShowUnitModal] = useState(false);
-  const [showUnitHelp, setShowUnitHelp] = useState(false);
   const [showGodownModal, setShowGodownModal] = useState(false);
   const [showRouteModal, setShowRouteModal] = useState(false);
 
@@ -580,6 +579,7 @@ export default function DirectoryModule({
   const [prodCartonSize, setProdCartonSize] = useState<number>(24);
   const [prodPricePerCarton, setProdPricePerCarton] = useState<number>(0);
   const [prodPricePerPiece, setProdPricePerPiece] = useState<number>(0);
+  const [prodPrimaryUnit, setProdPrimaryUnit] = useState<'Piece' | 'Carton'>('Piece');
 
   // Form Fields: SR
   const [srName, setSrName] = useState('');
@@ -635,14 +635,9 @@ export default function DirectoryModule({
   const [catName, setCatName] = useState('');
   const [catDesc, setCatDesc] = useState('');
 
-  // Form Fields: Unit
+  // Form Fields: Unit (name + symbol only)
   const [unitName, setUnitName] = useState('');
   const [unitSymbol, setUnitSymbol] = useState('');
-  const [unitMultiplier, setUnitMultiplier] = useState<number>(1);
-  const [unitParentId, setUnitParentId] = useState<string>('');
-  const [unitSecondaryName, setUnitSecondaryName] = useState('');
-  const [unitSecondaryMultiplier, setUnitSecondaryMultiplier] = useState<number>(0);
-  const [unitDescription, setUnitDescription] = useState('');
 
   // Form Fields: Godown
   const [godownName, setGodownName] = useState('');
@@ -749,7 +744,8 @@ export default function DirectoryModule({
       currentStock: Number(prodStock),
       cartonSize: Number(prodCartonSize),
       pricePerCarton: Number(prodPricePerCarton),
-      pricePerPiece: Number(prodPricePerPiece)
+      pricePerPiece: Number(prodPricePerPiece),
+      primaryUnit: prodPrimaryUnit
     };
 
     if (editingProduct) {
@@ -760,7 +756,7 @@ export default function DirectoryModule({
     }
 
     setShowProductModal(false);
-  }, [prodName, prodSku, prodCompany, prodCategoryId, prodCartonSize, prodPricePerCarton, prodPricePerPiece, prodGodownId, prodPP, prodMRP, prodStock, editingProduct, setProducts]);
+  }, [prodName, prodSku, prodCompany, prodCategoryId, prodCartonSize, prodPricePerCarton, prodPricePerPiece, prodGodownId, prodPP, prodMRP, prodStock, prodPrimaryUnit, editingProduct, setProducts]);
 
   // --- SUBMIT: SR ---
   const handleSrSubmit = useCallback((e: React.FormEvent) => {
@@ -923,19 +919,15 @@ export default function DirectoryModule({
   // --- SUBMIT: Unit ---
   const handleUnitSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
-    if (!unitName || unitMultiplier <= 0) {
-      alert('Unit Name and a positive conversion multiplier are required.');
+    if (!unitName.trim()) {
+      alert('Unit Name is required.');
       return;
     }
 
     const unitData = {
       id: editingUnit ? editingUnit.id : `uom-${Date.now()}`,
-      name: unitName,
-      symbol: unitSymbol || undefined,
-      multiplier: Number(unitMultiplier),
-      secondaryUnitName: unitSecondaryName || undefined,
-      secondaryMultiplier: unitSecondaryMultiplier ? Number(unitSecondaryMultiplier) : undefined,
-      description: unitDescription || undefined
+      name: unitName.trim(),
+      symbol: unitSymbol.trim().toUpperCase() || unitName.trim().toUpperCase().slice(0, 3),
     };
 
     if (editingUnit) {
@@ -945,7 +937,7 @@ export default function DirectoryModule({
       setUnits(prev => [...prev, unitData]);
     }
     setShowUnitModal(false);
-  }, [unitName, unitSymbol, unitMultiplier, unitParentId, unitSecondaryName, unitSecondaryMultiplier, unitDescription, editingUnit, setUnits]);
+  }, [unitName, unitSymbol, editingUnit, setUnits]);
 
   // --- SUBMIT: Godown ---
   const handleGodownSubmit = useCallback((e: React.FormEvent) => {
@@ -1010,6 +1002,7 @@ export default function DirectoryModule({
     setProdCartonSize(24);
     setProdPricePerCarton(0);
     setProdPricePerPiece(0);
+    setProdPrimaryUnit('Piece');
     setShowProductModal(true);
   }, [companies, productCategories, godowns]);
 
@@ -1045,11 +1038,6 @@ export default function DirectoryModule({
     setEditingUnit(null);
     setUnitName('');
     setUnitSymbol('');
-    setUnitMultiplier(1);
-    setUnitParentId('');
-    setUnitSecondaryName('');
-    setUnitSecondaryMultiplier(0);
-    setUnitDescription('');
     setShowUnitModal(true);
   }, []);
 
@@ -1086,6 +1074,7 @@ export default function DirectoryModule({
     setProdCartonSize(p.cartonSize || (p.customUnits && p.customUnits[0] ? p.customUnits[0].multiplier : 24));
     setProdPricePerCarton(p.pricePerCarton || (p.defaultWSP * (p.cartonSize || 24)));
     setProdPricePerPiece(p.pricePerPiece || p.defaultWSP);
+    setProdPrimaryUnit(p.primaryUnit || 'Piece');
     setShowProductModal(true);
   }, []);
 
@@ -1121,11 +1110,6 @@ export default function DirectoryModule({
     setEditingUnit(u);
     setUnitName(u.name);
     setUnitSymbol(u.symbol || '');
-    setUnitMultiplier(u.multiplier);
-    setUnitParentId(u.parentUnitId || '');
-    setUnitSecondaryName(u.secondaryUnitName || '');
-    setUnitSecondaryMultiplier(u.secondaryMultiplier || 0);
-    setUnitDescription(u.description || '');
     setShowUnitModal(true);
   }, []);
 
@@ -2737,17 +2721,6 @@ export default function DirectoryModule({
                   'from-sky-500 to-blue-600'
                 ];
                 const gradient = colorGradients[index % colorGradients.length];
-                const baseUnit = units.find(u => !u.parentUnitId) || { name: 'Unit', multiplier: 1, symbol: '' };
-                const parentUnit = uom.parentUnitId ? units.find(u => u.id === uom.parentUnitId) : null;
-                
-                let formulaText = `1 ${uom.name} = ${uom.multiplier} ${baseUnit.name}`;
-                if (uom.secondaryUnitName && uom.secondaryMultiplier && uom.secondaryMultiplier > 0) {
-                  formulaText = `1 ${uom.name} = ${uom.secondaryMultiplier} ${uom.secondaryUnitName} = ${uom.multiplier} ${baseUnit.name}`;
-                } else if (parentUnit) {
-                  const parentToBase = parentUnit.multiplier;
-                  const thisToParent = uom.multiplier / parentToBase;
-                  formulaText = `1 ${uom.name} = ${thisToParent} ${parentUnit.name} = ${uom.multiplier} ${baseUnit.name}`;
-                }
 
                 return (
                   <div
@@ -2756,37 +2729,17 @@ export default function DirectoryModule({
                   >
                     <div className="absolute -right-20 -top-20 w-36 h-36 rounded-full bg-slate-50 group-hover:bg-slate-100/50 transition-all duration-500 pointer-events-none" />
 
-                    <div className="space-y-3 relative z-10">
-                      <div className="flex items-center justify-between">
-                        <span className={`w-8 h-8 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center font-bold text-white text-xs shadow-sm`}>
-                          {uom.symbol ? uom.symbol[0].toUpperCase() : uom.name[0].toUpperCase()}
-                        </span>
-                        <span className="bg-gradient-to-r from-indigo-100 to-purple-100 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded text-[10px] font-bold">
-                          {uom.symbol ? `${uom.symbol}` : ''}
-                        </span>
-                      </div>
-
-                      <div className="space-y-1">
-                        <h4 className="font-bold text-slate-800 group-hover:text-slate-900 transition-colors text-sm sm:text-base leading-snug">
+                    <div className="flex items-center gap-4 relative z-10">
+                      <span className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${gradient} flex items-center justify-center font-extrabold text-white text-sm shadow-md shrink-0`}>
+                        {(uom.symbol || uom.name).slice(0, 3).toUpperCase()}
+                      </span>
+                      <div className="min-w-0">
+                        <h4 className="font-bold text-slate-800 group-hover:text-slate-900 text-sm leading-snug">
                           {uom.name}
                         </h4>
-                        {/* Formula Display */}
-                        <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg border border-indigo-100 p-2">
-                          <p className="text-[10px] font-bold text-indigo-700 uppercase tracking-wider mb-1">Formula</p>
-                          <p className="text-xs font-mono font-semibold text-slate-800">
-                            {formulaText}
-                          </p>
-                          {uom.secondaryUnitName && uom.secondaryMultiplier && uom.secondaryMultiplier > 0 && (
-                            <p className="text-[10px] font-mono text-slate-500 font-semibold mt-1">
-                              Calculated: 1 {uom.secondaryUnitName} = {Number(uom.multiplier / uom.secondaryMultiplier).toFixed(1)} {baseUnit.name}
-                            </p>
-                          )}
-                        </div>
-                        {uom.description && (
-                          <p className="text-xs text-slate-500 font-medium mt-1">
-                            {uom.description}
-                          </p>
-                        )}
+                        <span className="inline-block mt-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded text-[11px] font-mono font-bold">
+                          {uom.symbol || uom.name.slice(0, 3).toUpperCase()}
+                        </span>
                       </div>
                     </div>
 
@@ -3141,16 +3094,49 @@ export default function DirectoryModule({
                 </div>
               </div>
 
+              {/* Primary Selling Unit selector */}
+              <div>
+                <label className="mb-2 block text-xs font-semibold text-slate-705">
+                  {language === 'bn' ? 'প্রাথমিক বিক্রয় একক' : 'Primary Selling Unit'}
+                </label>
+                <div className="flex gap-3">
+                  {(['Piece', 'Carton'] as const).map(unit => (
+                    <button
+                      key={unit}
+                      type="button"
+                      onClick={() => setProdPrimaryUnit(unit)}
+                      className={`flex-1 h-10 rounded-lg border-2 text-xs font-bold transition-all cursor-pointer ${
+                        prodPrimaryUnit === unit
+                          ? 'border-indigo-600 bg-indigo-50 text-indigo-700'
+                          : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'
+                      }`}
+                    >
+                      {unit === 'Piece'
+                        ? (language === 'bn' ? '🔹 পিস (Piece)' : '🔹 Piece')
+                        : (language === 'bn' ? '📦 কার্টন (Carton)' : '📦 Carton')}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-1.5 text-[10px] text-slate-400">
+                  {prodPrimaryUnit === 'Piece'
+                    ? (language === 'bn' ? 'চালান ও স্টক পিস এককে গণনা করা হবে' : 'Challan & stock will be counted in pieces')
+                    : (language === 'bn' ? 'চালান ও স্টক কার্টন এককে গণনা করা হবে' : 'Challan & stock will be counted in cartons')}
+                </p>
+              </div>
+
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="mb-2 block text-xs font-semibold text-slate-705">
-                    {language === 'bn' ? 'কার্টন সাইজ (পিস)' : 'Carton Size (Pcs)'}
+                    {prodPrimaryUnit === 'Piece'
+                      ? (language === 'bn' ? 'পিস/কার্টন সংখ্যা *' : 'Pcs per Carton *')
+                      : (language === 'bn' ? 'পিস/কার্টন প্রযোজ্য নয়' : 'N/A for Carton')}
                   </label>
                   <input
                     type="number"
                     min="1"
-                    required
-                    value={prodCartonSize}
+                    required={prodPrimaryUnit === 'Piece'}
+                    disabled={prodPrimaryUnit === 'Carton'}
+                    value={prodPrimaryUnit === 'Carton' ? 1 : prodCartonSize}
                     onChange={e => {
                       const size = Math.max(1, Number(e.target.value));
                       setProdCartonSize(size);
@@ -3158,32 +3144,14 @@ export default function DirectoryModule({
                         setProdPricePerCarton(Number((prodPricePerPiece * size).toFixed(2)));
                       }
                     }}
-                    className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 font-mono font-semibold outline-none focus:border-slate-800"
+                    className={`h-10 w-full rounded-lg border px-3 font-mono font-semibold outline-none ${prodPrimaryUnit === 'Carton' ? 'border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed' : 'border-slate-200 bg-slate-50 focus:border-slate-800'}`}
                   />
                 </div>
                 <div>
                   <label className="mb-2 block text-xs font-semibold text-slate-750">
-                    {language === 'bn' ? 'কার্টন মূল্য (৳)' : 'Price Per Carton (৳)'}
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    required
-                    value={prodPricePerCarton}
-                    onChange={e => {
-                      const cartonPrice = Number(e.target.value);
-                      setProdPricePerCarton(cartonPrice);
-                      if (prodCartonSize > 0) {
-                        setProdPricePerPiece(Number((cartonPrice / prodCartonSize).toFixed(2)));
-                      }
-                    }}
-                    className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 font-mono font-semibold outline-none focus:border-slate-800"
-                  />
-                </div>
-                <div>
-                  <label className="mb-2 block text-xs font-semibold text-slate-750">
-                    {language === 'bn' ? 'পিস মূল্য (৳)' : 'Price Per Piece (৳)'}
+                    {prodPrimaryUnit === 'Piece'
+                      ? (language === 'bn' ? 'TP মূল্য (৳/পিস)' : 'TP Price (৳/Pcs)')
+                      : (language === 'bn' ? 'TP মূল্য (৳/কার্টন)' : 'TP Price (৳/Ctn)')}
                   </label>
                   <input
                     type="number"
@@ -3192,13 +3160,35 @@ export default function DirectoryModule({
                     required
                     value={prodPricePerPiece}
                     onChange={e => {
-                      const piecePrice = Number(e.target.value);
-                      setProdPricePerPiece(piecePrice);
-                      if (prodCartonSize > 0) {
-                        setProdPricePerCarton(Number((piecePrice * prodCartonSize).toFixed(2)));
+                      const price = Number(e.target.value);
+                      setProdPricePerPiece(price);
+                      if (prodPrimaryUnit === 'Piece' && prodCartonSize > 0) {
+                        setProdPricePerCarton(Number((price * prodCartonSize).toFixed(2)));
                       }
                     }}
                     className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 font-mono font-semibold outline-none focus:border-slate-800"
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-xs font-semibold text-slate-750">
+                    {prodPrimaryUnit === 'Piece'
+                      ? (language === 'bn' ? 'কার্টন মূল্য (৳)' : 'Price/Carton (৳)')
+                      : (language === 'bn' ? 'প্রযোজ্য নয়' : 'N/A')}
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    disabled={prodPrimaryUnit === 'Carton'}
+                    value={prodPrimaryUnit === 'Carton' ? 0 : prodPricePerCarton}
+                    onChange={e => {
+                      const cartonPrice = Number(e.target.value);
+                      setProdPricePerCarton(cartonPrice);
+                      if (prodCartonSize > 0) {
+                        setProdPricePerPiece(Number((cartonPrice / prodCartonSize).toFixed(2)));
+                      }
+                    }}
+                    className={`h-10 w-full rounded-lg border px-3 font-mono font-semibold outline-none ${prodPrimaryUnit === 'Carton' ? 'border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed' : 'border-slate-200 bg-slate-50 focus:border-slate-800'}`}
                   />
                 </div>
               </div>
@@ -3206,7 +3196,9 @@ export default function DirectoryModule({
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="mb-2 block text-xs font-semibold text-slate-705">
-                    {language === 'bn' ? 'ক্রয় মূল্য (৳/পিস)' : 'Purchase Price (৳/pc)'}
+                    {prodPrimaryUnit === 'Piece'
+                      ? (language === 'bn' ? 'DP মূল্য (৳/পিস)' : 'DP Price (৳/Pcs)')
+                      : (language === 'bn' ? 'DP মূল্য (৳/কার্টন)' : 'DP Price (৳/Ctn)')}
                   </label>
                   <input
                     type="number"
@@ -3219,7 +3211,9 @@ export default function DirectoryModule({
                 </div>
                 <div>
                   <label className="mb-2 block text-xs font-semibold text-slate-705">
-                    {language === 'bn' ? 'এমআরপি (৳/পিস)' : 'MRP (৳/pc)'}
+                    {prodPrimaryUnit === 'Piece'
+                      ? (language === 'bn' ? 'MRP মূল্য (৳/পিস)' : 'MRP Price (৳/Pcs)')
+                      : (language === 'bn' ? 'MRP মূল্য (৳/কার্টন)' : 'MRP Price (৳/Ctn)')}
                   </label>
                   <input
                     type="number"
@@ -3240,9 +3234,22 @@ export default function DirectoryModule({
                   <input
                     type="text"
                     disabled
-                    value={formatStock(prodStock, prodCartonSize)}
+                    value={prodPrimaryUnit === 'Carton'
+                      ? `${prodStock.toLocaleString()} Ctn`
+                      : formatStock(prodStock, prodCartonSize)}
                     className="h-10 w-full rounded-lg border border-slate-200 bg-slate-100 px-3 font-mono font-semibold outline-none text-slate-500 cursor-not-allowed"
                   />
+                ) : prodPrimaryUnit === 'Carton' ? (
+                  <div>
+                    <label className="mb-1 block text-[10px] text-slate-500">{language === 'bn' ? 'কার্টন' : 'Cartons'}</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={prodStock}
+                      onChange={e => setProdStock(Math.max(0, Number(e.target.value)))}
+                      className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 font-mono font-semibold outline-none focus:border-slate-800"
+                    />
+                  </div>
                 ) : (
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -3613,52 +3620,18 @@ export default function DirectoryModule({
                   ? (language === 'bn' ? 'পরিমাপের একক পরিবর্তন করুন' : 'Edit Unit of Measure') 
                   : (language === 'bn' ? 'নতুন একক নিবন্ধন (UOM)' : tDir.registerUnit)}
               </span>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowUnitHelp(!showUnitHelp)}
-                  className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-[10px] font-bold border border-indigo-200 cursor-pointer transition-all active:scale-95 shrink-0"
-                >
-                  {showUnitHelp ? 'Hide Guide / গাইড বন্ধ করুন ✕' : 'Show Help / গাইড দেখুন 📖'}
-                </button>
-                <button type="button" onClick={() => setShowUnitModal(false)} className="text-slate-400 hover:text-slate-855 text-sm p-1">✕</button>
-              </div>
+              <button type="button" onClick={() => setShowUnitModal(false)} className="text-slate-400 hover:text-slate-855 text-sm p-1">✕</button>
             </div>
 
-            <div className="p-6 space-y-4 text-xs max-h-[75vh] overflow-y-auto">
-              {showUnitHelp && (
-                <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-2xl border border-indigo-100 p-4 space-y-2 text-slate-700 animate-fade-in shadow-sm">
-                  <div className="font-bold text-xs text-indigo-800 flex items-center gap-1">
-                    📖 একক সেটআপ নির্দেশিকা (UOM Setup Guide)
-                  </div>
-                  <ul className="list-disc pl-4 space-y-1.5 text-[10px] leading-relaxed text-slate-600">
-                    <li>
-                      <strong>ইউনিটের নাম (Unit Name):</strong> যেমন <code>Carton</code> বা <code>বক্স</code>। এটি আপনার পণ্যের প্রধান বড় একক।
-                    </li>
-                    <li>
-                      <strong>মোট পিস সংখ্যা (Conversion Multiplier):</strong> ১টি মেইন ইউনিটের ভেতরে মোট কত পিস পণ্য থাকে। যেমন: ১ কার্টনে যদি ২৪০ পিস থাকে, তবে এখানে <code>240</code> লিখবেন।
-                    </li>
-                    <li>
-                      <strong>মাঝারি বা উপ-একক (Intermediate Unit):</strong> মেইন ইউনিট ও পিসের মাঝামাঝি কোনো একক থাকলে তার নাম দিন। যেমন: <code>Dozen</code> বা <code>প্যাকেট</code>।
-                    </li>
-                    <li>
-                      <strong>উপ-এককের সংখ্যা (Count in Unit):</strong> ১টি মেইন ইউনিটের ভেতরে কতটি মাঝারি একক থাকে। যেমন: ১ কার্টনে ২০ ডজন থাকলে লিখবেন <code>20</code>। সিস্টেম নিজে থেকেই হিসাব করবে: ১ ডজন = ১২ পিস।
-                    </li>
-                  </ul>
-                  <div className="text-[9px] font-bold text-indigo-500 border-t border-indigo-100/70 pt-1.5 mt-1">
-                    * এই হিসাবটি সেট করার পর, আপনার যেকোনো পণ্যের ফর্মে এটি সরাসরি নির্বাচন করা যাবে এবং বিক্রির সময় সঠিক হিসাব দেখাবে।
-                  </div>
-                </div>
-              )}
-
+            <div className="p-6 space-y-4 text-xs">
               <div>
                 <label className="mb-2 block text-xs font-bold text-slate-700">
-                  {language === 'bn' ? 'ইউনিটের নাম (যেমন: কার্টন, বড় বক্স) *' : 'Unit Name (e.g. Carton, Case) *'}
+                  {language === 'bn' ? 'ইউনিটের নাম *' : 'Unit Name *'}
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Carton"
+                  placeholder={language === 'bn' ? 'যেমন: Carton, Piece' : 'e.g. Carton, Piece'}
                   value={unitName}
                   onChange={e => setUnitName(e.target.value)}
                   className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3.5 font-semibold outline-none focus:border-slate-800 focus:bg-white"
@@ -3667,95 +3640,19 @@ export default function DirectoryModule({
 
               <div>
                 <label className="mb-2 block text-xs font-bold text-slate-700">
-                  {language === 'bn' ? 'সংক্ষিপ্ত নাম বা প্রতীক (যেমন: ctn, doz) *' : 'Symbol / Short Name (e.g. ctn, doz) *'}
+                  {language === 'bn' ? 'সংক্ষিপ্ত রূপ (Short Form) *' : 'Short Form *'}
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. ctn"
-                  value={unitSymbol}
-                  onChange={e => setUnitSymbol(e.target.value)}
-                  className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3.5 font-semibold outline-none focus:border-slate-800 focus:bg-white"
-                />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-xs font-bold text-slate-700">
-                  {language === 'bn' ? 'মোট পিস সংখ্যা (১ মেইন ইউনিটে মোট কত পিস?) *' : 'Total Pieces in 1 Main Unit (Conversion to Pieces) *'}
-                </label>
-                <input
-                  type="number"
-                  min="1"
                   required
-                  placeholder="e.g. 240"
-                  value={unitMultiplier}
-                  onChange={e => setUnitMultiplier(Number(e.target.value))}
-                  className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3.5 font-mono font-semibold outline-none focus:border-slate-800 focus:bg-white"
+                  placeholder={language === 'bn' ? 'যেমন: CTN, PCS' : 'e.g. CTN, PCS'}
+                  value={unitSymbol}
+                  onChange={e => setUnitSymbol(e.target.value.toUpperCase())}
+                  className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3.5 font-mono font-semibold uppercase outline-none focus:border-slate-800 focus:bg-white"
                 />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 bg-indigo-50/40 p-3.5 rounded-xl border border-indigo-100/60">
-                <div>
-                  <label className="mb-1 block text-[10px] font-black text-indigo-700 uppercase tracking-wide">
-                    {language === 'bn' ? 'মাঝারি/উপ-একক (যেমন: ডজন, বক্স)' : 'Sub-Unit Name (e.g., Dozen, Box)'}
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Dozen"
-                    value={unitSecondaryName}
-                    onChange={e => setUnitSecondaryName(e.target.value)}
-                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 font-semibold outline-none focus:border-slate-800"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-[10px] font-black text-indigo-700 uppercase tracking-wide">
-                    {language === 'bn' ? `১ ${unitName || 'ইউনিট'}-এ উপ-একক সংখ্যা` : `Qty of Sub-Units inside 1 ${unitName || 'Unit'}`}
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    placeholder="e.g. 20"
-                    value={unitSecondaryMultiplier || ''}
-                    onChange={e => setUnitSecondaryMultiplier(Number(e.target.value) || 0)}
-                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 font-mono font-semibold outline-none focus:border-slate-800"
-                  />
-                </div>
-              </div>
-
-              {/* Formula Display */}
-              {(() => {
-                const baseUnit = units.find(u => !u.parentUnitId) || { name: 'Pcs', multiplier: 1, symbol: '' as string | undefined };
-                
-                let formulaText = `1 ${unitName || 'Unit'} = ${unitMultiplier} ${baseUnit.name}`;
-                if (unitSecondaryName && unitSecondaryMultiplier > 0) {
-                  formulaText = `1 ${unitName || 'Unit'} = ${unitSecondaryMultiplier} ${unitSecondaryName} = ${unitMultiplier} ${baseUnit.name}`;
-                }
-                
-                return (
-                  <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg border border-indigo-100 p-3 space-y-1">
-                    <div className="text-[10px] font-bold text-indigo-700 uppercase tracking-wider">
-                      {language === 'bn' ? 'একক রূপান্তর প্রিভিউ (Unit Preview)' : 'Unit Formula Preview'}
-                    </div>
-                    <div className="font-mono text-sm font-bold text-indigo-900">{formulaText}</div>
-                    {unitSecondaryName && unitSecondaryMultiplier > 0 && (
-                      <div className="text-[10px] font-semibold text-slate-500 font-mono">
-                        Calculated: 1 {unitSecondaryName} = {Number(unitMultiplier / unitSecondaryMultiplier).toFixed(1)} {baseUnit.name}
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-
-              <div>
-                <label className="mb-2 block text-xs font-bold text-slate-705">
-                  {language === 'bn' ? 'অতিরিক্ত বিবরণ (যেমন: রুট ব্যবহারের নিয়ম)' : 'Additional Description (Optional)'}
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. 1 carton = 20 dozen = 240 pieces"
-                  value={unitDescription}
-                  onChange={e => setUnitDescription(e.target.value)}
-                  className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3.5 font-semibold outline-none focus:border-slate-800 focus:bg-white"
-                />
+                <p className="mt-1 text-[10px] text-slate-400">
+                  {language === 'bn' ? 'উদাহরণ: Carton → CTN | Piece → PCS' : 'Example: Carton → CTN  |  Piece → PCS'}
+                </p>
               </div>
             </div>
 

@@ -16,13 +16,14 @@ export interface Category {
 
 export interface UnitOfMeasure {
   id: string;
-  name: string;      // e.g., "Pcs", "Carton", "Case"
-  symbol?: string;   // e.g., "pc", "ctn", "doz"
-  multiplier: number; // e.g., 24 (means 1 carton = 24 pcs)
-  parentUnitId?: string; // Reference to parent unit for hierarchy (e.g., Dozen -> Pcs, Carton -> Dozen)
-  secondaryUnitName?: string; // e.g., "Dozen", "Box"
-  secondaryMultiplier?: number; // e.g., 20 (meaning 1 Carton = 20 Dozen)
-  description?: string; // Optional description of the unit
+  name: string;   // e.g., "Piece", "Carton", "Case"
+  symbol: string; // e.g., "PCS", "CTN"
+  // Legacy fields kept for backward-compatibility with stored data — not used in UI
+  multiplier?: number;
+  parentUnitId?: string;
+  secondaryUnitName?: string;
+  secondaryMultiplier?: number;
+  description?: string;
 }
 
 export interface Godown {
@@ -93,6 +94,7 @@ export interface Product {
   cartonSize: number; // How many Pieces inside 1 Carton
   pricePerCarton: number;
   pricePerPiece: number;
+  primaryUnit?: 'Piece' | 'Carton';
 }
 
 export interface ProductAttribute {
@@ -119,6 +121,11 @@ export interface ChallanItem {
   status: 'Pending' | 'Shipped' | 'Delivered';
   returnedQty: number;
   damagedQty: number;
+  // Split return fields: carton-level and piece-level returns (Piece-based products only)
+  returnedCartons?: number;
+  returnedPcs?: number;
+  damagedCartons?: number;
+  damagedPcs?: number;
   commissionAmount: number; // commission/deduction amount in BDT
   extraProfitAmount?: number; // extra profit/bonus amount in BDT
   extraCommissionAmount?: number; // for backward compatibility
@@ -204,17 +211,17 @@ export const INITIAL_DELIVERY_MEN: DeliveryMan[] = [
 // Products categorized by Company: Pran, Olympic, Haque
 export const INITIAL_PRODUCTS: Product[] = [
   // PRAN Products
-  { id: 'prod-1', name: 'Pran Mango Juice 250ml', sku: 'PRN-MJ-250', company: 'Pran', createdAt: '2026-06-01T09:15:00Z', customUnits: [{ name: 'Carton', multiplier: 24 }], defaultPP: 22, defaultMRP: 30, defaultWSP: 25, currentStock: 2500, damagedStock: 15, damageHistory: [{ id: 'damage-prod-1', qty: 15, recordedAt: '2026-06-03T10:00:00Z', type: 'existing' }], cartonSize: 24, pricePerCarton: 600, pricePerPiece: 25 },
-  { id: 'prod-2', name: 'Pran UP Lemon Drink 250ml', sku: 'PRN-UP-250', company: 'Pran', createdAt: '2026-06-02T10:30:00Z', customUnits: [{ name: 'Carton', multiplier: 24 }], defaultPP: 21, defaultMRP: 30, defaultWSP: 24, currentStock: 1800, damagedStock: 8, damageHistory: [{ id: 'damage-prod-2', qty: 8, recordedAt: '2026-06-04T12:45:00Z', type: 'existing' }], cartonSize: 24, pricePerCarton: 576, pricePerPiece: 24 },
-  { id: 'prod-3', name: 'Pran Premium Toast Biscuit 350g', sku: 'PRN-TB-350', company: 'Pran', createdAt: '2026-06-03T11:45:00Z', customUnits: [{ name: 'Carton', multiplier: 10 }], defaultPP: 55, defaultMRP: 80, defaultWSP: 65, currentStock: 1200, damagedStock: 0, cartonSize: 10, pricePerCarton: 650, pricePerPiece: 65 },
+  { id: 'prod-1', name: 'Pran Mango Juice 250ml', sku: 'PRN-MJ-250', company: 'Pran', createdAt: '2026-06-01T09:15:00Z', customUnits: [{ name: 'Carton', multiplier: 24 }], defaultPP: 22, defaultMRP: 30, defaultWSP: 25, currentStock: 2500, damagedStock: 15, damageHistory: [{ id: 'damage-prod-1', qty: 15, recordedAt: '2026-06-03T10:00:00Z', type: 'existing' }], cartonSize: 24, pricePerCarton: 600, pricePerPiece: 25, primaryUnit: 'Piece' },
+  { id: 'prod-2', name: 'Pran UP Lemon Drink 250ml', sku: 'PRN-UP-250', company: 'Pran', createdAt: '2026-06-02T10:30:00Z', customUnits: [{ name: 'Carton', multiplier: 24 }], defaultPP: 21, defaultMRP: 30, defaultWSP: 24, currentStock: 1800, damagedStock: 8, damageHistory: [{ id: 'damage-prod-2', qty: 8, recordedAt: '2026-06-04T12:45:00Z', type: 'existing' }], cartonSize: 24, pricePerCarton: 576, pricePerPiece: 24, primaryUnit: 'Piece' },
+  { id: 'prod-3', name: 'Pran Premium Toast Biscuit 350g', sku: 'PRN-TB-350', company: 'Pran', createdAt: '2026-06-03T11:45:00Z', customUnits: [{ name: 'Carton', multiplier: 10 }], defaultPP: 55, defaultMRP: 80, defaultWSP: 65, currentStock: 1200, damagedStock: 0, cartonSize: 10, pricePerCarton: 650, pricePerPiece: 65, primaryUnit: 'Piece' },
 
   // OLYMPIC Products
-  { id: 'prod-4', name: 'Olympic Energy Plus Biscuit 60g', sku: 'OLY-EP-60', company: 'Olympic', createdAt: '2026-06-04T08:20:00Z', customUnits: [{ name: 'Carton', multiplier: 48 }], defaultPP: 8, defaultMRP: 15, defaultWSP: 10, currentStock: 5000, damagedStock: 25, damageHistory: [{ id: 'damage-prod-4', qty: 25, recordedAt: '2026-06-07T15:10:00Z', type: 'existing' }], cartonSize: 48, pricePerCarton: 480, pricePerPiece: 10 },
-  { id: 'prod-5', name: 'Olympic Lexus Vegetable Cracker', sku: 'OLY-LX-120', company: 'Olympic', createdAt: '2026-06-05T13:05:00Z', customUnits: [{ name: 'Carton', multiplier: 48 }], defaultPP: 32, defaultMRP: 50, defaultWSP: 40, currentStock: 3200, damagedStock: 12, damageHistory: [{ id: 'damage-prod-5', qty: 12, recordedAt: '2026-06-08T09:35:00Z', type: 'existing' }], cartonSize: 48, pricePerCarton: 1920, pricePerPiece: 40 },
+  { id: 'prod-4', name: 'Olympic Energy Plus Biscuit 60g', sku: 'OLY-EP-60', company: 'Olympic', createdAt: '2026-06-04T08:20:00Z', customUnits: [{ name: 'Carton', multiplier: 48 }], defaultPP: 8, defaultMRP: 15, defaultWSP: 10, currentStock: 5000, damagedStock: 25, damageHistory: [{ id: 'damage-prod-4', qty: 25, recordedAt: '2026-06-07T15:10:00Z', type: 'existing' }], cartonSize: 48, pricePerCarton: 480, pricePerPiece: 10, primaryUnit: 'Piece' },
+  { id: 'prod-5', name: 'Olympic Lexus Vegetable Cracker', sku: 'OLY-LX-120', company: 'Olympic', createdAt: '2026-06-05T13:05:00Z', customUnits: [{ name: 'Carton', multiplier: 48 }], defaultPP: 32, defaultMRP: 50, defaultWSP: 40, currentStock: 3200, damagedStock: 12, damageHistory: [{ id: 'damage-prod-5', qty: 12, recordedAt: '2026-06-08T09:35:00Z', type: 'existing' }], cartonSize: 48, pricePerCarton: 1920, pricePerPiece: 40, primaryUnit: 'Piece' },
 
   // HAQUE Products
-  { id: 'prod-6', name: 'Haque Mr. Cookie Biscuit 150g', sku: 'HAQ-MC-150', company: 'Haque', createdAt: '2026-06-06T14:10:00Z', customUnits: [{ name: 'Carton', multiplier: 24 }], defaultPP: 25, defaultMRP: 40, defaultWSP: 32, currentStock: 2100, damagedStock: 5, damageHistory: [{ id: 'damage-prod-6', qty: 5, recordedAt: '2026-06-09T11:20:00Z', type: 'existing' }], cartonSize: 24, pricePerCarton: 768, pricePerPiece: 32 },
-  { id: 'prod-7', name: 'Haque Bourbon Chocolate Biscuit', sku: 'HAQ-BB-100', company: 'Haque', createdAt: '2026-06-07T16:25:00Z', customUnits: [{ name: 'Carton', multiplier: 24 }], defaultPP: 15, defaultMRP: 25, defaultWSP: 19, currentStock: 1500, damagedStock: 0, cartonSize: 24, pricePerCarton: 456, pricePerPiece: 19 },
+  { id: 'prod-6', name: 'Haque Mr. Cookie Biscuit 150g', sku: 'HAQ-MC-150', company: 'Haque', createdAt: '2026-06-06T14:10:00Z', customUnits: [{ name: 'Carton', multiplier: 24 }], defaultPP: 25, defaultMRP: 40, defaultWSP: 32, currentStock: 2100, damagedStock: 5, damageHistory: [{ id: 'damage-prod-6', qty: 5, recordedAt: '2026-06-09T11:20:00Z', type: 'existing' }], cartonSize: 24, pricePerCarton: 768, pricePerPiece: 32, primaryUnit: 'Piece' },
+  { id: 'prod-7', name: 'Haque Bourbon Chocolate Biscuit', sku: 'HAQ-BB-100', company: 'Haque', createdAt: '2026-06-07T16:25:00Z', customUnits: [{ name: 'Carton', multiplier: 24 }], defaultPP: 15, defaultMRP: 25, defaultWSP: 19, currentStock: 1500, damagedStock: 0, cartonSize: 24, pricePerCarton: 456, pricePerPiece: 19, primaryUnit: 'Piece' },
 ];
 
 export const INITIAL_ATTRIBUTES: ProductAttribute[] = [
@@ -402,9 +409,8 @@ export const INITIAL_CATEGORIES: Category[] = [
 ];
 
 export const INITIAL_UNITS: UnitOfMeasure[] = [
-  { id: 'uom-1', name: 'Piece', symbol: 'pc', multiplier: 1, description: 'Single unit' },
-  { id: 'uom-2', name: 'Dozen', symbol: 'doz', multiplier: 12, parentUnitId: 'uom-1', description: '12 pieces' },
-  { id: 'uom-3', name: 'Carton', symbol: 'ctn', multiplier: 240, parentUnitId: 'uom-2', description: '20 dozens = 240 pieces' }
+  { id: 'uom-1', name: 'Piece',  symbol: 'PCS' },
+  { id: 'uom-3', name: 'Carton', symbol: 'CTN' },
 ];
 
 export const INITIAL_GODOWNS: Godown[] = [
