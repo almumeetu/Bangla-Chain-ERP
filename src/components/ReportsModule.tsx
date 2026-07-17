@@ -18,23 +18,23 @@ import {
 import { Product, ChallanItem, SR, CompanyBrand, ExpenseRecord, DeliveryMan, UnitOfMeasure, ProductUnit } from '../types';
 import { translations, Language } from '../translations';
 
-function UnitDisplay({ qty, customUnits }: { qty: number, customUnits?: ProductUnit[] }) {
-  if (customUnits && customUnits.length > 0) {
-    const primaryUnit = customUnits[0];
-    const unitQty = qty / primaryUnit.multiplier;
-    const qtyStr = Number.isInteger(unitQty)
-      ? unitQty.toLocaleString()
-      : unitQty.toFixed(1);
-    return (
-      <div className="font-mono text-[11px]">
-        {qtyStr} {primaryUnit.name}
-      </div>
-    );
-  }
-  
+function CartonPcsDisplay({ qty, cartonSize }: { qty: number; cartonSize?: number }) {
+  const cs = cartonSize || 24;
+  const cartons = Math.floor(qty / cs);
+  const pcs = qty % cs;
+
   return (
-    <div className="font-mono text-[11px]">
-      {qty.toLocaleString()} Pcs
+    <div className="font-mono text-[11px] leading-snug">
+      <span className="text-indigo-700 font-bold">{cartons.toLocaleString()}</span>
+      <span className="text-slate-400 text-[9px]"> Ctn</span>
+      {pcs > 0 && (
+        <>
+          <span className="text-slate-300 mx-0.5">+</span>
+          <span className="text-emerald-700 font-bold">{pcs}</span>
+          <span className="text-slate-400 text-[9px]"> Pcs</span>
+        </>
+      )}
+      <div className="text-[9px] text-slate-400 mt-0.5">({qty.toLocaleString()} pcs)</div>
     </div>
   );
 }
@@ -266,7 +266,7 @@ export default function ReportsModule({
         returns,
         damages,
         dpTotal,
-        customUnits: p.customUnits
+        cartonSize: p.cartonSize
       };
     }).filter(row => {
       const matchesCompany = selectedCompanyFilter === 'All' || row.company === selectedCompanyFilter;
@@ -1049,7 +1049,7 @@ export default function ReportsModule({
                       <tr key={idx} className="hover:bg-slate-50/40 transition-colors">
                         <td className="px-4 py-3.5 font-bold text-slate-850">{row.companyName}</td>
                         <td className="px-4 py-3.5 text-center">
-                          <UnitDisplay qty={row.totalQty} />
+                          <CartonPcsDisplay qty={row.totalQty} />
                         </td>
                         <td className="px-4 py-3.5 text-right font-mono font-bold text-indigo-700">{formatBDT(row.totalValueDP)}</td>
                         <td className="px-4 py-3.5 text-right font-mono font-bold text-emerald-700">{formatBDT(row.totalValueTP)}</td>
@@ -1058,7 +1058,7 @@ export default function ReportsModule({
                     <tr className="bg-slate-50 border-t-2 border-slate-200 font-extrabold text-slate-900">
                       <td className="px-4 py-4">{language === 'bn' ? 'সর্বমোট স্টক' : 'GRAND TOTAL STOCK'}</td>
                       <td className="px-4 py-4 text-center">
-                        <UnitDisplay qty={stockReportData.grandQty} />
+                        <CartonPcsDisplay qty={stockReportData.grandQty} />
                       </td>
                       <td className="px-4 py-4 text-right font-mono text-indigo-605">{formatBDT(stockReportData.grandValueDP)}</td>
                       <td className="px-4 py-4 text-right font-mono text-emerald-605">{formatBDT(stockReportData.grandValueTP)}</td>
@@ -1097,10 +1097,10 @@ export default function ReportsModule({
                         <td className="px-4 py-3.5 text-slate-600">{product.company}</td>
                         <td className="px-4 py-3.5 text-slate-500 font-mono text-[10px]">{product.sku}</td>
                         <td className="px-4 py-3.5 text-center">
-                          <UnitDisplay qty={product.currentStock} customUnits={product.customUnits} />
+                          <CartonPcsDisplay qty={product.currentStock} cartonSize={product.cartonSize} />
                         </td>
                         <td className="px-4 py-3.5 text-center">
-                          <UnitDisplay qty={product.damagedStock || 0} customUnits={product.customUnits} />
+                          <CartonPcsDisplay qty={product.damagedStock || 0} cartonSize={product.cartonSize} />
                         </td>
                         <td className="px-4 py-3.5 text-right font-mono font-bold text-indigo-700">{formatBDT(product.currentStock * product.defaultPP)}</td>
                         <td className="px-4 py-3.5 text-right font-mono font-bold text-emerald-700">{formatBDT(product.currentStock * product.defaultWSP)}</td>
@@ -1206,11 +1206,11 @@ export default function ReportsModule({
             </div>
             <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
               <p className="text-[10px] font-bold uppercase text-slate-400 tracking-wider mb-2">{language === 'bn' ? 'মোট বিক্রিত ইউনিট' : 'Total Units Sold'}</p>
-              <UnitDisplay qty={salesReportData.companySales.reduce((sum, row) => sum + row.unitsSold, 0)} />
+              <CartonPcsDisplay qty={salesReportData.companySales.reduce((sum, row) => sum + row.unitsSold, 0)} />
             </div>
             <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
               <p className="text-[10px] font-bold uppercase text-rose-500 tracking-wider mb-2">{language === 'bn' ? 'মোট রিটার্ন/ড্যামেজ' : 'Total Returns/Damages'}</p>
-              <UnitDisplay qty={salesReportData.companySales.reduce((sum, row) => sum + row.returns + row.damages, 0)} />
+              <CartonPcsDisplay qty={salesReportData.companySales.reduce((sum, row) => sum + row.returns + row.damages, 0)} />
             </div>
           </div>
 
@@ -1291,13 +1291,13 @@ export default function ReportsModule({
                       <tr key={idx} className="hover:bg-slate-50/40 transition-colors">
                         <td className="px-4 py-3.5 font-bold text-slate-850">{row.companyName}</td>
                         <td className="px-4 py-3.5 text-center">
-                          <UnitDisplay qty={row.unitsSold} />
+                          <CartonPcsDisplay qty={row.unitsSold} />
                         </td>
                         <td className="px-4 py-3.5 text-center font-mono font-bold text-amber-600">
-                          <UnitDisplay qty={row.returns} />
+                          <CartonPcsDisplay qty={row.returns} />
                         </td>
                         <td className="px-4 py-3.5 text-center font-mono font-bold text-rose-600">
-                          <UnitDisplay qty={row.damages} />
+                          <CartonPcsDisplay qty={row.damages} />
                         </td>
                         <td className="px-4 py-3.5 text-right font-mono font-bold text-indigo-700">{formatBDT(row.dpTotal)}</td>
                         <td className="px-4 py-3.5 text-right font-mono font-bold text-emerald-700">{formatBDT(row.revenue)}</td>
@@ -1334,13 +1334,13 @@ export default function ReportsModule({
                           <div className="text-[9px] text-slate-400 font-mono mt-0.5">{row.phone}</div>
                         </td>
                         <td className="px-4 py-3.5 text-center font-mono font-bold text-slate-700">
-                          <UnitDisplay qty={row.unitsSold} />
+                          <CartonPcsDisplay qty={row.unitsSold} />
                         </td>
                         <td className="px-4 py-3.5 text-center font-mono font-bold text-amber-600">
-                          <UnitDisplay qty={row.returns} />
+                          <CartonPcsDisplay qty={row.returns} />
                         </td>
                         <td className="px-4 py-3.5 text-center font-mono font-bold text-rose-600">
-                          <UnitDisplay qty={row.damages} />
+                          <CartonPcsDisplay qty={row.damages} />
                         </td>
                         <td className="px-4 py-3.5 text-right font-mono font-bold text-indigo-700">{formatBDT(row.dpTotal)}</td>
                         <td className="px-4 py-3.5 text-right font-mono font-bold text-emerald-700">{formatBDT(row.revenue)}</td>
@@ -1381,13 +1381,13 @@ export default function ReportsModule({
                         </td>
                         <td className="px-4 py-3.5 text-center font-mono font-bold text-slate-600">{row.totalChallans}</td>
                         <td className="px-4 py-3.5 text-center font-mono font-bold text-slate-700">
-                          <UnitDisplay qty={row.unitsSold} />
+                          <CartonPcsDisplay qty={row.unitsSold} />
                         </td>
                         <td className="px-4 py-3.5 text-center font-mono font-bold text-amber-600">
-                          <UnitDisplay qty={row.returns} />
+                          <CartonPcsDisplay qty={row.returns} />
                         </td>
                         <td className="px-4 py-3.5 text-center font-mono font-bold text-rose-600">
-                          <UnitDisplay qty={row.damages} />
+                          <CartonPcsDisplay qty={row.damages} />
                         </td>
                         <td className="px-4 py-3.5 text-right font-mono font-bold text-indigo-700">{formatBDT(row.dpTotal)}</td>
                         <td className="px-4 py-3.5 text-right font-mono font-bold text-emerald-700">{formatBDT(row.revenue)}</td>
@@ -1433,13 +1433,13 @@ export default function ReportsModule({
                           <div className="text-[9px] text-slate-400 font-mono mt-0.5">{row.sku} · {row.company}</div>
                         </td>
                         <td className="px-4 py-3.5 text-center font-mono font-bold text-slate-700">
-                          <UnitDisplay qty={row.unitsSold} customUnits={row.customUnits} />
+                          <CartonPcsDisplay qty={row.unitsSold} cartonSize={row.cartonSize} />
                         </td>
                         <td className="px-4 py-3.5 text-center font-mono font-bold text-amber-600">
-                          <UnitDisplay qty={row.returns} customUnits={row.customUnits} />
+                          <CartonPcsDisplay qty={row.returns} cartonSize={row.cartonSize} />
                         </td>
                         <td className="px-4 py-3.5 text-center font-mono font-bold text-rose-600">
-                          <UnitDisplay qty={row.damages} customUnits={row.customUnits} />
+                          <CartonPcsDisplay qty={row.damages} cartonSize={row.cartonSize} />
                         </td>
                         <td className="px-4 py-3.5 text-right font-mono font-bold text-indigo-700">{formatBDT(row.dpTotal)}</td>
                         <td className="px-4 py-3.5 text-right font-mono font-bold text-emerald-700">{formatBDT(row.revenue)}</td>

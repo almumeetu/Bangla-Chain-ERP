@@ -90,6 +90,9 @@ export interface Product {
   currentStock: number;
   damagedStock?: number;
   damageHistory?: DamageLogEntry[];
+  cartonSize: number; // How many Pieces inside 1 Carton
+  pricePerCarton: number;
+  pricePerPiece: number;
 }
 
 export interface ProductAttribute {
@@ -130,10 +133,12 @@ export interface ProcurementItem {
   id: string;
   productId: string;
   productName: string;
-  purchasePrice: number; // Import price
+  purchasePrice: number; // Import price (per piece or per carton? Let's check legacy usage. Usually it is per piece, but we can compute it accordingly)
   mrp: number;
   wsp: number;
-  qty: number;
+  qty: number; // Total quantity in pieces
+  cartons: number; // Carton quantity purchased
+  pcs: number;     // Piece quantity purchased
   bonusQty: number;
   discountType: 'Flat' | 'Percentage';
   discountValue: number;
@@ -199,17 +204,17 @@ export const INITIAL_DELIVERY_MEN: DeliveryMan[] = [
 // Products categorized by Company: Pran, Olympic, Haque
 export const INITIAL_PRODUCTS: Product[] = [
   // PRAN Products
-  { id: 'prod-1', name: 'Pran Mango Juice 250ml', sku: 'PRN-MJ-250', company: 'Pran', createdAt: '2026-06-01T09:15:00Z', customUnits: [{ name: 'Carton', multiplier: 24 }], defaultPP: 22, defaultMRP: 30, defaultWSP: 25, currentStock: 2500, damagedStock: 15, damageHistory: [{ id: 'damage-prod-1', qty: 15, recordedAt: '2026-06-03T10:00:00Z', type: 'existing' }] },
-  { id: 'prod-2', name: 'Pran UP Lemon Drink 250ml', sku: 'PRN-UP-250', company: 'Pran', createdAt: '2026-06-02T10:30:00Z', customUnits: [{ name: 'Carton', multiplier: 24 }], defaultPP: 21, defaultMRP: 30, defaultWSP: 24, currentStock: 1800, damagedStock: 8, damageHistory: [{ id: 'damage-prod-2', qty: 8, recordedAt: '2026-06-04T12:45:00Z', type: 'existing' }] },
-  { id: 'prod-3', name: 'Pran Premium Toast Biscuit 350g', sku: 'PRN-TB-350', company: 'Pran', createdAt: '2026-06-03T11:45:00Z', customUnits: [{ name: 'Carton', multiplier: 10 }], defaultPP: 55, defaultMRP: 80, defaultWSP: 65, currentStock: 1200, damagedStock: 0 },
+  { id: 'prod-1', name: 'Pran Mango Juice 250ml', sku: 'PRN-MJ-250', company: 'Pran', createdAt: '2026-06-01T09:15:00Z', customUnits: [{ name: 'Carton', multiplier: 24 }], defaultPP: 22, defaultMRP: 30, defaultWSP: 25, currentStock: 2500, damagedStock: 15, damageHistory: [{ id: 'damage-prod-1', qty: 15, recordedAt: '2026-06-03T10:00:00Z', type: 'existing' }], cartonSize: 24, pricePerCarton: 600, pricePerPiece: 25 },
+  { id: 'prod-2', name: 'Pran UP Lemon Drink 250ml', sku: 'PRN-UP-250', company: 'Pran', createdAt: '2026-06-02T10:30:00Z', customUnits: [{ name: 'Carton', multiplier: 24 }], defaultPP: 21, defaultMRP: 30, defaultWSP: 24, currentStock: 1800, damagedStock: 8, damageHistory: [{ id: 'damage-prod-2', qty: 8, recordedAt: '2026-06-04T12:45:00Z', type: 'existing' }], cartonSize: 24, pricePerCarton: 576, pricePerPiece: 24 },
+  { id: 'prod-3', name: 'Pran Premium Toast Biscuit 350g', sku: 'PRN-TB-350', company: 'Pran', createdAt: '2026-06-03T11:45:00Z', customUnits: [{ name: 'Carton', multiplier: 10 }], defaultPP: 55, defaultMRP: 80, defaultWSP: 65, currentStock: 1200, damagedStock: 0, cartonSize: 10, pricePerCarton: 650, pricePerPiece: 65 },
 
   // OLYMPIC Products
-  { id: 'prod-4', name: 'Olympic Energy Plus Biscuit 60g', sku: 'OLY-EP-60', company: 'Olympic', createdAt: '2026-06-04T08:20:00Z', customUnits: [{ name: 'Carton', multiplier: 48 }], defaultPP: 8, defaultMRP: 15, defaultWSP: 10, currentStock: 5000, damagedStock: 25, damageHistory: [{ id: 'damage-prod-4', qty: 25, recordedAt: '2026-06-07T15:10:00Z', type: 'existing' }] },
-  { id: 'prod-5', name: 'Olympic Lexus Vegetable Cracker', sku: 'OLY-LX-120', company: 'Olympic', createdAt: '2026-06-05T13:05:00Z', customUnits: [{ name: 'Carton', multiplier: 48 }], defaultPP: 32, defaultMRP: 50, defaultWSP: 40, currentStock: 3200, damagedStock: 12, damageHistory: [{ id: 'damage-prod-5', qty: 12, recordedAt: '2026-06-08T09:35:00Z', type: 'existing' }] },
+  { id: 'prod-4', name: 'Olympic Energy Plus Biscuit 60g', sku: 'OLY-EP-60', company: 'Olympic', createdAt: '2026-06-04T08:20:00Z', customUnits: [{ name: 'Carton', multiplier: 48 }], defaultPP: 8, defaultMRP: 15, defaultWSP: 10, currentStock: 5000, damagedStock: 25, damageHistory: [{ id: 'damage-prod-4', qty: 25, recordedAt: '2026-06-07T15:10:00Z', type: 'existing' }], cartonSize: 48, pricePerCarton: 480, pricePerPiece: 10 },
+  { id: 'prod-5', name: 'Olympic Lexus Vegetable Cracker', sku: 'OLY-LX-120', company: 'Olympic', createdAt: '2026-06-05T13:05:00Z', customUnits: [{ name: 'Carton', multiplier: 48 }], defaultPP: 32, defaultMRP: 50, defaultWSP: 40, currentStock: 3200, damagedStock: 12, damageHistory: [{ id: 'damage-prod-5', qty: 12, recordedAt: '2026-06-08T09:35:00Z', type: 'existing' }], cartonSize: 48, pricePerCarton: 1920, pricePerPiece: 40 },
 
   // HAQUE Products
-  { id: 'prod-6', name: 'Haque Mr. Cookie Biscuit 150g', sku: 'HAQ-MC-150', company: 'Haque', createdAt: '2026-06-06T14:10:00Z', customUnits: [{ name: 'Carton', multiplier: 24 }], defaultPP: 25, defaultMRP: 40, defaultWSP: 32, currentStock: 2100, damagedStock: 5, damageHistory: [{ id: 'damage-prod-6', qty: 5, recordedAt: '2026-06-09T11:20:00Z', type: 'existing' }] },
-  { id: 'prod-7', name: 'Haque Bourbon Chocolate Biscuit', sku: 'HAQ-BB-100', company: 'Haque', createdAt: '2026-06-07T16:25:00Z', customUnits: [{ name: 'Carton', multiplier: 24 }], defaultPP: 15, defaultMRP: 25, defaultWSP: 19, currentStock: 1500, damagedStock: 0 },
+  { id: 'prod-6', name: 'Haque Mr. Cookie Biscuit 150g', sku: 'HAQ-MC-150', company: 'Haque', createdAt: '2026-06-06T14:10:00Z', customUnits: [{ name: 'Carton', multiplier: 24 }], defaultPP: 25, defaultMRP: 40, defaultWSP: 32, currentStock: 2100, damagedStock: 5, damageHistory: [{ id: 'damage-prod-6', qty: 5, recordedAt: '2026-06-09T11:20:00Z', type: 'existing' }], cartonSize: 24, pricePerCarton: 768, pricePerPiece: 32 },
+  { id: 'prod-7', name: 'Haque Bourbon Chocolate Biscuit', sku: 'HAQ-BB-100', company: 'Haque', createdAt: '2026-06-07T16:25:00Z', customUnits: [{ name: 'Carton', multiplier: 24 }], defaultPP: 15, defaultMRP: 25, defaultWSP: 19, currentStock: 1500, damagedStock: 0, cartonSize: 24, pricePerCarton: 456, pricePerPiece: 19 },
 ];
 
 export const INITIAL_ATTRIBUTES: ProductAttribute[] = [
@@ -298,6 +303,8 @@ export const INITIAL_PROCUREMENTS: Procurement[] = [
         purchasePrice: 22,
         mrp: 30,
         wsp: 25,
+        cartons: 41,
+        pcs: 16,
         qty: 1000,
         bonusQty: 50,
         discountType: 'Percentage',
@@ -325,6 +332,8 @@ export const INITIAL_PROCUREMENTS: Procurement[] = [
         purchasePrice: 32,
         mrp: 50,
         wsp: 40,
+        cartons: 83,
+        pcs: 8,
         qty: 2000,
         bonusQty: 100,
         discountType: 'Flat',

@@ -577,6 +577,9 @@ export default function DirectoryModule({
   const [prodWSP, setProdWSP] = useState<number>(0);
   const [prodMRP, setProdMRP] = useState<number>(0);
   const [prodStock, setProdStock] = useState<number>(0);
+  const [prodCartonSize, setProdCartonSize] = useState<number>(24);
+  const [prodPricePerCarton, setProdPricePerCarton] = useState<number>(0);
+  const [prodPricePerPiece, setProdPricePerPiece] = useState<number>(0);
 
   // Form Fields: SR
   const [srName, setSrName] = useState('');
@@ -666,6 +669,16 @@ export default function DirectoryModule({
     return `৳${amount.toLocaleString('en-BD')}`;
   }, []);
 
+  const formatStock = useCallback((stock: number, size: number) => {
+    const s = size || 24;
+    const cartons = Math.floor(stock / s);
+    const pieces = stock % s;
+    if (language === 'bn') {
+      return `${cartons} কার্টন, ${pieces} পিস`;
+    }
+    return `${cartons} Carton${cartons !== 1 ? 's' : ''}, ${pieces} Pcs`;
+  }, [language]);
+
   const getCompanyBadgeStyle = useCallback((companyName: string) => {
     if (!companyName || companyName === 'N/A') return 'bg-slate-100 text-slate-500 border-slate-200';
     const colors = [
@@ -728,12 +741,15 @@ export default function DirectoryModule({
       company: prodCompany,
       createdAt: editingProduct?.createdAt || new Date().toISOString(),
       categoryId: prodCategoryId || undefined,
-      customUnits: prodCustomUnits.length > 0 ? prodCustomUnits : undefined,
+      customUnits: [{ name: 'Carton', multiplier: Number(prodCartonSize) }],
       defaultGodownId: prodGodownId || undefined,
       defaultPP: Number(prodPP),
-      defaultWSP: Number(prodWSP),
+      defaultWSP: Number(prodPricePerPiece),
       defaultMRP: Number(prodMRP),
-      currentStock: Number(prodStock)
+      currentStock: Number(prodStock),
+      cartonSize: Number(prodCartonSize),
+      pricePerCarton: Number(prodPricePerCarton),
+      pricePerPiece: Number(prodPricePerPiece)
     };
 
     if (editingProduct) {
@@ -744,7 +760,7 @@ export default function DirectoryModule({
     }
 
     setShowProductModal(false);
-  }, [prodName, prodSku, prodCompany, prodCategoryId, prodCustomUnits, prodGodownId, prodPP, prodWSP, prodMRP, prodStock, editingProduct, setProducts]);
+  }, [prodName, prodSku, prodCompany, prodCategoryId, prodCartonSize, prodPricePerCarton, prodPricePerPiece, prodGodownId, prodPP, prodMRP, prodStock, editingProduct, setProducts]);
 
   // --- SUBMIT: SR ---
   const handleSrSubmit = useCallback((e: React.FormEvent) => {
@@ -986,12 +1002,14 @@ export default function DirectoryModule({
     setProdSku('');
     setProdCompany(companies[0]?.name || 'Pran');
     setProdCategoryId(productCategories[0]?.id || '');
-    setProdCustomUnits([]);
     setProdGodownId(godowns[0]?.id || '');
     setProdPP(0);
     setProdWSP(0);
     setProdMRP(0);
     setProdStock(0);
+    setProdCartonSize(24);
+    setProdPricePerCarton(0);
+    setProdPricePerPiece(0);
     setShowProductModal(true);
   }, [companies, productCategories, godowns]);
 
@@ -1060,12 +1078,14 @@ export default function DirectoryModule({
     setProdSku(p.sku);
     setProdCompany(p.company);
     setProdCategoryId(p.categoryId || '');
-    setProdCustomUnits(p.customUnits || []);
     setProdGodownId(p.defaultGodownId || '');
     setProdPP(p.defaultPP);
     setProdWSP(p.defaultWSP);
     setProdMRP(p.defaultMRP);
     setProdStock(p.currentStock);
+    setProdCartonSize(p.cartonSize || (p.customUnits && p.customUnits[0] ? p.customUnits[0].multiplier : 24));
+    setProdPricePerCarton(p.pricePerCarton || (p.defaultWSP * (p.cartonSize || 24)));
+    setProdPricePerPiece(p.pricePerPiece || p.defaultWSP);
     setShowProductModal(true);
   }, []);
 
@@ -1539,114 +1559,61 @@ export default function DirectoryModule({
                         </h4>
 
                         <div className="flex flex-wrap items-center gap-1.5 text-[9px] font-bold uppercase tracking-wide">
-                          {uomName !== 'N/A' && (
-                            <span className="bg-purple-50 text-purple-700 border border-purple-100 px-2 py-0.5 rounded">UOM: {uomName}</span>
-                          )}
-                          {godownName !== 'Main Godown' && godownName !== 'N/A' && (
-                            <span className="bg-amber-50 text-amber-700 border border-amber-100 px-2 py-0.5 rounded">{godownName}</span>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Stock Meter */}
-                      <div className="space-y-1.5 relative z-10 pt-1">
-                        <div className="flex items-center justify-between text-[10px] font-bold text-slate-500">
-                          <span>{language === 'bn' ? 'স্টক লেভেল' : 'Stock Level'}</span>
-                          <div className="text-right">
-                            <div className={isLowStock ? "text-amber-600 animate-pulse font-extrabold" : "text-slate-700"}>
-                              {(() => {
-                                const qty = p.currentStock / multiplier;
-                                const displayQty = qty % 1 === 0 ? qty.toLocaleString() : qty.toFixed(1);
-                                return (
-                                  <div className="space-y-0.5">
-                                    <div className="text-xs">
-                                      {displayQty} {multiplier > 1 ? 'Carton' : 'Pcs'}
-                                    </div>
-                                    <div className="text-[9px] text-slate-400">
-                                      ({p.currentStock.toLocaleString()} Pieces)
-                                    </div>
-                                  </div>
-                                );
-                              })()}
-                            </div>
-                            <span className={`text-[10px] ${brandTheme.valText} ${brandTheme.valBg} border px-2 py-0.5 rounded font-mono block mt-1 font-bold`}>
-                              Val: ৳{(p.currentStock * p.defaultPP).toLocaleString('en-BD')}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                          <div
-                            style={{ width: `${Math.min(100, (p.currentStock / 5000) * 100)}%` }}
-                            className={`h-full rounded-full transition-all duration-500 ${isLowStock ? 'bg-amber-500' : 'bg-emerald-500'
-                              }`}
-                          />
-                        </div>
-                      </div>
-
-                      {/* Prices Grid */}
-                      <div className="grid grid-cols-3 gap-2 relative z-10 pt-1 text-center">
-                        <div className="bg-blue-50/40 rounded-xl p-2 border border-blue-100 flex flex-col justify-between">
-                          <div>
-                            <span className="text-[8px] text-blue-500 font-extrabold uppercase tracking-wider block">{language === 'bn' ? 'DP' : 'Dealer Price (DP)'}</span>
-                            {(() => {
-                              if (multiplier > 1) {
-                                const unitPrice = p.defaultPP * multiplier;
-                                return (
-                                  <div className="space-y-0.5">
-                                    <span className="font-mono text-sm font-black text-blue-700">{formatBDT(unitPrice)}</span>
-                                    <span className="text-[9px] text-blue-400 font-semibold block">/ Carton</span>
-                                    <span className="text-[9px] text-slate-500 font-semibold block border-t border-blue-100/50 mt-1 pt-0.5">{formatBDT(p.defaultPP)}/pc</span>
-                                  </div>
-                                );
-                              }
-                              return (
-                                <span className="font-mono text-xs font-black text-blue-700">{formatBDT(p.defaultPP)}</span>
-                              );
-                            })()}
-                          </div>
-                        </div>
-                        <div className="bg-emerald-50/40 rounded-xl p-2 border border-emerald-100 flex flex-col justify-between">
-                          <div>
-                            <span className="text-[8px] text-emerald-600 font-extrabold uppercase tracking-wider block">{language === 'bn' ? 'TP' : 'Trade Price (TP)'}</span>
-                            {(() => {
-                              if (multiplier > 1) {
-                                const unitPrice = p.defaultWSP * multiplier;
-                                return (
-                                  <div className="space-y-0.5">
-                                    <span className="font-mono text-sm font-black text-emerald-700">{formatBDT(unitPrice)}</span>
-                                    <span className="text-[9px] text-emerald-400 font-semibold block">/ Carton</span>
-                                    <span className="text-[9px] text-indigo-500 font-bold block border-t border-emerald-100/50 mt-1 pt-0.5">{formatBDT(p.defaultWSP)}/pc</span>
-                                  </div>
-                                );
-                              }
-                              return (
-                                <span className="font-mono text-xs font-black text-emerald-800">{formatBDT(p.defaultWSP)}</span>
-                              );
-                            })()}
-                          </div>
-                        </div>
-                        <div className="bg-amber-50/40 rounded-xl p-2 border border-amber-100 flex flex-col justify-between">
-                          <div>
-                            <span className="text-[8px] text-amber-600 font-extrabold uppercase tracking-wider block">{language === 'bn' ? 'MRP' : 'MRP'}</span>
-                            {(() => {
-                              if (multiplier > 1) {
-                                const unitPrice = p.defaultMRP * multiplier;
-                                return (
-                                  <div className="space-y-0.5">
-                                    <span className="font-mono text-sm font-black text-amber-700">{formatBDT(unitPrice)}</span>
-                                    <span className="text-[9px] text-amber-400 font-semibold block">/ Carton</span>
-                                    <span className="text-[9px] text-slate-700 font-extrabold block border-t border-amber-100/50 mt-1 pt-0.5">{formatBDT(p.defaultMRP)}/pc</span>
-                                  </div>
-                                );
-                              }
-                              return (
-                                <span className="font-mono text-xs font-black text-amber-700">{formatBDT(p.defaultMRP)}</span>
-                              );
-                            })()}
-                          </div>
-                        </div>
-                      </div>
-
+                           <span className="bg-purple-50 text-purple-700 border border-purple-100 px-2 py-0.5 rounded">
+                             {language === 'bn' ? `১ কার্টন = ${p.cartonSize || 24} পিস` : `1 Carton = ${p.cartonSize || 24} Pcs`}
+                           </span>
+                           {godownName !== 'Main Godown' && godownName !== 'N/A' && (
+                             <span className="bg-amber-50 text-amber-700 border border-amber-100 px-2 py-0.5 rounded">{godownName}</span>
+                           )}
+                         </div>
+                       </div>
+                       {/* Stock Meter */}
+                       <div className="space-y-1.5 relative z-10 pt-1">
+                         <div className="flex items-center justify-between text-[10px] font-bold text-slate-500">
+                           <span>{language === 'bn' ? 'স্টক লেভেল' : 'Stock Level'}</span>
+                           <div className="text-right">
+                             <div className={isLowStock ? "text-amber-600 animate-pulse font-extrabold" : "text-slate-700"}>
+                               <div className="space-y-0.5">
+                                 <div className="text-xs">
+                                   {formatStock(p.currentStock, p.cartonSize || 24)}
+                                 </div>
+                                 <div className="text-[9px] text-slate-400">
+                                   (Total: {p.currentStock.toLocaleString()} Pcs)
+                                 </div>
+                               </div>
+                             </div>
+                             <span className={`text-[10px] ${brandTheme.valText} ${brandTheme.valBg} border px-2 py-0.5 rounded font-mono block mt-1 font-bold`}>
+                               Val: ৳{(p.currentStock * p.defaultPP).toLocaleString('en-BD')}
+                             </span>
+                           </div>
+                         </div>
+                         <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                           <div
+                             style={{ width: `${Math.min(100, (p.currentStock / 5000) * 100)}%` }}
+                             className={`h-full rounded-full transition-all duration-500 ${isLowStock ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                           />
+                         </div>
+                       </div>
+ 
+                       {/* Prices Grid */}
+                       <div className="grid grid-cols-2 gap-2 relative z-10 pt-1 text-center">
+                         <div className="bg-blue-50/40 rounded-xl p-2 border border-blue-100 flex flex-col justify-between">
+                           <div>
+                             <span className="text-[8px] text-blue-500 font-extrabold uppercase tracking-wider block">Price Per Carton</span>
+                             <span className="font-mono text-xs font-black text-blue-700">{formatBDT(p.pricePerCarton || (p.defaultWSP * (p.cartonSize || 24)))}</span>
+                           </div>
+                         </div>
+                         <div className="bg-emerald-50/40 rounded-xl p-2 border border-emerald-100 flex flex-col justify-between">
+                           <div>
+                             <span className="text-[8px] text-emerald-600 font-extrabold uppercase tracking-wider block">Price Per Piece</span>
+                             <span className="font-mono text-xs font-black text-emerald-700">{formatBDT(p.pricePerPiece || p.defaultWSP)}</span>
+                           </div>
+                         </div>
+                       </div>
+                       <div className="grid grid-cols-2 gap-2 text-center text-[9px] text-slate-450 font-bold border-t border-slate-100 pt-2">
+                         <div>DP (PP): {formatBDT(p.defaultPP)}/pc</div>
+                         <div>MRP: {formatBDT(p.defaultMRP)}/pc</div>
+                       </div>
                       {/* Margin Info & Actions */}
                       <div className="pt-3 border-t border-slate-100 flex items-center justify-between relative z-10">
                         <div className="space-y-0.5">
@@ -1686,21 +1653,18 @@ export default function DirectoryModule({
                     <thead>
                       <tr className="bg-slate-100/70 border-b border-slate-200 text-slate-600 text-[10px] uppercase font-extrabold tracking-wider">
                         <th className="px-5 py-4">{language === 'bn' ? 'পণ্য' : 'Product'}</th>
-                        <th className="px-5 py-4">{language === 'bn' ? 'ব্র্যান্ড/কোম্পানি' : 'Brand/Company'}</th>
-                        <th className="px-5 py-4">{language === 'bn' ? 'একক (UOM)' : 'UOM'}</th>
+                        <th className="px-5 py-4">{language === 'bn' ? 'কোম্পানি' : 'Brand/Company'}</th>
+                        <th className="px-5 py-4">{language === 'bn' ? 'কার্টন সাইজ' : 'Carton Size'}</th>
                         <th className="px-5 py-4">{language === 'bn' ? 'স্টক' : 'Stock'}</th>
-                        <th className="px-5 py-4">{language === 'bn' ? 'ডিলার প্রাইস (DP)' : 'Dealer Price (DP)'}</th>
-                        <th className="px-5 py-4">{language === 'bn' ? 'ট্রেড প্রাইস (TP)' : 'Trade Price (TP)'}</th>
+                        <th className="px-5 py-4">{language === 'bn' ? 'ক্রয় মূল্য (PP)' : 'Purchase Price (PP)'}</th>
+                        <th className="px-5 py-4">{language === 'bn' ? 'কার্টন মূল্য' : 'Carton Price'}</th>
+                        <th className="px-5 py-4">{language === 'bn' ? 'পিস মূল্য' : 'Piece Price'}</th>
                         <th className="px-5 py-4">{language === 'bn' ? 'এমআরপি' : 'MRP'}</th>
                         <th className="px-5 py-4 text-right">{language === 'bn' ? 'অ্যাকশন' : 'Actions'}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {filteredProducts.map(p => {
-                        const categoryName = productCategories.find(c => c.id === p.categoryId)?.name || 'N/A';
-                        const primaryUnit = p.customUnits && p.customUnits.length > 0 ? p.customUnits[0] : null;
-                        const uomName = primaryUnit ? `${primaryUnit.name} (${primaryUnit.multiplier})` : 'Pcs';
-                        const multiplier = primaryUnit ? primaryUnit.multiplier : 1;
                         const isLowStock = p.currentStock < 600;
                         const isEditing = inlineEditingProductId === p.id;
 
@@ -1734,13 +1698,26 @@ export default function DirectoryModule({
                                   {companies.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                                 </select>
                               </td>
-                              <td className="p-2 align-top text-xs text-slate-500 font-medium pt-4">
-                                {p.customUnits && p.customUnits.length > 0 ? (
-                                  p.customUnits.map(u => <div key={u.name}>{u.name}: {u.multiplier}</div>)
-                                ) : 'Pcs'}
+                              <td className="p-2 align-top">
+                                <input
+                                  type="number"
+                                  value={inlineEditForm.cartonSize || 24}
+                                  onChange={e => {
+                                    const cs = Math.max(1, Number(e.target.value));
+                                    setInlineEditForm(prev => {
+                                      const pPrice = prev.pricePerPiece || 0;
+                                      return {
+                                        ...prev,
+                                        cartonSize: cs,
+                                        pricePerCarton: Number((pPrice * cs).toFixed(2))
+                                      };
+                                    });
+                                  }}
+                                  className="w-full h-8 px-2 rounded-lg border border-slate-300 text-xs font-mono font-bold text-slate-700 focus:border-indigo-500 outline-none"
+                                />
                               </td>
                               <td className="p-2 align-top text-slate-400 text-xs font-bold pt-4">
-                                {p.currentStock.toLocaleString()}
+                                {formatStock(p.currentStock, p.cartonSize || 24)}
                               </td>
                               <td className="p-2 align-top">
                                 <input
@@ -1753,8 +1730,39 @@ export default function DirectoryModule({
                               <td className="p-2 align-top">
                                 <input
                                   type="number"
-                                  value={inlineEditForm.defaultWSP || 0}
-                                  onChange={e => setInlineEditForm(prev => ({ ...prev, defaultWSP: Number(e.target.value) }))}
+                                  value={inlineEditForm.pricePerCarton || 0}
+                                  onChange={e => {
+                                    const cPrice = Number(e.target.value);
+                                    setInlineEditForm(prev => {
+                                      const cs = prev.cartonSize || 24;
+                                      const pPrice = Number((cPrice / cs).toFixed(2));
+                                      return {
+                                        ...prev,
+                                        pricePerCarton: cPrice,
+                                        pricePerPiece: pPrice,
+                                        defaultWSP: pPrice
+                                      };
+                                    });
+                                  }}
+                                  className="w-full h-8 px-2 rounded-lg border border-slate-300 text-xs font-mono font-bold text-emerald-700 focus:border-indigo-500 outline-none"
+                                />
+                              </td>
+                              <td className="p-2 align-top">
+                                <input
+                                  type="number"
+                                  value={inlineEditForm.pricePerPiece || 0}
+                                  onChange={e => {
+                                    const pPrice = Number(e.target.value);
+                                    setInlineEditForm(prev => {
+                                      const cs = prev.cartonSize || 24;
+                                      return {
+                                        ...prev,
+                                        pricePerPiece: pPrice,
+                                        defaultWSP: pPrice,
+                                        pricePerCarton: Number((pPrice * cs).toFixed(2))
+                                      };
+                                    });
+                                  }}
                                   className="w-full h-8 px-2 rounded-lg border border-slate-300 text-xs font-mono font-bold text-emerald-700 focus:border-indigo-500 outline-none"
                                 />
                               </td>
@@ -1802,10 +1810,8 @@ export default function DirectoryModule({
                                 {p.company}
                               </span>
                             </td>
-                            <td className="px-5 py-3.5">
-                              <span className="inline-block px-2 py-0.5 rounded bg-slate-50 border border-slate-200/60 text-slate-650 text-[10px] font-bold tracking-wide uppercase whitespace-nowrap">
-                                {uomName !== 'N/A' ? uomName : 'N/A'}
-                              </span>
+                            <td className="px-5 py-3.5 font-mono text-[11px] font-bold text-slate-600">
+                              {p.cartonSize || 24} pcs/ctn
                             </td>
                             <td className="px-5 py-3.5 whitespace-nowrap">
                               <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide border ${isLowStock
@@ -1813,60 +1819,20 @@ export default function DirectoryModule({
                                 : "bg-emerald-50 text-emerald-700 border-emerald-100"
                                 }`}>
                                 <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${isLowStock ? "bg-rose-500 animate-pulse" : "bg-emerald-500"}`} />
-                                {(() => {
-                                  const qty = p.currentStock / multiplier;
-                                  const displayQty = qty % 1 === 0 ? qty.toLocaleString() : qty.toFixed(1);
-                                  return `${displayQty} ${multiplier > 1 ? 'Carton' : 'Pcs'}`;
-                                })()}
+                                {formatStock(p.currentStock, p.cartonSize || 24)}
                               </span>
                             </td>
-                            <td className="px-5 py-3.5 text-xs text-slate-500 font-medium whitespace-nowrap">
-                              {(() => {
-                                if (multiplier > 1) {
-                                  const unitPrice = p.defaultPP * multiplier;
-                                  return (
-                                    <div className="space-y-0.5">
-                                      <div className="font-bold text-blue-700">{formatBDT(unitPrice)}</div>
-                                      <div className="text-[9px] text-slate-400 font-semibold">
-                                        / Carton · {formatBDT(p.defaultPP)}/pc
-                                      </div>
-                                    </div>
-                                  );
-                                }
-                                return <div>{formatBDT(p.defaultPP)}</div>;
-                              })()}
+                            <td className="px-5 py-3.5 text-xs font-semibold text-slate-600 whitespace-nowrap font-mono">
+                              {formatBDT(p.defaultPP)}/pc
                             </td>
-                            <td className="px-5 py-3.5 text-xs text-indigo-600 font-bold whitespace-nowrap">
-                              {(() => {
-                                if (multiplier > 1) {
-                                  const unitPrice = p.defaultWSP * multiplier;
-                                  return (
-                                    <div className="space-y-0.5">
-                                      <div className="font-bold text-emerald-700">{formatBDT(unitPrice)}</div>
-                                      <div className="text-[9px] text-indigo-400 font-semibold">
-                                        / Carton · {formatBDT(p.defaultWSP)}/pc
-                                      </div>
-                                    </div>
-                                  );
-                                }
-                                return <div>{formatBDT(p.defaultWSP)}</div>;
-                              })()}
+                            <td className="px-5 py-3.5 text-xs text-indigo-600 font-bold whitespace-nowrap font-mono">
+                              {formatBDT(p.pricePerCarton || (p.defaultWSP * (p.cartonSize || 24)))}
                             </td>
-                            <td className="px-5 py-3.5 text-xs text-slate-900 font-extrabold whitespace-nowrap">
-                              {(() => {
-                                if (multiplier > 1) {
-                                  const unitPrice = p.defaultMRP * multiplier;
-                                  return (
-                                    <div className="space-y-0.5">
-                                      <div className="font-extrabold text-amber-700">{formatBDT(unitPrice)}</div>
-                                      <div className="text-[9px] text-slate-500 font-bold">
-                                        / Carton · {formatBDT(p.defaultMRP)}/pc
-                                      </div>
-                                    </div>
-                                  );
-                                }
-                                return <div>{formatBDT(p.defaultMRP)}</div>;
-                              })()}
+                            <td className="px-5 py-3.5 text-xs text-emerald-600 font-bold whitespace-nowrap font-mono">
+                              {formatBDT(p.pricePerPiece || p.defaultWSP)}
+                            </td>
+                            <td className="px-5 py-3.5 text-xs text-slate-900 font-extrabold whitespace-nowrap font-mono">
+                              {formatBDT(p.defaultMRP)}/pc
                             </td>
                             <td className="px-5 py-3.5 text-right">
                               <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -3175,78 +3141,73 @@ export default function DirectoryModule({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-3">
-                <div className="flex items-center justify-between">
-                  <label className="block text-[10px] font-bold text-slate-700">
-                    {language === 'bn' ? 'পণ্য বিক্রির একক সমূহ (ঐচ্ছিক)' : 'Sales Units configuration (Optional)'}
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="mb-2 block text-xs font-semibold text-slate-705">
+                    {language === 'bn' ? 'কার্টন সাইজ (পিস)' : 'Carton Size (Pcs)'}
                   </label>
-                  <div className="flex items-center gap-2">
-                    {units.length > 0 && (
-                      <select
-                        onChange={e => {
-                          const val = e.target.value;
-                          if (!val) return;
-                          const selectedUom = units.find(u => u.id === val);
-                          if (selectedUom) {
-                            if (!prodCustomUnits.some(cu => cu.name.toLowerCase() === selectedUom.name.toLowerCase())) {
-                              setProdCustomUnits(prev => [...prev, {
-                                name: selectedUom.name,
-                                multiplier: selectedUom.multiplier,
-                                secondaryUnitName: selectedUom.secondaryUnitName,
-                                secondaryMultiplier: selectedUom.secondaryMultiplier
-                              }]);
-                            }
-                          }
-                          e.target.value = '';
-                        }}
-                        className="text-[10px] font-bold text-slate-650 bg-slate-50 px-2 py-1 rounded-lg border border-slate-250 outline-none cursor-pointer hover:bg-slate-100 transition-colors"
-                      >
-                        <option value="">{language === 'bn' ? 'নিবন্ধিত একক দ্রুত যোগ করুন...' : 'Quick Add Unit...'}</option>
-                        {units.map(u => (
-                          <option key={u.id} value={u.id}>{u.name} ({u.multiplier} pcs)</option>
-                        ))}
-                      </select>
-                    )}
-                    <button type="button" onClick={() => setProdCustomUnits(prev => [...prev, { name: '', multiplier: 2 }])} className="text-[10px] font-bold text-indigo-650 bg-indigo-50 px-2 py-1 rounded-md hover:bg-indigo-100 transition-colors">
-                      {language === 'bn' ? '+ কাস্টম একক' : '+ Custom Unit'}
-                    </button>
-                  </div>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    value={prodCartonSize}
+                    onChange={e => {
+                      const size = Math.max(1, Number(e.target.value));
+                      setProdCartonSize(size);
+                      if (prodPricePerPiece > 0) {
+                        setProdPricePerCarton(Number((prodPricePerPiece * size).toFixed(2)));
+                      }
+                    }}
+                    className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 font-mono font-semibold outline-none focus:border-slate-800"
+                  />
                 </div>
-                {prodCustomUnits.map((u, idx) => (
-                  <div key={idx} className="flex gap-2 items-center">
-                    <input
-                      type="text"
-                      value={u.name}
-                      onChange={e => { const updated = [...prodCustomUnits]; updated[idx].name = e.target.value; setProdCustomUnits(updated); }}
-                      className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:border-slate-800"
-                      placeholder={language === 'bn' ? "এককের নাম (যেমন: Dozen)" : "Unit Name (e.g. Dozen)"}
-                    />
-                    <input
-                      type="number"
-                      min="2"
-                      value={u.multiplier}
-                      onChange={e => { const updated = [...prodCustomUnits]; updated[idx].multiplier = Number(e.target.value) || 1; setProdCustomUnits(updated); }}
-                      className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 font-mono text-sm font-semibold outline-none focus:border-slate-800"
-                      placeholder={language === 'bn' ? "পিস সংখ্যা (যেমন: ১২)" : "Pieces inside (e.g. 12)"}
-                    />
-                    <button type="button" onClick={() => { const updated = [...prodCustomUnits]; updated.splice(idx, 1); setProdCustomUnits(updated); }} className="h-10 w-10 shrink-0 flex items-center justify-center bg-rose-50 text-rose-500 rounded-lg hover:bg-rose-100 transition-colors"><Trash2 className="w-4 h-4" /></button>
-                  </div>
-                ))}
+                <div>
+                  <label className="mb-2 block text-xs font-semibold text-slate-750">
+                    {language === 'bn' ? 'কার্টন মূল্য (৳)' : 'Price Per Carton (৳)'}
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    required
+                    value={prodPricePerCarton}
+                    onChange={e => {
+                      const cartonPrice = Number(e.target.value);
+                      setProdPricePerCarton(cartonPrice);
+                      if (prodCartonSize > 0) {
+                        setProdPricePerPiece(Number((cartonPrice / prodCartonSize).toFixed(2)));
+                      }
+                    }}
+                    className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 font-mono font-semibold outline-none focus:border-slate-800"
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-xs font-semibold text-slate-750">
+                    {language === 'bn' ? 'পিস মূল্য (৳)' : 'Price Per Piece (৳)'}
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    required
+                    value={prodPricePerPiece}
+                    onChange={e => {
+                      const piecePrice = Number(e.target.value);
+                      setProdPricePerPiece(piecePrice);
+                      if (prodCartonSize > 0) {
+                        setProdPricePerCarton(Number((piecePrice * prodCartonSize).toFixed(2)));
+                      }
+                    }}
+                    className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 font-mono font-semibold outline-none focus:border-slate-800"
+                  />
+                </div>
               </div>
 
-              {/* Unit Formula Display */}
-              {prodCustomUnits.length > 0 && (
-                <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg border border-indigo-100 p-3 space-y-1">
-                  <div className="text-[10px] font-bold text-indigo-700 uppercase tracking-wider">Unit Details</div>
-                  {prodCustomUnits.map((u, idx) => (
-                    <div key={idx} className="font-mono text-sm font-semibold text-slate-800">1 {prodCompany} {u.name || 'Unit'} = {u.multiplier} Pcs</div>
-                  ))}
-                </div>
-              )}
-
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="mb-2 block text-[10px] font-semibold text-slate-705">{tDir.formProductPp.replace(' *', '')}</label>
+                  <label className="mb-2 block text-xs font-semibold text-slate-705">
+                    {language === 'bn' ? 'ক্রয় মূল্য (৳/পিস)' : 'Purchase Price (৳/pc)'}
+                  </label>
                   <input
                     type="number"
                     min="0"
@@ -3257,18 +3218,9 @@ export default function DirectoryModule({
                   />
                 </div>
                 <div>
-                  <label className="mb-2 block text-[10px] font-semibold text-slate-705">{tDir.formProductWsp.replace(' *', '')}</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={prodWSP}
-                    onChange={e => setProdWSP(Number(e.target.value))}
-                    className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 font-mono font-semibold outline-none focus:border-slate-800"
-                  />
-                </div>
-                <div>
-                  <label className="mb-2 block text-[10px] font-semibold text-slate-705">{tDir.formProductMrp.replace(' *', '')}</label>
+                  <label className="mb-2 block text-xs font-semibold text-slate-705">
+                    {language === 'bn' ? 'এমআরপি (৳/পিস)' : 'MRP (৳/pc)'}
+                  </label>
                   <input
                     type="number"
                     min="0"
@@ -3282,15 +3234,47 @@ export default function DirectoryModule({
 
               <div>
                 <label className={`mb-2 block text-xs font-semibold ${editingProduct ? 'text-slate-400' : 'text-slate-700'}`}>
-                  {tDir.formProductStock} {editingProduct ? `(${language === 'bn' ? 'স্টক অ্যাডজাস্টমেন্ট মডিউল থেকে পরিবর্তন করুন' : 'Change from Stock Adjustment Module'})` : `(${language === 'bn' ? 'প্রারম্ভিক' : 'Opening'})`}
+                  {language === 'bn' ? 'প্রারম্ভিক স্টক' : 'Opening Stock'} {editingProduct && `(${language === 'bn' ? 'স্টক অ্যাডজাস্টমেন্ট মডিউল থেকে পরিবর্তন করুন' : 'Change from Stock Adjustment Module'})`}
                 </label>
-                <input
-                  type="number"
-                  disabled={!!editingProduct}
-                  value={prodStock}
-                  onChange={e => setProdStock(Number(e.target.value))}
-                  className={`h-10 w-full rounded-lg border border-slate-200 px-3 font-mono font-semibold outline-none ${editingProduct ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-slate-50 focus:border-slate-800'}`}
-                />
+                {editingProduct ? (
+                  <input
+                    type="text"
+                    disabled
+                    value={formatStock(prodStock, prodCartonSize)}
+                    className="h-10 w-full rounded-lg border border-slate-200 bg-slate-100 px-3 font-mono font-semibold outline-none text-slate-500 cursor-not-allowed"
+                  />
+                ) : (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="mb-1 block text-[10px] text-slate-500">{language === 'bn' ? 'কার্টন' : 'Cartons'}</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={Math.floor(prodStock / prodCartonSize)}
+                        onChange={e => {
+                          const cartons = Math.max(0, Number(e.target.value));
+                          const pieces = prodStock % prodCartonSize;
+                          setProdStock(cartons * prodCartonSize + pieces);
+                        }}
+                        className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 font-mono font-semibold outline-none focus:border-slate-800"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] text-slate-500">{language === 'bn' ? 'পিস' : 'Pieces'}</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={prodStock % prodCartonSize}
+                        onChange={e => {
+                          const cartons = Math.floor(prodStock / prodCartonSize);
+                          const pieces = Math.max(0, Number(e.target.value));
+                          setProdStock(cartons * prodCartonSize + pieces);
+                        }}
+                        className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 font-mono font-semibold outline-none focus:border-slate-800"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 

@@ -52,12 +52,17 @@ export default function ProcurementModule({
 
     const htmlRows = proc.items.map((item, index) => {
       const prod = products.find(p => p.id === item.productId);
+      const cs = prod?.cartonSize || 24;
+      const cartons = item.cartons ?? Math.floor(item.qty / cs);
+      const pcs = item.pcs ?? (item.qty % cs);
       return `
         <tr style="border-bottom: 1px solid #e2e8f0;">
           <td style="padding: 10px; text-align: center; font-family: monospace;">${index + 1}</td>
           <td style="padding: 10px;"><b>${prod ? prod.name : 'Unknown Product'}</b></td>
-          <td style="padding: 10px; text-align: center; font-family: monospace;">${item.qty} Units</td>
-          <td style="padding: 10px; text-align: center; font-family: monospace; color: #64748b;">${item.bonusQty || 0} Units</td>
+          <td style="padding: 10px; text-align: center; font-family: monospace;">${cartons} Ctn</td>
+          <td style="padding: 10px; text-align: center; font-family: monospace;">${pcs} Pcs</td>
+          <td style="padding: 10px; text-align: center; font-family: monospace; color: #475569;">${item.qty} Pcs</td>
+          <td style="padding: 10px; text-align: center; font-family: monospace; color: #64748b;">${item.bonusQty || 0} Pcs</td>
           <td style="padding: 10px; text-align: right; font-family: monospace;">৳${item.purchasePrice.toFixed(2)}</td>
           <td style="padding: 10px; text-align: right; font-family: monospace; font-weight: bold;">৳${item.totalPrice.toFixed(2)}</td>
         </tr>
@@ -232,17 +237,20 @@ export default function ProcurementModule({
       setSupplierName(defaultSup);
       const initProd = products.find(p => p.company === defaultSup) || products[0];
       if (initProd) {
+        const initCartonSize = initProd.cartonSize || 24;
         setFormItems([
           {
             productId: initProd.id,
             purchasePrice: initProd.defaultPP,
             mrp: initProd.defaultMRP,
             wsp: initProd.defaultWSP,
-            qty: 100,
-            bonusQty: 5,
+            cartons: 4,
+            pcs: 0,
+            qty: 4 * initCartonSize,
+            bonusQty: 0,
             discountType: 'Percentage',
             discountValue: 0,
-            totalPrice: initProd.defaultPP * 100,
+            totalPrice: initProd.defaultPP * (4 * initCartonSize),
           }
         ]);
       } else {
@@ -273,6 +281,7 @@ export default function ProcurementModule({
     const defaultProduct = supplierProds[0] || products[0];
     if (!defaultProduct) return;
 
+    const defCartonSize = defaultProduct.cartonSize || 24;
     setFormItems(prev => [
       ...prev,
       {
@@ -280,11 +289,13 @@ export default function ProcurementModule({
         purchasePrice: defaultProduct.defaultPP,
         mrp: defaultProduct.defaultMRP,
         wsp: defaultProduct.defaultWSP,
-        qty: 50,
+        cartons: 2,
+        pcs: 0,
+        qty: 2 * defCartonSize,
         bonusQty: 0,
         discountType: 'Percentage',
         discountValue: 0,
-        totalPrice: defaultProduct.defaultPP * 50,
+        totalPrice: defaultProduct.defaultPP * (2 * defCartonSize),
       }
     ]);
   };
@@ -295,17 +306,22 @@ export default function ProcurementModule({
     if (brandProducts.length === 0) return;
 
     setFormItems(
-      brandProducts.map(p => ({
-        productId: p.id,
-        purchasePrice: p.defaultPP,
-        mrp: p.defaultMRP,
-        wsp: p.defaultWSP,
-        qty: 100,
-        bonusQty: 5,
-        discountType: 'Percentage',
-        discountValue: 0,
-        totalPrice: p.defaultPP * 100,
-      }))
+      brandProducts.map(p => {
+        const cs = p.cartonSize || 24;
+        return {
+          productId: p.id,
+          purchasePrice: p.defaultPP,
+          mrp: p.defaultMRP,
+          wsp: p.defaultWSP,
+          cartons: 4,
+          pcs: 0,
+          qty: 4 * cs,
+          bonusQty: 0,
+          discountType: 'Percentage',
+          discountValue: 0,
+          totalPrice: p.defaultPP * (4 * cs),
+        };
+      })
     );
   };
 
@@ -327,18 +343,34 @@ export default function ProcurementModule({
       if (field === 'productId') {
         const prod = products.find(p => p.id === value);
         if (prod) {
+          const cs = prod.cartonSize || 24;
           row.productId = value;
           row.purchasePrice = prod.defaultPP;
           row.mrp = prod.defaultMRP;
           row.wsp = prod.defaultWSP;
+          row.qty = (row.cartons || 0) * cs + (row.pcs || 0);
           row.totalPrice = calculateRowTotal(prod.defaultPP, row.qty, row.discountType, row.discountValue);
         }
+      } else if (field === 'cartons' || field === 'pcs') {
+        (row as any)[field] = Number(value);
+        // Recompute qty from cartons + pcs
+        const prod = products.find(p => p.id === row.productId);
+        const cs = prod?.cartonSize || 24;
+        const newCartons = field === 'cartons' ? Number(value) : (row.cartons || 0);
+        const newPcs = field === 'pcs' ? Number(value) : (row.pcs || 0);
+        row.qty = newCartons * cs + newPcs;
+        row.totalPrice = calculateRowTotal(
+          Number(row.purchasePrice),
+          row.qty,
+          row.discountType,
+          Number(row.discountValue)
+        );
       } else {
         (row as any)[field] = value;
         // Recompute row total
         row.totalPrice = calculateRowTotal(
           Number(field === 'purchasePrice' ? value : row.purchasePrice),
-          Number(field === 'qty' ? value : row.qty),
+          Number(row.qty),
           field === 'discountType' ? value : row.discountType,
           Number(field === 'discountValue' ? value : row.discountValue)
         );
@@ -364,7 +396,10 @@ export default function ProcurementModule({
 
     // Build the finalized list items with names
     const finalizedItems: ProcurementItem[] = formItems.map((item, idx) => {
-      const prodName = products.find(p => p.id === item.productId)?.name || 'Unknown Product';
+      const prod = products.find(p => p.id === item.productId);
+      const prodName = prod?.name || 'Unknown Product';
+      const cs = prod?.cartonSize || 24;
+      const totalPieces = (Number(item.cartons) || 0) * cs + (Number(item.pcs) || 0);
       return {
         id: `pi-${Date.now()}-${idx}`,
         ...item,
@@ -372,7 +407,9 @@ export default function ProcurementModule({
         purchasePrice: Number(item.purchasePrice),
         mrp: Number(item.mrp),
         wsp: Number(item.wsp),
-        qty: Number(item.qty),
+        cartons: Number(item.cartons) || 0,
+        pcs: Number(item.pcs) || 0,
+        qty: totalPieces,
         bonusQty: Number(item.bonusQty),
         discountValue: Number(item.discountValue),
       };
@@ -400,12 +437,15 @@ export default function ProcurementModule({
       return currentProducts.map(p => {
         const matchingProcItem = finalizedItems.find(item => item.productId === p.id);
         if (matchingProcItem) {
+          const addedPieces = matchingProcItem.qty + matchingProcItem.bonusQty;
           return {
             ...p,
-            currentStock: p.currentStock + matchingProcItem.qty + matchingProcItem.bonusQty,
+            currentStock: p.currentStock + addedPieces,
             defaultPP: matchingProcItem.purchasePrice,
             defaultMRP: matchingProcItem.mrp,
             defaultWSP: matchingProcItem.wsp,
+            // Also update pricePerPiece from wsp
+            pricePerPiece: matchingProcItem.wsp,
           };
         }
         return p;
@@ -419,17 +459,21 @@ export default function ProcurementModule({
     setPaymentStatus('Paid');
     
     // Prepopulate with a default row
+    const resetProd = products[0];
+    const resetCs = resetProd?.cartonSize || 24;
     setFormItems([
       {
-        productId: products[0]?.id || '',
-        purchasePrice: products[0]?.defaultPP || 100,
-        mrp: products[0]?.defaultMRP || 200,
-        wsp: products[0]?.defaultWSP || 150,
-        qty: 100,
-        bonusQty: 5,
+        productId: resetProd?.id || '',
+        purchasePrice: resetProd?.defaultPP || 100,
+        mrp: resetProd?.defaultMRP || 200,
+        wsp: resetProd?.defaultWSP || 150,
+        cartons: 4,
+        pcs: 0,
+        qty: 4 * resetCs,
+        bonusQty: 0,
         discountType: 'Percentage',
         discountValue: 0,
-        totalPrice: products[0]?.defaultPP * 100,
+        totalPrice: (resetProd?.defaultPP || 100) * (4 * resetCs),
       }
     ]);
 
@@ -875,17 +919,20 @@ export default function ProcurementModule({
                     setSupplierName(newSup);
                     const initProd = getInitialProductForSupplier(newSup);
                     if (initProd) {
+                      const supCs = initProd.cartonSize || 24;
                       setFormItems([
                         {
                           productId: initProd.id,
                           purchasePrice: initProd.defaultPP,
                           mrp: initProd.defaultMRP,
                           wsp: initProd.defaultWSP,
-                          qty: 100,
-                          bonusQty: 5,
+                          cartons: 4,
+                          pcs: 0,
+                          qty: 4 * supCs,
+                          bonusQty: 0,
                           discountType: 'Percentage',
                           discountValue: 0,
-                          totalPrice: initProd.defaultPP * 100,
+                          totalPrice: initProd.defaultPP * (4 * supCs),
                         }
                       ]);
                     }
@@ -1009,6 +1056,8 @@ export default function ProcurementModule({
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {formItems.map((item, idx) => {
+                        const prod = products.find(p => p.id === item.productId);
+                        const cs = prod?.cartonSize || 24;
                         const totalQtyCalculated = Number(item.qty || 0) + Number(item.bonusQty || 0);
                         
                         // Live Margin Math
@@ -1091,16 +1140,34 @@ export default function ProcurementModule({
                               </div>
                             </td>
 
-                            {/* Regular Qty */}
+                            {/* Cartons */}
                             <td className="py-3 px-3">
                               <input
-                                id={`proc-row-${idx}-qty`}
+                                id={`proc-row-${idx}-cartons`}
                                 type="number"
-                                min="1"
-                                value={item.qty || ''}
-                                onChange={(e) => handleRowChange(idx, 'qty', Number(e.target.value))}
-                                className="h-10 w-full rounded-xl border border-slate-200 bg-white px-2 text-center text-xs font-bold text-slate-900 font-mono outline-none focus:border-slate-800 transition-all"
+                                min="0"
+                                value={item.cartons ?? ''}
+                                onChange={(e) => handleRowChange(idx, 'cartons', Number(e.target.value))}
+                                className="h-10 w-full rounded-xl border border-indigo-200 bg-indigo-50/50 px-2 text-center text-xs font-bold text-indigo-800 font-mono outline-none focus:border-indigo-500 transition-all"
                               />
+                              <div className="text-[9px] text-center text-slate-400 font-mono mt-0.5">
+                                ×{cs} pcs
+                              </div>
+                            </td>
+
+                            {/* Pieces */}
+                            <td className="py-3 px-3">
+                              <input
+                                id={`proc-row-${idx}-pcs`}
+                                type="number"
+                                min="0"
+                                value={item.pcs ?? ''}
+                                onChange={(e) => handleRowChange(idx, 'pcs', Number(e.target.value))}
+                                className="h-10 w-full rounded-xl border border-emerald-200 bg-emerald-50/50 px-2 text-center text-xs font-bold text-emerald-800 font-mono outline-none focus:border-emerald-500 transition-all"
+                              />
+                              <div className="text-[9px] text-center text-slate-400 font-mono mt-0.5">
+                                = {(item.cartons || 0) * cs + (item.pcs || 0)} Pcs
+                              </div>
                             </td>
 
                             {/* Bonus Qty */}
@@ -1287,20 +1354,29 @@ export default function ProcurementModule({
                         <th className="py-3 px-3 text-right">{tProc.colPP}</th>
                         <th className="py-3 px-3 text-right">{tProc.colWSP}</th>
                         <th className="py-3 px-3 text-right">{tProc.colMRP}</th>
-                        <th className="py-3 px-3 text-center">{tProc.colQty}</th>
+                        <th className="py-3 px-3 text-center">Cartons</th>
+                        <th className="py-3 px-3 text-center">Pieces</th>
+                        <th className="py-3 px-3 text-center">Total Pcs</th>
                         <th className="py-3 px-3 text-center">{tProc.colBonus}</th>
                         <th className="py-3 px-3 text-center">{tProc.colDiscType}</th>
                         <th className="py-3 px-3 text-right">{tProc.finalPrice}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {selectedProcurement.items.map((item) => (
+                      {selectedProcurement.items.map((item) => {
+                        const detailProd = products.find(p => p.id === item.productId);
+                        const detailCs = detailProd?.cartonSize || 24;
+                        const detailCartons = item.cartons ?? Math.floor(item.qty / detailCs);
+                        const detailPcs = item.pcs ?? (item.qty % detailCs);
+                        return (
                         <tr key={item.id} className="hover:bg-slate-100/30 transition-all duration-150">
                           <td className="py-3 px-3 font-semibold text-slate-800">{item.productName}</td>
                           <td className="py-3 px-3 text-right font-mono text-slate-600">{formatBDT(item.purchasePrice)}</td>
                           <td className="py-3 px-3 text-right font-mono text-slate-600">{formatBDT(item.wsp)}</td>
                           <td className="py-3 px-3 text-right font-mono text-slate-500">{formatBDT(item.mrp)}</td>
-                          <td className="py-3 px-3 text-center font-semibold font-mono text-slate-700">{item.qty} units</td>
+                          <td className="py-3 px-3 text-center font-semibold font-mono text-indigo-700">{detailCartons} Ctn</td>
+                          <td className="py-3 px-3 text-center font-semibold font-mono text-emerald-700">{detailPcs} Pcs</td>
+                          <td className="py-3 px-3 text-center font-mono text-slate-500">{item.qty}</td>
                           <td className="py-3 px-3 text-center font-mono text-slate-400">{item.bonusQty} bonus</td>
                           <td className="py-3 px-3 text-center">
                             {item.discountValue > 0 ? (
@@ -1313,7 +1389,8 @@ export default function ProcurementModule({
                           </td>
                           <td className="py-3 px-3 text-right font-semibold font-mono text-slate-900">{formatBDT(item.totalPrice)}</td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
