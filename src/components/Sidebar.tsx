@@ -47,15 +47,21 @@ export default function Sidebar({
   const s        = translations[language].sidebar;
   const sections = userRole === 'sr' ? SR_SECTIONS : ADMIN_SECTIONS;
 
-  const widthClass = collapsed ? 'w-20' : 'w-64 md:w-72';
+  // On desktop: use collapsed state for icon-only mode
+  // On mobile: sidebar is always "expanded" (full width) when shown via overlay
+  const widthClass = collapsed ? 'w-20' : 'w-72';
 
   function handleToggleCollapsed() {
     setCollapsed(!collapsed);
   }
 
+  function handleNavSelect(tab: TabID) {
+    setActiveTab(tab);
+  }
+
   return (
     <aside
-      className={`bg-slate-950 border-r border-slate-900/60 text-slate-100 h-screen flex flex-col justify-between transition-all duration-350 ease-in-out select-none sticky top-0 overflow-y-auto ${widthClass}`}
+      className={`bg-slate-950 border-r border-slate-900/60 text-slate-100 h-screen flex flex-col justify-between transition-all duration-300 ease-in-out select-none sticky top-0 overflow-y-auto ${widthClass}`}
     >
       <div className="flex flex-col justify-between flex-1">
 
@@ -81,7 +87,7 @@ export default function Sidebar({
                 language={language}
                 userRole={userRole}
                 sidebarTranslations={s as unknown as Record<string, string>}
-                onSelect={setActiveTab}
+                onSelect={handleNavSelect}
               />
             ))}
           </nav>
@@ -92,7 +98,7 @@ export default function Sidebar({
           activeTab={activeTab}
           collapsed={collapsed}
           language={language}
-          onSelect={setActiveTab}
+          onSelect={handleNavSelect}
         />
       </div>
 

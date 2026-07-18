@@ -1,23 +1,25 @@
 'use client';
 
 import React, { useState, useMemo, useCallback } from 'react';
-import { jsPDF } from 'jspdf';
-import { 
-  TrendingUp, 
-  Package, 
-  DollarSign, 
-  Users, 
-  Calendar, 
-  Download, 
-  Percent, 
+import {
+  TrendingUp,
+  Package,
+  DollarSign,
+  Users,
+  Calendar,
+  Download,
+  Percent,
   ChevronRight,
   ShieldAlert,
   ArrowRightLeft,
-  ClipboardList
+  ClipboardList,
+  FileSpreadsheet,
+  Printer,
 } from 'lucide-react';
 import { Product, ChallanItem, SR, CompanyBrand, ExpenseRecord, DeliveryMan, UnitOfMeasure, ProductUnit } from '../types';
 import { translations, Language } from '../translations';
 import { getStockValueTP, getStockValueDP } from '../lib/productUtils';
+import { exportReportPDF, exportReportExcel, printReport, type ReportType } from '../lib/reportEngine';
 
 function CartonPcsDisplay({ qty, cartonSize, primaryUnit }: { qty: number; cartonSize?: number; primaryUnit?: string }) {
   // Carton-primary products: stock IS in cartons — no piece conversion
@@ -51,15 +53,19 @@ function CartonPcsDisplay({ qty, cartonSize, primaryUnit }: { qty: number; carto
 }
 
 interface ReportsModuleProps {
-  products: Product[];
-  challans: ChallanItem[];
-  srs: SR[];
-  companies: CompanyBrand[];
-  deliveryMen: DeliveryMan[];
-  expenses: ExpenseRecord[];
-  units: UnitOfMeasure[];
-  language: Language;
-  userRole?: 'admin' | 'sr';
+  products:     Product[];
+  challans:     ChallanItem[];
+  srs:          SR[];
+  companies:    CompanyBrand[];
+  deliveryMen:  DeliveryMan[];
+  expenses:     ExpenseRecord[];
+  units:        UnitOfMeasure[];
+  language:     Language;
+  userRole?:    'admin' | 'sr';
+  // Branding — wired from page.tsx
+  shopName?:    string;
+  shopSubBrand?:string;
+  shopLogo?:    string;
 }
 
 type ReportTab = 'stock' | 'sales' | 'profit' | 'margin' | 'damage' | 'dp' | 'dayend';
@@ -73,7 +79,10 @@ export default function ReportsModule({
   expenses,
   units,
   language,
-  userRole = 'admin'
+  userRole = 'admin',
+  shopName     = 'Bangla-Chain ERP',
+  shopSubBrand = 'Distribution Management System',
+  shopLogo,
 }: ReportsModuleProps) {
   const t = translations[language].reports;
   const tCommon = translations[language].common;
@@ -505,312 +514,99 @@ export default function ReportsModule({
   }, [products, filteredChallans, selectedCompanyFilter]);
 
   // ═══════════════════════════════════════════════════════════════
-  // PDF REPORT DOWNLOAD FUNCTION
+  // REPORT EXPORT — PDF / Excel / Print
+  // Maps the active tab to the engine's ReportType:
+  //   'dp'      → 'pricelist'  (was blank — no handler existed)
+  //   'margin'  → 'margin'     (was blank — no handler existed)
+  //   'dayend'  → 'dayend'     (was blank — no handler existed)
+  //   all other tabs map 1-to-1
   // ═══════════════════════════════════════════════════════════════
-  const handleDownloadPDF = useCallback(() => {
-    const doc = new jsPDF();
-    const now = new Date();
-    const dateStr = now.toLocaleDateString(language === 'bn' ? 'bn-BD' : 'en-BD', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
 
-    // Dark Navy Header Banner
-    doc.setFillColor(15, 23, 42);
-    doc.rect(0, 0, 210, 40, 'F');
-    doc.setFillColor(99, 102, 241);
-    doc.rect(0, 40, 210, 1.5, 'F');
-
-    // Title
-    doc.setTextColor(255, 255, 255);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(20);
-    doc.text(language === 'bn' ? 'ডিস্ট্রিবিউশন রিপোর্ট বিবরণী' : 'B2B DMS Distribution Report', 14, 18);
-    doc.setFontSize(9);
-    doc.setTextColor(148, 163, 184);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`DATE GENERATED: ${dateStr} | PERIOD: ${startDate} to ${endDate}`, 14, 28);
-
-    let y = 55;
-
-    const checkPageBreak = (heightNeeded: number) => {
-      if (y + heightNeeded > 270) {
-        doc.addPage();
-        y = 20;
-      }
+  /** Build the common options object for the report engine */
+  const buildReportOpts = useCallback(() => {
+    // 'dp' tab in ReportsModule maps to 'pricelist' in the engine
+    const typeMap: Record<ReportTab, ReportType> = {
+      stock:   'stock',
+      sales:   'sales',
+      damage:  'damage',
+      profit:  'profit',
+      margin:  'margin',
+      dp:      'pricelist',
+      dayend:  'dayend',
     };
+    return {
+      type:          typeMap[activeTab],
+      shopName:      shopName     || 'Bangla-Chain ERP',
+      shopSubBrand:  shopSubBrand || 'Distribution Management System',
+      shopLogo:      shopLogo,
+      generatedBy:   userRole === 'admin' ? 'Admin' : 'SR',
+      startDate,
+      endDate,
+      language,
+      filterCompany: selectedCompanyFilter !== 'All' ? selectedCompanyFilter : undefined,
+      filterSR:      selectedSrFilter      !== 'All' ? selectedSrFilter      : undefined,
+      filterDM:      selectedDeliveryManFilter !== 'All' ? selectedDeliveryManFilter : undefined,
+      products,
+      challans,
+      srs,
+      deliveryMen,
+      expenses,
+      companies,
+    };
+  }, [
+    activeTab, shopName, shopSubBrand, shopLogo, userRole,
+    startDate, endDate, language,
+    selectedCompanyFilter, selectedSrFilter, selectedDeliveryManFilter,
+    products, challans, srs, deliveryMen, expenses, companies,
+  ]);
 
-    if (activeTab === 'stock') {
-      // Draw Stock Report
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(12);
-      doc.setTextColor(30, 41, 59);
-      doc.text(t.companyStockTitle.toUpperCase(), 14, y);
-      y += 10;
+  const handleDownloadPDF = useCallback(() => {
+    exportReportPDF(buildReportOpts());
+  }, [buildReportOpts]);
 
-      // Table Headers
-      doc.setFillColor(248, 250, 252);
-      doc.rect(14, y - 5, 182, 8, 'F');
-      doc.setDrawColor(226, 232, 240);
-      doc.line(14, y + 3, 196, y + 3);
-      doc.setFontSize(8);
-      doc.setTextColor(71, 85, 105);
-      doc.text(language === 'bn' ? 'কোম্পানি' : 'COMPANY BRAND', 16, y - 1);
-      doc.text(language === 'bn' ? 'স্টক পরিমাণ' : 'STOCK QUANTITY', 75, y - 1);
-      doc.text(language === 'bn' ? 'স্টক মূল্য (DP)' : 'STOCK VALUE (DP)', 115, y - 1);
-      doc.text(language === 'bn' ? 'স্টক মূল্য (TP)' : 'STOCK VALUE (TP)', 155, y - 1);
-      y += 10;
+  const handleExportExcel = useCallback(() => {
+    exportReportExcel(buildReportOpts());
+  }, [buildReportOpts]);
 
-      // Table Rows
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(30, 41, 59);
-      stockReportData.rows.forEach(row => {
-        doc.text(row.companyName, 16, y);
-        doc.text(`${row.totalQty.toLocaleString()} units`, 75, y);
-        doc.text(`TK ${row.totalValueDP.toLocaleString()}`, 115, y);
-        doc.text(`TK ${row.totalValueTP.toLocaleString()}`, 155, y);
-        y += 8;
-      });
-
-      y += 4;
-      doc.line(14, y - 4, 196, y - 4);
-      doc.setFont('helvetica', 'bold');
-      doc.text(language === 'bn' ? 'সর্বমোট' : 'GRAND TOTAL', 16, y);
-      doc.text(`${stockReportData.grandQty.toLocaleString()} units`, 75, y);
-      doc.text(`TK ${stockReportData.grandValueDP.toLocaleString()}`, 115, y);
-      doc.text(`TK ${stockReportData.grandValueTP.toLocaleString()}`, 155, y);
-    } 
-    else if (activeTab === 'sales') {
-      const checkPageBreak = (heightNeeded: number) => {
-        if (y + heightNeeded > 270) {
-          doc.addPage();
-          y = 20;
-        }
-      };
-
-      // Draw Sales Report
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(12);
-      doc.setTextColor(30, 41, 59);
-      doc.text(t.companySalesTitle.toUpperCase(), 14, y);
-      y += 10;
-
-      // Company Sales Table Headers
-      doc.setFillColor(248, 250, 252);
-      doc.rect(14, y - 5, 182, 8, 'F');
-      doc.setDrawColor(226, 232, 240);
-      doc.line(14, y + 3, 196, y + 3);
-      doc.setFontSize(8.5);
-      doc.setTextColor(71, 85, 105);
-      doc.text(language === 'bn' ? 'কোম্পানি' : 'COMPANY', 16, y - 1);
-                  doc.text(language === 'bn' ? 'বিক্রিত ইউনিট' : 'UNITS SOLD', 55, y - 1);
-                  doc.text(language === 'bn' ? 'ফেরত' : 'RETURNS', 85, y - 1);
-                  doc.text(language === 'bn' ? 'ক্ষতিগ্রস্ত' : 'DAMAGES', 110, y - 1);
-                  doc.text(language === 'bn' ? 'মোট বিক্রয় (DP)' : 'TOTAL SALES (DP)', 135, y - 1);
-                  doc.text(language === 'bn' ? 'মোট বিক্রয় (TP)' : 'TOTAL SALES (TP)', 165, y - 1);
-      y += 10;
-
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(30, 41, 59);
-      salesReportData.companySales.forEach(row => {
-        checkPageBreak(8);
-        doc.text(row.companyName, 16, y);
-        doc.text(row.unitsSold.toString(), 55, y);
-        doc.text(row.returns.toString(), 85, y);
-        doc.text(row.damages.toString(), 110, y);
-        doc.text(`TK ${row.dpTotal.toLocaleString()}`, 135, y);
-        doc.text(`TK ${row.revenue.toLocaleString()}`, 165, y);
-        y += 8;
-      });
-
-      // SR Sales Section
-      y += 10;
-      checkPageBreak(25);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(12);
-      doc.text(t.srSalesTitle.toUpperCase(), 14, y);
-      y += 10;
-
-      doc.setFillColor(248, 250, 252);
-      doc.rect(14, y - 5, 182, 8, 'F');
-      doc.line(14, y + 3, 196, y + 3);
-      doc.setFontSize(8.5);
-      doc.setTextColor(71, 85, 105);
-      doc.text(language === 'bn' ? 'এসআর (SR)' : 'SR NAME', 16, y - 1);
-                  doc.text(language === 'bn' ? 'বিক্রিত ইউনিট' : 'UNITS', 65, y - 1);
-                  doc.text(language === 'bn' ? 'ফেরত' : 'RET', 95, y - 1);
-                  doc.text(language === 'bn' ? 'ক্ষতিগ্রস্ত' : 'DMG', 115, y - 1);
-                  doc.text(language === 'bn' ? 'মোট বিক্রয় (DP)' : 'TOTAL SALES (DP)', 135, y - 1);
-                  doc.text(language === 'bn' ? 'মোট বিক্রয় (TP)' : 'TOTAL SALES (TP)', 165, y - 1);
-      y += 10;
-
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(30, 41, 59);
-      salesReportData.srSales.forEach(row => {
-        checkPageBreak(8);
-        doc.text(row.srName, 16, y);
-        doc.text(row.unitsSold.toString(), 65, y);
-        doc.text(row.returns.toString(), 95, y);
-        doc.text(row.damages.toString(), 115, y);
-        doc.text(`TK ${row.dpTotal.toLocaleString()}`, 135, y);
-        doc.text(`TK ${row.revenue.toLocaleString()}`, 165, y);
-        y += 8;
-      });
-
-      // Delivery Man Sales Section
-      y += 10;
-      checkPageBreak(25);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(12);
-      doc.text(language === 'bn' ? 'ডেলিভারি ম্যানভিত্তিক বিক্রয় বিবরণী' : 'DELIVERY MAN-WISE SALES BREAKDOWN', 14, y);
-      y += 10;
-
-      doc.setFillColor(248, 250, 252);
-      doc.rect(14, y - 5, 182, 8, 'F');
-      doc.line(14, y + 3, 196, y + 3);
-      doc.setFontSize(8.5);
-      doc.setTextColor(71, 85, 105);
-      doc.text(language === 'bn' ? 'ডেলিভারি ম্যান' : 'DELIVERY MAN', 16, y - 1);
-      doc.text(language === 'bn' ? 'মোট চালান' : 'CHALLANS', 65, y - 1);
-      doc.text(language === 'bn' ? 'ইউনিট' : 'UNITS', 95, y - 1);
-      doc.text(language === 'bn' ? 'ফেরত' : 'RET', 120, y - 1);
-      doc.text(language === 'bn' ? 'ক্ষতিগ্রস্ত' : 'DMG', 140, y - 1);
-      doc.text(language === 'bn' ? 'ডেলিভারি (TK)' : 'DELIVERED', 160, y - 1);
-      y += 10;
-
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(30, 41, 59);
-      salesReportData.dmSales.forEach(row => {
-        checkPageBreak(8);
-        doc.text(row.dmName, 16, y);
-        doc.text(row.totalChallans.toString(), 65, y);
-        doc.text(row.unitsSold.toString(), 95, y);
-        doc.text(row.returns.toString(), 120, y);
-        doc.text(row.damages.toString(), 140, y);
-        doc.text(`TK ${row.revenue.toLocaleString()}`, 160, y);
-        y += 8;
-      });
-
-      // Product-wise Sales Section
-      y += 10;
-      checkPageBreak(25);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(12);
-      doc.text(language === 'bn' ? 'পণ্যভিত্তিক বিক্রয় বিবরণী' : 'PRODUCT-WISE SALES BREAKDOWN', 14, y);
-      y += 10;
-
-      doc.setFillColor(248, 250, 252);
-      doc.rect(14, y - 5, 182, 8, 'F');
-      doc.line(14, y + 3, 196, y + 3);
-      doc.setFontSize(8.5);
-      doc.setTextColor(71, 85, 105);
-      doc.text(language === 'bn' ? 'পণ্যের নাম' : 'PRODUCT NAME', 16, y - 1);
-      doc.text(language === 'bn' ? 'বিক্রিত ইউনিট' : 'UNITS SOLD', 90, y - 1);
-      doc.text(language === 'bn' ? 'ফেরত' : 'RET', 125, y - 1);
-      doc.text(language === 'bn' ? 'ক্ষতিগ্রস্ত' : 'DMG', 145, y - 1);
-      doc.text(language === 'bn' ? 'বিক্রয় (TK)' : 'SALES (TK)', 165, y - 1);
-      y += 10;
-
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(30, 41, 59);
-      salesReportData.productSales.forEach(row => {
-        checkPageBreak(8);
-        doc.text(row.productName.substring(0, 32), 16, y);
-        doc.text(row.unitsSold.toLocaleString(), 90, y);
-        doc.text(row.returns.toString(), 125, y);
-        doc.text(row.damages.toString(), 145, y);
-        doc.text(`TK ${row.revenue.toLocaleString()}`, 165, y);
-        y += 8;
-      });
-    }
-    else if (activeTab === 'damage') {
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(12);
-      doc.setTextColor(30, 41, 59);
-      doc.text(t.damageTitle.toUpperCase(), 14, y);
-      y += 10;
-
-      doc.setFillColor(248, 250, 252);
-      doc.rect(14, y - 5, 182, 8, 'F');
-      doc.line(14, y + 3, 196, y + 3);
-      doc.setFontSize(8.5);
-      doc.setTextColor(71, 85, 105);
-      doc.text(language === 'bn' ? 'পণ্য / কোম্পানি' : 'PRODUCT / COMPANY', 16, y - 1);
-      doc.text(language === 'bn' ? 'পুরাতন' : 'OLD', 76, y - 1);
-      doc.text(language === 'bn' ? 'নতুন' : 'NEW', 116, y - 1);
-      doc.text(language === 'bn' ? 'মোট' : 'TOTAL', 148, y - 1);
-      doc.text(language === 'bn' ? 'রেকর্ডেড' : 'RECORDED', 172, y - 1);
-      y += 10;
-
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(30, 41, 59);
-      damageReportData.rows.forEach(row => {
-        checkPageBreak(8);
-        doc.text(`${row.productName.substring(0, 18)} / ${row.company}`, 16, y);
-        doc.text(`${row.oldDamageQty} (${row.oldDamageValue.toLocaleString()} TK)`, 76, y);
-        doc.text(`${row.newDamageQty} (${row.newDamageValue.toLocaleString()} TK)`, 116, y);
-        doc.text(`${row.totalDamageQty} (${row.totalDamageValue.toLocaleString()} TK)`, 148, y);
-        doc.text(`TK ${row.periodSalesValue.toLocaleString()}`, 172, y);
-        y += 8;
-      });
-    }
-    else if (activeTab === 'profit') {
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(12);
-      doc.setTextColor(30, 41, 59);
-      doc.text(t.profitSummaryTitle.toUpperCase(), 14, y);
-      y += 10;
-
-      doc.setFillColor(248, 250, 252);
-      doc.rect(14, y - 5, 182, 8, 'F');
-      doc.line(14, y + 3, 196, y + 3);
-      doc.setFontSize(8.5);
-      doc.setTextColor(71, 85, 105);
-      doc.text(language === 'bn' ? 'কোম্পানি' : 'COMPANY', 16, y - 1);
-      doc.text(language === 'bn' ? 'মোট বিক্রয় (TP)' : 'REVENUE (TP)', 60, y - 1);
-      doc.text(language === 'bn' ? 'ক্রয় খরচ (DP)' : 'COST OF GOODS (DP)', 110, y - 1);
-      doc.text(language === 'bn' ? 'নিট লাভ (TK)' : 'PROFIT', 160, y - 1);
-      y += 10;
-
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(30, 41, 59);
-      profitReportData.rows.forEach(row => {
-        doc.text(row.companyName, 16, y);
-        doc.text(`TK ${row.revenue.toLocaleString()}`, 60, y);
-        doc.text(`TK ${row.costOfGoods.toLocaleString()}`, 110, y);
-        doc.text(`TK ${row.profit.toLocaleString()}`, 160, y);
-        y += 8;
-      });
-
-      y += 4;
-      doc.line(14, y - 4, 196, y - 4);
-      doc.setFont('helvetica', 'bold');
-      doc.text(language === 'bn' ? 'সর্বমোট' : 'GRAND TOTAL', 16, y);
-      doc.text(`TK ${profitReportData.grandRevenue.toLocaleString()}`, 60, y);
-      doc.text(`TK ${profitReportData.grandCost.toLocaleString()}`, 110, y);
-      doc.text(`TK ${profitReportData.grandProfit.toLocaleString()}`, 160, y);
-    }
-
-    doc.save(`Samir_Enterprise_Report_${activeTab}_${startDate}_to_${endDate}.pdf`);
-  }, [activeTab, startDate, endDate, language, stockReportData, salesReportData, profitReportData, t]);
+  const handlePrint = useCallback(() => {
+    printReport(buildReportOpts());
+  }, [buildReportOpts]);
 
   return (
     <div className="p-6 space-y-6">
       
-      {/* Header and Download Button */}
+      {/* Header and Export Buttons */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-200 pb-5">
         <div>
           <h2 className="text-xl font-bold text-slate-900 tracking-tight">{t.title}</h2>
           <p className="text-xs text-slate-500 font-semibold mt-1">{t.subtitle}</p>
         </div>
-        <button
-          onClick={handleDownloadPDF}
-          className="flex items-center gap-2 px-4 py-2 bg-slate-950 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-colors shadow-sm cursor-pointer active:scale-95"
-        >
-          <Download className="w-4 h-4" />
-          {t.downloadReport}
-        </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={handlePrint}
+            className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-300 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-50 transition-colors shadow-sm cursor-pointer active:scale-95"
+            title="Print current report"
+          >
+            <Printer className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Print</span>
+          </button>
+          <button
+            onClick={handleExportExcel}
+            className="flex items-center gap-2 px-3 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition-colors shadow-sm cursor-pointer active:scale-95"
+            title="Export as CSV / Excel"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Export CSV</span>
+          </button>
+          <button
+            onClick={handleDownloadPDF}
+            className="flex items-center gap-2 px-4 py-2 bg-slate-950 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-colors shadow-sm cursor-pointer active:scale-95"
+            title="Download professional PDF report"
+          >
+            <Download className="w-4 h-4" />
+            {t.downloadReport}
+          </button>
+        </div>
       </div>
 
       {/* Date Range Selector Panel */}

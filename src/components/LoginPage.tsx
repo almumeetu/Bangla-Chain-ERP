@@ -49,11 +49,11 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
       className="min-h-screen bg-[#fafafa] flex font-sans"
       onClick={onRootClick}
     >
-      {/* ── Left panel (desktop) ── */}
+      {/* ── Left panel (desktop only) ── */}
       <LoginLeftPanel language={language} t={t} />
 
       {/* ── Right panel ── */}
-      <div className="flex-1 flex flex-col justify-between px-6 py-8 relative">
+      <div className="flex-1 flex flex-col justify-between px-4 sm:px-6 py-6 sm:py-8 relative min-h-screen">
 
         {/* Language switcher */}
         <div className="flex justify-end pr-2" onClick={stopPropagation}>
@@ -89,11 +89,11 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
         </div>
 
         {/* Form area */}
-        <div className="flex-1 flex items-center justify-center my-6">
+        <div className="flex-1 flex items-center justify-center my-4 sm:my-6">
           <div className="w-full max-w-sm">
 
             {/* Mobile brand */}
-            <div className="lg:hidden mb-8 text-center select-none">
+            <div className="lg:hidden mb-6 sm:mb-8 text-center select-none">
               <div className="flex items-center justify-center gap-2.5 mb-2">
                 <div className="w-9 h-9 bg-slate-950 rounded-lg flex items-center justify-center">
                   <span className="text-white font-bold text-lg">D</span>
@@ -128,14 +128,14 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                 <button
                   type="button"
                   onClick={onSelectAdminTab}
-                  className={`flex-1 h-8 rounded-md text-[11px] font-bold transition-all cursor-pointer ${hook.loginTab === 'admin' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                  className={`flex-1 min-h-[44px] rounded-md text-[11px] font-bold transition-all cursor-pointer ${hook.loginTab === 'admin' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                 >
                   {t.tabAdmin}
                 </button>
                 <button
                   type="button"
                   onClick={onSelectSRTab}
-                  className={`flex-1 h-8 rounded-md text-[11px] font-bold transition-all cursor-pointer ${hook.loginTab === 'sr' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                  className={`flex-1 min-h-[44px] rounded-md text-[11px] font-bold transition-all cursor-pointer ${hook.loginTab === 'sr' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                 >
                   {t.tabSR}
                 </button>

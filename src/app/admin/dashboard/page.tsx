@@ -245,7 +245,8 @@ export default function App() {
       case 'reports': return (
         <ReportsModule products={db.products} challans={db.challans} srs={db.srs}
           companies={db.companies} expenses={db.expenses} deliveryMen={db.deliveryMen}
-          units={db.units} language={language} userRole={userRole} />
+          units={db.units} language={language} userRole={userRole}
+          shopName={db.shopName} shopSubBrand={db.shopSubBrand} shopLogo={db.shopLogo} />
       );
       case 'settings': return (
         <SettingsModule shopName={db.shopName} setShopName={db.syncShopName}
@@ -267,55 +268,99 @@ export default function App() {
   if (!ready)           return null; // instant — no spinner, just blank for <5ms
   if (!isAuthenticated) return <LoginPage onLogin={handleLogin} />;
 
+  // On mobile, clicking a nav item should close the drawer
+  function handleMobileNav(tab: TabID) {
+    handleNavigate(tab);
+    // close sidebar on mobile after navigation
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      setSidebarCollapsed(true);
+    }
+  }
+
+  const isMobileOpen = !sidebarCollapsed;
+
   return (
     <div className={`admin-dashboard flex bg-[#fbfbfc] min-h-screen ${language === 'bn' ? 'font-bengali' : 'font-sans'} text-slate-800`}>
 
-      <Sidebar
-        activeTab={activeTab}
-        setActiveTab={handleNavigate}
-        collapsed={sidebarCollapsed}
-        setCollapsed={setSidebarCollapsed}
-        language={language}
-        shopName={db.shopName}
-        shopSubBrand={db.shopSubBrand}
-        shopLogo={db.shopLogo}
-        userRole={userRole}
-      />
+      {/* ── Mobile backdrop overlay ─────────────────────────────────────── */}
+      {isMobileOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => setSidebarCollapsed(true)}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* ── Sidebar ─────────────────────────────────────────────────────── */}
+      <div className={`
+        fixed inset-y-0 left-0 z-50
+        lg:static lg:z-auto
+        transform transition-transform duration-300 ease-in-out
+        ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+      `}>
+        <Sidebar
+          activeTab={activeTab}
+          setActiveTab={(tab) => {
+            handleMobileNav(tab);
+          }}
+          collapsed={sidebarCollapsed}
+          setCollapsed={setSidebarCollapsed}
+          language={language}
+          shopName={db.shopName}
+          shopSubBrand={db.shopSubBrand}
+          shopLogo={db.shopLogo}
+          userRole={userRole}
+        />
+      </div>
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
 
-        <header className="h-16 border-b border-slate-200 bg-white sticky top-0 z-30 flex items-center justify-between px-4 md:px-6 shadow-sm shrink-0">
-          <div className="flex items-center gap-3 flex-1 min-w-0">
-            <button type="button" onClick={handleToggleSidebar}
-              className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors md:hidden cursor-pointer shrink-0">
+        <header className="h-14 sm:h-16 border-b border-slate-200 bg-white sticky top-0 z-30 flex items-center justify-between px-3 sm:px-4 md:px-6 shadow-sm shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+            {/* Hamburger — always visible on mobile/tablet */}
+            <button
+              type="button"
+              onClick={handleToggleSidebar}
+              className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors lg:hidden cursor-pointer shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center"
+              aria-label="Toggle menu"
+            >
               <Menu className="w-5 h-5" />
+            </button>
+            {/* Desktop collapse toggle */}
+            <button
+              type="button"
+              onClick={handleToggleSidebar}
+              className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors hidden lg:flex cursor-pointer shrink-0 items-center justify-center"
+              aria-label="Toggle sidebar"
+            >
+              <Menu className="w-4 h-4" />
             </button>
             <h1 className="text-sm font-bold text-slate-900 truncate">{db.shopName}</h1>
           </div>
 
-          <div className="flex items-center gap-2 md:gap-3 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3 shrink-0">
             <div className="relative">
               <button type="button" onClick={handleToggleLang}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-xs font-semibold text-slate-700 transition-all cursor-pointer bg-white">
-                <Globe className="w-3.5 h-3.5 text-slate-500" />
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-xs font-semibold text-slate-700 transition-all cursor-pointer bg-white min-h-[44px] sm:min-h-0">
+                <Globe className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                 <span className="hidden sm:inline">{language === 'bn' ? 'বাংলা' : 'English'}</span>
-                <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform ${langOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform hidden sm:block ${langOpen ? 'rotate-180' : ''}`} />
               </button>
               {langOpen && (
                 <div className="absolute right-0 mt-1.5 w-32 bg-white rounded-lg border border-slate-200 shadow-lg py-1 z-50 text-xs font-semibold">
                   <button type="button" onClick={handleSelectEnglish}
-                    className={`w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center justify-between cursor-pointer ${language === 'en' ? 'text-slate-900' : 'text-slate-500'}`}>
+                    className={`w-full text-left px-3 py-2.5 hover:bg-slate-50 flex items-center justify-between cursor-pointer ${language === 'en' ? 'text-slate-900' : 'text-slate-500'}`}>
                     English {language === 'en' && <Check className="w-3.5 h-3.5" />}
                   </button>
                   <button type="button" onClick={handleSelectBangla}
-                    className={`w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center justify-between cursor-pointer ${language === 'bn' ? 'text-slate-900' : 'text-slate-500'}`}>
+                    className={`w-full text-left px-3 py-2.5 hover:bg-slate-50 flex items-center justify-between cursor-pointer ${language === 'bn' ? 'text-slate-900' : 'text-slate-500'}`}>
                     বাংলা {language === 'bn' && <Check className="w-3.5 h-3.5" />}
                   </button>
                 </div>
               )}
             </div>
 
-            <div className="flex items-center gap-2 border-l border-slate-200 pl-2 md:pl-3">
+            <div className="flex items-center gap-1.5 sm:gap-2 border-l border-slate-200 pl-1.5 sm:pl-2 md:pl-3">
               <span className="text-xs font-semibold text-slate-500 hidden md:block">
                 {translations[language].header.profileTitle}
               </span>
@@ -325,20 +370,20 @@ export default function App() {
             </div>
 
             <button type="button" onClick={handleLogout}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+              className="p-2 rounded-lg text-slate-400 hover:text-rose-600 transition-colors cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center"
               title={translations[language].header.logout}>
               <LogOut className="w-4 h-4" />
             </button>
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto">
-          <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto w-full space-y-6">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden">
+          <div className="p-3 sm:p-4 md:p-6 lg:p-8 max-w-7xl mx-auto w-full space-y-4 sm:space-y-6">
             {renderModule()}
           </div>
         </main>
 
-        <footer className="py-4 text-center text-[11px] text-slate-400 border-t border-slate-200 bg-white shrink-0">
+        <footer className="py-3 sm:py-4 text-center text-[11px] text-slate-400 border-t border-slate-200 bg-white shrink-0">
           &copy; 2026 {translations[language].sidebar.brand}
         </footer>
       </div>
