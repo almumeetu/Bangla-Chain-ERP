@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import type { Product, ChallanItem, Procurement, ExpenseRecord, SR } from '../../types';
+import { getStockValueTP } from '../../lib/productUtils';
 
 // ── Formatters ────────────────────────────────────────────────────────────────
 
@@ -61,9 +62,9 @@ export function buildCompanyStockData(products: Product[]): CompanyStockRow[] {
       return {
         brand,
         units:        bp.reduce((s, p) => s + p.currentStock, 0),
-        value:        bp.reduce((s, p) => s + p.currentStock * p.defaultPP, 0),
+        value:        bp.reduce((s, p) => s + getStockValueTP(p), 0),
         damagedUnits: bp.reduce((s, p) => s + (p.damagedStock ?? 0), 0),
-        damagedValue: bp.reduce((s, p) => s + (p.damagedStock ?? 0) * p.defaultPP, 0),
+        damagedValue: bp.reduce((s, p) => s + getStockValueTP(p, p.damagedStock ?? 0), 0),
         productCount: bp.length,
       };
     })
@@ -142,9 +143,9 @@ export function useDashboardMetrics(
   const totalExpensesCost   = expenses.reduce((s, e) => s + e.amount, 0);
   const netProfit           = totalSales - totalProcurementCost - totalExpensesCost;
   const totalStockUnits     = products.reduce((s, p) => s + p.currentStock, 0);
-  const totalStockValue     = products.reduce((s, p) => s + p.currentStock * p.defaultPP, 0);
+  const totalStockValue     = products.reduce((s, p) => s + getStockValueTP(p), 0);
   const totalDamagedQty     = products.reduce((s, p) => s + (p.damagedStock ?? 0), 0);
-  const totalDamagedVal     = products.reduce((s, p) => s + (p.damagedStock ?? 0) * p.defaultPP, 0);
+  const totalDamagedVal     = products.reduce((s, p) => s + getStockValueTP(p, p.damagedStock ?? 0), 0);
 
   const lowStockProducts  = products.filter(p => p.currentStock < 600);
   const recentChallans    = [...challans].reverse().slice(0, 5);

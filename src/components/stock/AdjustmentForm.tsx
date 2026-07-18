@@ -63,12 +63,12 @@ export default function AdjustmentForm({
         <div className="bg-slate-50 rounded-xl border border-slate-200 p-3 text-center">
           <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">{bn ? 'বর্তমান স্টক' : 'Current Stock'}</p>
           <p className="text-lg font-extrabold text-slate-700 font-mono">{product.currentStock.toLocaleString()}</p>
-          <p className="text-[9px] text-slate-400 font-semibold">Pcs</p>
+          <p className="text-[9px] text-slate-400 font-semibold">{product.primaryUnit === 'Carton' ? 'Ctn' : 'Pcs'}</p>
         </div>
         <div className="bg-slate-50 rounded-xl border border-slate-200 p-3 text-center">
           <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">{bn ? 'নতুন স্টক' : 'New Stock'}</p>
           <p className="text-lg font-extrabold text-indigo-700 font-mono">{newStockQty.toLocaleString()}</p>
-          <p className="text-[9px] text-slate-400 font-semibold">Pcs</p>
+          <p className="text-[9px] text-slate-400 font-semibold">{product.primaryUnit === 'Carton' ? 'Ctn' : 'Pcs'}</p>
         </div>
         <div className={`rounded-xl border p-3 text-center ${variantBg}`}>
           <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">{bn ? 'পার্থক্য' : 'Variance'}</p>

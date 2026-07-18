@@ -17,8 +17,19 @@ import {
 } from 'lucide-react';
 import { Product, ChallanItem, SR, CompanyBrand, ExpenseRecord, DeliveryMan, UnitOfMeasure, ProductUnit } from '../types';
 import { translations, Language } from '../translations';
+import { getStockValueTP, getStockValueDP } from '../lib/productUtils';
 
-function CartonPcsDisplay({ qty, cartonSize }: { qty: number; cartonSize?: number }) {
+function CartonPcsDisplay({ qty, cartonSize, primaryUnit }: { qty: number; cartonSize?: number; primaryUnit?: string }) {
+  // Carton-primary products: stock IS in cartons — no piece conversion
+  if (primaryUnit === 'Carton') {
+    return (
+      <div className="font-mono text-[11px] leading-snug">
+        <span className="text-indigo-700 font-bold">{qty.toLocaleString()}</span>
+        <span className="text-slate-400 text-[9px]"> Ctn</span>
+      </div>
+    );
+  }
+
   const cs = cartonSize || 24;
   const cartons = Math.floor(qty / cs);
   const pcs = qty % cs;
@@ -147,8 +158,8 @@ export default function ReportsModule({
     const rows = brandList.map(brandName => {
       const brandProducts = products.filter(p => p.company === brandName);
       const totalQty = brandProducts.reduce((sum, p) => sum + p.currentStock, 0);
-      const totalValueDP = brandProducts.reduce((sum, p) => sum + (p.currentStock * p.defaultPP), 0);
-      const totalValueTP = brandProducts.reduce((sum, p) => sum + (p.currentStock * p.defaultWSP), 0);
+      const totalValueDP = brandProducts.reduce((sum, p) => sum + getStockValueDP(p), 0);
+      const totalValueTP = brandProducts.reduce((sum, p) => sum + getStockValueTP(p), 0);
 
       grandQty += totalQty;
       grandValueDP += totalValueDP;
@@ -1097,13 +1108,13 @@ export default function ReportsModule({
                         <td className="px-4 py-3.5 text-slate-600">{product.company}</td>
                         <td className="px-4 py-3.5 text-slate-500 font-mono text-[10px]">{product.sku}</td>
                         <td className="px-4 py-3.5 text-center">
-                          <CartonPcsDisplay qty={product.currentStock} cartonSize={product.cartonSize} />
+                          <CartonPcsDisplay qty={product.currentStock} cartonSize={product.cartonSize} primaryUnit={product.primaryUnit} />
                         </td>
                         <td className="px-4 py-3.5 text-center">
-                          <CartonPcsDisplay qty={product.damagedStock || 0} cartonSize={product.cartonSize} />
+                          <CartonPcsDisplay qty={product.damagedStock || 0} cartonSize={product.cartonSize} primaryUnit={product.primaryUnit} />
                         </td>
-                        <td className="px-4 py-3.5 text-right font-mono font-bold text-indigo-700">{formatBDT(product.currentStock * product.defaultPP)}</td>
-                        <td className="px-4 py-3.5 text-right font-mono font-bold text-emerald-700">{formatBDT(product.currentStock * product.defaultWSP)}</td>
+                        <td className="px-4 py-3.5 text-right font-mono font-bold text-indigo-700">{formatBDT(getStockValueDP(product))}</td>
+                        <td className="px-4 py-3.5 text-right font-mono font-bold text-emerald-700">{formatBDT(getStockValueTP(product))}</td>
                       </tr>
                     ))}
                   </tbody>

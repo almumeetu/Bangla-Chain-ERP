@@ -36,17 +36,29 @@ interface CartItem {
 }
 
 function getCartItemTotals(item: CartItem) {
+  const isCartonProduct = item.product.primaryUnit === 'Carton';
   const cartonSize = item.product.cartonSize || 24;
-  const pricePerCarton = item.product.pricePerCarton || (item.product.defaultWSP * cartonSize);
+  const pricePerCarton = item.product.pricePerCarton || (item.product.defaultWSP * (isCartonProduct ? 1 : cartonSize));
   const pricePerPiece = item.product.pricePerPiece || item.product.defaultWSP;
-  
-  const purchasePricePerCarton = item.product.defaultPP * cartonSize;
-  const purchasePricePerPiece = item.product.defaultPP;
 
-  const totalTP = item.cartons * pricePerCarton + item.pcs * pricePerPiece;
-  const totalDP = item.cartons * purchasePricePerCarton + item.pcs * purchasePricePerPiece;
-  
-  const totalQty = item.cartons * cartonSize + item.pcs;
+  // For Carton products: defaultPP is stored per-carton, totalQty is in cartons
+  // For Piece products: defaultPP is per-piece, totalQty is total pieces
+  const totalTP = isCartonProduct
+    ? item.cartons * pricePerCarton
+    : item.cartons * (item.product.pricePerCarton || (item.product.defaultWSP * cartonSize)) + item.pcs * pricePerPiece;
+
+  const totalDP = isCartonProduct
+    ? item.cartons * item.product.defaultPP
+    : item.cartons * (item.product.defaultPP * cartonSize) + item.pcs * item.product.defaultPP;
+
+  const totalQty = isCartonProduct
+    ? item.cartons              // cartons are the storage unit for Carton products
+    : item.cartons * cartonSize + item.pcs;  // convert to pieces for Piece products
+
+  const purchasePricePerCarton = isCartonProduct
+    ? item.product.defaultPP          // already per-carton
+    : item.product.defaultPP * cartonSize;
+  const purchasePricePerPiece = item.product.defaultPP; // per piece for Piece products
 
   return {
     pricePerCarton,
@@ -56,7 +68,8 @@ function getCartItemTotals(item: CartItem) {
     totalTP,
     totalDP,
     totalQty,
-    cartonSize
+    cartonSize,
+    isCartonProduct
   };
 }
 
@@ -489,9 +502,10 @@ export default function SellModule({
     e.preventDefault();
     if (cart.length === 0) { alert('Cart is empty!'); return; }
     for (const item of cart) {
+      const isCarton = item.product.primaryUnit === 'Carton';
       const cartonSize = item.product.cartonSize || 24;
-      const totalPieces = item.cartons * cartonSize + item.pcs;
-      const need = totalPieces + item.bonusQty;
+      const totalQty = isCarton ? item.cartons : (item.cartons * cartonSize + item.pcs);
+      const need = totalQty + item.bonusQty;
       if (item.product.currentStock < need) {
         alert(`Insufficient stock for "${item.product.name}"! Available: ${item.product.currentStock}, Requested: ${need}`);
         return;
@@ -502,37 +516,44 @@ export default function SellModule({
     const orderIdSuffix    = Date.now();
 
     const newChallans: ChallanItem[] = cart.map((item, idx) => {
+      const isCarton = item.product.primaryUnit === 'Carton';
       const cartonSize = item.product.cartonSize || 24;
-      const totalPieces = item.cartons * cartonSize + item.pcs;
-      const netQty      = totalPieces - (item.returnedQty || 0) - (item.damagedQty || 0);
-      
-      const pricePerCarton = item.product.pricePerCarton || (item.product.defaultWSP * cartonSize);
-      const pricePerPiece = item.product.pricePerPiece || item.product.defaultWSP;
-      const finalPrice  = item.cartons * pricePerCarton + item.pcs * pricePerPiece;
+      const totalQty = isCarton ? item.cartons : (item.cartons * cartonSize + item.pcs);
+      const netQty   = totalQty - (item.returnedQty || 0) - (item.damagedQty || 0);
+
+      const pricePerCarton = item.product.pricePerCarton || (item.product.defaultWSP * (isCarton ? 1 : cartonSize));
+      const pricePerPiece  = item.product.pricePerPiece  || item.product.defaultWSP;
+      // finalPrice = what the customer actually pays for this line
+      const finalPrice = isCarton
+        ? item.cartons * pricePerCarton
+        : item.cartons * (item.product.pricePerCarton || item.product.defaultWSP * cartonSize) + item.pcs * pricePerPiece;
+      // rate = unit price used for returns/adjustments
+      const rate = isCarton ? pricePerCarton : pricePerPiece;
 
       return {
         id: `ch-${orderIdSuffix}-${idx}`,
         productName: item.product.name, company: item.product.company,
-        attribute: item.selectedSpec, qty: totalPieces, bonusQty: item.bonusQty,
-        totalQty: totalPieces + item.bonusQty, rate: pricePerPiece,
+        attribute: item.selectedSpec, qty: totalQty, bonusQty: item.bonusQty,
+        totalQty: totalQty + item.bonusQty, rate,
         totalAmount: finalPrice, srName: selectedSR, routeName: selectedRoute,
         deliveryManName: selectedDeliveryMan, status: 'Pending',
         returnedQty: item.returnedQty || 0, damagedQty: item.damagedQty || 0,
         commissionAmount: 0, createdAt: orderTimestamp,
-        selectedUnitName: item.product.primaryUnit === 'Carton'
+        selectedUnitName: isCarton
           ? `${item.cartons} ctn`
           : `${item.cartons} ctn, ${item.pcs} pcs`
       };
     });
 
-    // Deduct stock in pieces
+    // Deduct stock in correct unit (cartons for Carton products, pieces for Piece products)
     setProducts(currentProducts => {
       return currentProducts.map(p => {
         const item = cart.find(x => x.product.id === p.id);
         if (item) {
+          const isCarton = p.primaryUnit === 'Carton';
           const cartonSize = p.cartonSize || 24;
-          const totalPieces = item.cartons * cartonSize + item.pcs;
-          const deductQty = totalPieces + item.bonusQty;
+          const totalQty = isCarton ? item.cartons : (item.cartons * cartonSize + item.pcs);
+          const deductQty = totalQty + item.bonusQty;
           return {
             ...p,
             currentStock: Math.max(0, p.currentStock - deductQty)
@@ -546,18 +567,22 @@ export default function SellModule({
 
     const orderData: SalesOrderData = {
       items: cart.map(i => {
+        const isCarton = i.product.primaryUnit === 'Carton';
         const cartonSize = i.product.cartonSize || 24;
-        const totalPieces = i.cartons * cartonSize + i.pcs;
-        const pricePerCarton = i.product.pricePerCarton || (i.product.defaultWSP * cartonSize);
-        const pricePerPiece = i.product.pricePerPiece || i.product.defaultWSP;
-        const finalPrice  = i.cartons * pricePerCarton + i.pcs * pricePerPiece;
+        const totalQty = isCarton ? i.cartons : (i.cartons * cartonSize + i.pcs);
+        const pricePerCarton = i.product.pricePerCarton || (i.product.defaultWSP * (isCarton ? 1 : cartonSize));
+        const pricePerPiece  = i.product.pricePerPiece  || i.product.defaultWSP;
+        const finalPrice = isCarton
+          ? i.cartons * pricePerCarton
+          : i.cartons * (i.product.pricePerCarton || i.product.defaultWSP * cartonSize) + i.pcs * pricePerPiece;
+        const rate = isCarton ? pricePerCarton : pricePerPiece;
         return {
           productName: i.product.name,
           company: i.product.company,
           spec: i.selectedSpec,
-          qty: totalPieces,
+          qty: totalQty,
           bonusQty: i.bonusQty,
-          rate: pricePerPiece,
+          rate,
           total: finalPrice
         };
       }),

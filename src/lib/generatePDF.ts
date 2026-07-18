@@ -8,6 +8,7 @@ import { jsPDF } from 'jspdf';
 import type {
   Product, ChallanItem, Procurement, ExpenseRecord, ExpenseCategory,
 } from '../types';
+import { getStockValueTP } from './productUtils';
 import { getChallanDate, getLocalDateString } from '../components/dashboard/dashboardUtils';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -176,7 +177,7 @@ function generateDashboardPDF(ctx: DocCtx, opts: GeneratePDFOptions) {
   }, 0);
   const todaysExpenses    = expenses.filter(e => e.expenseDate === todayStr).reduce((s, e) => s + e.amount, 0);
   const todaysNetProfit   = todaysSales - todaysCOGS - todaysExpenses;
-  const totalStockValue   = products.reduce((s, p) => s + p.currentStock * p.defaultPP, 0);
+  const totalStockValue   = products.reduce((s, p) => s + getStockValueTP(p), 0);
   const cumulativeSales   = challans.reduce((s, ch) => s + Math.max(0, ch.totalAmount - (ch.returnedQty ?? 0) * ch.rate), 0);
   const cumulativeProcure = opts.procurements.reduce((s, p) => s + p.globalTotal, 0);
   const cumulativeExp     = expenses.reduce((s, e) => s + e.amount, 0);

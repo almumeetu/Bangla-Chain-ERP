@@ -76,8 +76,8 @@ export function splitStockToDisplay(
 
 /**
  * Trade Price (TP) — the wholesale price per selling unit.
- * For piece products this is pricePerPiece (= defaultWSP).
- * For carton products this is pricePerCarton.
+ * - Piece product : pricePerPiece (= defaultWSP) — price per piece.
+ * - Carton product: pricePerCarton — price per carton.
  */
 export function getTP(product: Product): number {
   return isPieceProduct(product)
@@ -87,23 +87,56 @@ export function getTP(product: Product): number {
 
 /**
  * Dealer/Purchase Price (DP) per selling unit.
- * defaultPP is always stored per-piece; for carton products multiply by cartonSize.
+ * defaultPP is stored per selling unit for BOTH product types:
+ *   - Piece product : defaultPP = price per piece.
+ *   - Carton product: defaultPP = price per carton (entered by user as DP/Ctn).
+ * Do NOT multiply by cartonSize.
  */
 export function getDP(product: Product): number {
-  if (isPieceProduct(product)) return product.defaultPP;
-  return product.defaultPP * getCartonSize(product);
+  return product.defaultPP;
 }
 
-/** MRP per selling unit. Same storage convention as DP. */
+/**
+ * MRP per selling unit.
+ * defaultMRP is stored per selling unit for BOTH product types.
+ * Do NOT multiply by cartonSize.
+ */
 export function getMRP(product: Product): number {
-  if (isPieceProduct(product)) return product.defaultMRP;
-  return product.defaultMRP * getCartonSize(product);
+  return product.defaultMRP;
+}
+
+// ─── Valuation helpers ────────────────────────────────────────────────────────
+
+/**
+ * Stock value at TP (Trade/Wholesale Price) for a given quantity.
+ * - Piece product : qty × pricePerPiece (= defaultWSP)
+ * - Carton product: qty × pricePerCarton
+ *
+ * Uses product.currentStock when qty is omitted.
+ */
+export function getStockValueTP(product: Product, qty?: number): number {
+  const stock = qty ?? product.currentStock;
+  return stock * getTP(product);
+}
+
+/**
+ * Stock value at DP (Purchase/Dealer Price) for a given quantity.
+ * Works correctly for both product types because defaultPP is stored
+ * per selling unit (per piece OR per carton).
+ *
+ * Uses product.currentStock when qty is omitted.
+ */
+export function getStockValueDP(product: Product, qty?: number): number {
+  const stock = qty ?? product.currentStock;
+  return stock * product.defaultPP;
 }
 
 // ─── Display formatters ───────────────────────────────────────────────────────
 
 /**
- * Human-readable stock string, e.g. "104 Ctn + 8 Pcs  (2504 pcs)" or "320 Ctn".
+ * Human-readable stock string.
+ * - Carton product: "320 Ctn"
+ * - Piece product : "104 Ctn + 8 Pcs  (2504 pcs)"
  */
 export function formatProductStock(product: Product, qty?: number): string {
   const stockQty = qty ?? product.currentStock;
@@ -122,7 +155,8 @@ export function formatProductStock(product: Product, qty?: number): string {
 
 /**
  * Short quantity string for tables/badges.
- * Piece product: "104 Ctn + 8 Pcs"  |  Carton product: "320 Ctn"
+ * - Carton product: "320 Ctn"
+ * - Piece product : "104 Ctn + 8 Pcs"
  */
 export function formatQtyShort(product: Product, qty: number): string {
   if (isCartonProduct(product)) return `${qty.toLocaleString()} Ctn`;
@@ -135,8 +169,10 @@ export function formatQtyShort(product: Product, qty: number): string {
 }
 
 /**
- * Return a combined total return qty (pieces) from split carton+pcs inputs.
- * Used during challan settlement to compute total returned pieces.
+ * Return a combined total return qty from split carton+pcs inputs.
+ * Used during challan settlement to compute total returned units.
+ * - Piece product : returnedCartons × cartonSize + returnedPcs  → pieces
+ * - Carton product: returnedCartons only (pcs field ignored)    → cartons
  */
 export function calcReturnedQty(
   product: Product,
