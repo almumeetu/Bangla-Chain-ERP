@@ -69,8 +69,10 @@ export default function Dashboard({
         totalSales={m.totalSales}
         totalExpensesCost={m.totalExpensesCost}
         totalStockValue={m.totalStockValue}
+        totalStockValueTP={m.totalStockValueTP}
         totalStockUnits={m.totalStockUnits}
         totalDamagedVal={m.totalDamagedVal}
+        totalDamagedValTP={m.totalDamagedValTP}
         totalDamagedQty={m.totalDamagedQty}
         challanCount={challans.length}
         expenseCount={expenses.length}

@@ -36,7 +36,7 @@ import {
 } from '../types';
 import { translations as dict, Language } from '../translations';
 import { getLocalDateString } from './dashboard/dashboardUtils';
-import { getStockValueTP } from '../lib/productUtils';
+import { getStockValueDP, getStockValueTP } from '../lib/productUtils';
 
 interface DirectoryModuleProps {
   products: Product[];
@@ -126,7 +126,7 @@ function ProductRow({ p, index, companies, categories, units, godowns, onEdit, o
       <td className="px-4 py-3.5 text-right font-mono text-slate-650">{formatBDT(p.defaultMRP)}</td>
       <td className="px-4 py-3.5 text-center">
         <div className="font-mono font-bold text-slate-750">{p.currentStock.toLocaleString()} {p.primaryUnit === 'Carton' ? 'Ctn' : 'Pcs'}</div>
-        <div className="text-[9px] text-slate-400 font-mono">৳{getStockValueTP(p).toLocaleString('en-BD')}</div>
+        <div className="text-[9px] text-slate-400 font-mono">DP: ৳{getStockValueDP(p).toLocaleString('en-BD')} | TP: ৳{getStockValueTP(p).toLocaleString('en-BD')}</div>
       </td>
       <td className="px-4 py-3.5 text-center">
         <div className="flex items-center justify-center gap-1.5">
@@ -1249,7 +1249,8 @@ export default function DirectoryModule({
           return matchesSearch && matchesCompany && matchesCategory && matchesStock && matchesDate;
         });
 
-        const totalProductsStockValuation = filteredProducts.reduce((sum, p) => sum + getStockValueTP(p), 0);
+        const totalProductsStockValuationDP = filteredProducts.reduce((sum, p) => sum + getStockValueDP(p), 0);
+        const totalProductsStockValuationTP = filteredProducts.reduce((sum, p) => sum + getStockValueTP(p), 0);
         const lowStockCount = filteredProducts.filter(p => p.currentStock < 600).length;
 
         return (
@@ -1284,7 +1285,10 @@ export default function DirectoryModule({
                     {language === 'bn' ? 'মোট ইনভেন্টরি মূল্য' : 'Inventory Valuation'}
                   </span>
                   <span className="text-2xl font-black text-slate-855 font-mono tracking-tight">
-                    {formatBDT(totalProductsStockValuation)}
+                    {formatBDT(totalProductsStockValuationDP)}
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-mono block">
+                    TP: {formatBDT(totalProductsStockValuationTP)}
                   </span>
                 </div>
               </div>
@@ -1573,8 +1577,8 @@ export default function DirectoryModule({
                                </div>
                              </div>
                              <span className={`text-[10px] ${brandTheme.valText} ${brandTheme.valBg} border px-2 py-0.5 rounded font-mono block mt-1 font-bold`}>
-                               Val: {getStockValueTP(p).toLocaleString('en-BD')}
-                             </span>
+                                Val: DP {getStockValueDP(p).toLocaleString('en-BD')} | TP {getStockValueTP(p).toLocaleString('en-BD')}
+                              </span>
                            </div>
                          </div>
                          <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
@@ -2187,7 +2191,8 @@ export default function DirectoryModule({
         const totalDamagedUnits = damageFilteredProducts.reduce((sum, p) => sum + getDamageBreakdown(p).totalDamageQty, 0);
         const totalExistingDamageUnits = damageFilteredProducts.reduce((sum, p) => sum + getDamageBreakdown(p).existingDamageQty, 0);
         const totalNewDamageUnits = damageFilteredProducts.reduce((sum, p) => sum + getDamageBreakdown(p).newDamageQty, 0);
-        const totalDamagedValue = damageFilteredProducts.reduce((sum, p) => sum + getStockValueTP(p, getDamageBreakdown(p).totalDamageQty), 0);
+        const totalDamagedValueDP = damageFilteredProducts.reduce((sum, p) => sum + getStockValueDP(p, getDamageBreakdown(p).totalDamageQty), 0);
+        const totalDamagedValueTP = damageFilteredProducts.reduce((sum, p) => sum + getStockValueTP(p, getDamageBreakdown(p).totalDamageQty), 0);
         const totalSalableUnits = damageFilteredProducts.reduce((sum, p) => sum + p.currentStock, 0);
         const totalUnitsCount = totalSalableUnits + totalDamagedUnits;
         const damageRatio = totalUnitsCount > 0 ? (totalDamagedUnits / totalUnitsCount) * 100 : 0;
@@ -2240,10 +2245,13 @@ export default function DirectoryModule({
                 </div>
                 <div>
                   <span className="text-[10px] text-amber-600 font-bold uppercase tracking-wider block">
-                    {language === 'bn' ? 'ক্ষয়ক্ষতি প্রাক্কলন (ক্রয়মূল্যে)' : 'Est. Loss Value (PP)'}
+                    {language === 'bn' ? 'ক্ষয়ক্ষতি প্রাক্কলন (DP/TP)' : 'Est. Loss Value (DP)'}
                   </span>
-                  <span className="text-2xl font-black text-slate-850 font-mono tracking-tight">
-                    {formatBDT(totalDamagedValue)}
+                  <span className="text-2xl font-black text-slate-855 font-mono tracking-tight">
+                    {formatBDT(totalDamagedValueDP)}
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-mono block">
+                    TP: {formatBDT(totalDamagedValueTP)}
                   </span>
                 </div>
               </div>
@@ -2411,7 +2419,7 @@ export default function DirectoryModule({
                             {p.currentStock.toLocaleString()} <span className="text-[10px] font-semibold text-slate-400">{language === 'bn' ? 'টি' : 'Units'}</span>
                           </span>
                           <span className="text-[9px] text-slate-450 font-mono block mt-0.5">
-                            Val: ৳{getStockValueTP(p).toLocaleString('en-BD')}
+                            DP: ৳{getStockValueDP(p).toLocaleString('en-BD')} | TP: ৳{getStockValueTP(p).toLocaleString('en-BD')}
                           </span>
                         </div>
 
@@ -2423,7 +2431,7 @@ export default function DirectoryModule({
                             {damagedQty.toLocaleString()} <span className="text-[10px] font-semibold text-slate-400">{language === 'bn' ? 'টি' : 'Units'}</span>
                           </span>
                           <span className="text-[9px] text-slate-450 font-mono block mt-0.5">
-                            Val: ৳{getStockValueTP(p, damagedQty).toLocaleString('en-BD')}
+                            DP: ৳{getStockValueDP(p, damagedQty).toLocaleString('en-BD')} | TP: ৳{getStockValueTP(p, damagedQty).toLocaleString('en-BD')}
                           </span>
                         </div>
                       </div>
@@ -2469,7 +2477,7 @@ export default function DirectoryModule({
                             {language === 'bn' ? 'আর্থিক ক্ষতি প্রাক্কলন' : 'Loss Estimate'}
                           </span>
                           <span className="font-mono text-xs font-black text-rose-600">
-                            {formatBDT(getStockValueTP(p, damagedQty))}
+                            DP: {formatBDT(getStockValueDP(p, damagedQty))} | TP: {formatBDT(getStockValueTP(p, damagedQty))}
                           </span>
                         </div>
 
@@ -2540,7 +2548,7 @@ export default function DirectoryModule({
                             </td>
                             <td className="px-5 py-3.5 whitespace-nowrap">
                               <div className="text-xs font-bold text-slate-800">{p.currentStock.toLocaleString()} {p.primaryUnit === 'Carton' ? 'Ctn' : 'Units'}</div>
-                              <div className="text-[9px] text-slate-400 font-mono mt-0.5">Val: {formatBDT(getStockValueTP(p))}</div>
+                              <div className="text-[9px] text-slate-400 font-mono mt-0.5">DP: {formatBDT(getStockValueDP(p))} | TP: {formatBDT(getStockValueTP(p))}</div>
                             </td>
                             <td className="px-5 py-3.5 whitespace-nowrap">
                               <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide border ${damagedQty > 0
@@ -2551,7 +2559,7 @@ export default function DirectoryModule({
                                 {damagedQty.toLocaleString()} Units
                               </span>
                               {damagedQty > 0 && (
-                                <div className="text-[9px] text-slate-400 font-mono mt-0.5">Val: {formatBDT(getStockValueTP(p, damagedQty))}</div>
+                                <div className="text-[9px] text-slate-400 font-mono mt-0.5">DP: {formatBDT(getStockValueDP(p, damagedQty))} | TP: {formatBDT(getStockValueTP(p, damagedQty))}</div>
                               )}
                             </td>
                             <td className="px-5 py-3.5 whitespace-nowrap">
@@ -2565,7 +2573,8 @@ export default function DirectoryModule({
                               </span>
                             </td>
                             <td className="px-5 py-3.5 text-xs text-rose-600 font-extrabold whitespace-nowrap">
-                              {formatBDT(getStockValueTP(p, damagedQty))}
+                              DP: {formatBDT(getStockValueDP(p, damagedQty))}
+                              <div className="text-[9px] text-slate-400 font-normal">TP: {formatBDT(getStockValueTP(p, damagedQty))}</div>
                             </td>
                             <td className="px-5 py-3.5 text-right">
                               <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">

@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import type { Product, ChallanItem, Procurement, ExpenseRecord, SR } from '../../types';
-import { getStockValueTP } from '../../lib/productUtils';
+import { getStockValueDP, getStockValueTP } from '../../lib/productUtils';
 
 // ── Formatters ────────────────────────────────────────────────────────────────
 
@@ -49,8 +49,10 @@ export interface CompanyStockRow {
   brand:        string;
   units:        number;
   value:        number;
+  valueTP:      number;
   damagedUnits: number;
   damagedValue: number;
+  damagedValueTP: number;
   productCount: number;
 }
 
@@ -62,9 +64,11 @@ export function buildCompanyStockData(products: Product[]): CompanyStockRow[] {
       return {
         brand,
         units:        bp.reduce((s, p) => s + p.currentStock, 0),
-        value:        bp.reduce((s, p) => s + getStockValueTP(p), 0),
+        value:        bp.reduce((s, p) => s + getStockValueDP(p), 0),
+        valueTP:      bp.reduce((s, p) => s + getStockValueTP(p), 0),
         damagedUnits: bp.reduce((s, p) => s + (p.damagedStock ?? 0), 0),
-        damagedValue: bp.reduce((s, p) => s + getStockValueTP(p, p.damagedStock ?? 0), 0),
+        damagedValue: bp.reduce((s, p) => s + getStockValueDP(p, p.damagedStock ?? 0), 0),
+        damagedValueTP: bp.reduce((s, p) => s + getStockValueTP(p, p.damagedStock ?? 0), 0),
         productCount: bp.length,
       };
     })
@@ -89,8 +93,10 @@ export interface DashboardMetrics {
   netProfit:            number;
   totalStockUnits:      number;
   totalStockValue:      number;
+  totalStockValueTP:    number;
   totalDamagedQty:      number;
   totalDamagedVal:      number;
+  totalDamagedValTP:    number;
   lowStockProducts:     Product[];
   recentChallans:       ChallanItem[];
   companyStockData:     CompanyStockRow[];
@@ -143,9 +149,11 @@ export function useDashboardMetrics(
   const totalExpensesCost   = expenses.reduce((s, e) => s + e.amount, 0);
   const netProfit           = totalSales - totalProcurementCost - totalExpensesCost;
   const totalStockUnits     = products.reduce((s, p) => s + p.currentStock, 0);
-  const totalStockValue     = products.reduce((s, p) => s + getStockValueTP(p), 0);
+  const totalStockValue     = products.reduce((s, p) => s + getStockValueDP(p), 0);
+  const totalStockValueTP   = products.reduce((s, p) => s + getStockValueTP(p), 0);
   const totalDamagedQty     = products.reduce((s, p) => s + (p.damagedStock ?? 0), 0);
-  const totalDamagedVal     = products.reduce((s, p) => s + getStockValueTP(p, p.damagedStock ?? 0), 0);
+  const totalDamagedVal     = products.reduce((s, p) => s + getStockValueDP(p, p.damagedStock ?? 0), 0);
+  const totalDamagedValTP   = products.reduce((s, p) => s + getStockValueTP(p, p.damagedStock ?? 0), 0);
 
   const lowStockProducts  = products.filter(p => p.currentStock < 600);
   const recentChallans    = [...challans].reverse().slice(0, 5);
@@ -168,7 +176,7 @@ export function useDashboardMetrics(
     yesterdaysSales, yesterdaysExpensesTotal, yesterdaysNetProfit,
     salesChangePercent, profitChangePercent,
     totalSales, totalProcurementCost, totalExpensesCost, netProfit,
-    totalStockUnits, totalStockValue, totalDamagedQty, totalDamagedVal,
+    totalStockUnits, totalStockValue, totalStockValueTP, totalDamagedQty, totalDamagedVal, totalDamagedValTP,
     lowStockProducts, recentChallans, companyStockData, maxCompanyVal, srSalesMap,
   };
 }

@@ -43,7 +43,10 @@ export default function DashboardCompanyStock({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-xs font-bold text-slate-800 truncate">{comp.brand}</span>
-                    <span className="text-xs font-black text-slate-800 font-mono shrink-0 ml-2">{formatBDT(comp.value)}</span>
+                    <div className="text-right shrink-0 ml-2">
+                      <span className="text-xs font-black text-slate-800 font-mono block">{formatBDT(comp.value)}</span>
+                      <span className="text-[9px] text-slate-400 font-mono block">TP: {formatBDT(comp.valueTP)}</span>
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="flex-1 h-1.5 bg-slate-200/60 rounded-full overflow-hidden">
@@ -87,9 +90,14 @@ export default function DashboardCompanyStock({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-xs font-bold text-slate-800 truncate">{comp.brand}</span>
-                    <span className={`text-xs font-black font-mono shrink-0 ml-2 ${comp.damagedValue > 0 ? 'text-rose-600' : 'text-slate-400'}`}>
-                      {comp.damagedValue > 0 ? formatBDT(comp.damagedValue) : '—'}
-                    </span>
+                    <div className="text-right shrink-0 ml-2">
+                      <span className={`text-xs font-black font-mono block ${comp.damagedValue > 0 ? 'text-rose-600' : 'text-slate-400'}`}>
+                        {comp.damagedValue > 0 ? formatBDT(comp.damagedValue) : '—'}
+                      </span>
+                      {comp.damagedValue > 0 && (
+                        <span className="text-[9px] text-slate-450 font-mono block">TP: {formatBDT(comp.damagedValueTP)}</span>
+                      )}
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="flex-1 h-1.5 bg-slate-200/60 rounded-full overflow-hidden">

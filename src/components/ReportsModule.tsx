@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { Product, ChallanItem, SR, CompanyBrand, ExpenseRecord, DeliveryMan, UnitOfMeasure, ProductUnit } from '../types';
 import { translations, Language } from '../translations';
-import { getStockValueTP, getStockValueDP } from '../lib/productUtils';
+import { getStockValueDP } from '../lib/productUtils';
 import { exportReportPDF, exportReportExcel, printReport, type ReportType } from '../lib/reportEngine';
 
 function CartonPcsDisplay({ qty, cartonSize, primaryUnit }: { qty: number; cartonSize?: number; primaryUnit?: string }) {
@@ -162,27 +162,23 @@ export default function ReportsModule({
       : [selectedCompanyFilter];
     let grandQty = 0;
     let grandValueDP = 0;
-    let grandValueTP = 0;
 
     const rows = brandList.map(brandName => {
       const brandProducts = products.filter(p => p.company === brandName);
       const totalQty = brandProducts.reduce((sum, p) => sum + p.currentStock, 0);
       const totalValueDP = brandProducts.reduce((sum, p) => sum + getStockValueDP(p), 0);
-      const totalValueTP = brandProducts.reduce((sum, p) => sum + getStockValueTP(p), 0);
 
       grandQty += totalQty;
       grandValueDP += totalValueDP;
-      grandValueTP += totalValueTP;
 
       return {
         companyName: brandName,
         totalQty,
-        totalValueDP,
-        totalValueTP
+        totalValueDP
       };
     });
 
-    return { rows, grandQty, grandValueDP, grandValueTP };
+    return { rows, grandQty, grandValueDP };
   }, [products, selectedCompanyFilter]);
 
   // ═══════════════════════════════════════════════════════════════
@@ -848,7 +844,6 @@ export default function ReportsModule({
                       <th className="px-4 py-3">{language === 'bn' ? 'কোম্পানি' : 'Company'}</th>
                       <th className="px-4 py-3 text-center">{language === 'bn' ? 'স্টক পরিমাণ' : 'Total Units'}</th>
                       <th className="px-4 py-3 text-right text-indigo-600">{language === 'bn' ? 'স্টক মূল্য (DP)' : 'Stock Valuation (DP)'}</th>
-                      <th className="px-4 py-3 text-right text-emerald-600">{language === 'bn' ? 'স্টক মূল্য (TP)' : 'Stock Valuation (TP)'}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-xs">
@@ -859,7 +854,6 @@ export default function ReportsModule({
                           <CartonPcsDisplay qty={row.totalQty} />
                         </td>
                         <td className="px-4 py-3.5 text-right font-mono font-bold text-indigo-700">{formatBDT(row.totalValueDP)}</td>
-                        <td className="px-4 py-3.5 text-right font-mono font-bold text-emerald-700">{formatBDT(row.totalValueTP)}</td>
                       </tr>
                     ))}
                     <tr className="bg-slate-50 border-t-2 border-slate-200 font-extrabold text-slate-900">
@@ -868,7 +862,6 @@ export default function ReportsModule({
                         <CartonPcsDisplay qty={stockReportData.grandQty} />
                       </td>
                       <td className="px-4 py-4 text-right font-mono text-indigo-605">{formatBDT(stockReportData.grandValueDP)}</td>
-                      <td className="px-4 py-4 text-right font-mono text-emerald-605">{formatBDT(stockReportData.grandValueTP)}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -894,7 +887,6 @@ export default function ReportsModule({
                       <th className="px-4 py-3 text-center">{language === 'bn' ? 'বর্তমান স্টক' : 'Current Stock'}</th>
                       <th className="px-4 py-3 text-center">{language === 'bn' ? 'ক্ষতিগ্রস্ত স্টক' : 'Damaged Stock'}</th>
                       <th className="px-4 py-3 text-right text-indigo-600">{language === 'bn' ? 'স্টক মূল্য (DP)' : 'Stock Value (DP)'}</th>
-                      <th className="px-4 py-3 text-right text-emerald-600">{language === 'bn' ? 'স্টক মূল্য (TP)' : 'Stock Value (TP)'}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-xs">
@@ -910,7 +902,6 @@ export default function ReportsModule({
                           <CartonPcsDisplay qty={product.damagedStock || 0} cartonSize={product.cartonSize} primaryUnit={product.primaryUnit} />
                         </td>
                         <td className="px-4 py-3.5 text-right font-mono font-bold text-indigo-700">{formatBDT(getStockValueDP(product))}</td>
-                        <td className="px-4 py-3.5 text-right font-mono font-bold text-emerald-700">{formatBDT(getStockValueTP(product))}</td>
                       </tr>
                     ))}
                   </tbody>

@@ -417,13 +417,11 @@ function genStock(ctx: DocContext, opts: ReportOptions): void {
   // KPIs
   const totalUnits = opts.products.reduce((s, p) => s + p.currentStock, 0);
   const totalDP    = opts.products.reduce((s, p) => s + p.currentStock * (p.defaultPP || 0), 0);
-  const totalTP    = opts.products.reduce((s, p) => s + p.currentStock * (p.defaultWSP || 0), 0);
 
   drawKpiRow(ctx, [
     { label: 'Total Products',    value: fmtNum(opts.products.length), r: 99,  g: 102, b: 241 },
     { label: 'Total Stock Units', value: fmtNum(totalUnits),           r: 16,  g: 185, b: 129 },
     { label: 'Stock Value (DP)',  value: fmtTK(totalDP),               r: 245, g: 158, b: 11  },
-    { label: 'Stock Value (TP)',  value: fmtTK(totalTP),               r: 239, g: 68,  b: 68  },
   ]);
 
   // ── Company summary table ──────────────────────────────────────────────────
@@ -432,27 +430,25 @@ function genStock(ctx: DocContext, opts: ReportOptions): void {
   const sumCols: ColDef[] = [
     { label: '#',              x: 15 },
     { label: 'Company / Brand',x: 22 },
-    { label: 'Products',       x: 100 },
-    { label: 'Stock Units',    x: 125 },
-    { label: 'Value (DP)',     x: 155 },
-    { label: 'Value (TP)',     x: 178 },
+    { label: 'Products',       x: 110 },
+    { label: 'Stock Units',    x: 140 },
+    { label: 'Value (DP)',     x: 170 },
   ];
   drawTableHeader(ctx, sumCols);
 
-  let gQty = 0, gDP = 0, gTP = 0;
+  let gQty = 0, gDP = 0;
   companies.forEach((co, i) => {
     maybePageBreak(ctx, 8, TITLE, SUBTITLE);
     const prods   = byCompany[co];
     const qty     = prods.reduce((s, p) => s + p.currentStock, 0);
     const dp      = prods.reduce((s, p) => s + p.currentStock * (p.defaultPP || 0), 0);
-    const tp      = prods.reduce((s, p) => s + p.currentStock * (p.defaultWSP || 0), 0);
-    gQty += qty; gDP += dp; gTP += tp;
+    gQty += qty; gDP += dp;
     drawTableRow(ctx, sumCols,
-      [`${i + 1}`, clamp(co, 36), `${prods.length}`, fmtNum(qty), fmtTK(dp), fmtTK(tp)],
+      [`${i + 1}`, clamp(co, 36), `${prods.length}`, fmtNum(qty), fmtTK(dp)],
       i % 2 === 0,
     );
   });
-  drawTotalRow(ctx, sumCols, ['', 'GRAND TOTAL', `${opts.products.length}`, fmtNum(gQty), fmtTK(gDP), fmtTK(gTP)]);
+  drawTotalRow(ctx, sumCols, ['', 'GRAND TOTAL', `${opts.products.length}`, fmtNum(gQty), fmtTK(gDP)]);
 
   ctx.y += 4;
 
@@ -1106,12 +1102,12 @@ export function exportReportExcel(opts: ReportOptions): void {
     cells.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',') + '\n';
 
   if (opts.type === 'stock') {
-    csv += row(['#', 'Product Name', 'Company', 'SKU', 'Current Stock', 'Damaged Stock', 'DP', 'TP', 'MRP', 'Stock Value (DP)', 'Stock Value (TP)']);
+    csv += row(['#', 'Product Name', 'Company', 'SKU', 'Current Stock', 'Damaged Stock', 'DP', 'TP', 'MRP', 'Stock Value (DP)']);
     opts.products.forEach((p, i) => {
       if (opts.filterCompany && opts.filterCompany !== 'All' && p.company !== opts.filterCompany) return;
       csv += row([i + 1, p.name, p.company, p.sku, p.currentStock, p.damagedStock || 0,
                   p.defaultPP, p.defaultWSP, p.defaultMRP,
-                  p.currentStock * p.defaultPP, p.currentStock * p.defaultWSP]);
+                  p.currentStock * p.defaultPP]);
     });
   } else if (opts.type === 'sales') {
     csv += row(['#', 'Product', 'Company', 'SR', 'Delivery Man', 'Date', 'Qty', 'Returned', 'Damaged', 'Rate', 'Total Amount']);

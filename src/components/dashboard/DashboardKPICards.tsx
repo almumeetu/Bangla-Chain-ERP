@@ -9,8 +9,10 @@ interface DashboardKPICardsProps {
   totalSales:           number;
   totalExpensesCost:    number;
   totalStockValue:      number;
+  totalStockValueTP:    number;
   totalStockUnits:      number;
   totalDamagedVal:      number;
+  totalDamagedValTP:    number;
   totalDamagedQty:      number;
   challanCount:         number;
   expenseCount:         number;
@@ -31,7 +33,7 @@ interface KPIConfig {
 
 export default function DashboardKPICards({
   language, netProfit, totalSales, totalExpensesCost,
-  totalStockValue, totalStockUnits, totalDamagedVal, totalDamagedQty,
+  totalStockValue, totalStockValueTP, totalStockUnits, totalDamagedVal, totalDamagedValTP, totalDamagedQty,
   challanCount, expenseCount,
 }: DashboardKPICardsProps) {
   const bn = language === 'bn';
@@ -76,7 +78,7 @@ export default function DashboardKPICards({
       iconClass:  'text-indigo-600',
       label:      bn ? 'স্টক মূল্য'  : 'Stock Value',
       value:      formatBDT(totalStockValue),
-      sub:        bn ? `${totalStockUnits.toLocaleString()} ইউনিট` : `${totalStockUnits.toLocaleString()} units`,
+      sub:        bn ? `DP: ${formatBDT(totalStockValue)} | TP: ${formatBDT(totalStockValueTP)} (${totalStockUnits.toLocaleString()} ইউনিট)` : `DP: ${formatBDT(totalStockValue)} | TP: ${formatBDT(totalStockValueTP)} (${totalStockUnits.toLocaleString()} units)`,
     },
     {
       gradient:    'bg-gradient-to-r from-amber-400 to-amber-600',
@@ -86,7 +88,7 @@ export default function DashboardKPICards({
       iconClass:   'text-amber-600',
       label:       bn ? 'মোট ড্যামেজ' : 'Damages',
       value:       formatBDT(totalDamagedVal),
-      sub:         bn ? `${totalDamagedQty}টি পণ্য` : `${totalDamagedQty} items`,
+      sub:         bn ? `DP: ${formatBDT(totalDamagedVal)} | TP: ${formatBDT(totalDamagedValTP)} (${totalDamagedQty}টি পণ্য)` : `DP: ${formatBDT(totalDamagedVal)} | TP: ${formatBDT(totalDamagedValTP)} (${totalDamagedQty} items)`,
       extraClass:  'col-span-2 lg:col-span-1',
     },
   ];
