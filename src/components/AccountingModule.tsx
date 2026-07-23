@@ -404,7 +404,7 @@ export default function AccountingModule({
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-xs">
+                <table className="w-full text-xs min-w-[600px]">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-100">
                       <th className="px-5 py-3 text-left font-bold text-slate-500 uppercase tracking-wider text-[10px]">#</th>

@@ -1693,7 +1693,7 @@ export default function DirectoryModule({
             ) : (
               <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
+                  <table className="w-full text-left border-collapse min-w-[800px]">
                     <thead>
                       <tr className="bg-slate-100/70 border-b border-slate-200 text-slate-600 text-[10px] uppercase font-extrabold tracking-wider">
                         <th className="px-5 py-4">{language === 'bn' ? 'পণ্য' : 'Product'}</th>
@@ -2030,7 +2030,7 @@ export default function DirectoryModule({
             ) : (
               <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
+                  <table className="w-full text-left border-collapse min-w-[800px]">
                     <thead>
                       <tr className="bg-slate-100/70 border-b border-slate-200 text-slate-600 text-[10px] uppercase font-extrabold tracking-wider">
                         <th className="px-5 py-4">{language === 'bn' ? 'দোকানের নাম' : 'Shop Name'}</th>
@@ -2548,7 +2548,7 @@ export default function DirectoryModule({
             ) : (
               <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden animate-fade-in">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
+                  <table className="w-full text-left border-collapse min-w-[800px]">
                     <thead>
                       <tr className="bg-slate-100/70 border-b border-slate-200 text-slate-600 text-[10px] uppercase font-extrabold tracking-wider">
                         <th className="px-5 py-4">{language === 'bn' ? 'পণ্য' : 'Product'}</th>
@@ -2961,7 +2961,7 @@ export default function DirectoryModule({
           </div>
 
           <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-            <table className="w-full text-left text-sm border-collapse">
+            <table className="w-full text-left text-sm border-collapse min-w-[600px]">
               <thead>
                 <tr className="bg-slate-50 text-slate-700 border-b border-slate-200">
                   <th className="px-4 py-4 text-sm font-semibold w-12 text-center">#</th>

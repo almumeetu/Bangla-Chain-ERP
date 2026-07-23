@@ -838,7 +838,7 @@ export default function ReportsModule({
               </div>
 
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
+                <table className="w-full text-left border-collapse min-w-[800px]">
                   <thead>
                     <tr className="border-b border-slate-200 text-[10px] font-bold text-slate-450 uppercase tracking-wider bg-slate-50/50">
                       <th className="px-4 py-3">{language === 'bn' ? 'কোম্পানি' : 'Company'}</th>
@@ -878,7 +878,7 @@ export default function ReportsModule({
               </div>
 
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
+                <table className="w-full text-left border-collapse min-w-[800px]">
                   <thead>
                     <tr className="border-b border-slate-200 text-[10px] font-bold text-slate-450 uppercase tracking-wider bg-slate-50/50">
                       <th className="px-4 py-3">{language === 'bn' ? 'পণ্যের নাম' : 'Product Name'}</th>
@@ -944,7 +944,7 @@ export default function ReportsModule({
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+              <table className="w-full text-left border-collapse min-w-[800px]">
                 <thead>
                   <tr className="border-b border-slate-200 text-[10px] font-bold text-slate-450 uppercase tracking-wider bg-slate-50/50">
                     <th className="px-4 py-3">{language === 'bn' ? 'পণ্য / কোম্পানি' : 'Product / Company'}</th>
@@ -1073,7 +1073,7 @@ export default function ReportsModule({
                 <h3 className="font-bold text-slate-800 text-sm">{t.companySalesTitle}</h3>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
+                <table className="w-full text-left border-collapse min-w-[800px]">
                   <thead>
                     <tr className="border-b border-slate-200 text-[10px] font-bold text-slate-450 uppercase tracking-wider bg-slate-50/50">
                       <th className="px-4 py-3">{language === 'bn' ? 'কোম্পানি' : 'Company'}</th>
@@ -1113,7 +1113,7 @@ export default function ReportsModule({
                 <h3 className="font-bold text-slate-800 text-sm">{t.srSalesTitle}</h3>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
+                <table className="w-full text-left border-collapse min-w-[800px]">
                   <thead>
                     <tr className="border-b border-slate-200 text-[10px] font-bold text-slate-450 uppercase tracking-wider bg-slate-50/50">
                       <th className="px-4 py-3">{language === 'bn' ? 'সেলস অফিসার (SR)' : 'Sales Officer (SR)'}</th>
@@ -1158,7 +1158,7 @@ export default function ReportsModule({
                 </h3>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
+                <table className="w-full text-left border-collapse min-w-[800px]">
                   <thead>
                     <tr className="border-b border-slate-200 text-[10px] font-bold text-slate-450 uppercase tracking-wider bg-slate-50/50">
                       <th className="px-4 py-3">{language === 'bn' ? 'ডেলিভারি ম্যান' : 'Delivery Officer / Man'}</th>
@@ -1212,7 +1212,7 @@ export default function ReportsModule({
                 </h3>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
+                <table className="w-full text-left border-collapse min-w-[800px]">
                   <thead>
                     <tr className="border-b border-slate-200 text-[10px] font-bold text-slate-450 uppercase tracking-wider bg-slate-50/50">
                       <th className="px-4 py-3">{language === 'bn' ? 'পণ্যের নাম ও কোম্পানি' : 'Product Name & Brand'}</th>
@@ -1264,7 +1264,7 @@ export default function ReportsModule({
                 </h3>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
+                <table className="w-full text-left border-collapse min-w-[800px]">
                   <thead>
                     <tr className="border-b border-slate-200 text-[10px] font-bold text-slate-450 uppercase tracking-wider bg-slate-50/50">
                       <th className="px-4 py-3">{language === 'bn' ? 'ইউনিটের নাম' : 'Unit Name / UOM'}</th>
@@ -1315,7 +1315,7 @@ export default function ReportsModule({
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-left border-collapse min-w-[800px]">
               <thead>
                 <tr className="border-b border-slate-200 text-[10px] font-bold text-slate-450 uppercase tracking-wider bg-slate-50/50">
                   <th className="px-4 py-3">{language === 'bn' ? 'কোম্পানি' : 'Company'}</th>
@@ -1419,7 +1419,7 @@ export default function ReportsModule({
 
                   {/* Per-product rows */}
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
+                    <table className="w-full text-left border-collapse min-w-[800px]">
                       <thead>
                         <tr className="border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50/60">
                           <th className="px-4 py-2.5">{language === 'bn' ? 'পণ্যের নাম' : 'Product'}</th>
@@ -1498,7 +1498,7 @@ export default function ReportsModule({
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-left border-collapse min-w-[800px]">
               <thead>
                 <tr className="border-b border-slate-200 text-[10px] font-bold text-slate-450 uppercase tracking-wider bg-slate-50/50">
                   <th className="px-4 py-3">{language === 'bn' ? 'পণ্য' : 'Product'}</th>
@@ -1595,7 +1595,7 @@ export default function ReportsModule({
 
                       {/* Products Table */}
                       <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
+                        <table className="w-full text-left border-collapse min-w-[800px]">
                           <thead>
                             <tr className="border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50/60">
                               <th className="px-4 py-2.5">{language === 'bn' ? 'পণ্যের নাম' : 'Product Name'}</th>
@@ -1690,7 +1690,7 @@ export default function ReportsModule({
 
                   {/* Main Product Table */}
                   <div className="flex-1 overflow-x-auto">
-                    <table className="w-full text-left border-collapse text-xs">
+                    <table className="w-full text-left border-collapse text-xs min-w-[800px]">
                       <thead>
                         <tr className={`${clr.light} text-[10px] font-bold uppercase tracking-wider border-b ${clr.border}`}>
                           <th className="px-3 py-2.5 text-slate-500 w-8">SL</th>
@@ -1820,7 +1820,7 @@ export default function ReportsModule({
                           {language === 'bn' ? 'কোনো রিটার্ন/ড্যামেজ নেই' : 'No returns or damages'}
                         </p>
                       ) : (
-                        <table className="w-full text-[10px]">
+                        <table className="w-full text-[10px] min-w-[400px]">
                           <thead>
                             <tr className="border-b border-rose-100 text-[9px] font-bold text-rose-400 uppercase">
                               <th className="pb-1.5 text-left">{language === 'bn' ? 'পণ্য' : 'Product'}</th>
