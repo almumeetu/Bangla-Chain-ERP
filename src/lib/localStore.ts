@@ -31,6 +31,12 @@ export interface Customer {
   name:    string;
   phone?:  string;
   address?:string;
+  market?: string;
+  assignedSR?: string;
+  routeId?: string;
+  creditLimit?: number;
+  creditDays?: number;
+  due?: number;
 }
 
 export interface AdminAccount {

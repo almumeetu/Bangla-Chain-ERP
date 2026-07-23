@@ -5,11 +5,12 @@ import {
   ShoppingBag, Trash2, Plus, Check, Search,
   TicketPercent, Sparkles, Printer, AlertTriangle,
   Package, ChevronRight, Zap, User, Truck, MapPin, Calendar,
-  LayoutGrid, List, X
+  LayoutGrid, List, X, Building
 } from 'lucide-react';
 import { Product, ProductAttribute, SR, Route, ChallanItem, DeliveryMan, Category, UnitOfMeasure } from '../types';
 import { translations, Language } from '../translations';
 import { printSalesOrder, type SalesOrderData } from '../lib/printUtils';
+import { Customer } from '../lib/localStore';
 
 interface SellModuleProps {
   products: Product[];
@@ -23,6 +24,8 @@ interface SellModuleProps {
   units: UnitOfMeasure[];
   onNavigate: (tab: any) => void;
   language: Language;
+  customers: Customer[];
+  setCustomers: React.Dispatch<React.SetStateAction<Customer[]>>;
 }
 
 interface CartItem {
@@ -373,7 +376,8 @@ function CartItemRow({
 // ── Main SellModule ───────────────────────────────────────────────────────────
 export default function SellModule({
   products, setProducts, attributes, srs, routes, deliveryMen,
-  setChallans, categories, units, onNavigate, language
+  setChallans, categories, units, onNavigate, language,
+  customers, setCustomers
 }: SellModuleProps) {
   const [cart, setCart]                               = useState<CartItem[]>([]);
   const [lastOrder, setLastOrder]                     = useState<SalesOrderData | null>(null);
@@ -385,9 +389,28 @@ export default function SellModule({
   const [selectedSR, setSelectedSR]                   = useState(srs[0]?.name || '');
   const [selectedRoute, setSelectedRoute]             = useState(routes[0]?.name || '');
   const [selectedDeliveryMan, setSelectedDeliveryMan] = useState(deliveryMen[0]?.name || '');
+  const [selectedCustomerName, setSelectedCustomerName] = useState('');
   const [orderStatus, setOrderStatus]                 = useState<'Shipped' | 'Delivered' | 'Pending'>('Pending');
   const [orderDate, setOrderDate]                     = useState<string>(new Date().toISOString().slice(0, 10));
   const [isAdvancedOpen, setIsAdvancedOpen]           = useState(false);
+
+  const filteredCustomers = React.useMemo(() => {
+    if (!selectedRoute) return customers || [];
+    const rObj = routes.find(r => r.name === selectedRoute);
+    if (!rObj) return customers || [];
+    const filtered = (customers || []).filter(c => c.routeId === rObj.id);
+    return filtered.length > 0 ? filtered : (customers || []);
+  }, [selectedRoute, customers, routes]);
+
+  React.useEffect(() => {
+    if (filteredCustomers.length > 0) {
+      if (!filteredCustomers.some(c => c.name === selectedCustomerName)) {
+        setSelectedCustomerName(filteredCustomers[0].name);
+      }
+    } else {
+      setSelectedCustomerName('');
+    }
+  }, [filteredCustomers, selectedCustomerName]);
 
   const uniqueCompanies = Array.from(new Set(products.map(p => p.company).filter(Boolean)));
 
@@ -501,16 +524,11 @@ export default function SellModule({
   const handleCheckout = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     if (cart.length === 0) { alert('Cart is empty!'); return; }
-    for (const item of cart) {
-      const isCarton = item.product.primaryUnit === 'Carton';
-      const cartonSize = item.product.cartonSize || 24;
-      const totalQty = isCarton ? item.cartons : (item.cartons * cartonSize + item.pcs);
-      const need = totalQty + item.bonusQty;
-      if (item.product.currentStock < need) {
-        alert(`Insufficient stock for "${item.product.name}"! Available: ${item.product.currentStock}, Requested: ${need}`);
-        return;
-      }
+    if (!selectedCustomerName) {
+      alert(language === 'bn' ? 'অনুগ্রহ করে খুচরা বিক্রেতা / দোকান নির্বাচন করুন' : 'Please select a Customer / Shop.');
+      return;
     }
+
     const currentTimeStr   = new Date().toISOString().slice(11, 24);
     const orderTimestamp   = new Date(`${orderDate}T${currentTimeStr}`).toISOString();
     const orderIdSuffix    = Date.now();
@@ -523,11 +541,9 @@ export default function SellModule({
 
       const pricePerCarton = item.product.pricePerCarton || (item.product.defaultWSP * (isCarton ? 1 : cartonSize));
       const pricePerPiece  = item.product.pricePerPiece  || item.product.defaultWSP;
-      // finalPrice = what the customer actually pays for this line
       const finalPrice = isCarton
         ? item.cartons * pricePerCarton
         : item.cartons * (item.product.pricePerCarton || item.product.defaultWSP * cartonSize) + item.pcs * pricePerPiece;
-      // rate = unit price used for returns/adjustments
       const rate = isCarton ? pricePerCarton : pricePerPiece;
 
       return {
@@ -539,28 +555,12 @@ export default function SellModule({
         deliveryManName: selectedDeliveryMan, status: 'Pending',
         returnedQty: item.returnedQty || 0, damagedQty: item.damagedQty || 0,
         commissionAmount: 0, createdAt: orderTimestamp,
+        customerId: customers.find(c => c.name === selectedCustomerName)?.id,
+        customerName: selectedCustomerName,
         selectedUnitName: isCarton
           ? `${item.cartons} ctn`
           : `${item.cartons} ctn, ${item.pcs} pcs`
       };
-    });
-
-    // Deduct stock in correct unit (cartons for Carton products, pieces for Piece products)
-    setProducts(currentProducts => {
-      return currentProducts.map(p => {
-        const item = cart.find(x => x.product.id === p.id);
-        if (item) {
-          const isCarton = p.primaryUnit === 'Carton';
-          const cartonSize = p.cartonSize || 24;
-          const totalQty = isCarton ? item.cartons : (item.cartons * cartonSize + item.pcs);
-          const deductQty = totalQty + item.bonusQty;
-          return {
-            ...p,
-            currentStock: Math.max(0, p.currentStock - deductQty)
-          };
-        }
-        return p;
-      });
     });
 
     setChallans(prev => [...newChallans, ...prev]);
@@ -596,7 +596,7 @@ export default function SellModule({
     setOrderStatus('Pending');
     alert('Checkout successful! Challans generated.');
     onNavigate('delivery');
-  }, [cart, cartSubtotalTP, netTotal, selectedSR, selectedRoute, selectedDeliveryMan, orderDate, setChallans, onNavigate, setProducts]);
+  }, [cart, cartSubtotalTP, netTotal, selectedSR, selectedRoute, selectedDeliveryMan, orderDate, setChallans, onNavigate, selectedCustomerName, customers]);
 
   const LabelInput = ({ label, children }: { label: string; children: React.ReactNode }) => (
     <div className="space-y-1">
@@ -748,7 +748,7 @@ export default function SellModule({
               </span>
             </div>
 
-            <div className="px-5 py-3.5 border-b border-slate-100 bg-gradient-to-r from-slate-50/80 to-white shrink-0">
+            <div className="px-5 py-3.5 border-b border-slate-100 bg-gradient-to-r from-slate-50/80 to-white shrink-0 space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <LabelInput label={translations[language].challan.srSelectLabel}>
                   <div className="relative">
@@ -769,6 +769,16 @@ export default function SellModule({
                   </div>
                 </LabelInput>
               </div>
+              <LabelInput label={language === 'bn' ? 'খুচরা বিক্রেতা / দোকান *' : 'Select Customer / Shop *'}>
+                <div className="relative">
+                  <Building className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
+                  <select id="pos-form-customer" value={selectedCustomerName} onChange={e => setSelectedCustomerName(e.target.value)}
+                    className="h-9 w-full rounded-xl border border-slate-200 bg-white pl-8 pr-3 text-[10px] font-medium text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-50 cursor-pointer transition-all duration-200 animate-fade-in">
+                    <option value="">{language === 'bn' ? 'দোকান নির্বাচন করুন' : 'Select Customer/Shop'}</option>
+                    {filteredCustomers.map(c => <option key={c.id} value={c.name}>{c.name} ({c.market})</option>)}
+                  </select>
+                </div>
+              </LabelInput>
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-2.5 modal-body min-h-[160px]">

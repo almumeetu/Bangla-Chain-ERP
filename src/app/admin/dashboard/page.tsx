@@ -196,13 +196,15 @@ export default function App() {
           attributes={db.attributes} srs={db.srs} routes={db.routes}
           deliveryMen={db.deliveryMen} setChallans={db.syncChallans}
           categories={db.productCategories} units={db.units}
-          onNavigate={handleNavigate} language={language} />
+          onNavigate={handleNavigate} language={language}
+          customers={db.customers} setCustomers={db.syncCustomers as any} />
       );
       case 'delivery': return (
         <ChallanModule challans={db.challans} setChallans={db.syncChallans}
           srs={db.srs} routes={db.routes} deliveryMen={db.deliveryMen}
           products={db.products} setProducts={db.syncProducts}
-          attributes={db.attributes} language={language} />
+          attributes={db.attributes} language={language}
+          customers={db.customers} setCustomers={db.syncCustomers as any} />
       );
       case 'stock': return (
         <StockAdjustmentModule attributes={db.attributes} setAttributes={db.syncAttributes}

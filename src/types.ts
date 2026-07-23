@@ -121,6 +121,8 @@ export interface ChallanItem {
   status: 'Pending' | 'Shipped' | 'Delivered';
   returnedQty: number;
   damagedQty: number;
+  customerId?: string;
+  customerName?: string;
   // Split return fields: carton-level and piece-level returns (Piece-based products only)
   returnedCartons?: number;
   returnedPcs?: number;

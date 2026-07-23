@@ -415,6 +415,16 @@ export default function ProcurementModule({
       };
     });
 
+    for (const item of finalizedItems) {
+      if (item.purchasePrice >= item.wsp) {
+        alert(language === 'bn' 
+          ? `ত্রুটি: "${item.productName}"-এর DP মূল্য অবশ্যই TP (WSP) মূল্য থেকে কম হতে হবে!` 
+          : `Error: DP Price (Purchase Price) for "${item.productName}" must ALWAYS be LOWER than TP Price (WSP)!`
+        );
+        return;
+      }
+    }
+
     const newProcurement: Procurement = {
       id: `proc-${Date.now()}`,
       supplierName: supplierName as 'Pran' | 'Olympic' | 'Haque',

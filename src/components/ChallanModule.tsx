@@ -19,11 +19,13 @@ import {
   ShoppingBag,
   Users,
   Printer,
-  Pencil
+  Pencil,
+  Building
 } from 'lucide-react';
 import { ChallanItem, SR, Route, DeliveryMan, Product, ProductAttribute } from '../types';
 import { translations, Language } from '../translations';
 import { printChallanInvoice, printChallanSheet } from '../lib/printUtils';
+import { Customer } from '../lib/localStore';
 
 export interface GroupedOrder {
   id: string;
@@ -32,6 +34,7 @@ export interface GroupedOrder {
   srName: string;
   routeName: string;
   deliveryManName: string;
+  customerName?: string;
   status: 'Pending' | 'Shipped' | 'Delivered';
   totalAmount: number;
   totalQty: number;
@@ -48,6 +51,8 @@ interface ChallanModuleProps {
   setProducts: React.Dispatch<React.SetStateAction<Product[]>>;
   attributes: ProductAttribute[];
   language: Language;
+  customers: Customer[];
+  setCustomers: React.Dispatch<React.SetStateAction<Customer[]>>;
 }
 
 export default function ChallanModule({
@@ -59,7 +64,9 @@ export default function ChallanModule({
   products,
   setProducts,
   attributes,
-  language
+  language,
+  customers,
+  setCustomers
 }: ChallanModuleProps) {
   const tCommon = translations[language].common;
   const tChallan = translations[language].challan;
@@ -131,7 +138,46 @@ export default function ChallanModule({
   const [newSR, setNewSR] = useState('');
   const [newRoute, setNewRoute] = useState('');
   const [newDeliveryMan, setNewDeliveryMan] = useState('');
+  const [newCustomerName, setNewCustomerName] = useState('');
   const [newStatus, setNewStatus] = useState<'Pending' | 'Shipped' | 'Delivered'>('Pending');
+
+  const filteredCustomersForNewChallan = React.useMemo(() => {
+    if (!newRoute) return customers || [];
+    const rObj = routes.find(r => r.name === newRoute);
+    if (!rObj) return customers || [];
+    const filtered = (customers || []).filter(c => c.routeId === rObj.id);
+    return filtered.length > 0 ? filtered : (customers || []);
+  }, [newRoute, customers, routes]);
+
+  React.useEffect(() => {
+    if (filteredCustomersForNewChallan.length > 0) {
+      if (!filteredCustomersForNewChallan.some(c => c.name === newCustomerName)) {
+        setNewCustomerName(filteredCustomersForNewChallan[0].name);
+      }
+    } else {
+      setNewCustomerName('');
+    }
+  }, [filteredCustomersForNewChallan, newCustomerName]);
+
+  const executeTransaction = (
+    tempProducts: Product[],
+    tempCustomers: Customer[],
+    tempChallans: ChallanItem[],
+    operations: () => void
+  ) => {
+    try {
+      operations();
+      setProducts(tempProducts);
+      setCustomers(tempCustomers);
+      setChallans(tempChallans);
+    } catch (error: any) {
+      alert(language === 'bn' 
+        ? `লেনদেন ব্যর্থ হয়েছে এবং পরিবর্তনগুলি বাতিল করা হয়েছে: ${error.message}` 
+        : `Transaction failed and changes rolled back: ${error.message}`
+      );
+      throw error;
+    }
+  };
 
   const updateNewChallanItemQty = (itemId: string, delta: number) => {
     setNewChallanItems(prev => prev.map(item => {
@@ -208,9 +254,9 @@ export default function ChallanModule({
   const groupedData = React.useMemo(() => {
     const map = new Map<string, GroupedOrder>();
     challans.forEach(item => {
-      // Create a unique key per "Order" using createdAt, SR, Route, and Delivery Man
-      // This groups items created at the exact same moment.
-      const key = `${item.createdAt}_${item.srName}_${item.routeName}_${item.deliveryManName}`;
+      // Create a unique key per "Order" using createdAt, SR, Route, Delivery Man, and Customer Name
+      // This groups items created at the exact same moment for the same customer.
+      const key = `${item.createdAt}_${item.srName}_${item.routeName}_${item.deliveryManName}_${item.customerName || 'WalkIn'}`;
       if (!map.has(key)) {
         map.set(key, {
           id: key,
@@ -219,6 +265,7 @@ export default function ChallanModule({
           srName: item.srName,
           routeName: item.routeName,
           deliveryManName: item.deliveryManName,
+          customerName: item.customerName,
           status: item.status,
           totalAmount: 0,
           totalQty: 0,
@@ -442,6 +489,10 @@ export default function ChallanModule({
       alert('Please fill out all required fields (Salesman SR, Market Route, and Delivery Man)');
       return;
     }
+    if (!newCustomerName) {
+      alert(language === 'bn' ? 'অনুগ্রহ করে খুচরা বিক্রেতা / দোকান নির্বাচন করুন' : 'Please select a Customer / Shop.');
+      return;
+    }
 
     const createdAt = new Date().toISOString();
     const totalGross = newChallanItems.reduce((sum, item) => sum + (item.qty * item.rate), 0);
@@ -483,46 +534,61 @@ export default function ChallanModule({
         extraProfitAmount: itemExtraProfit,
         extraCommissionAmount: itemExtraProfit, // for backward compatibility
         createdAt,
+        customerId: customers.find(c => c.name === newCustomerName)?.id,
+        customerName: newCustomerName,
         srCommissionType: 'Fixed',
         srCommissionValue: commissionRate,
         srCommissionAmount
       };
     });
 
-    // Reevaluate stock deduction if Delivered
-    if (newStatus === 'Delivered') {
-      let tempProducts = [...products];
-      newChallanItems.forEach(item => {
-        const totalQty = item.qty + item.bonusQty;
-        tempProducts = tempProducts.map(p => {
-          if (p.name === item.productName) {
-            return {
-              ...p,
-              currentStock: p.currentStock - totalQty
-            };
-          }
-          return p;
-        });
-      });
-      setProducts(tempProducts);
-    }
+    let tempProducts = [...products];
+    let tempCustomers = [...customers];
+    let tempChallans = [...challans];
 
-    setChallans(prev => [...newItemsList, ...prev]);
-    setShowAddModal(false);
-    
-    // Reset form states
-    setNewChallanItems([]);
-    setSelectedCompany('');
-    setNewProduct('');
-    setNewAttribute('');
-    setNewQty(10);
-    setNewBonusQty(0);
-    setNewCommissionAmount(0);
-    setNewExtraProfitAmount(0);
-    setNewSR('');
-    setNewRoute('');
-    setNewDeliveryMan('');
-    setNewStatus('Pending');
+    try {
+      executeTransaction(tempProducts, tempCustomers, tempChallans, () => {
+        if (newStatus === 'Delivered') {
+          newItemsList.forEach(item => {
+            const totalQty = item.qty + item.bonusQty;
+            tempProducts = tempProducts.map(p => {
+              if (p.name === item.productName) {
+                const currentStock = p.currentStock - totalQty;
+                if (currentStock < 0) {
+                  throw new Error(`Insufficient stock for product "${p.name}". Stock would drop to ${currentStock}.`);
+                }
+                return { ...p, currentStock };
+              }
+              return p;
+            });
+          });
+
+          const cust = tempCustomers.find(c => c.name === newCustomerName);
+          if (cust) {
+            const invoiceTotal = newItemsList.reduce((sum, item) => sum + item.totalAmount, 0);
+            cust.due = (cust.due || 0) + invoiceTotal;
+          }
+        }
+        tempChallans = [...newItemsList, ...tempChallans];
+      });
+
+      setShowAddModal(false);
+      setNewChallanItems([]);
+      setSelectedCompany('');
+      setNewProduct('');
+      setNewAttribute('');
+      setNewQty(10);
+      setNewBonusQty(0);
+      setNewCommissionAmount(0);
+      setNewExtraProfitAmount(0);
+      setNewSR('');
+      setNewRoute('');
+      setNewDeliveryMan('');
+      setNewCustomerName('');
+      setNewStatus('Pending');
+    } catch (err) {
+      // executeTransaction already alerts the user
+    }
   };
 
   const handleGroupStatusChange = (groupId: string, newStatus: 'Pending' | 'Shipped' | 'Delivered') => {
@@ -565,146 +631,140 @@ export default function ChallanModule({
     e.preventDefault();
     if (!settlementOrder) return;
 
-    // Calculate total net value of updated items to distribute fixed commission proportionally
-    let totalUpdatedNetValue = 0;
-    const itemsToUpdate = settlementOrder.items.map(item => {
-      const updates = settlementQuantities[item.id] || { returned: 0, damaged: 0 };
-      const netQty = item.qty - (Number(updates.returned) || 0) - (Number(updates.damaged) || 0);
-      const soldVal = Math.max(0, netQty) * item.rate;
-      return {
-        id: item.id,
-        netValue: soldVal - (item.commissionAmount || 0)
-      };
-    });
-    totalUpdatedNetValue = itemsToUpdate.reduce((sum, x) => sum + x.netValue, 0);
+    let tempProducts = [...products];
+    let tempCustomers = [...customers];
+    let tempChallans = [...challans];
 
-    const calculatedTotalSRComm = settlementSRCommValue;
-
-    // Immutably update products based on delivery state transition
-    const updatedProducts = products.map(p => {
-      let currentStock = p.currentStock;
-      let damagedStock = p.damagedStock || 0;
-
-      settlementOrder.items.forEach(ch => {
-        if (ch.productName === p.name) {
-          const itemQtyUpdates = settlementQuantities[ch.id];
-          if (itemQtyUpdates) {
-            const newReturned = Number(itemQtyUpdates.returned) || 0;
-            const newDamaged = Number(itemQtyUpdates.damaged) || 0;
-
-            const wasDelivered = ch.status === 'Delivered';
-            const isDelivered = settlementStatus === 'Delivered';
-
-            if (wasDelivered && isDelivered) {
-              const returnDiff = newReturned - (ch.returnedQty || 0);
-              currentStock += returnDiff;
-              const damageDiff = newDamaged - (ch.damagedQty || 0);
-              damagedStock += damageDiff;
-            } else if (!wasDelivered && isDelivered) {
-              const soldQty = ch.qty + ch.bonusQty - newReturned;
-              currentStock -= soldQty;
-              damagedStock += newDamaged;
-            } else if (wasDelivered && !isDelivered) {
-              const prevSoldQty = ch.qty + ch.bonusQty - ch.returnedQty;
-              currentStock += prevSoldQty;
-              damagedStock -= ch.damagedQty;
-            }
-          }
-        }
-      });
-
-      return {
-        ...p,
-        currentStock,
-        damagedStock
-      };
-    });
-    setProducts(updatedProducts);
-
-    // Update all challan items
-    setChallans(prev => {
-      return prev.map(ch => {
-        const itemQtyUpdates = settlementQuantities[ch.id];
-        if (itemQtyUpdates) {
-          const newReturned = Number(itemQtyUpdates.returned) || 0;
-          const newDamaged = Number(itemQtyUpdates.damaged) || 0;
-
-          const netQty = ch.qty - newReturned - newDamaged;
-          const baseAmount = Math.max(0, netQty) * ch.rate;
-          const totalAmount = baseAmount - (ch.commissionAmount || 0);
-
-          const itemUpdate = itemsToUpdate.find(x => x.id === ch.id);
-          const itemSRCommAmount = totalUpdatedNetValue > 0 && itemUpdate
-            ? calculatedTotalSRComm * (itemUpdate.netValue / totalUpdatedNetValue)
-            : 0;
-          const itemExtraCommAmount = totalUpdatedNetValue > 0 && itemUpdate
-            ? settlementExtraCommValue * (itemUpdate.netValue / totalUpdatedNetValue)
-            : 0;
-
+    try {
+      executeTransaction(tempProducts, tempCustomers, tempChallans, () => {
+        let totalUpdatedNetValue = 0;
+        const itemsToUpdate = settlementOrder.items.map(item => {
+          const updates = settlementQuantities[item.id] || { returned: 0, damaged: 0 };
+          const netQty = item.qty - (Number(updates.returned) || 0) - (Number(updates.damaged) || 0);
+          const soldVal = Math.max(0, netQty) * item.rate;
           return {
-            ...ch,
-            status: settlementStatus,
-            returnedQty: newReturned,
-            damagedQty: newDamaged,
-            totalAmount: baseAmount - itemSRCommAmount - itemExtraCommAmount,
-            commissionAmount: itemSRCommAmount,
-            extraCommissionAmount: itemExtraCommAmount,
-            srCommissionValue: settlementSRCommValue,
-            srCommissionAmount: itemSRCommAmount
+            id: item.id,
+            netValue: soldVal - (item.commissionAmount || 0),
+            updates
           };
-        }
-        return ch;
-      });
-    });
+        });
+        totalUpdatedNetValue = itemsToUpdate.reduce((sum, x) => sum + x.netValue, 0);
 
-    // Update viewingOrder if active
-    setViewingOrder(prev => {
-      if (!prev || prev.id !== settlementOrder.id) return prev;
-      const updatedItems = prev.items.map(item => {
-        const updates = settlementQuantities[item.id];
-        if (updates) {
+        const calculatedTotalSRComm = settlementSRCommValue;
+        let oldDeliveredTotal = 0;
+        let newDeliveredTotal = 0;
+
+        const targetCustomerName = settlementOrder.items[0]?.customerName;
+        const customer = tempCustomers.find(cust => cust.name === targetCustomerName);
+
+        settlementOrder.items.forEach(ch => {
+          const itemUpdate = itemsToUpdate.find(x => x.id === ch.id)!;
+          const updates = itemUpdate.updates;
           const newReturned = Number(updates.returned) || 0;
           const newDamaged = Number(updates.damaged) || 0;
 
-          const netQty = item.qty - newReturned - newDamaged;
-          const baseAmount = Math.max(0, netQty) * item.rate;
-          const totalAmount = baseAmount - (item.commissionAmount || 0);
+          const netQty = ch.qty - newReturned - newDamaged;
+          const baseAmount = Math.max(0, netQty) * ch.rate;
 
-          const itemUpdate = itemsToUpdate.find(x => x.id === item.id);
-          const itemSRCommAmount = totalUpdatedNetValue > 0 && itemUpdate
+          const itemSRCommAmount = totalUpdatedNetValue > 0
             ? calculatedTotalSRComm * (itemUpdate.netValue / totalUpdatedNetValue)
             : 0;
-          const itemExtraCommAmount = totalUpdatedNetValue > 0 && itemUpdate
+          const itemExtraCommAmount = totalUpdatedNetValue > 0
             ? settlementExtraCommValue * (itemUpdate.netValue / totalUpdatedNetValue)
             : 0;
 
-          return {
-            ...item,
-            status: settlementStatus,
-            returnedQty: newReturned,
-            damagedQty: newDamaged,
-            totalAmount: baseAmount - itemSRCommAmount - itemExtraCommAmount,
-            commissionAmount: itemSRCommAmount,
-            extraCommissionAmount: itemExtraCommAmount,
-            srCommissionValue: settlementSRCommValue,
-            srCommissionAmount: itemSRCommAmount
-          };
-        }
-        return item;
-      });
-      return {
-        ...prev,
-        status: settlementStatus,
-        items: updatedItems,
-        totalQty: updatedItems.reduce((acc, curr) => acc + curr.totalQty, 0),
-        totalAmount: updatedItems.reduce((acc, curr) => acc + curr.totalAmount, 0)
-      };
-    });
+          const finalItemAmount = baseAmount - itemSRCommAmount - itemExtraCommAmount;
 
-    setSettlementOrder(null);
-    alert(language === 'bn' 
-      ? 'চালান সেটেলমেন্ট এবং স্টক আপডেট সফল হয়েছে!' 
-      : 'Challan settlement and stock updates saved successfully!');
+          const wasDelivered = ch.status === 'Delivered';
+          const isDelivered = settlementStatus === 'Delivered';
+
+          if (wasDelivered) {
+            oldDeliveredTotal += ch.totalAmount;
+          }
+          if (isDelivered) {
+            newDeliveredTotal += finalItemAmount;
+          }
+
+          tempProducts = tempProducts.map(p => {
+            if (p.name === ch.productName) {
+              let currentStock = p.currentStock;
+              let damagedStock = p.damagedStock || 0;
+
+              if (wasDelivered && isDelivered) {
+                const returnDiff = newReturned - (ch.returnedQty || 0);
+                currentStock += returnDiff;
+                const damageDiff = newDamaged - (ch.damagedQty || 0);
+                damagedStock += damageDiff;
+              } else if (!wasDelivered && isDelivered) {
+                const soldQty = ch.qty + ch.bonusQty - newReturned;
+                currentStock -= soldQty;
+                damagedStock += newDamaged;
+              } else if (wasDelivered && !isDelivered) {
+                const prevSoldQty = ch.qty + ch.bonusQty - ch.returnedQty;
+                currentStock += prevSoldQty;
+                damagedStock -= ch.damagedQty;
+              }
+
+              if (currentStock < 0) {
+                throw new Error(`Insufficient stock for product "${p.name}". Stock would drop to ${currentStock}.`);
+              }
+
+              return {
+                ...p,
+                currentStock,
+                damagedStock
+              };
+            }
+            return p;
+          });
+
+          tempChallans = tempChallans.map(item => {
+            if (item.id === ch.id) {
+              return {
+                ...item,
+                status: settlementStatus,
+                returnedQty: newReturned,
+                damagedQty: newDamaged,
+                totalAmount: finalItemAmount,
+                commissionAmount: itemSRCommAmount,
+                extraCommissionAmount: itemExtraCommAmount,
+                srCommissionValue: settlementSRCommValue,
+                srCommissionAmount: itemSRCommAmount
+              };
+            }
+            return item;
+          });
+        });
+
+        if (customer) {
+          const diff = newDeliveredTotal - oldDeliveredTotal;
+          customer.due = (customer.due || 0) + diff;
+        }
+      });
+
+      setViewingOrder(prev => {
+        if (!prev || prev.id !== settlementOrder.id) return prev;
+        const updatedItems = prev.items.map(item => {
+          const matched = tempChallans.find(x => x.id === item.id);
+          return matched ? { ...matched } : item;
+        });
+
+        return {
+          ...prev,
+          status: settlementStatus,
+          items: updatedItems,
+          totalQty: updatedItems.reduce((acc, curr) => acc + curr.totalQty, 0),
+          totalAmount: updatedItems.reduce((acc, curr) => acc + curr.totalAmount, 0)
+        };
+      });
+
+      setSettlementOrder(null);
+      alert(language === 'bn' 
+        ? 'চালান সেটেলমেন্ট এবং স্টক আপডেট সফল হয়েছে!' 
+        : 'Challan settlement and stock updates saved successfully!');
+    } catch (err) {
+      // Transaction failed, alerts already raised
+    }
   };
 
   const handleDeleteGroup = (groupId: string) => {
@@ -712,28 +772,45 @@ export default function ChallanModule({
     const group = groupedData.find(g => g.id === groupId);
     if (!group) return;
 
-    // Revert stock of any items that were delivered
-    const updatedProducts = products.map(p => {
-      let currentStock = p.currentStock;
-      let damagedStock = p.damagedStock || 0;
+    let tempProducts = [...products];
+    let tempCustomers = [...customers];
+    let tempChallans = [...challans];
 
-      group.items.forEach(item => {
-        if (item.productName === p.name && item.status === 'Delivered') {
-          currentStock += (item.qty + item.bonusQty - item.returnedQty);
-          damagedStock -= item.damagedQty;
+    try {
+      executeTransaction(tempProducts, tempCustomers, tempChallans, () => {
+        tempProducts = tempProducts.map(p => {
+          let currentStock = p.currentStock;
+          let damagedStock = p.damagedStock || 0;
+
+          group.items.forEach(item => {
+            if (item.productName === p.name && item.status === 'Delivered') {
+              currentStock += (item.qty + item.bonusQty - item.returnedQty);
+              damagedStock -= item.damagedQty;
+            }
+          });
+
+          return {
+            ...p,
+            currentStock,
+            damagedStock
+          };
+        });
+
+        if (group.status === 'Delivered') {
+          const targetCustomerName = group.items[0]?.customerName;
+          const customer = tempCustomers.find(cust => cust.name === targetCustomerName);
+          if (customer) {
+            const deliveredTotal = group.items.reduce((sum, item) => sum + item.totalAmount, 0);
+            customer.due = Math.max(0, (customer.due || 0) - deliveredTotal);
+          }
         }
+
+        const itemIds = group.items.map(i => i.id);
+        tempChallans = tempChallans.filter(c => !itemIds.includes(c.id));
       });
-
-      return {
-        ...p,
-        currentStock,
-        damagedStock
-      };
-    });
-    setProducts(updatedProducts);
-
-    const itemIds = group.items.map(i => i.id);
-    setChallans(prev => prev.filter(c => !itemIds.includes(c.id)));
+    } catch (err) {
+      // Transaction failed, alerts already raised
+    }
   };
 
   const handleStatusChange = (id: string, newStatus: 'Pending' | 'Shipped' | 'Delivered') => {
@@ -770,89 +847,109 @@ export default function ChallanModule({
     e.preventDefault();
     if (!editingOrder) return;
 
-    // 1. Revert original stock if original status was Delivered
     let tempProducts = [...products];
-    if (editingOrder.status === 'Delivered') {
-      editingOrder.items.forEach(oldItem => {
-        tempProducts = tempProducts.map(p => {
-          if (p.name === oldItem.productName) {
-            const restoredStock = oldItem.qty + (oldItem.bonusQty || 0) - (oldItem.returnedQty || 0);
-            const restoredDamage = oldItem.damagedQty || 0;
-            return {
-              ...p,
-              currentStock: p.currentStock + restoredStock,
-              damagedStock: Math.max(0, (p.damagedStock || 0) - restoredDamage)
-            };
+    let tempCustomers = [...customers];
+    let tempChallans = [...challans];
+
+    try {
+      executeTransaction(tempProducts, tempCustomers, tempChallans, () => {
+        if (editingOrder.status === 'Delivered') {
+          editingOrder.items.forEach(oldItem => {
+            tempProducts = tempProducts.map(p => {
+              if (p.name === oldItem.productName) {
+                const restoredStock = oldItem.qty + (oldItem.bonusQty || 0) - (oldItem.returnedQty || 0);
+                const restoredDamage = oldItem.damagedQty || 0;
+                return {
+                  ...p,
+                  currentStock: p.currentStock + restoredStock,
+                  damagedStock: Math.max(0, (p.damagedStock || 0) - restoredDamage)
+                };
+              }
+              return p;
+            });
+          });
+
+          const targetCustomerName = editingOrder.items[0]?.customerName;
+          const customer = tempCustomers.find(cust => cust.name === targetCustomerName);
+          if (customer) {
+            const oldTotal = editingOrder.items.reduce((sum, item) => sum + item.totalAmount, 0);
+            customer.due = Math.max(0, (customer.due || 0) - oldTotal);
           }
-          return p;
-        });
-      });
-    }
+        }
 
-    // 2. Reduce stock if new status is Delivered
-    if (editStatus === 'Delivered') {
-      editOrderItems.forEach(newItem => {
-        tempProducts = tempProducts.map(p => {
-          if (p.name === newItem.productName) {
-            const soldStock = newItem.qty + (newItem.bonusQty || 0) - (newItem.returnedQty || 0);
-            const newDamage = newItem.damagedQty || 0;
-            return {
-              ...p,
-              currentStock: p.currentStock - soldStock,
-              damagedStock: (p.damagedStock || 0) + newDamage
-            };
+        const finalChallanItems = editOrderItems.map(item => {
+          const netQty = Math.max(0, item.qty - (item.returnedQty || 0) - (item.damagedQty || 0));
+          const totalAmount = netQty * item.rate - (item.commissionAmount || 0);
+          return {
+            ...item,
+            srName: editSR,
+            routeName: editRoute,
+            deliveryManName: editDeliveryMan,
+            status: editStatus,
+            totalQty: item.qty + (item.bonusQty || 0),
+            totalAmount
+          };
+        });
+
+        if (editStatus === 'Delivered') {
+          finalChallanItems.forEach(newItem => {
+            tempProducts = tempProducts.map(p => {
+              if (p.name === newItem.productName) {
+                const soldStock = newItem.qty + (newItem.bonusQty || 0) - (newItem.returnedQty || 0);
+                const newDamage = newItem.damagedQty || 0;
+                const currentStock = p.currentStock - soldStock;
+                if (currentStock < 0) {
+                  throw new Error(`Insufficient stock for product "${p.name}". Stock would drop to ${currentStock}.`);
+                }
+                return {
+                  ...p,
+                  currentStock,
+                  damagedStock: (p.damagedStock || 0) + newDamage
+                };
+              }
+              return p;
+            });
+          });
+
+          const targetCustomerName = finalChallanItems[0]?.customerName || editingOrder.items[0]?.customerName;
+          const customer = tempCustomers.find(cust => cust.name === targetCustomerName);
+          if (customer) {
+            const newTotal = finalChallanItems.reduce((sum, item) => sum + item.totalAmount, 0);
+            customer.due = (customer.due || 0) + newTotal;
           }
-          return p;
-        });
+        }
+
+        const oldItemIds = editingOrder.items.map(i => i.id);
+        const filteredChallans = tempChallans.filter(c => !oldItemIds.includes(c.id));
+        tempChallans = [...filteredChallans, ...finalChallanItems];
       });
-    }
-    setProducts(tempProducts);
 
-    // 3. Update Challans list: remove old items and add modified final items
-    const oldItemIds = editingOrder.items.map(i => i.id);
-    const filteredChallans = challans.filter(c => !oldItemIds.includes(c.id));
-
-    // Get a unique ISO timestamp for edit tracking if date changes, otherwise keep original
-    // Since items are grouped by key containing item.createdAt, keep the original createdAt timestamp
-    // so they stay in the same order chronological position!
-    const finalChallanItems = editOrderItems.map(item => {
-      const netQty = Math.max(0, item.qty - (item.returnedQty || 0) - (item.damagedQty || 0));
-      const totalAmount = netQty * item.rate - (item.commissionAmount || 0);
-      return {
-        ...item,
-        srName: editSR,
-        routeName: editRoute,
-        deliveryManName: editDeliveryMan,
-        status: editStatus,
-        totalQty: item.qty + (item.bonusQty || 0),
-        totalAmount
-      };
-    });
-
-    setChallans([...filteredChallans, ...finalChallanItems]);
-
-    // Update viewingOrder if open
-    if (viewingOrder && viewingOrder.id === editingOrder.id) {
-      if (finalChallanItems.length === 0) {
-        setViewingOrder(null);
-      } else {
-        setViewingOrder({
-          id: `${viewingOrder.createdAt}_${editSR}_${editRoute}_${editDeliveryMan}`,
-          items: finalChallanItems,
-          createdAt: viewingOrder.createdAt,
-          srName: editSR,
-          routeName: editRoute,
-          deliveryManName: editDeliveryMan,
-          status: editStatus,
-          totalAmount: finalChallanItems.reduce((acc, curr) => acc + curr.totalAmount, 0),
-          totalQty: finalChallanItems.reduce((acc, curr) => acc + curr.totalQty, 0),
-          itemCount: finalChallanItems.length
-        });
+      if (viewingOrder && viewingOrder.id === editingOrder.id) {
+        const finalChallanItems = tempChallans.filter(c => c.createdAt === viewingOrder.createdAt && c.srName === editSR && c.routeName === editRoute);
+        if (finalChallanItems.length === 0) {
+          setViewingOrder(null);
+        } else {
+          setViewingOrder({
+            id: `${viewingOrder.createdAt}_${editSR}_${editRoute}_${editDeliveryMan}`,
+            items: finalChallanItems,
+            createdAt: viewingOrder.createdAt,
+            srName: editSR,
+            routeName: editRoute,
+            deliveryManName: editDeliveryMan,
+            customerName: finalChallanItems[0]?.customerName,
+            status: editStatus,
+            totalAmount: finalChallanItems.reduce((acc, curr) => acc + curr.totalAmount, 0),
+            totalQty: finalChallanItems.reduce((acc, curr) => acc + curr.totalQty, 0),
+            itemCount: finalChallanItems.length
+          });
+        }
       }
-    }
 
-    setEditingOrder(null);
-    alert(language === 'bn' ? 'অর্ডার সফলভাবে আপডেট করা হয়েছে এবং স্টক সমন্বয় করা হয়েছে!' : 'Order updated successfully and stock levels synchronized!');
+      setEditingOrder(null);
+      alert(language === 'bn' ? 'অর্ডার সফলভাবে আপডেট করা হয়েছে এবং স্টক সমন্বয় করা হয়েছে!' : 'Order updated successfully and stock levels synchronized!');
+    } catch (err) {
+      // Transaction failed, alerts already raised
+    }
   };
 
   // CSV Exporter (Active filtered sheet)
@@ -1192,6 +1289,12 @@ export default function ChallanModule({
                     <td className="px-5 py-4 text-center text-slate-400 font-mono font-bold whitespace-nowrap">{globalIndex}</td>
                     <td className="px-5 py-4 font-bold text-slate-800 whitespace-nowrap">
                       ORD-{new Date(g.createdAt).getTime().toString().slice(-6)}
+                      {g.customerName && (
+                        <div className="text-[11px] text-indigo-650 font-extrabold flex items-center gap-1 mt-0.5">
+                          <Building className="w-3 h-3 text-indigo-500 shrink-0" />
+                          {g.customerName}
+                        </div>
+                      )}
                       <div className="text-[10px] text-slate-400 font-normal mt-0.5">{new Date(g.createdAt).toLocaleDateString()}</div>
                     </td>
                     <td className="px-5 py-4 text-center font-bold text-slate-700 whitespace-nowrap">
@@ -1404,8 +1507,8 @@ export default function ChallanModule({
 
               {selectedCompany && (
                 <>
-                  {/* SR & Delivery Agent Selection */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {/* SR & Delivery Agent & Customer Selection */}
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
                     <div>
                       <label className="mb-2 block text-sm font-semibold text-slate-700">{tChallan.srSelectLabel}</label>
                       <select
@@ -1493,6 +1596,22 @@ export default function ChallanModule({
                           .map(r => (
                             <option key={r.id} value={r.name}>{r.name}</option>
                           ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block text-sm font-semibold text-slate-700">{language === 'bn' ? 'দোকান / খুচরা বিক্রেতা *' : 'Shop / Customer *'}</label>
+                      <select
+                        id="new-challan-customer-select"
+                        required
+                        value={newCustomerName}
+                        onChange={(e) => setNewCustomerName(e.target.value)}
+                        className="h-11 w-full rounded-lg border-2 border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all"
+                      >
+                        <option value="">{language === 'bn' ? 'দোকান নির্বাচন করুন' : 'Select Customer/Shop'}</option>
+                        {filteredCustomersForNewChallan.map(c => (
+                          <option key={c.id} value={c.name}>{c.name} ({c.market})</option>
+                        ))}
                       </select>
                     </div>
                   </div>
@@ -1790,12 +1909,20 @@ export default function ChallanModule({
                      viewingOrder.status === 'Shipped'   ? tCommon.shipped :
                      tCommon.pending}
                   </span>
-                  <div className="flex gap-3 text-xs text-slate-500 font-semibold">
-                    <span>SR: <span className="text-slate-800">{viewingOrder.srName}</span></span>
-                    <span>·</span>
-                    <span>{viewingOrder.routeName}</span>
-                    <span>·</span>
-                    <span>{viewingOrder.deliveryManName}</span>
+                  <div className="flex flex-col gap-1 items-end">
+                    <div className="flex gap-3 text-xs text-slate-500 font-semibold">
+                      <span>SR: <span className="text-slate-800">{viewingOrder.srName}</span></span>
+                      <span>·</span>
+                      <span>{viewingOrder.routeName}</span>
+                      <span>·</span>
+                      <span>{viewingOrder.deliveryManName}</span>
+                    </div>
+                    {viewingOrder.customerName && (
+                      <div className="text-xs text-indigo-650 font-extrabold flex items-center gap-1 mt-0.5">
+                        <Building className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                        {language === 'bn' ? 'দোকান:' : 'Customer/Shop:'} {viewingOrder.customerName}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

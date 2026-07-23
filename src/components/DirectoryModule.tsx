@@ -102,11 +102,21 @@ function ProductRow({ p, index, companies, categories, units, godowns, onEdit, o
   const uomName = primaryUnit ? `${primaryUnit.name} (${primaryUnit.multiplier})` : 'Pcs';
   const godownName = godowns.find(g => g.id === p.defaultGodownId)?.name || 'Main Godown';
 
+  const isPriceInvalid = p.defaultPP >= p.defaultWSP;
+
   return (
-    <tr className="hover:bg-slate-50/50 transition-all duration-200 text-xs">
+    <tr className={`hover:bg-slate-50/50 transition-all duration-200 text-xs ${isPriceInvalid ? 'bg-rose-50/30' : ''}`}>
       <td className="px-4 py-3.5 text-center text-slate-400 font-mono font-medium">{index + 1}</td>
       <td className="px-4 py-3.5">
-        <div className="font-semibold text-slate-800">{p.name}</div>
+        <div className="flex items-center gap-2">
+          <div className="font-semibold text-slate-800">{p.name}</div>
+          {isPriceInvalid && (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-rose-50 text-rose-600 border border-rose-100 text-[8px] font-bold animate-pulse">
+              <AlertTriangle className="w-2.5 h-2.5 shrink-0" />
+              {"Price Rule Violation: DP >= TP"}
+            </span>
+          )}
+        </div>
         {(categoryName !== 'N/A' || uomName !== 'N/A') && (
           <div className="text-[10px] text-slate-400 font-mono mt-0.5">
             {categoryName !== 'N/A' && `Cat: ${categoryName}`}
@@ -612,6 +622,7 @@ export default function DirectoryModule({
   const [shopRouteId, setShopRouteId] = useState('');
   const [shopCreditLimit, setShopCreditLimit] = useState<number>(0);
   const [shopCreditDays, setShopCreditDays] = useState<number>(0);
+  const [shopDue, setShopDue] = useState<number>(0);
 
   // Auto-fill assigned SR based on Route mapping inside shop setup
   useEffect(() => {
@@ -711,6 +722,15 @@ export default function DirectoryModule({
 
   const saveInlineEditProduct = useCallback(() => {
     if (inlineEditingProductId && inlineEditForm.name && inlineEditForm.sku && inlineEditForm.company) {
+      const dp = Number(inlineEditForm.defaultPP || 0);
+      const tp = Number(inlineEditForm.defaultWSP || 0);
+      if (dp >= tp) {
+        alert(language === 'bn' 
+          ? 'ত্রুটি: DP (Purchase Price) মূল্য অবশ্যই TP (WSP) মূল্য থেকে কম হতে হবে!' 
+          : 'Error: DP Price (Purchase Price) must ALWAYS be LOWER than TP Price (WSP)!'
+        );
+        return;
+      }
       setProducts(prev => prev.map(p =>
         p.id === inlineEditingProductId ? { ...p, ...inlineEditForm } as Product : p
       ));
@@ -719,7 +739,7 @@ export default function DirectoryModule({
     } else {
       alert('Please fill out Product Name, SKU, and Company.');
     }
-  }, [inlineEditingProductId, inlineEditForm, setProducts]);
+  }, [inlineEditingProductId, inlineEditForm, setProducts, language]);
 
   const cancelInlineEditProduct = useCallback(() => {
     setInlineEditingProductId(null);
@@ -734,6 +754,16 @@ export default function DirectoryModule({
       return;
     }
 
+    const dp = Number(prodPP);
+    const tp = Number(prodPricePerPiece);
+    if (dp >= tp) {
+      alert(language === 'bn' 
+        ? 'ত্রুটি: DP (Purchase Price) মূল্য অবশ্যই TP (WSP) মূল্য থেকে কম হতে হবে!' 
+        : 'Error: DP Price (Purchase Price) must ALWAYS be LOWER than TP Price (WSP)!'
+      );
+      return;
+    }
+
     const payload = {
       name: prodName,
       sku: prodSku,
@@ -742,13 +772,13 @@ export default function DirectoryModule({
       categoryId: prodCategoryId || undefined,
       customUnits: [{ name: 'Carton', multiplier: Number(prodCartonSize) }],
       defaultGodownId: prodGodownId || undefined,
-      defaultPP: Number(prodPP),
-      defaultWSP: Number(prodPricePerPiece),
+      defaultPP: dp,
+      defaultWSP: tp,
       defaultMRP: Number(prodMRP),
       currentStock: Number(prodStock),
       cartonSize: Number(prodCartonSize),
       pricePerCarton: Number(prodPricePerCarton),
-      pricePerPiece: Number(prodPricePerPiece),
+      pricePerPiece: tp,
       primaryUnit: prodPrimaryUnit
     };
 
@@ -760,7 +790,7 @@ export default function DirectoryModule({
     }
 
     setShowProductModal(false);
-  }, [prodName, prodSku, prodCompany, prodCategoryId, prodCartonSize, prodPricePerCarton, prodPricePerPiece, prodGodownId, prodPP, prodMRP, prodStock, prodPrimaryUnit, editingProduct, setProducts]);
+  }, [prodName, prodSku, prodCompany, prodCategoryId, prodCartonSize, prodPricePerCarton, prodPricePerPiece, prodGodownId, prodPP, prodMRP, prodStock, prodPrimaryUnit, editingProduct, setProducts, language]);
 
   // --- SUBMIT: SR ---
   const handleSrSubmit = useCallback((e: React.FormEvent) => {
@@ -811,7 +841,8 @@ export default function DirectoryModule({
       assignedSR: shopAssignedSR || 'Unassigned',
       routeId: shopRouteId || undefined,
       creditLimit: Number(shopCreditLimit),
-      creditDays: Number(shopCreditDays)
+      creditDays: Number(shopCreditDays),
+      due: Number(shopDue)
     };
 
     if (editingShop) {
@@ -821,7 +852,7 @@ export default function DirectoryModule({
       setCustomers(prev => [...prev, { id: `cust-${Date.now()}`, ...payload }]);
     }
     setShowShopModal(false);
-  }, [shopName, shopMarket, shopPhone, shopAssignedSR, shopRouteId, shopCreditLimit, shopCreditDays, editingShop, setCustomers]);
+  }, [shopName, shopMarket, shopPhone, shopAssignedSR, shopRouteId, shopCreditLimit, shopCreditDays, shopDue, editingShop, setCustomers]);
 
   // --- SUBMIT & EDIT: Damage ---
   const handleOpenDamageModal = useCallback((product: Product) => {
@@ -1019,6 +1050,7 @@ export default function DirectoryModule({
     setShopAssignedSR(srs[0]?.name || '');
     setShopCreditLimit(0);
     setShopCreditDays(0);
+    setShopDue(0);
     setShowShopModal(true);
   }, [routes, srs]);
 
@@ -1091,6 +1123,7 @@ export default function DirectoryModule({
     setShopRouteId(c.routeId || '');
     setShopCreditLimit(c.creditLimit || 0);
     setShopCreditDays(c.creditDays || 0);
+    setShopDue(c.due || 0);
     setShowShopModal(true);
   }, []);
 
@@ -1549,6 +1582,12 @@ export default function DirectoryModule({
                         <h4 className="font-bold text-slate-800 text-sm sm:text-base group-hover:text-slate-900 transition-colors line-clamp-1 leading-snug">
                           {p.name}
                         </h4>
+                        {p.defaultPP >= p.defaultWSP && (
+                          <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-rose-50 text-rose-600 border border-rose-100 text-[8px] font-bold animate-pulse">
+                            <AlertTriangle className="w-2.5 h-2.5 shrink-0" />
+                            {"Price Rule Violation: DP >= TP"}
+                          </div>
+                        )}
 
                         <div className="flex flex-wrap items-center gap-1.5 text-[9px] font-bold uppercase tracking-wide">
                            <span className="bg-purple-50 text-purple-700 border border-purple-100 px-2 py-0.5 rounded">
@@ -1951,14 +1990,18 @@ export default function DirectoryModule({
                       </div>
 
                       {/* Credit Ledger details */}
-                      <div className="bg-slate-50 rounded-2xl p-3.5 border border-slate-200 relative z-10 flex items-center justify-between text-xs">
-                        <div className="space-y-0.5">
-                          <span className="text-[9px] font-bold text-slate-450 uppercase tracking-wide block">Credit Limit</span>
+                      <div className="bg-slate-50 rounded-2xl p-3 border border-slate-200 relative z-10 grid grid-cols-3 gap-2 text-xs">
+                        <div className="space-y-0.5 text-left">
+                          <span className="text-[8px] font-bold text-slate-450 uppercase tracking-wide block">Credit Limit</span>
                           <span className="font-mono font-extrabold text-slate-900">{formatBDT(c.creditLimit || 0)}</span>
                         </div>
-                        <div className="space-y-0.5 text-right">
-                          <span className="text-[9px] font-bold text-slate-450 uppercase tracking-wide block">Terms</span>
+                        <div className="space-y-0.5 text-center">
+                          <span className="text-[8px] font-bold text-slate-450 uppercase tracking-wide block">Terms</span>
                           <span className="font-bold text-slate-700">{c.creditDays || 0} Days</span>
+                        </div>
+                        <div className="space-y-0.5 text-right">
+                          <span className="text-[8px] font-bold text-rose-500 uppercase tracking-wide block">Outstanding Due</span>
+                          <span className="font-mono font-black text-rose-600">{formatBDT(c.due || 0)}</span>
                         </div>
                       </div>
 
@@ -1996,6 +2039,7 @@ export default function DirectoryModule({
                         <th className="px-5 py-4">{language === 'bn' ? 'অ্যাসাইনড রুট' : 'Assigned Beat'}</th>
                         <th className="px-5 py-4">{language === 'bn' ? 'ক্রেডিট লিমিট' : 'Credit Limit'}</th>
                         <th className="px-5 py-4">{language === 'bn' ? 'ক্রেডিট দিন' : 'Terms (Days)'}</th>
+                        <th className="px-5 py-4 text-rose-600 font-bold">{language === 'bn' ? 'বকেয়া ব্যালেন্স' : 'Outstanding Due'}</th>
                         <th className="px-5 py-4 text-right">{language === 'bn' ? 'অ্যাকশন' : 'Actions'}</th>
                       </tr>
                     </thead>
@@ -2014,6 +2058,7 @@ export default function DirectoryModule({
                             </td>
                             <td className="px-5 py-3.5 font-semibold text-slate-800">{formatBDT(c.creditLimit || 0)}</td>
                             <td className="px-5 py-3.5 font-semibold text-slate-700">{c.creditDays || 0}</td>
+                            <td className="px-5 py-3.5 font-bold font-mono text-rose-600">{formatBDT(c.due || 0)}</td>
                             <td className="px-5 py-3.5 text-right">
                               <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <button
@@ -3496,7 +3541,7 @@ export default function DirectoryModule({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 border-t border-slate-100 pt-3">
+              <div className="grid grid-cols-3 gap-3 border-t border-slate-100 pt-3">
                 <div>
                   <label className="mb-2 block text-[10px] font-semibold text-slate-705">Credit Limit (BDT)</label>
                   <input
@@ -3516,6 +3561,17 @@ export default function DirectoryModule({
                     value={shopCreditDays}
                     onChange={e => setShopCreditDays(Number(e.target.value))}
                     className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 font-mono font-semibold outline-none focus:border-slate-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-[10px] font-semibold text-rose-600 uppercase tracking-wider block">Outstanding Due (BDT)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={shopDue}
+                    onChange={e => setShopDue(Number(e.target.value))}
+                    className="h-10 w-full rounded-lg border border-rose-250 bg-rose-50/10 px-3 font-mono font-bold text-rose-700 outline-none focus:border-rose-500 transition-all"
                   />
                 </div>
               </div>
