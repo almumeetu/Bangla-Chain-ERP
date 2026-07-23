@@ -150,11 +150,7 @@ export default function ChallanModule({
   }, [newRoute, customers, routes]);
 
   React.useEffect(() => {
-    if (filteredCustomersForNewChallan.length > 0) {
-      if (!filteredCustomersForNewChallan.some(c => c.name === newCustomerName)) {
-        setNewCustomerName(filteredCustomersForNewChallan[0].name);
-      }
-    } else {
+    if (newCustomerName && !filteredCustomersForNewChallan.some(c => c.name === newCustomerName)) {
       setNewCustomerName('');
     }
   }, [filteredCustomersForNewChallan, newCustomerName]);
@@ -489,10 +485,7 @@ export default function ChallanModule({
       alert('Please fill out all required fields (Salesman SR, Market Route, and Delivery Man)');
       return;
     }
-    if (!newCustomerName) {
-      alert(language === 'bn' ? 'অনুগ্রহ করে খুচরা বিক্রেতা / দোকান নির্বাচন করুন' : 'Please select a Customer / Shop.');
-      return;
-    }
+
 
     const createdAt = new Date().toISOString();
     const totalGross = newChallanItems.reduce((sum, item) => sum + (item.qty * item.rate), 0);
@@ -1600,10 +1593,9 @@ export default function ChallanModule({
                     </div>
 
                     <div>
-                      <label className="mb-2 block text-sm font-semibold text-slate-700">{language === 'bn' ? 'দোকান / খুচরা বিক্রেতা *' : 'Shop / Customer *'}</label>
+                      <label className="mb-2 block text-sm font-semibold text-slate-700">{language === 'bn' ? 'দোকান / খুচরা বিক্রেতা (ঐচ্ছিক)' : 'Shop / Customer (Optional)'}</label>
                       <select
                         id="new-challan-customer-select"
-                        required
                         value={newCustomerName}
                         onChange={(e) => setNewCustomerName(e.target.value)}
                         className="h-11 w-full rounded-lg border-2 border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all"

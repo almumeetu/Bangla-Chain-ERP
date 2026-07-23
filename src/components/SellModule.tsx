@@ -524,10 +524,7 @@ export default function SellModule({
   const handleCheckout = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     if (cart.length === 0) { alert('Cart is empty!'); return; }
-    if (!selectedCustomerName) {
-      alert(language === 'bn' ? 'অনুগ্রহ করে খুচরা বিক্রেতা / দোকান নির্বাচন করুন' : 'Please select a Customer / Shop.');
-      return;
-    }
+
 
     const currentTimeStr   = new Date().toISOString().slice(11, 24);
     const orderTimestamp   = new Date(`${orderDate}T${currentTimeStr}`).toISOString();
@@ -769,7 +766,7 @@ export default function SellModule({
                   </div>
                 </LabelInput>
               </div>
-              <LabelInput label={language === 'bn' ? 'খুচরা বিক্রেতা / দোকান *' : 'Select Customer / Shop *'}>
+              <LabelInput label={language === 'bn' ? 'খুচরা বিক্রেতা / দোকান (ঐচ্ছিক)' : 'Select Customer / Shop (Optional)'}>
                 <div className="relative">
                   <Building className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
                   <select id="pos-form-customer" value={selectedCustomerName} onChange={e => setSelectedCustomerName(e.target.value)}
