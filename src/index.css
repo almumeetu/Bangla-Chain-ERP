@@ -1,6 +1,11 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;1,14..32,400&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+Bengali:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
 
+html {
+  scrollbar-gutter: stable;
+  scroll-behavior: smooth;
+}
+
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
@@ -35,12 +40,12 @@
   --color-amber-200: #e2e8f0;
 
   /* Global border radius overrides to make UI look cleaner and more professional */
-  --radius-3xl: 12px;
-  --radius-2xl: 8px;
-  --radius-xl: 6px;
-  --radius-lg: 4px;
-  --radius-md: 4px;
-  --radius-sm: 2px;
+  --radius-3xl: 20px;
+  --radius-2xl: 16px;
+  --radius-xl: 12px;
+  --radius-lg: 8px;
+  --radius-md: 6px;
+  --radius-sm: 4px;
 }
 
 :root {
@@ -71,25 +76,53 @@
 }
 
 /* Bengali (Noto Sans Bengali) typography tuning
-   — slightly larger line-height and letter-spacing for readability */
-.font-bengali,
-.font-bengali * {
+   — balanced line-height, letter-spacing, and antialiasing for maximum legibility */
+.font-bengali {
   font-family: "Noto Sans Bengali", "Inter", ui-sans-serif, system-ui, sans-serif;
-  line-height: 1.7;
-  word-spacing: 0.02em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Bengali headings — tighten line-height a bit */
+.font-bengali * {
+  font-family: inherit;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Bengali body line-height adjustments */
+.font-bengali p,
+.font-bengali div,
+.font-bengali li,
+.font-bengali label {
+  line-height: 1.6;
+}
+
+/* Dense UI components overrides (tables, buttons, inputs, badges) to keep layout clean and consistent */
+.font-bengali button,
+.font-bengali input,
+.font-bengali select,
+.font-bengali textarea,
+.font-bengali th,
+.font-bengali td,
+.font-bengali span,
+.font-bengali a {
+  line-height: 1.35;
+}
+
+/* Bengali headings — tighten line-height slightly */
 .font-bengali h1,
 .font-bengali h2,
 .font-bengali h3,
-.font-bengali h4 {
-  line-height: 1.45;
+.font-bengali h4,
+.font-bengali h5,
+.font-bengali h6 {
+  line-height: 1.4;
 }
 
-/* Bengali numbers rendered with Bengali-UI font but keep mono for data tables */
-.font-bengali .font-mono {
-  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+/* Ensure monetary values, quantities, and dates remain perfectly formatted in JetBrains Mono */
+.font-bengali .font-mono,
+.font-bengali .font-mono * {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace !important;
   line-height: inherit;
 }
 

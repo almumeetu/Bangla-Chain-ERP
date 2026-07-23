@@ -79,11 +79,11 @@ function getCartItemTotals(item: CartItem) {
 // ── Brand colour helpers ──────────────────────────────────────────────────────
 function getBrandTheme(company: string) {
   const c = company.toLowerCase();
-  if (c.includes('pran'))    return { badge: 'bg-orange-50 text-orange-600 border-orange-200',   bar: 'bg-orange-400',  accent: 'text-orange-600',  btn: 'bg-orange-500 hover:bg-orange-600',  dot: 'bg-orange-400' };
-  if (c.includes('olympic')) return { badge: 'bg-blue-50 text-blue-600 border-blue-200',         bar: 'bg-blue-400',    accent: 'text-blue-600',    btn: 'bg-blue-500 hover:bg-blue-600',      dot: 'bg-blue-400' };
-  if (c.includes('haque'))   return { badge: 'bg-emerald-50 text-emerald-600 border-emerald-200',bar: 'bg-emerald-400', accent: 'text-emerald-600', btn: 'bg-emerald-500 hover:bg-emerald-600', dot: 'bg-emerald-400' };
-  if (c.includes('coca'))    return { badge: 'bg-red-50 text-red-600 border-red-200',            bar: 'bg-red-400',     accent: 'text-red-600',     btn: 'bg-red-500 hover:bg-red-600',        dot: 'bg-red-400' };
-  return                            { badge: 'bg-violet-50 text-violet-600 border-violet-200',   bar: 'bg-violet-400',  accent: 'text-violet-600',  btn: 'bg-violet-500 hover:bg-violet-600',  dot: 'bg-violet-400' };
+  if (c.includes('pran')) return { badge: 'bg-orange-50 text-orange-600 border-orange-200', bar: 'bg-orange-400', accent: 'text-orange-600', btn: 'bg-orange-500 hover:bg-orange-600', dot: 'bg-orange-400' };
+  if (c.includes('olympic')) return { badge: 'bg-blue-50 text-blue-600 border-blue-200', bar: 'bg-blue-400', accent: 'text-blue-600', btn: 'bg-blue-500 hover:bg-blue-600', dot: 'bg-blue-400' };
+  if (c.includes('haque')) return { badge: 'bg-emerald-50 text-emerald-600 border-emerald-200', bar: 'bg-emerald-400', accent: 'text-emerald-600', btn: 'bg-emerald-500 hover:bg-emerald-600', dot: 'bg-emerald-400' };
+  if (c.includes('coca')) return { badge: 'bg-red-50 text-red-600 border-red-200', bar: 'bg-red-400', accent: 'text-red-600', btn: 'bg-red-500 hover:bg-red-600', dot: 'bg-red-400' };
+  return { badge: 'bg-violet-50 text-violet-600 border-violet-200', bar: 'bg-violet-400', accent: 'text-violet-600', btn: 'bg-violet-500 hover:bg-violet-600', dot: 'bg-violet-400' };
 }
 
 // ── UnitDisplay Component (Reusable)
@@ -174,9 +174,8 @@ function ProductCard({ product, onAddToCart, formatBDT, language, listView }: Pr
           type="button"
           onClick={handleAdd}
           disabled={isOut}
-          className={`shrink-0 mr-3 h-9 px-4 rounded-xl text-[11px] font-black flex items-center gap-1.5 transition-all duration-200 cursor-pointer ${
-            isOut ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : `${theme.btn} text-white shadow-lg shadow-slate-200 hover:brightness-110 active:scale-[0.97]`
-          }`}>
+          className={`shrink-0 mr-3 h-9 px-4 rounded-xl text-[11px] font-black flex items-center gap-1.5 transition-all duration-200 cursor-pointer ${isOut ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : `${theme.btn} text-white shadow-lg shadow-slate-200 hover:brightness-110 active:scale-[0.97]`
+            }`}>
           <Plus className="w-3.5 h-3.5" />
           {isOut ? (language === 'bn' ? 'নেই' : 'N/A') : (language === 'bn' ? 'যোগ' : 'Add')}
         </button>
@@ -237,11 +236,10 @@ function ProductCard({ product, onAddToCart, formatBDT, language, listView }: Pr
         type="button"
         onClick={handleAdd}
         disabled={isOut}
-        className={`flex w-full items-center justify-center gap-1.5 border-t py-2 text-[9px] font-black tracking-widest transition-all duration-200 cursor-pointer ${
-          isOut
+        className={`flex w-full items-center justify-center gap-1.5 border-t py-2 text-[9px] font-black tracking-widest transition-all duration-200 cursor-pointer ${isOut
             ? 'border-slate-100 bg-slate-50 text-slate-400 cursor-not-allowed'
             : `border-slate-100 ${theme.btn} text-white hover:brightness-110 active:scale-[0.98]`
-        }`}>
+          }`}>
         <Plus className="w-3.5 h-3.5" />
         {isOut ? (language === 'bn' ? 'স্টক নেই' : 'Out of Stock') : (language === 'bn' ? '+1 কার্টে' : '+1 to Cart')}
       </button>
@@ -379,20 +377,20 @@ export default function SellModule({
   setChallans, categories, units, onNavigate, language,
   customers, setCustomers
 }: SellModuleProps) {
-  const [cart, setCart]                               = useState<CartItem[]>([]);
-  const [lastOrder, setLastOrder]                     = useState<SalesOrderData | null>(null);
-  const [searchQuery, setSearchQuery]                 = useState('');
-  const [selectedCompany, setSelectedCompany]         = useState('All');
-  const [selectedCategory, setSelectedCategory]       = useState('All');
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [lastOrder, setLastOrder] = useState<SalesOrderData | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCompany, setSelectedCompany] = useState('All');
+  const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedStockFilter, setSelectedStockFilter] = useState('All');
-  const [viewMode, setViewMode]                       = useState<'grid' | 'list'>('grid');
-  const [selectedSR, setSelectedSR]                   = useState(srs[0]?.name || '');
-  const [selectedRoute, setSelectedRoute]             = useState(routes[0]?.name || '');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [selectedSR, setSelectedSR] = useState(srs[0]?.name || '');
+  const [selectedRoute, setSelectedRoute] = useState(routes[0]?.name || '');
   const [selectedDeliveryMan, setSelectedDeliveryMan] = useState(deliveryMen[0]?.name || '');
   const [selectedCustomerName, setSelectedCustomerName] = useState('');
-  const [orderStatus, setOrderStatus]                 = useState<'Shipped' | 'Delivered' | 'Pending'>('Pending');
-  const [orderDate, setOrderDate]                     = useState<string>(new Date().toISOString().slice(0, 10));
-  const [isAdvancedOpen, setIsAdvancedOpen]           = useState(false);
+  const [orderStatus, setOrderStatus] = useState<'Shipped' | 'Delivered' | 'Pending'>('Pending');
+  const [orderDate, setOrderDate] = useState<string>(new Date().toISOString().slice(0, 10));
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
 
   const filteredCustomers = React.useMemo(() => {
     if (!selectedRoute) return customers || [];
@@ -433,11 +431,11 @@ export default function SellModule({
 
   const filteredProducts = products.filter(p => {
     const q = searchQuery.toLowerCase();
-    const matchSearch   = p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q);
-    const matchCompany  = selectedCompany === 'All'  || p.company === selectedCompany;
+    const matchSearch = p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q);
+    const matchCompany = selectedCompany === 'All' || p.company === selectedCompany;
     const matchCategory = selectedCategory === 'All' || p.categoryId === selectedCategory;
-    let   matchStock    = true;
-    if (selectedStockFilter === 'InStock')  matchStock = p.currentStock > 0;
+    let matchStock = true;
+    if (selectedStockFilter === 'InStock') matchStock = p.currentStock > 0;
     if (selectedStockFilter === 'OutStock') matchStock = p.currentStock <= 0;
     if (selectedStockFilter === 'LowStock') matchStock = p.currentStock > 0 && p.currentStock < 600;
     return matchSearch && matchCompany && matchCategory && matchStock;
@@ -449,7 +447,7 @@ export default function SellModule({
     const defaultSpec = attributes.filter(a => a.status === 'Active')[0]?.name || 'Default';
 
     const existingIdx = cart.findIndex(i => i.product.id === product.id && i.selectedSpec === defaultSpec);
-    
+
     // Default: if no custom cartons/pcs passed, add 1 carton (or if cartonSize is 0, add 1 piece)
     const cartonSize = product.cartonSize || 24;
     const cartonsToAdd = customCartons ?? (cartonSize > 1 ? 1 : 0);
@@ -511,13 +509,13 @@ export default function SellModule({
 
   const netTotal = cartSubtotalTP;
 
-  const handleSRChange     = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => setSelectedSR(e.target.value), []);
-  const handleRouteChange  = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => setSelectedRoute(e.target.value), []);
-  const handleDMChange     = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => setSelectedDeliveryMan(e.target.value), []);
+  const handleSRChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => setSelectedSR(e.target.value), []);
+  const handleRouteChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => setSelectedRoute(e.target.value), []);
+  const handleDMChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => setSelectedDeliveryMan(e.target.value), []);
   const handleStatusChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => setOrderStatus(e.target.value as 'Shipped' | 'Delivered' | 'Pending'), []);
-  const handleSearchChange          = useCallback((e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value), []);
+  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value), []);
   const resetFilters = useCallback(() => { setSearchQuery(''); setSelectedCompany('All'); setSelectedCategory('All'); setSelectedStockFilter('All'); }, []);
-  const hasFilters   = !!(searchQuery || selectedCompany !== 'All' || selectedCategory !== 'All' || selectedStockFilter !== 'All');
+  const hasFilters = !!(searchQuery || selectedCompany !== 'All' || selectedCategory !== 'All' || selectedStockFilter !== 'All');
 
   const handlePrintLastOrder = useCallback(() => { if (lastOrder) printSalesOrder(lastOrder); }, [lastOrder]);
 
@@ -526,18 +524,18 @@ export default function SellModule({
     if (cart.length === 0) { alert('Cart is empty!'); return; }
 
 
-    const currentTimeStr   = new Date().toISOString().slice(11, 24);
-    const orderTimestamp   = new Date(`${orderDate}T${currentTimeStr}`).toISOString();
-    const orderIdSuffix    = Date.now();
+    const currentTimeStr = new Date().toISOString().slice(11, 24);
+    const orderTimestamp = new Date(`${orderDate}T${currentTimeStr}`).toISOString();
+    const orderIdSuffix = Date.now();
 
     const newChallans: ChallanItem[] = cart.map((item, idx) => {
       const isCarton = item.product.primaryUnit === 'Carton';
       const cartonSize = item.product.cartonSize || 24;
       const totalQty = isCarton ? item.cartons : (item.cartons * cartonSize + item.pcs);
-      const netQty   = totalQty - (item.returnedQty || 0) - (item.damagedQty || 0);
+      const netQty = totalQty - (item.returnedQty || 0) - (item.damagedQty || 0);
 
       const pricePerCarton = item.product.pricePerCarton || (item.product.defaultWSP * (isCarton ? 1 : cartonSize));
-      const pricePerPiece  = item.product.pricePerPiece  || item.product.defaultWSP;
+      const pricePerPiece = item.product.pricePerPiece || item.product.defaultWSP;
       const finalPrice = isCarton
         ? item.cartons * pricePerCarton
         : item.cartons * (item.product.pricePerCarton || item.product.defaultWSP * cartonSize) + item.pcs * pricePerPiece;
@@ -568,7 +566,7 @@ export default function SellModule({
         const cartonSize = i.product.cartonSize || 24;
         const totalQty = isCarton ? i.cartons : (i.cartons * cartonSize + i.pcs);
         const pricePerCarton = i.product.pricePerCarton || (i.product.defaultWSP * (isCarton ? 1 : cartonSize));
-        const pricePerPiece  = i.product.pricePerPiece  || i.product.defaultWSP;
+        const pricePerPiece = i.product.pricePerPiece || i.product.defaultWSP;
         const finalPrice = isCarton
           ? i.cartons * pricePerCarton
           : i.cartons * (i.product.pricePerCarton || i.product.defaultWSP * cartonSize) + i.pcs * pricePerPiece;
@@ -706,11 +704,10 @@ export default function SellModule({
             </div>
           </div>
 
-          <div className={`max-h-[600px] overflow-y-auto pr-0.5 modal-body ${
-            viewMode === 'grid'
+          <div className={`max-h-[600px] overflow-y-auto pr-0.5 modal-body ${viewMode === 'grid'
               ? 'grid grid-cols-2 sm:grid-cols-3 gap-3'
               : 'flex flex-col gap-2.5'
-          }`}>
+            }`}>
             {filteredProducts.map(p => (
               <ProductCard key={p.id} product={p} onAddToCart={handleAddToCart} formatBDT={formatBDT} language={language} listView={viewMode === 'list'} />
             ))}
@@ -856,11 +853,10 @@ export default function SellModule({
                 )}
 
                 <button id="pos-btn-checkout" type="submit" disabled={cart.length === 0}
-                  className={`w-full py-4 text-[15px] font-black flex items-center justify-center gap-2 rounded-2xl transition-all duration-200 cursor-pointer shadow-xl ${
-                    cart.length > 0
+                  className={`w-full py-4 text-[15px] font-black flex items-center justify-center gap-2 rounded-2xl transition-all duration-200 cursor-pointer shadow-xl ${cart.length > 0
                       ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-emerald-200 active:scale-[0.97]'
                       : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
-                  }`}>
+                    }`}>
                   <Check className="w-5 h-5" />
                   {translations[language].challan.dispatchBtn}
                   {cart.length > 0 && <ChevronRight className="w-5 h-5" />}

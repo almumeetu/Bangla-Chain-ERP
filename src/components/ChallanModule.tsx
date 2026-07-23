@@ -117,6 +117,18 @@ export default function ChallanModule({
 
   // New Challan Creation Modal State
   const [showAddModal, setShowAddModal] = useState(false);
+
+  // Toast Notification State
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const showToast = React.useCallback((message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+  }, []);
+  React.useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
   const [selectedCompany, setSelectedCompany] = useState(''); // Selected brand for the Challan (e.g. Pran, Olympic, Haque)
   const [newChallanItems, setNewChallanItems] = useState<{
     id: string;
@@ -156,20 +168,22 @@ export default function ChallanModule({
   }, [filteredCustomersForNewChallan, newCustomerName]);
 
   const executeTransaction = (
-    tempProducts: Product[],
-    tempCustomers: Customer[],
-    tempChallans: ChallanItem[],
-    operations: () => void
+    operations: () => {
+      products: Product[];
+      customers: Customer[];
+      challans: ChallanItem[];
+    }
   ) => {
     try {
-      operations();
-      setProducts(tempProducts);
-      setCustomers(tempCustomers);
-      setChallans(tempChallans);
+      const result = operations();
+      setProducts(result.products);
+      setCustomers(result.customers);
+      setChallans(result.challans);
     } catch (error: any) {
-      alert(language === 'bn' 
+      showToast(language === 'bn' 
         ? `লেনদেন ব্যর্থ হয়েছে এবং পরিবর্তনগুলি বাতিল করা হয়েছে: ${error.message}` 
-        : `Transaction failed and changes rolled back: ${error.message}`
+        : `Transaction failed and changes rolled back: ${error.message}`,
+        'error'
       );
       throw error;
     }
@@ -478,11 +492,16 @@ export default function ChallanModule({
   const handleCreateChallan = (e: React.FormEvent) => {
     e.preventDefault();
     if (newChallanItems.length === 0) {
-      alert(language === 'bn' ? 'অনুগ্রহ করে কমপক্ষে একটি পণ্য যোগ করুন' : 'Please add at least one product.');
+      showToast(language === 'bn' ? 'অনুগ্রহ করে কমপক্ষে একটি পণ্য যোগ করুন' : 'Please add at least one product.', 'error');
       return;
     }
     if (!newSR || !newRoute || !newDeliveryMan) {
-      alert('Please fill out all required fields (Salesman SR, Market Route, and Delivery Man)');
+      showToast(
+        language === 'bn' 
+          ? 'অনুগ্রহ করে সব প্রয়োজনীয় ঘর পূরণ করুন (এসআর, রুট এবং ডেলিভারিম্যান)' 
+          : 'Please fill out all required fields (SR, Route, and Delivery Man)', 
+        'error'
+      );
       return;
     }
 
@@ -540,7 +559,7 @@ export default function ChallanModule({
     let tempChallans = [...challans];
 
     try {
-      executeTransaction(tempProducts, tempCustomers, tempChallans, () => {
+      executeTransaction(() => {
         if (newStatus === 'Delivered') {
           newItemsList.forEach(item => {
             const totalQty = item.qty + item.bonusQty;
@@ -563,6 +582,7 @@ export default function ChallanModule({
           }
         }
         tempChallans = [...newItemsList, ...tempChallans];
+        return { products: tempProducts, customers: tempCustomers, challans: tempChallans };
       });
 
       setShowAddModal(false);
@@ -588,6 +608,111 @@ export default function ChallanModule({
     const group = groupedData.find(g => g.id === groupId);
     if (!group) return;
 
+    if (newStatus === 'Shipped' || newStatus === 'Pending') {
+      const msg = newStatus === 'Shipped'
+        ? (language === 'bn' ? 'আপনি কি এই চালানের স্থিতি "Shipped" করতে চান?' : 'Are you sure you want to mark this challan as Shipped?')
+        : (language === 'bn' ? 'আপনি কি এই চালানের স্থিতি "Pending" এ ফেরত নিতে চান?' : 'Are you sure you want to revert this challan to Pending?');
+      
+      if (!confirm(msg)) return;
+
+      let tempProducts = [...products];
+      let tempCustomers = [...customers];
+      let tempChallans = [...challans];
+
+      try {
+        executeTransaction(() => {
+          const itemIds = group.items.map(i => i.id);
+          const wasDelivered = group.status === 'Delivered';
+
+          if (wasDelivered) {
+            // Restore product stock back
+            group.items.forEach(oldItem => {
+              tempProducts = tempProducts.map(p => {
+                if (p.name === oldItem.productName) {
+                  const restoredStock = oldItem.qty + (oldItem.bonusQty || 0) - (oldItem.returnedQty || 0);
+                  const restoredDamage = oldItem.damagedQty || 0;
+                  return {
+                    ...p,
+                    currentStock: p.currentStock + restoredStock,
+                    damagedStock: Math.max(0, (p.damagedStock || 0) - restoredDamage)
+                  };
+                }
+                return p;
+              });
+            });
+
+            // Restore customer due
+            const targetCustomerName = group.items[0]?.customerName;
+            const customer = tempCustomers.find(cust => cust.name === targetCustomerName);
+            if (customer) {
+              const oldTotal = group.items.reduce((sum, item) => sum + item.totalAmount, 0);
+              customer.due = Math.max(0, (customer.due || 0) - oldTotal);
+            }
+          }
+
+          // Update status & reset settlement fields for all items in the group
+          tempChallans = tempChallans.map(c => {
+            if (itemIds.includes(c.id)) {
+              return {
+                ...c,
+                status: newStatus,
+                returnedQty: 0,
+                damagedQty: 0,
+                returnedCartons: 0,
+                returnedPcs: 0,
+                damagedCartons: 0,
+                damagedPcs: 0,
+                commissionAmount: 0,
+                extraCommissionAmount: 0,
+                srCommissionAmount: 0,
+                totalAmount: c.qty * c.rate
+              };
+            }
+            return c;
+          });
+
+          return { products: tempProducts, customers: tempCustomers, challans: tempChallans };
+        });
+
+        // Sync view state if drawer is open
+        if (viewingOrder && viewingOrder.id === groupId) {
+          setViewingOrder(prev => {
+            if (!prev) return null;
+            const updatedItems = prev.items.map(item => ({
+              ...item,
+              status: newStatus,
+              returnedQty: 0,
+              damagedQty: 0,
+              returnedCartons: 0,
+              returnedPcs: 0,
+              damagedCartons: 0,
+              damagedPcs: 0,
+              commissionAmount: 0,
+              extraCommissionAmount: 0,
+              srCommissionAmount: 0,
+              totalAmount: item.qty * item.rate
+            }));
+            return {
+              ...prev,
+              status: newStatus,
+              items: updatedItems,
+              totalQty: updatedItems.reduce((acc, curr) => acc + curr.totalQty, 0),
+              totalAmount: updatedItems.reduce((acc, curr) => acc + curr.totalAmount, 0)
+            };
+          });
+        }
+
+        showToast(language === 'bn'
+          ? `চালানের স্থিতি সফলভাবে "${newStatus === 'Shipped' ? 'Shipped' : 'Pending'}" এ পরিবর্তন করা হয়েছে!`
+          : `Challan status successfully updated to "${newStatus}"!`);
+        setViewingOrder(null); // Auto-close viewing order drawer on status change
+      } catch (err) {
+        // executeTransaction already alerts the user
+      }
+      return;
+    }
+
+    // Otherwise, newStatus is 'Delivered' (so we open the settlement modal)
     // No auto commission — all fields start at 0, entered manually
     setSettlementSRCommValue(0);
     setSettlementExtraCommValue(0);
@@ -629,7 +754,7 @@ export default function ChallanModule({
     let tempChallans = [...challans];
 
     try {
-      executeTransaction(tempProducts, tempCustomers, tempChallans, () => {
+      executeTransaction(() => {
         let totalUpdatedNetValue = 0;
         const itemsToUpdate = settlementOrder.items.map(item => {
           const updates = settlementQuantities[item.id] || { returned: 0, damaged: 0 };
@@ -733,26 +858,13 @@ export default function ChallanModule({
           const diff = newDeliveredTotal - oldDeliveredTotal;
           customer.due = (customer.due || 0) + diff;
         }
-      });
 
-      setViewingOrder(prev => {
-        if (!prev || prev.id !== settlementOrder.id) return prev;
-        const updatedItems = prev.items.map(item => {
-          const matched = tempChallans.find(x => x.id === item.id);
-          return matched ? { ...matched } : item;
-        });
-
-        return {
-          ...prev,
-          status: settlementStatus,
-          items: updatedItems,
-          totalQty: updatedItems.reduce((acc, curr) => acc + curr.totalQty, 0),
-          totalAmount: updatedItems.reduce((acc, curr) => acc + curr.totalAmount, 0)
-        };
+        return { products: tempProducts, customers: tempCustomers, challans: tempChallans };
       });
 
       setSettlementOrder(null);
-      alert(language === 'bn' 
+      setViewingOrder(null); // Auto-close viewing order drawer on status change (settled)
+      showToast(language === 'bn' 
         ? 'চালান সেটেলমেন্ট এবং স্টক আপডেট সফল হয়েছে!' 
         : 'Challan settlement and stock updates saved successfully!');
     } catch (err) {
@@ -770,7 +882,7 @@ export default function ChallanModule({
     let tempChallans = [...challans];
 
     try {
-      executeTransaction(tempProducts, tempCustomers, tempChallans, () => {
+      executeTransaction(() => {
         tempProducts = tempProducts.map(p => {
           let currentStock = p.currentStock;
           let damagedStock = p.damagedStock || 0;
@@ -800,6 +912,8 @@ export default function ChallanModule({
 
         const itemIds = group.items.map(i => i.id);
         tempChallans = tempChallans.filter(c => !itemIds.includes(c.id));
+
+        return { products: tempProducts, customers: tempCustomers, challans: tempChallans };
       });
     } catch (err) {
       // Transaction failed, alerts already raised
@@ -811,6 +925,12 @@ export default function ChallanModule({
   };
 
   const handleOpenEditOrderModal = (group: GroupedOrder) => {
+    if (group.status === 'Delivered') {
+      showToast(language === 'bn'
+        ? 'ডেলিভারি সম্পন্ন অর্ডার এডিট করা যাবে না!'
+        : 'Delivered orders cannot be edited!', 'error');
+      return;
+    }
     setEditingOrder(group);
     setEditSR(group.srName);
     setEditRoute(group.routeName);
@@ -845,7 +965,7 @@ export default function ChallanModule({
     let tempChallans = [...challans];
 
     try {
-      executeTransaction(tempProducts, tempCustomers, tempChallans, () => {
+      executeTransaction(() => {
         if (editingOrder.status === 'Delivered') {
           editingOrder.items.forEach(oldItem => {
             tempProducts = tempProducts.map(p => {
@@ -915,6 +1035,8 @@ export default function ChallanModule({
         const oldItemIds = editingOrder.items.map(i => i.id);
         const filteredChallans = tempChallans.filter(c => !oldItemIds.includes(c.id));
         tempChallans = [...filteredChallans, ...finalChallanItems];
+
+        return { products: tempProducts, customers: tempCustomers, challans: tempChallans };
       });
 
       if (viewingOrder && viewingOrder.id === editingOrder.id) {
@@ -939,7 +1061,7 @@ export default function ChallanModule({
       }
 
       setEditingOrder(null);
-      alert(language === 'bn' ? 'অর্ডার সফলভাবে আপডেট করা হয়েছে এবং স্টক সমন্বয় করা হয়েছে!' : 'Order updated successfully and stock levels synchronized!');
+      showToast(language === 'bn' ? 'অর্ডার সফলভাবে আপডেট করা হয়েছে এবং স্টক সমন্বয় করা হয়েছে!' : 'Order updated successfully and stock levels synchronized!');
     } catch (err) {
       // Transaction failed, alerts already raised
     }
@@ -1158,14 +1280,14 @@ export default function ChallanModule({
       </form>
 
       {/* Table Section */}
-      <div className={`overflow-hidden rounded-3xl border bg-white shadow-sm hover:shadow-md transition-all duration-300 ${
+      <div className={`overflow-hidden rounded-3xl border bg-white shadow-sm hover:shadow-md transition-[border-color,box-shadow] duration-300 ${
         selectedStatusTab === 'Pending' ? 'border-amber-200 shadow-amber-50/20' :
         selectedStatusTab === 'Shipped' ? 'border-blue-200 shadow-blue-50/20' :
         selectedStatusTab === 'Delivered' ? 'border-emerald-200 shadow-emerald-50/20' :
         'border-slate-200'
       }`}>
         {/* Dynamic color-coded top accent bar */}
-        <div className={`h-1.5 w-full transition-all duration-300 ${
+        <div className={`h-1.5 w-full transition-colors duration-300 ${
           selectedStatusTab === 'Pending' ? 'bg-amber-500' :
           selectedStatusTab === 'Shipped' ? 'bg-blue-500' :
           selectedStatusTab === 'Delivered' ? 'bg-emerald-500' :
@@ -1236,7 +1358,7 @@ export default function ChallanModule({
                   }`}
                 >
                   <span>{label}</span>
-                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-extrabold transition-all duration-300 ${badgeColor}`}>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-extrabold transition-colors duration-300 ${badgeColor}`}>
                     {count}
                   </span>
                 </button>
@@ -1245,7 +1367,7 @@ export default function ChallanModule({
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto min-h-[400px]">
           <table className="w-full text-left text-sm border-collapse min-w-[1100px]">
             <thead>
               <tr className={`text-white border-b transition-colors duration-300 ${
@@ -1323,14 +1445,16 @@ export default function ChallanModule({
                         >
                           <Eye className="w-4 h-4" />
                         </button>
-                        <button
-                          id={`order-action-edit-${g.id}`}
-                          onClick={() => handleOpenEditOrderModal(g)}
-                          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 hover:border-blue-400 cursor-pointer shadow-sm active:scale-95 transition-all"
-                          title="Edit Order"
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </button>
+                        {g.status !== 'Delivered' && (
+                          <button
+                            id={`order-action-edit-${g.id}`}
+                            onClick={() => handleOpenEditOrderModal(g)}
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 hover:border-blue-400 cursor-pointer shadow-sm active:scale-95 transition-all"
+                            title="Edit Order"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                        )}
                         {g.status !== 'Delivered' && (
                           <button
                             id={`order-action-delete-${g.id}`}
@@ -1684,7 +1808,7 @@ export default function ChallanModule({
                           type="button"
                           onClick={() => {
                             if (!newProduct) {
-                              alert(language === 'bn' ? 'অনুগ্রহ করে একটি পণ্য সিলেক্ট করুন' : 'Please select a product.');
+                              showToast(language === 'bn' ? 'অনুগ্রহ করে একটি পণ্য সিলেক্ট করুন' : 'Please select a product.', 'error');
                               return;
                             }
                             const rate = getProductWSP(newProduct);
@@ -2004,64 +2128,83 @@ export default function ChallanModule({
               </div>
             </div>
  
-            <div className="border-t border-slate-200 px-6 py-4 flex flex-wrap items-center justify-end gap-3 bg-slate-50 shrink-0 rounded-b-xl">
-              {/* Quick status transition actions */}
-              {viewingOrder.status === 'Pending' && (
+            <div className="border-t border-slate-200 px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50 shrink-0 rounded-b-xl">
+              {/* Left Side: Document actions + Edit */}
+              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                 <button
+                  id="viewing-challan-btn-print-sheet"
                   type="button"
-                  onClick={() => handleGroupStatusChange(viewingOrder.id, 'Shipped')}
-                  className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800 font-bold rounded-lg text-sm transition-all active:scale-95 text-center shadow-sm cursor-pointer"
+                  onClick={() => printChallanSheet(viewingOrder.items)}
+                  className="px-4 py-2.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold rounded-lg text-xs transition-all active:scale-95 text-center shadow-sm cursor-pointer flex items-center gap-1.5"
                 >
-                  {language === 'bn' ? 'চালান প্রেরণ করুন (Shipped)' : 'Ship Order (Shipped)'}
+                  <Printer className="w-3.5 h-3.5" />
+                  {language === 'bn' ? 'চালান শিট' : 'Challan Sheet'}
                 </button>
-              )}
-              {viewingOrder.status === 'Shipped' && (
                 <button
+                  id="viewing-challan-btn-print"
                   type="button"
-                  onClick={() => handleGroupStatusChange(viewingOrder.id, 'Delivered')}
-                  className="flex-1 py-3 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white hover:from-emerald-700 hover:to-emerald-800 font-bold rounded-lg text-sm transition-all active:scale-95 text-center shadow-sm cursor-pointer"
+                  onClick={() => printChallanInvoice(viewingOrder.items)}
+                  className="px-4 py-2.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold rounded-lg text-xs transition-all active:scale-95 text-center shadow-sm cursor-pointer flex items-center gap-1.5"
                 >
-                  {language === 'bn' ? 'ডেলিভারি সেটেল করুন (Delivered)' : 'Settle Delivery (Delivered)'}
+                  <Download className="w-3.5 h-3.5" />
+                  {language === 'bn' ? 'পিডিএফ ডাউনলোড' : 'Download PDF'}
                 </button>
-              )}
- 
-              <button
-                id="viewing-challan-btn-print-sheet"
-                type="button"
-                onClick={() => printChallanSheet(viewingOrder.items)}
-                className="flex-1 py-3 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold rounded-lg text-sm transition-all active:scale-95 text-center shadow-sm cursor-pointer flex items-center justify-center gap-1.5"
-              >
-                <Printer className="w-4 h-4" />
-                {language === 'bn' ? 'চালান শিট' : 'Challan Sheet'}
-              </button>
-              <button
-                id="viewing-challan-btn-print"
-                type="button"
-                onClick={() => printChallanInvoice(viewingOrder.items)}
-                className="flex-1 py-3 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold rounded-lg text-sm transition-all active:scale-95 text-center shadow-sm cursor-pointer flex items-center justify-center gap-1.5"
-              >
-                <Printer className="w-4 h-4" />
-                Print / Export PDF
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setViewingOrder(null);
-                  handleOpenEditOrderModal(viewingOrder);
-                }}
-                className="flex-1 py-3 bg-blue-600 hover:bg-blue-750 text-white font-semibold rounded-lg text-sm transition-all active:scale-95 text-center shadow-md cursor-pointer flex items-center justify-center gap-1.5"
-              >
-                <Pencil className="w-4 h-4" />
-                {language === 'bn' ? 'সম্পাদনা করুন' : 'Edit Order'}
-              </button>
-              <button
-                id="viewing-challan-btn-close"
-                type="button"
-                onClick={() => setViewingOrder(null)}
-                className="flex-1 py-3 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-lg text-sm transition-all active:scale-95 text-center shadow-md cursor-pointer"
-              >
-                {tChallan.closeVoucher}
-              </button>
+                {viewingOrder.status !== 'Delivered' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setViewingOrder(null);
+                      handleOpenEditOrderModal(viewingOrder);
+                    }}
+                    className="px-4 py-2.5 bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-700 font-semibold rounded-lg text-xs transition-all active:scale-95 text-center shadow-sm cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                    {language === 'bn' ? 'এডিট করুন' : 'Edit Order'}
+                  </button>
+                )}
+              </div>
+
+              {/* Right Side: Status transitions + Close */}
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                {viewingOrder.status === 'Shipped' && (
+                  <button
+                    type="button"
+                    onClick={() => handleGroupStatusChange(viewingOrder.id, 'Pending')}
+                    className="px-4 py-2.5 bg-rose-50 border border-rose-250 hover:bg-rose-100 text-rose-700 font-semibold rounded-lg text-xs transition-all active:scale-95 text-center shadow-sm cursor-pointer"
+                  >
+                    {language === 'bn' ? 'পেন্ডিং এ ফেরত' : 'Revert to Pending'}
+                  </button>
+                )}
+                
+                {viewingOrder.status === 'Pending' && (
+                  <button
+                    type="button"
+                    onClick={() => handleGroupStatusChange(viewingOrder.id, 'Shipped')}
+                    className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800 font-bold rounded-lg text-xs transition-all active:scale-95 text-center shadow-md cursor-pointer"
+                  >
+                    {language === 'bn' ? 'চালান প্রেরণ করুন' : 'Ship Order'}
+                  </button>
+                )}
+
+                {viewingOrder.status === 'Shipped' && (
+                  <button
+                    type="button"
+                    onClick={() => handleGroupStatusChange(viewingOrder.id, 'Delivered')}
+                    className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white hover:from-emerald-700 hover:to-emerald-800 font-bold rounded-lg text-xs transition-all active:scale-95 text-center shadow-md cursor-pointer"
+                  >
+                    {language === 'bn' ? 'ডেলিভারি সেটেল করুন' : 'Settle Delivery'}
+                  </button>
+                )}
+
+                <button
+                  id="viewing-challan-btn-close"
+                  type="button"
+                  onClick={() => setViewingOrder(null)}
+                  className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-lg text-xs transition-all active:scale-95 text-center shadow-md cursor-pointer"
+                >
+                  {tChallan.closeVoucher}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -2656,6 +2799,20 @@ export default function ChallanModule({
         </div>
       )}
 
+      {toast && (
+        <div className="fixed bottom-5 right-5 z-[100] animate-slide-in-right">
+          <div className={`flex items-center gap-3 px-4 py-3.5 rounded-xl border shadow-lg max-w-sm ${
+            toast.type === 'success' 
+              ? 'bg-emerald-50 text-emerald-800 border-emerald-250' 
+              : 'bg-rose-50 text-rose-850 border-rose-250'
+          }`}>
+            <span className="text-base">
+              {toast.type === 'success' ? '✅' : '❌'}
+            </span>
+            <p className="text-xs font-semibold">{toast.message}</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
