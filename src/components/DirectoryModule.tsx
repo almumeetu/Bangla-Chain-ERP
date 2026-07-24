@@ -764,21 +764,22 @@ export default function DirectoryModule({
       return;
     }
 
+    const isCtn = prodPrimaryUnit === 'Carton';
     const payload = {
       name: prodName,
       sku: prodSku,
       company: prodCompany,
       createdAt: editingProduct?.createdAt || new Date().toISOString(),
       categoryId: prodCategoryId || undefined,
-      customUnits: [{ name: 'Carton', multiplier: Number(prodCartonSize) }],
+      customUnits: [{ name: 'Carton', multiplier: isCtn ? 1 : Number(prodCartonSize) }],
       defaultGodownId: prodGodownId || undefined,
       defaultPP: dp,
       defaultWSP: tp,
       defaultMRP: Number(prodMRP),
       currentStock: Number(prodStock),
-      cartonSize: Number(prodCartonSize),
-      pricePerCarton: Number(prodPricePerCarton),
-      pricePerPiece: tp,
+      cartonSize: isCtn ? 1 : Number(prodCartonSize),
+      pricePerCarton: isCtn ? tp : Number(prodPricePerCarton),
+      pricePerPiece: isCtn ? 0 : tp,
       primaryUnit: prodPrimaryUnit
     };
 
@@ -1097,6 +1098,7 @@ export default function DirectoryModule({
 
   // --- START EDIT HANDLERS ---
   const startEditProduct = useCallback((p: Product) => {
+    const isCtn = p.primaryUnit === 'Carton';
     setEditingProduct(p);
     setProdName(p.name);
     setProdSku(p.sku);
@@ -1107,9 +1109,9 @@ export default function DirectoryModule({
     setProdWSP(p.defaultWSP);
     setProdMRP(p.defaultMRP);
     setProdStock(p.currentStock);
-    setProdCartonSize(p.cartonSize || (p.customUnits && p.customUnits[0] ? p.customUnits[0].multiplier : 24));
-    setProdPricePerCarton(p.pricePerCarton || (p.defaultWSP * (p.cartonSize || 24)));
-    setProdPricePerPiece(p.pricePerPiece || p.defaultWSP);
+    setProdCartonSize(isCtn ? 1 : (p.cartonSize || (p.customUnits && p.customUnits[0] ? p.customUnits[0].multiplier : 24)));
+    setProdPricePerCarton(isCtn ? p.defaultWSP : (p.pricePerCarton || (p.defaultWSP * (p.cartonSize || 24))));
+    setProdPricePerPiece(isCtn ? p.defaultWSP : (p.pricePerPiece || p.defaultWSP));
     setProdPrimaryUnit(p.primaryUnit || 'Piece');
     setShowProductModal(true);
   }, []);
@@ -1644,19 +1646,28 @@ export default function DirectoryModule({
                          ) : (
                            <>
                              <div className="bg-blue-50/40 rounded-xl p-2 border border-blue-100 flex flex-col justify-between">
-                               <span className="text-[8px] text-blue-500 font-extrabold uppercase tracking-wider block">Price Per Carton</span>
-                               <span className="font-mono text-xs font-black text-blue-700">{formatBDT(p.pricePerCarton || (p.defaultWSP * (p.cartonSize || 24)))}</span>
+                               <span className="text-[8px] text-blue-500 font-extrabold uppercase tracking-wider block">TP Price / Piece</span>
+                               <span className="font-mono text-xs font-black text-blue-700">{formatBDT(p.pricePerPiece || p.defaultWSP)}</span>
                              </div>
                              <div className="bg-emerald-50/40 rounded-xl p-2 border border-emerald-100 flex flex-col justify-between">
-                               <span className="text-[8px] text-emerald-600 font-extrabold uppercase tracking-wider block">Price Per Piece</span>
-                               <span className="font-mono text-xs font-black text-emerald-700">{formatBDT(p.pricePerPiece || p.defaultWSP)}</span>
+                               <span className="text-[8px] text-emerald-600 font-extrabold uppercase tracking-wider block">DP Price / Piece</span>
+                               <span className="font-mono text-xs font-black text-emerald-700">{formatBDT(p.defaultPP)}</span>
                              </div>
                            </>
                          )}
                        </div>
                        <div className="grid grid-cols-2 gap-2 text-center text-[9px] text-slate-450 font-bold border-t border-slate-100 pt-2">
-                         <div>DP (PP): {formatBDT(p.defaultPP)}/{p.primaryUnit === 'Carton' ? 'Ctn' : 'pc'}</div>
-                         <div>MRP: {formatBDT(p.defaultMRP)}/{p.primaryUnit === 'Carton' ? 'Ctn' : 'pc'}</div>
+                         {p.primaryUnit === 'Carton' ? (
+                           <>
+                             <div>DP (Ctn): {formatBDT(p.defaultPP)}/Ctn</div>
+                             <div>MRP: {formatBDT(p.defaultMRP)}/Ctn</div>
+                           </>
+                         ) : (
+                           <>
+                             <div>TP (Ctn): {formatBDT(p.pricePerCarton || (p.defaultWSP * (p.cartonSize || 24)))}/Ctn</div>
+                             <div>MRP: {formatBDT(p.defaultMRP)}/pc</div>
+                           </>
+                         )}
                        </div>
                       {/* Margin Info & Actions */}
                       <div className="pt-3 border-t border-slate-100 flex items-center justify-between relative z-10">
@@ -1774,10 +1785,22 @@ export default function DirectoryModule({
                               <td className="p-2 align-top">
                                 <input
                                   type="number"
-                                  value={inlineEditForm.pricePerCarton || 0}
+                                  value={
+                                    inlineEditForm.primaryUnit === 'Carton'
+                                      ? (inlineEditForm.pricePerCarton || inlineEditForm.defaultWSP || 0)
+                                      : (inlineEditForm.pricePerCarton || ((inlineEditForm.defaultWSP || 0) * (inlineEditForm.cartonSize || 24)))
+                                  }
                                   onChange={e => {
                                     const cPrice = Number(e.target.value);
                                     setInlineEditForm(prev => {
+                                      if (prev.primaryUnit === 'Carton') {
+                                        return {
+                                          ...prev,
+                                          pricePerCarton: cPrice,
+                                          pricePerPiece: 0,
+                                          defaultWSP: cPrice
+                                        };
+                                      }
                                       const cs = prev.cartonSize || 24;
                                       const pPrice = Number((cPrice / cs).toFixed(2));
                                       return {
@@ -1792,23 +1815,27 @@ export default function DirectoryModule({
                                 />
                               </td>
                               <td className="p-2 align-top">
-                                <input
-                                  type="number"
-                                  value={inlineEditForm.pricePerPiece || 0}
-                                  onChange={e => {
-                                    const pPrice = Number(e.target.value);
-                                    setInlineEditForm(prev => {
-                                      const cs = prev.cartonSize || 24;
-                                      return {
-                                        ...prev,
-                                        pricePerPiece: pPrice,
-                                        defaultWSP: pPrice,
-                                        pricePerCarton: Number((pPrice * cs).toFixed(2))
-                                      };
-                                    });
-                                  }}
-                                  className="w-full h-8 px-2 rounded-lg border border-slate-300 text-xs font-mono font-bold text-emerald-700 focus:border-indigo-500 outline-none"
-                                />
+                                {inlineEditForm.primaryUnit === 'Carton' ? (
+                                  <span className="text-slate-400 text-[10px] block pt-2 text-center font-bold">N/A</span>
+                                ) : (
+                                  <input
+                                    type="number"
+                                    value={inlineEditForm.pricePerPiece || inlineEditForm.defaultWSP || 0}
+                                    onChange={e => {
+                                      const pPrice = Number(e.target.value);
+                                      setInlineEditForm(prev => {
+                                        const cs = prev.cartonSize || 24;
+                                        return {
+                                          ...prev,
+                                          pricePerPiece: pPrice,
+                                          defaultWSP: pPrice,
+                                          pricePerCarton: Number((pPrice * cs).toFixed(2))
+                                        };
+                                      });
+                                    }}
+                                    className="w-full h-8 px-2 rounded-lg border border-slate-300 text-xs font-mono font-bold text-emerald-700 focus:border-indigo-500 outline-none"
+                                  />
+                                )}
                               </td>
                               <td className="p-2 align-top">
                                 <input

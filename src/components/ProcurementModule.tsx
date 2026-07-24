@@ -448,14 +448,15 @@ export default function ProcurementModule({
         const matchingProcItem = finalizedItems.find(item => item.productId === p.id);
         if (matchingProcItem) {
           const addedPieces = matchingProcItem.qty + matchingProcItem.bonusQty;
+          const isCtn = p.primaryUnit === 'Carton';
           return {
             ...p,
             currentStock: p.currentStock + addedPieces,
             defaultPP: matchingProcItem.purchasePrice,
             defaultMRP: matchingProcItem.mrp,
             defaultWSP: matchingProcItem.wsp,
-            // Also update pricePerPiece from wsp
-            pricePerPiece: matchingProcItem.wsp,
+            pricePerPiece: isCtn ? 0 : matchingProcItem.wsp,
+            pricePerCarton: isCtn ? matchingProcItem.wsp : matchingProcItem.wsp * (p.cartonSize || 24),
           };
         }
         return p;

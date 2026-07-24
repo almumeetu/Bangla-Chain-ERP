@@ -474,16 +474,18 @@ export default function SellModule({
   }, []);
 
   const cartSubtotalDP = cart.reduce((s, item) => {
-    const cartonSize = item.product.cartonSize || 24;
-    const purchasePricePerCarton = item.product.defaultPP * cartonSize;
+    const isCarton = item.product.primaryUnit === 'Carton';
+    const cartonSize = isCarton ? 1 : (item.product.cartonSize || 24);
+    const purchasePricePerCarton = isCarton ? item.product.defaultPP : item.product.defaultPP * cartonSize;
     const purchasePricePerPiece = item.product.defaultPP;
     return s + (item.cartons * purchasePricePerCarton + item.pcs * purchasePricePerPiece);
   }, 0);
 
   const cartSubtotalTP = cart.reduce((s, item) => {
-    const cartonSize = item.product.cartonSize || 24;
+    const isCarton = item.product.primaryUnit === 'Carton';
+    const cartonSize = isCarton ? 1 : (item.product.cartonSize || 24);
     const pricePerCarton = item.product.pricePerCarton || (item.product.defaultWSP * cartonSize);
-    const pricePerPiece = item.product.pricePerPiece || item.product.defaultWSP;
+    const pricePerPiece = isCarton ? 0 : (item.product.pricePerPiece || item.product.defaultWSP);
     return s + (item.cartons * pricePerCarton + item.pcs * pricePerPiece);
   }, 0);
 
