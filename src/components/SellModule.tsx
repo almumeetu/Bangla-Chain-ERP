@@ -764,9 +764,9 @@ export default function SellModule({
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-2.5 modal-body min-h-[160px]">
+            <div className="flex-1 overflow-y-auto p-4 space-y-2.5 modal-body min-h-[100px]">
               {cart.length === 0 ? (
-                <div className="flex flex-col items-center justify-center gap-3 py-24 text-slate-400 bg-gradient-to-b from-slate-50 to-white rounded-2xl border border-dashed border-slate-200">
+                <div className="flex flex-col items-center justify-center gap-3 py-8 text-slate-400 bg-gradient-to-b from-slate-50 to-white rounded-2xl border border-dashed border-slate-200">
                   <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center">
                     <ShoppingBag className="w-7 h-7 text-slate-300" />
                   </div>
