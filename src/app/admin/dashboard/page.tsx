@@ -244,12 +244,16 @@ export default function App() {
           pageTitle={language === 'bn' ? 'ড্যামেজ স্টক' : 'Damage Stock'}
           pageSubtitle={language === 'bn' ? 'পণ্যের ড্যামেজ এন্ট্রি' : 'Log product damages'} />
       );
-      case 'reports': return (
-        <ReportsModule products={db.products} challans={db.challans} srs={db.srs}
-          companies={db.companies} expenses={db.expenses} deliveryMen={db.deliveryMen}
-          units={db.units} language={language} userRole={userRole}
-          shopName={db.shopName} shopSubBrand={db.shopSubBrand} shopLogo={db.shopLogo} />
-      );
+      case 'reports': {
+        const srName = typeof window !== 'undefined' ? sessionStorage.getItem('erp_sr_name') || undefined : undefined;
+        return (
+          <ReportsModule products={db.products} challans={db.challans} srs={db.srs}
+            companies={db.companies} expenses={db.expenses} deliveryMen={db.deliveryMen}
+            units={db.units} language={language} userRole={userRole}
+            shopName={db.shopName} shopSubBrand={db.shopSubBrand} shopLogo={db.shopLogo}
+            loggedInSrName={srName} />
+        );
+      }
       case 'settings': return (
         <SettingsModule shopName={db.shopName} setShopName={db.syncShopName}
           shopSubBrand={db.shopSubBrand} setShopSubBrand={db.syncShopSubBrand}

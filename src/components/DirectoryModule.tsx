@@ -2126,7 +2126,7 @@ export default function DirectoryModule({
           {/* Cards Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {srs.map((sr, index) => {
-              const assignedShopsCount = customers.filter(c => c.assignedSR.toLowerCase() === sr.name.toLowerCase()).length;
+              const assignedShopsCount = customers.filter(c => c.assignedSR?.toLowerCase() === sr.name.toLowerCase()).length;
               const initials = sr.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
 
               // Colors dynamically selected based on index

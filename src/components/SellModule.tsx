@@ -237,8 +237,8 @@ function ProductCard({ product, onAddToCart, formatBDT, language, listView }: Pr
         onClick={handleAdd}
         disabled={isOut}
         className={`flex w-full items-center justify-center gap-1.5 border-t py-2 text-[9px] font-black tracking-widest transition-all duration-200 cursor-pointer ${isOut
-            ? 'border-slate-100 bg-slate-50 text-slate-400 cursor-not-allowed'
-            : `border-slate-100 ${theme.btn} text-white hover:brightness-110 active:scale-[0.98]`
+          ? 'border-slate-100 bg-slate-50 text-slate-400 cursor-not-allowed'
+          : `border-slate-100 ${theme.btn} text-white hover:brightness-110 active:scale-[0.98]`
           }`}>
         <Plus className="w-3.5 h-3.5" />
         {isOut ? (language === 'bn' ? 'স্টক নেই' : 'Out of Stock') : (language === 'bn' ? '+1 কার্টে' : '+1 to Cart')}
@@ -685,8 +685,8 @@ export default function SellModule({
           </div>
 
           <div className={`max-h-[600px] overflow-y-auto pr-0.5 modal-body ${viewMode === 'grid'
-              ? 'grid grid-cols-2 sm:grid-cols-3 gap-3'
-              : 'flex flex-col gap-2.5'
+            ? 'grid grid-cols-2 sm:grid-cols-3 gap-3'
+            : 'flex flex-col gap-2.5'
             }`}>
             {filteredProducts.map(p => (
               <ProductCard key={p.id} product={p} onAddToCart={handleAddToCart} formatBDT={formatBDT} language={language} listView={viewMode === 'list'} />
@@ -814,8 +814,8 @@ export default function SellModule({
 
                 <button id="pos-btn-checkout" type="submit" disabled={cart.length === 0}
                   className={`w-full py-4 text-[15px] font-black flex items-center justify-center gap-2 rounded-2xl transition-all duration-200 cursor-pointer shadow-xl ${cart.length > 0
-                      ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-emerald-200 active:scale-[0.97]'
-                      : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
+                    ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-emerald-200 active:scale-[0.97]'
+                    : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
                     }`}>
                   <Check className="w-5 h-5" />
                   {translations[language].challan.dispatchBtn}

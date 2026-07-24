@@ -122,7 +122,7 @@ function getAggregatedChallanQty(items: ChallanItem[], productsList: Product[], 
     const val = Number(item[field]) || 0;
     if (val <= 0) return;
 
-    const product = productsList.find(p => p.name.toLowerCase() === item.productName.toLowerCase());
+    const product = productsList.find(p => (p.name || '').toLowerCase() === (item.productName || '').toLowerCase());
     if (!product) {
       totalRawPcs += val;
       totalCartons += Math.floor(val / 24);
@@ -158,6 +158,7 @@ interface ReportsModuleProps {
   shopName?:    string;
   shopSubBrand?:string;
   shopLogo?:    string;
+  loggedInSrName?: string;
 }
 
 type ReportTab = 'stock' | 'sales' | 'profit' | 'margin' | 'damage' | 'dp' | 'dayend';
@@ -175,6 +176,7 @@ export default function ReportsModule({
   shopName     = 'Bangla-Chain ERP',
   shopSubBrand = 'Distribution Management System',
   shopLogo,
+  loggedInSrName,
 }: ReportsModuleProps) {
   const t = translations[language].reports;
   const tCommon = translations[language].common;
@@ -199,7 +201,12 @@ export default function ReportsModule({
 
   // Global filters
   const [selectedCompanyFilter, setSelectedCompanyFilter] = useState('All');
-  const [selectedSrFilter, setSelectedSrFilter] = useState('All');
+  const [selectedSrFilter, setSelectedSrFilter] = useState(() => {
+    if (userRole === 'sr' && loggedInSrName) {
+      return loggedInSrName;
+    }
+    return 'All';
+  });
   const [selectedDeliveryManFilter, setSelectedDeliveryManFilter] = useState('All');
 
   const handlePresetChange = useCallback((val: string) => {
@@ -238,8 +245,8 @@ export default function ReportsModule({
       const date = ch.createdAt.split('T')[0];
       const matchesDate = date >= startDate && date <= endDate;
       const matchesCompany = selectedCompanyFilter === 'All' || ch.company === selectedCompanyFilter;
-      const matchesSR = selectedSrFilter === 'All' || ch.srName.toLowerCase() === selectedSrFilter.toLowerCase();
-      const matchesDM = selectedDeliveryManFilter === 'All' || ch.deliveryManName.toLowerCase() === selectedDeliveryManFilter.toLowerCase();
+      const matchesSR = selectedSrFilter === 'All' || (ch.srName || '').toLowerCase() === selectedSrFilter.toLowerCase();
+      const matchesDM = selectedDeliveryManFilter === 'All' || (ch.deliveryManName || '').toLowerCase() === selectedDeliveryManFilter.toLowerCase();
       const matchesStatus = ch.status === 'Delivered'; // Only Delivered challans count
       return matchesDate && matchesCompany && matchesSR && matchesDM && matchesStatus;
     });
@@ -315,9 +322,9 @@ export default function ReportsModule({
     // B. SR-wise Sales
     const activeSrs = selectedSrFilter === 'All'
       ? srs
-      : srs.filter(s => s.name.toLowerCase() === selectedSrFilter.toLowerCase());
+      : srs.filter(s => (s.name || '').toLowerCase() === selectedSrFilter.toLowerCase());
     const srSales = activeSrs.map(sr => {
-      const srChallans = filteredChallans.filter(ch => ch.srName.toLowerCase() === sr.name.toLowerCase());
+      const srChallans = filteredChallans.filter(ch => (ch.srName || '').toLowerCase() === (sr.name || '').toLowerCase());
       const unitsSold = srChallans.reduce((sum, ch) => sum + ch.qty, 0);
       const revenue = srChallans.reduce((sum, ch) => sum + ch.totalAmount, 0);
       const returns = srChallans.reduce((sum, ch) => sum + (ch.returnedQty || 0), 0);
@@ -348,9 +355,9 @@ export default function ReportsModule({
     // C. Delivery Man-wise Sales
     const activeDeliveryMen = selectedDeliveryManFilter === 'All'
       ? deliveryMen
-      : deliveryMen.filter(dm => dm.name.toLowerCase() === selectedDeliveryManFilter.toLowerCase());
+      : deliveryMen.filter(dm => (dm.name || '').toLowerCase() === selectedDeliveryManFilter.toLowerCase());
     const dmSales = activeDeliveryMen.map(dm => {
-      const dmChallans = filteredChallans.filter(ch => ch.deliveryManName.toLowerCase() === dm.name.toLowerCase());
+      const dmChallans = filteredChallans.filter(ch => (ch.deliveryManName || '').toLowerCase() === (dm.name || '').toLowerCase());
       const unitsSold = dmChallans.reduce((sum, ch) => sum + ch.qty, 0);
       const revenue = dmChallans.reduce((sum, ch) => sum + ch.totalAmount, 0);
       const returns = dmChallans.reduce((sum, ch) => sum + (ch.returnedQty || 0), 0);
@@ -382,7 +389,7 @@ export default function ReportsModule({
 
     // D. Product-wise Sales
     const productSales = products.map(p => {
-      const pChallans = filteredChallans.filter(ch => ch.productName.toLowerCase() === p.name.toLowerCase());
+      const pChallans = filteredChallans.filter(ch => (ch.productName || '').toLowerCase() === (p.name || '').toLowerCase());
       const unitsSold = pChallans.reduce((sum, ch) => sum + ch.qty, 0);
       const revenue = pChallans.reduce((sum, ch) => sum + ch.totalAmount, 0);
       const returns = pChallans.reduce((sum, ch) => sum + (ch.returnedQty || 0), 0);
@@ -467,7 +474,7 @@ export default function ReportsModule({
         const newDamageValue = newDamageQty * unitValue;
         const totalDamageValue = totalDamageQty * unitValue;
         const periodSalesValue = filteredChallans
-          .filter(ch => ch.productName.toLowerCase() === p.name.toLowerCase())
+          .filter(ch => (ch.productName || '').toLowerCase() === (p.name || '').toLowerCase())
           .reduce((sum, ch) => sum + (ch.totalAmount || 0), 0);
         const latestNote = [...historyEntries]
           .sort((a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime())[0]?.note || '';
@@ -790,11 +797,13 @@ export default function ReportsModule({
               {language === 'bn' ? 'রিপোর্ট ফিল্টার কন্ট্রোল' : 'Report Filters Control'}
             </span>
           </div>
-          {(selectedCompanyFilter !== 'All' || selectedSrFilter !== 'All' || selectedDeliveryManFilter !== 'All') && (
+          {(selectedCompanyFilter !== 'All' || (userRole !== 'sr' && selectedSrFilter !== 'All') || selectedDeliveryManFilter !== 'All') && (
             <button
               onClick={() => {
                 setSelectedCompanyFilter('All');
-                setSelectedSrFilter('All');
+                if (userRole !== 'sr') {
+                  setSelectedSrFilter('All');
+                }
                 setSelectedDeliveryManFilter('All');
               }}
               className="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold underline transition-colors cursor-pointer"
@@ -830,12 +839,19 @@ export default function ReportsModule({
             <select
               value={selectedSrFilter}
               onChange={e => setSelectedSrFilter(e.target.value)}
-              className="h-10 w-full rounded-xl border border-purple-200 bg-purple-50/10 px-3 text-xs font-bold text-purple-855 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100 transition-all cursor-pointer shadow-sm"
+              disabled={userRole === 'sr'}
+              className="h-10 w-full rounded-xl border border-purple-200 bg-purple-50/10 px-3 text-xs font-bold text-purple-855 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100 transition-all cursor-pointer shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              <option value="All">{language === 'bn' ? 'সকল এসআর (SR)' : 'All SRs'}</option>
-              {srs.map(sr => (
-                <option key={sr.id} value={sr.name}>{sr.name}</option>
-              ))}
+              {userRole === 'sr' && loggedInSrName ? (
+                <option value={loggedInSrName}>{loggedInSrName}</option>
+              ) : (
+                <>
+                  <option value="All">{language === 'bn' ? 'সকল এসআর (SR)' : 'All SRs'}</option>
+                  {srs.map(sr => (
+                    <option key={sr.id} value={sr.name}>{sr.name}</option>
+                  ))}
+                </>
+              )}
             </select>
           </div>
 
