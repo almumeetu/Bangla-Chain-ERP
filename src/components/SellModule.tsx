@@ -387,28 +387,8 @@ export default function SellModule({
   const [selectedSR, setSelectedSR] = useState(srs[0]?.name || '');
   const [selectedRoute, setSelectedRoute] = useState(routes[0]?.name || '');
   const [selectedDeliveryMan, setSelectedDeliveryMan] = useState(deliveryMen[0]?.name || '');
-  const [selectedCustomerName, setSelectedCustomerName] = useState('');
   const [orderStatus, setOrderStatus] = useState<'Shipped' | 'Delivered' | 'Pending'>('Pending');
   const [orderDate, setOrderDate] = useState<string>(new Date().toISOString().slice(0, 10));
-  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
-
-  const filteredCustomers = React.useMemo(() => {
-    if (!selectedRoute) return customers || [];
-    const rObj = routes.find(r => r.name === selectedRoute);
-    if (!rObj) return customers || [];
-    const filtered = (customers || []).filter(c => c.routeId === rObj.id);
-    return filtered.length > 0 ? filtered : (customers || []);
-  }, [selectedRoute, customers, routes]);
-
-  React.useEffect(() => {
-    if (filteredCustomers.length > 0) {
-      if (!filteredCustomers.some(c => c.name === selectedCustomerName)) {
-        setSelectedCustomerName(filteredCustomers[0].name);
-      }
-    } else {
-      setSelectedCustomerName('');
-    }
-  }, [filteredCustomers, selectedCustomerName]);
 
   const uniqueCompanies = Array.from(new Set(products.map(p => p.company).filter(Boolean)));
 
@@ -550,8 +530,8 @@ export default function SellModule({
         deliveryManName: selectedDeliveryMan, status: 'Pending',
         returnedQty: item.returnedQty || 0, damagedQty: item.damagedQty || 0,
         commissionAmount: 0, createdAt: orderTimestamp,
-        customerId: customers.find(c => c.name === selectedCustomerName)?.id,
-        customerName: selectedCustomerName,
+        customerId: undefined,
+        customerName: '',
         selectedUnitName: isCarton
           ? `${item.cartons} ctn`
           : `${item.cartons} ctn, ${item.pcs} pcs`
@@ -591,7 +571,7 @@ export default function SellModule({
     setOrderStatus('Pending');
     alert('Checkout successful! Challans generated.');
     onNavigate('delivery');
-  }, [cart, cartSubtotalTP, netTotal, selectedSR, selectedRoute, selectedDeliveryMan, orderDate, setChallans, onNavigate, selectedCustomerName, customers]);
+  }, [cart, cartSubtotalTP, netTotal, selectedSR, selectedRoute, selectedDeliveryMan, orderDate, setChallans, onNavigate, customers]);
 
   const LabelInput = ({ label, children }: { label: string; children: React.ReactNode }) => (
     <div className="space-y-1">
@@ -763,16 +743,25 @@ export default function SellModule({
                   </div>
                 </LabelInput>
               </div>
-              <LabelInput label={language === 'bn' ? 'খুচরা বিক্রেতা / দোকান (ঐচ্ছিক)' : 'Select Customer / Shop (Optional)'}>
-                <div className="relative">
-                  <Building className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
-                  <select id="pos-form-customer" value={selectedCustomerName} onChange={e => setSelectedCustomerName(e.target.value)}
-                    className="h-9 w-full rounded-xl border border-slate-200 bg-white pl-8 pr-3 text-[10px] font-medium text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-50 cursor-pointer transition-all duration-200 animate-fade-in">
-                    <option value="">{language === 'bn' ? 'দোকান নির্বাচন করুন' : 'Select Customer/Shop'}</option>
-                    {filteredCustomers.map(c => <option key={c.id} value={c.name}>{c.name} ({c.market})</option>)}
-                  </select>
-                </div>
-              </LabelInput>
+
+              <div className="grid grid-cols-2 gap-3">
+                <LabelInput label={translations[language].challan.deliverySelectLabel}>
+                  <div className="relative">
+                    <Truck className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
+                    <select id="pos-form-delivery" value={selectedDeliveryMan} onChange={handleDMChange}
+                      className="h-9 w-full rounded-xl border border-slate-200 bg-white pl-8 pr-3 text-[10px] font-medium text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-50 cursor-pointer transition-all duration-200">
+                      {deliveryMen.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
+                    </select>
+                  </div>
+                </LabelInput>
+                <LabelInput label={language === 'bn' ? 'অর্ডারের তারিখ' : 'Order Date'}>
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
+                    <input type="date" value={orderDate} onChange={e => setOrderDate(e.target.value)}
+                      className="h-9 w-full rounded-xl border border-slate-200 bg-white pl-8 pr-3 text-[11px] font-medium text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-50 transition-all duration-200 cursor-pointer" />
+                  </div>
+                </LabelInput>
+              </div>
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-2.5 modal-body min-h-[160px]">
@@ -822,35 +811,6 @@ export default function SellModule({
               </div>
 
               <div className="bg-gradient-to-r from-slate-50/90 to-white px-5 py-4 space-y-3">
-                <div className="flex justify-end">
-                  <button type="button" onClick={() => setIsAdvancedOpen(!isAdvancedOpen)}
-                    className="text-[9px] font-black text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 px-3 py-1.5 rounded-xl transition-all duration-200 cursor-pointer flex items-center gap-1">
-                    {isAdvancedOpen ? (language === 'bn' ? '✓ বন্ধ করুন' : '✓ Close') : (language === 'bn' ? '⚙️ অ্যাডভান্সড' : '⚙️ Advanced')}
-                  </button>
-                </div>
-
-                {isAdvancedOpen && (
-                  <div className="space-y-3 p-3.5 bg-white rounded-2xl border border-slate-200 shadow-sm">
-                    <div className="grid grid-cols-2 gap-3">
-                      <LabelInput label={translations[language].challan.deliverySelectLabel}>
-                        <div className="relative">
-                          <Truck className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
-                          <select id="pos-form-delivery" value={selectedDeliveryMan} onChange={handleDMChange}
-                            className="h-9 w-full rounded-xl border border-slate-200 bg-white pl-8 pr-3 text-[10px] font-medium text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-50 cursor-pointer transition-all duration-200">
-                            {deliveryMen.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
-                          </select>
-                        </div>
-                      </LabelInput>
-                      <LabelInput label={language === 'bn' ? 'অর্ডারের তারিখ' : 'Order Date'}>
-                        <div className="relative">
-                          <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
-                          <input type="date" value={orderDate} onChange={e => setOrderDate(e.target.value)}
-                            className="h-9 w-full rounded-xl border border-slate-200 bg-white pl-8 pr-3 text-[11px] font-medium text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-50 transition-all duration-200 cursor-pointer" />
-                        </div>
-                      </LabelInput>
-                    </div>
-                  </div>
-                )}
 
                 <button id="pos-btn-checkout" type="submit" disabled={cart.length === 0}
                   className={`w-full py-4 text-[15px] font-black flex items-center justify-center gap-2 rounded-2xl transition-all duration-200 cursor-pointer shadow-xl ${cart.length > 0
