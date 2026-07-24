@@ -873,9 +873,21 @@ export default function ChallanModule({
   };
 
   const handleDeleteGroup = (groupId: string) => {
-    if (!confirm(language === 'bn' ? 'আপনি কি নিশ্চিত যে এই পুরো অর্ডারটি ডিলিট করতে চান?' : 'Are you sure you want to delete this entire order?')) return;
     const group = groupedData.find(g => g.id === groupId);
     if (!group) return;
+
+    let confirmMsg = '';
+    if (group.status === 'Delivered') {
+      confirmMsg = language === 'bn'
+        ? 'আপনি কি নিশ্চিত যে এই ডেলিভারি সম্পন্ন অর্ডারটি ডিলিট করতে চান? এটি প্রোডাক্ট স্টক এবং কাস্টমারের বকেয়া ব্যালেন্স পুনরায় আগের অবস্থায় ফিরিয়ে নিয়ে যাবে।'
+        : 'Are you sure you want to delete this DELIVERED order? This will restore product stock and customer due balance back to their original state.';
+    } else {
+      confirmMsg = language === 'bn'
+        ? 'আপনি কি নিশ্চিত যে এই পুরো অর্ডারটি ডিলিট করতে চান?'
+        : 'Are you sure you want to delete this entire order?';
+    }
+
+    if (!confirm(confirmMsg)) return;
 
     let tempProducts = [...products];
     let tempCustomers = [...customers];
@@ -889,8 +901,8 @@ export default function ChallanModule({
 
           group.items.forEach(item => {
             if (item.productName === p.name && item.status === 'Delivered') {
-              currentStock += (item.qty + item.bonusQty - item.returnedQty);
-              damagedStock -= item.damagedQty;
+              currentStock += (item.qty + (item.bonusQty || 0) - (item.returnedQty || 0));
+              damagedStock = Math.max(0, damagedStock - (item.damagedQty || 0));
             }
           });
 
@@ -915,6 +927,10 @@ export default function ChallanModule({
 
         return { products: tempProducts, customers: tempCustomers, challans: tempChallans };
       });
+
+      if (viewingOrder && viewingOrder.id === groupId) {
+        setViewingOrder(null);
+      }
     } catch (err) {
       // Transaction failed, alerts already raised
     }
@@ -1455,16 +1471,14 @@ export default function ChallanModule({
                             <Pencil className="w-4 h-4" />
                           </button>
                         )}
-                        {g.status !== 'Delivered' && (
-                          <button
-                            id={`order-action-delete-${g.id}`}
-                            onClick={() => handleDeleteGroup(g.id)}
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-rose-100 bg-rose-50 text-rose-600 hover:bg-rose-100 cursor-pointer shadow-sm active:scale-95 transition-all"
-                            title="Delete Order"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        )}
+                        <button
+                          id={`order-action-delete-${g.id}`}
+                          onClick={() => handleDeleteGroup(g.id)}
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-rose-100 bg-rose-50 text-rose-600 hover:bg-rose-100 cursor-pointer shadow-sm active:scale-95 transition-all"
+                          title="Delete Order"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </td>
                   </tr>

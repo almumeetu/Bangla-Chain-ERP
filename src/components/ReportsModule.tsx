@@ -21,35 +21,127 @@ import { translations, Language } from '../translations';
 import { getStockValueDP } from '../lib/productUtils';
 import { exportReportPDF, exportReportExcel, printReport, type ReportType } from '../lib/reportEngine';
 
-function CartonPcsDisplay({ qty, cartonSize, primaryUnit }: { qty: number; cartonSize?: number; primaryUnit?: string }) {
-  // Carton-primary products: stock IS in cartons — no piece conversion
+function CartonPcsDisplay({ 
+  qty, 
+  cartonSize, 
+  primaryUnit, 
+  cartons, 
+  pcs,
+  cartonColor = "text-indigo-700",
+  pcsColor = "text-emerald-700"
+}: { 
+  qty?: number; 
+  cartonSize?: number; 
+  primaryUnit?: string; 
+  cartons?: number; 
+  pcs?: number;
+  cartonColor?: string;
+  pcsColor?: string;
+}) {
+  // If pre-computed cartons/pcs are provided, use them!
+  if (cartons !== undefined && pcs !== undefined) {
+    const rawPcs = qty !== undefined ? qty : 0;
+    return (
+      <div className="font-mono text-[11px] leading-snug">
+        <span className={`${cartonColor} font-bold`}>{cartons.toLocaleString()}</span>
+        <span className="text-slate-400 text-[9px]"> Ctn</span>
+        {pcs > 0 && (
+          <>
+            <span className="text-slate-300 mx-0.5">+</span>
+            <span className={`${pcsColor} font-bold`}>{pcs}</span>
+            <span className="text-slate-400 text-[9px]"> Pcs</span>
+          </>
+        )}
+        {rawPcs > 0 && (
+          <div className="text-[9px] text-slate-400 mt-0.5">({rawPcs.toLocaleString()} pcs)</div>
+        )}
+      </div>
+    );
+  }
+
+  // Fallback to legacy single-product calculation logic:
+  const activeQty = qty || 0;
   if (primaryUnit === 'Carton') {
     return (
       <div className="font-mono text-[11px] leading-snug">
-        <span className="text-indigo-700 font-bold">{qty.toLocaleString()}</span>
+        <span className={`${cartonColor} font-bold`}>{activeQty.toLocaleString()}</span>
         <span className="text-slate-400 text-[9px]"> Ctn</span>
       </div>
     );
   }
 
   const cs = cartonSize || 24;
-  const cartons = Math.floor(qty / cs);
-  const pcs = qty % cs;
+  const computedCartons = Math.floor(activeQty / cs);
+  const computedPcs = activeQty % cs;
 
   return (
     <div className="font-mono text-[11px] leading-snug">
-      <span className="text-indigo-700 font-bold">{cartons.toLocaleString()}</span>
+      <span className={`${cartonColor} font-bold`}>{computedCartons.toLocaleString()}</span>
       <span className="text-slate-400 text-[9px]"> Ctn</span>
-      {pcs > 0 && (
+      {computedPcs > 0 && (
         <>
           <span className="text-slate-300 mx-0.5">+</span>
-          <span className="text-emerald-700 font-bold">{pcs}</span>
+          <span className={`${pcsColor} font-bold`}>{computedPcs}</span>
           <span className="text-slate-400 text-[9px]"> Pcs</span>
         </>
       )}
-      <div className="text-[9px] text-slate-400 mt-0.5">({qty.toLocaleString()} pcs)</div>
+      <div className="text-[9px] text-slate-400 mt-0.5">({activeQty.toLocaleString()} pcs)</div>
     </div>
   );
+}
+
+function getAggregatedStockQty(productsList: Product[], field: 'currentStock' | 'damagedStock') {
+  let totalCartons = 0;
+  let totalPcs = 0;
+  let totalRawPcs = 0;
+
+  productsList.forEach(p => {
+    const val = Number(p[field]) || 0;
+    if (val <= 0) return;
+
+    if (p.primaryUnit === 'Carton') {
+      totalCartons += val;
+      totalRawPcs += val * (p.cartonSize || 24);
+    } else {
+      const cs = p.cartonSize || 24;
+      totalCartons += Math.floor(val / cs);
+      totalPcs += val % cs;
+      totalRawPcs += val;
+    }
+  });
+
+  return { cartons: totalCartons, pcs: totalPcs, rawPcs: totalRawPcs };
+}
+
+function getAggregatedChallanQty(items: ChallanItem[], productsList: Product[], field: 'qty' | 'returnedQty' | 'damagedQty') {
+  let totalCartons = 0;
+  let totalPcs = 0;
+  let totalRawPcs = 0;
+
+  items.forEach(item => {
+    const val = Number(item[field]) || 0;
+    if (val <= 0) return;
+
+    const product = productsList.find(p => p.name.toLowerCase() === item.productName.toLowerCase());
+    if (!product) {
+      totalRawPcs += val;
+      totalCartons += Math.floor(val / 24);
+      totalPcs += val % 24;
+      return;
+    }
+
+    if (product.primaryUnit === 'Carton') {
+      totalCartons += val;
+      totalRawPcs += val * (product.cartonSize || 24);
+    } else {
+      const cs = product.cartonSize || 24;
+      totalCartons += Math.floor(val / cs);
+      totalPcs += val % cs;
+      totalRawPcs += val;
+    }
+  });
+
+  return { cartons: totalCartons, pcs: totalPcs, rawPcs: totalRawPcs };
 }
 
 interface ReportsModuleProps {
@@ -160,25 +252,28 @@ export default function ReportsModule({
     const brandList = selectedCompanyFilter === 'All'
       ? Array.from(new Set(products.map(p => p.company).filter(Boolean)))
       : [selectedCompanyFilter];
-    let grandQty = 0;
     let grandValueDP = 0;
 
     const rows = brandList.map(brandName => {
       const brandProducts = products.filter(p => p.company === brandName);
-      const totalQty = brandProducts.reduce((sum, p) => sum + p.currentStock, 0);
       const totalValueDP = brandProducts.reduce((sum, p) => sum + getStockValueDP(p), 0);
+      const stockQtyObj = getAggregatedStockQty(brandProducts, 'currentStock');
 
-      grandQty += totalQty;
       grandValueDP += totalValueDP;
 
       return {
         companyName: brandName,
-        totalQty,
+        stockQtyObj,
         totalValueDP
       };
     });
 
-    return { rows, grandQty, grandValueDP };
+    const grandStockQtyObj = getAggregatedStockQty(
+      selectedCompanyFilter === 'All' ? products : products.filter(p => p.company === selectedCompanyFilter),
+      'currentStock'
+    );
+
+    return { rows, grandStockQtyObj, grandValueDP };
   }, [products, selectedCompanyFilter]);
 
   // ═══════════════════════════════════════════════════════════════
@@ -200,13 +295,20 @@ export default function ReportsModule({
         return sum + ((product?.defaultPP || 0) * ch.qty);
       }, 0);
 
+      const soldQtyObj = getAggregatedChallanQty(brandChallans, products, 'qty');
+      const returnsQtyObj = getAggregatedChallanQty(brandChallans, products, 'returnedQty');
+      const damagesQtyObj = getAggregatedChallanQty(brandChallans, products, 'damagedQty');
+
       return {
         companyName: brandName,
         unitsSold,
         revenue,
         dpTotal,
         returns,
-        damages
+        damages,
+        soldQtyObj,
+        returnsQtyObj,
+        damagesQtyObj
       };
     });
 
@@ -225,6 +327,10 @@ export default function ReportsModule({
         return sum + ((product?.defaultPP || 0) * ch.qty);
       }, 0);
 
+      const soldQtyObj = getAggregatedChallanQty(srChallans, products, 'qty');
+      const returnsQtyObj = getAggregatedChallanQty(srChallans, products, 'returnedQty');
+      const damagesQtyObj = getAggregatedChallanQty(srChallans, products, 'damagedQty');
+
       return {
         srName: sr.name,
         phone: sr.phone,
@@ -232,7 +338,10 @@ export default function ReportsModule({
         revenue,
         returns,
         damages,
-        dpTotal
+        dpTotal,
+        soldQtyObj,
+        returnsQtyObj,
+        damagesQtyObj
       };
     });
 
@@ -252,6 +361,10 @@ export default function ReportsModule({
         return sum + ((product?.defaultPP || 0) * ch.qty);
       }, 0);
 
+      const soldQtyObj = getAggregatedChallanQty(dmChallans, products, 'qty');
+      const returnsQtyObj = getAggregatedChallanQty(dmChallans, products, 'returnedQty');
+      const damagesQtyObj = getAggregatedChallanQty(dmChallans, products, 'damagedQty');
+
       return {
         dmName: dm.name,
         vehicle: dm.vehicle,
@@ -260,7 +373,10 @@ export default function ReportsModule({
         returns,
         damages,
         totalChallans,
-        dpTotal
+        dpTotal,
+        soldQtyObj,
+        returnsQtyObj,
+        damagesQtyObj
       };
     });
 
@@ -282,7 +398,8 @@ export default function ReportsModule({
         returns,
         damages,
         dpTotal,
-        cartonSize: p.cartonSize
+        cartonSize: p.cartonSize,
+        primaryUnit: p.primaryUnit
       };
     }).filter(row => {
       const matchesCompany = selectedCompanyFilter === 'All' || row.company === selectedCompanyFilter;
@@ -312,7 +429,24 @@ export default function ReportsModule({
       ...data
     }));
 
-    return { companySales, srSales, dmSales, productSales, unitSales };
+    const grandSoldQtyObj = getAggregatedChallanQty(filteredChallans, products, 'qty');
+    const grandReturnsQtyObj = getAggregatedChallanQty(filteredChallans, products, 'returnedQty');
+    const grandDamagesQtyObj = getAggregatedChallanQty(filteredChallans, products, 'damagedQty');
+    const grandReturnsAndDamagesQtyObj = {
+      cartons: grandReturnsQtyObj.cartons + grandDamagesQtyObj.cartons,
+      pcs: grandReturnsQtyObj.pcs + grandDamagesQtyObj.pcs,
+      rawPcs: grandReturnsQtyObj.rawPcs + grandDamagesQtyObj.rawPcs
+    };
+
+    return { 
+      companySales, 
+      srSales, 
+      dmSales, 
+      productSales, 
+      unitSales,
+      grandSoldQtyObj,
+      grandReturnsAndDamagesQtyObj
+    };
   }, [filteredChallans, products, srs, deliveryMen, selectedCompanyFilter, selectedSrFilter, selectedDeliveryManFilter]);
 
   // ═══════════════════════════════════════════════════════════════
@@ -851,7 +985,7 @@ export default function ReportsModule({
                       <tr key={idx} className="hover:bg-slate-50/40 transition-colors">
                         <td className="px-4 py-3.5 font-bold text-slate-850">{row.companyName}</td>
                         <td className="px-4 py-3.5 text-center">
-                          <CartonPcsDisplay qty={row.totalQty} />
+                          <CartonPcsDisplay qty={row.stockQtyObj.rawPcs} cartons={row.stockQtyObj.cartons} pcs={row.stockQtyObj.pcs} />
                         </td>
                         <td className="px-4 py-3.5 text-right font-mono font-bold text-indigo-700">{formatBDT(row.totalValueDP)}</td>
                       </tr>
@@ -859,7 +993,7 @@ export default function ReportsModule({
                     <tr className="bg-slate-50 border-t-2 border-slate-200 font-extrabold text-slate-900">
                       <td className="px-4 py-4">{language === 'bn' ? 'সর্বমোট স্টক' : 'GRAND TOTAL STOCK'}</td>
                       <td className="px-4 py-4 text-center">
-                        <CartonPcsDisplay qty={stockReportData.grandQty} />
+                        <CartonPcsDisplay qty={stockReportData.grandStockQtyObj.rawPcs} cartons={stockReportData.grandStockQtyObj.cartons} pcs={stockReportData.grandStockQtyObj.pcs} />
                       </td>
                       <td className="px-4 py-4 text-right font-mono text-indigo-605">{formatBDT(stockReportData.grandValueDP)}</td>
                     </tr>
@@ -1004,11 +1138,11 @@ export default function ReportsModule({
             </div>
             <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
               <p className="text-[10px] font-bold uppercase text-slate-400 tracking-wider mb-2">{language === 'bn' ? 'মোট বিক্রিত ইউনিট' : 'Total Units Sold'}</p>
-              <CartonPcsDisplay qty={salesReportData.companySales.reduce((sum, row) => sum + row.unitsSold, 0)} />
+              <CartonPcsDisplay cartons={salesReportData.grandSoldQtyObj.cartons} pcs={salesReportData.grandSoldQtyObj.pcs} qty={salesReportData.grandSoldQtyObj.rawPcs} />
             </div>
             <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
               <p className="text-[10px] font-bold uppercase text-rose-500 tracking-wider mb-2">{language === 'bn' ? 'মোট রিটার্ন/ড্যামেজ' : 'Total Returns/Damages'}</p>
-              <CartonPcsDisplay qty={salesReportData.companySales.reduce((sum, row) => sum + row.returns + row.damages, 0)} />
+              <CartonPcsDisplay cartons={salesReportData.grandReturnsAndDamagesQtyObj.cartons} pcs={salesReportData.grandReturnsAndDamagesQtyObj.pcs} qty={salesReportData.grandReturnsAndDamagesQtyObj.rawPcs} />
             </div>
           </div>
 
@@ -1089,13 +1223,13 @@ export default function ReportsModule({
                       <tr key={idx} className="hover:bg-slate-50/40 transition-colors">
                         <td className="px-4 py-3.5 font-bold text-slate-850">{row.companyName}</td>
                         <td className="px-4 py-3.5 text-center">
-                          <CartonPcsDisplay qty={row.unitsSold} />
+                          <CartonPcsDisplay qty={row.soldQtyObj.rawPcs} cartons={row.soldQtyObj.cartons} pcs={row.soldQtyObj.pcs} />
                         </td>
                         <td className="px-4 py-3.5 text-center font-mono font-bold text-amber-600">
-                          <CartonPcsDisplay qty={row.returns} />
+                          <CartonPcsDisplay qty={row.returnsQtyObj.rawPcs} cartons={row.returnsQtyObj.cartons} pcs={row.returnsQtyObj.pcs} />
                         </td>
                         <td className="px-4 py-3.5 text-center font-mono font-bold text-rose-600">
-                          <CartonPcsDisplay qty={row.damages} />
+                          <CartonPcsDisplay qty={row.damagesQtyObj.rawPcs} cartons={row.damagesQtyObj.cartons} pcs={row.damagesQtyObj.pcs} />
                         </td>
                         <td className="px-4 py-3.5 text-right font-mono font-bold text-indigo-700">{formatBDT(row.dpTotal)}</td>
                         <td className="px-4 py-3.5 text-right font-mono font-bold text-emerald-700">{formatBDT(row.revenue)}</td>
@@ -1132,13 +1266,13 @@ export default function ReportsModule({
                           <div className="text-[9px] text-slate-400 font-mono mt-0.5">{row.phone}</div>
                         </td>
                         <td className="px-4 py-3.5 text-center font-mono font-bold text-slate-700">
-                          <CartonPcsDisplay qty={row.unitsSold} />
+                          <CartonPcsDisplay qty={row.soldQtyObj.rawPcs} cartons={row.soldQtyObj.cartons} pcs={row.soldQtyObj.pcs} />
                         </td>
                         <td className="px-4 py-3.5 text-center font-mono font-bold text-amber-600">
-                          <CartonPcsDisplay qty={row.returns} />
+                          <CartonPcsDisplay qty={row.returnsQtyObj.rawPcs} cartons={row.returnsQtyObj.cartons} pcs={row.returnsQtyObj.pcs} />
                         </td>
                         <td className="px-4 py-3.5 text-center font-mono font-bold text-rose-600">
-                          <CartonPcsDisplay qty={row.damages} />
+                          <CartonPcsDisplay qty={row.damagesQtyObj.rawPcs} cartons={row.damagesQtyObj.cartons} pcs={row.damagesQtyObj.pcs} />
                         </td>
                         <td className="px-4 py-3.5 text-right font-mono font-bold text-indigo-700">{formatBDT(row.dpTotal)}</td>
                         <td className="px-4 py-3.5 text-right font-mono font-bold text-emerald-700">{formatBDT(row.revenue)}</td>
@@ -1179,13 +1313,13 @@ export default function ReportsModule({
                         </td>
                         <td className="px-4 py-3.5 text-center font-mono font-bold text-slate-600">{row.totalChallans}</td>
                         <td className="px-4 py-3.5 text-center font-mono font-bold text-slate-700">
-                          <CartonPcsDisplay qty={row.unitsSold} />
+                          <CartonPcsDisplay qty={row.soldQtyObj.rawPcs} cartons={row.soldQtyObj.cartons} pcs={row.soldQtyObj.pcs} />
                         </td>
                         <td className="px-4 py-3.5 text-center font-mono font-bold text-amber-600">
-                          <CartonPcsDisplay qty={row.returns} />
+                          <CartonPcsDisplay qty={row.returnsQtyObj.rawPcs} cartons={row.returnsQtyObj.cartons} pcs={row.returnsQtyObj.pcs} />
                         </td>
                         <td className="px-4 py-3.5 text-center font-mono font-bold text-rose-600">
-                          <CartonPcsDisplay qty={row.damages} />
+                          <CartonPcsDisplay qty={row.damagesQtyObj.rawPcs} cartons={row.damagesQtyObj.cartons} pcs={row.damagesQtyObj.pcs} />
                         </td>
                         <td className="px-4 py-3.5 text-right font-mono font-bold text-indigo-700">{formatBDT(row.dpTotal)}</td>
                         <td className="px-4 py-3.5 text-right font-mono font-bold text-emerald-700">{formatBDT(row.revenue)}</td>
@@ -1231,13 +1365,13 @@ export default function ReportsModule({
                           <div className="text-[9px] text-slate-400 font-mono mt-0.5">{row.sku} · {row.company}</div>
                         </td>
                         <td className="px-4 py-3.5 text-center font-mono font-bold text-slate-700">
-                          <CartonPcsDisplay qty={row.unitsSold} cartonSize={row.cartonSize} />
+                          <CartonPcsDisplay qty={row.unitsSold} cartonSize={row.cartonSize} primaryUnit={row.primaryUnit} />
                         </td>
                         <td className="px-4 py-3.5 text-center font-mono font-bold text-amber-600">
-                          <CartonPcsDisplay qty={row.returns} cartonSize={row.cartonSize} />
+                          <CartonPcsDisplay qty={row.returns} cartonSize={row.cartonSize} primaryUnit={row.primaryUnit} />
                         </td>
                         <td className="px-4 py-3.5 text-center font-mono font-bold text-rose-600">
-                          <CartonPcsDisplay qty={row.damages} cartonSize={row.cartonSize} />
+                          <CartonPcsDisplay qty={row.damages} cartonSize={row.cartonSize} primaryUnit={row.primaryUnit} />
                         </td>
                         <td className="px-4 py-3.5 text-right font-mono font-bold text-indigo-700">{formatBDT(row.dpTotal)}</td>
                         <td className="px-4 py-3.5 text-right font-mono font-bold text-emerald-700">{formatBDT(row.revenue)}</td>
