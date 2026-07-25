@@ -299,7 +299,8 @@ export default function ReportsModule({
       const damages = brandChallans.reduce((sum, ch) => sum + (ch.damagedQty || 0), 0);
       const dpTotal = brandChallans.reduce((sum, ch) => {
         const product = products.find(p => p.name === ch.productName);
-        return sum + ((product?.defaultPP || 0) * ch.qty);
+        const netQty = ch.qty - (ch.returnedQty || 0) - (ch.damagedQty || 0);
+        return sum + ((product?.defaultPP || 0) * netQty);
       }, 0);
 
       const soldQtyObj = getAggregatedChallanQty(brandChallans, products, 'qty');
@@ -331,7 +332,8 @@ export default function ReportsModule({
       const damages = srChallans.reduce((sum, ch) => sum + (ch.damagedQty || 0), 0);
       const dpTotal = srChallans.reduce((sum, ch) => {
         const product = products.find(p => p.name === ch.productName);
-        return sum + ((product?.defaultPP || 0) * ch.qty);
+        const netQty = ch.qty - (ch.returnedQty || 0) - (ch.damagedQty || 0);
+        return sum + ((product?.defaultPP || 0) * netQty);
       }, 0);
 
       const soldQtyObj = getAggregatedChallanQty(srChallans, products, 'qty');
@@ -365,7 +367,8 @@ export default function ReportsModule({
       const totalChallans = dmChallans.length;
       const dpTotal = dmChallans.reduce((sum, ch) => {
         const product = products.find(p => p.name === ch.productName);
-        return sum + ((product?.defaultPP || 0) * ch.qty);
+        const netQty = ch.qty - (ch.returnedQty || 0) - (ch.damagedQty || 0);
+        return sum + ((product?.defaultPP || 0) * netQty);
       }, 0);
 
       const soldQtyObj = getAggregatedChallanQty(dmChallans, products, 'qty');
@@ -387,10 +390,10 @@ export default function ReportsModule({
       };
     });
 
-    // D. Product-wise Sales
+    // D. Product-wise Sales (Net Sold, Net Cost, Net Revenue)
     const productSales = products.map(p => {
       const pChallans = filteredChallans.filter(ch => (ch.productName || '').toLowerCase() === (p.name || '').toLowerCase());
-      const unitsSold = pChallans.reduce((sum, ch) => sum + ch.qty, 0);
+      const unitsSold = pChallans.reduce((sum, ch) => sum + ch.qty - (ch.returnedQty || 0) - (ch.damagedQty || 0), 0);
       const revenue = pChallans.reduce((sum, ch) => sum + ch.totalAmount, 0);
       const returns = pChallans.reduce((sum, ch) => sum + (ch.returnedQty || 0), 0);
       const damages = pChallans.reduce((sum, ch) => sum + (ch.damagedQty || 0), 0);
@@ -422,9 +425,10 @@ export default function ReportsModule({
       }
       const product = products.find(p => p.name === ch.productName);
       const pp = product?.defaultPP || 0;
-      const dpVal = pp * ch.qty;
+      const netQty = ch.qty - (ch.returnedQty || 0) - (ch.damagedQty || 0);
+      const dpVal = pp * netQty;
 
-      unitGroups[uom].unitsSold += ch.qty;
+      unitGroups[uom].unitsSold += netQty;
       unitGroups[uom].returns += ch.returnedQty || 0;
       unitGroups[uom].damages += ch.damagedQty || 0;
       unitGroups[uom].revenue += ch.totalAmount;
@@ -519,11 +523,12 @@ export default function ReportsModule({
       const brandChallans = filteredChallans.filter(ch => ch.company === brandName);
       const revenue = brandChallans.reduce((sum, ch) => sum + ch.totalAmount, 0);
       
-      // Calculate Cost of Goods Sold based on Product DP (defaultPP)
+      // Calculate Cost of Goods Sold based on Product DP (defaultPP) using Net Delivered Qty
       const costOfGoods = brandChallans.reduce((sum, ch) => {
         const prod = products.find(p => p.name === ch.productName);
         const dp = prod ? prod.defaultPP : (ch.rate * 0.85); // fallback to 85% of trade price
-        return sum + (ch.qty * dp);
+        const netQty = ch.qty - (ch.returnedQty || 0) - (ch.damagedQty || 0);
+        return sum + (netQty * dp);
       }, 0);
 
       const profit = revenue - costOfGoods;
@@ -614,10 +619,11 @@ export default function ReportsModule({
 
       const productRows = companyProducts.map((p, idx) => {
         const pChallans = companyChallans.filter(ch => ch.productName === p.name);
-        const salesQty   = pChallans.reduce((s, ch) => s + ch.qty, 0);
+        const salesQty   = pChallans.reduce((s, ch) => s + ch.qty - (ch.returnedQty || 0) - (ch.damagedQty || 0), 0);
         const salesAmt   = pChallans.reduce((s, ch) => s + ch.totalAmount, 0);
-        // Opening stock = current stock + sold qty (since stock was reduced after sales)
-        const openingStock = p.currentStock + salesQty;
+        // Opening stock = current stock + gross sold qty (since stock was reduced after sales)
+        const grossQty   = pChallans.reduce((s, ch) => s + ch.qty, 0);
+        const openingStock = p.currentStock + grossQty;
         const closingStock = p.currentStock;
         const stockAmt     = closingStock * p.defaultPP;
         const costOfSales  = salesQty * p.defaultPP;

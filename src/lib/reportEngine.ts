@@ -739,7 +739,8 @@ function genProfit(ctx: DocContext, opts: ReportOptions): void {
       const rev  = cc.reduce((s, ch) => s + ch.totalAmount, 0);
       const cost = cc.reduce((s, ch) => {
         const prod = opts.products.find(p => p.name === ch.productName);
-        return s + (ch.qty * (prod?.defaultPP ?? ch.rate * 0.85));
+        const netQty = ch.qty - (ch.returnedQty || 0) - (ch.damagedQty || 0);
+        return s + (netQty * (prod?.defaultPP ?? ch.rate * 0.85));
       }, 0);
       const profit = rev - cost;
       const margin = rev > 0 ? (profit / rev) * 100 : 0;
@@ -806,7 +807,7 @@ function genProfit(ctx: DocContext, opts: ReportOptions): void {
       maybePageBreak(ctx, 8, TITLE, SUBTITLE);
       const pc    = coChallans.filter(ch => ch.productName === pname);
       const rev   = pc.reduce((s, ch) => s + ch.totalAmount, 0);
-      const units = pc.reduce((s, ch) => s + ch.qty, 0);
+      const units = pc.reduce((s, ch) => s + ch.qty - (ch.returnedQty || 0) - (ch.damagedQty || 0), 0);
       const prod  = opts.products.find(p => p.name === pname);
       const cost  = units * (prod?.defaultPP ?? 0);
       const pft   = rev - cost;
@@ -986,9 +987,10 @@ function genDayEnd(ctx: DocContext, opts: ReportOptions): void {
     coProds.forEach((p, i) => {
       maybePageBreak(ctx, 8, TITLE, SUBTITLE);
       const pc        = coChallans.filter(ch => ch.productName === p.name);
-      const salesQty  = pc.reduce((s, ch) => s + ch.qty, 0);
+      const salesQty  = pc.reduce((s, ch) => s + ch.qty - (ch.returnedQty || 0) - (ch.damagedQty || 0), 0);
       const salesAmt  = pc.reduce((s, ch) => s + ch.totalAmount, 0);
-      const opening   = p.currentStock + salesQty;
+      const grossQty  = pc.reduce((s, ch) => s + ch.qty, 0);
+      const opening   = p.currentStock + grossQty;
       const closing   = p.currentStock;
       const stockAmt  = closing * (p.defaultPP || 0);
       const costSold  = salesQty * (p.defaultPP || 0);
