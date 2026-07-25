@@ -97,16 +97,13 @@ export default function AccountingModule({
 
     const validChallans = challans.filter(ch => {
       if (ch.status !== 'Delivered') return false;
-      const chDate = getChallanDate(ch.id);
+      const chDate = getChallanDate(ch.id, ch.createdAt);
       const d = new Date(chDate);
       return d >= start && d <= end;
     });
 
-    const totalSoldQty = validChallans.reduce((sum, ch) => sum + (ch.qty - (ch.returnedQty || 0)), 0);
-    const totalSellAmt = validChallans.reduce((sum, ch) => {
-      const netAmount = ch.totalAmount - ((ch.returnedQty || 0) * ch.rate);
-      return sum + Math.max(0, netAmount);
-    }, 0);
+    const totalSoldQty = validChallans.reduce((sum, ch) => sum + Math.max(0, ch.qty - (ch.returnedQty || 0) - (ch.damagedQty || 0)), 0);
+    const totalSellAmt = validChallans.reduce((sum, ch) => sum + ch.totalAmount, 0);
 
     const validProcurements = procurements.filter(pr => {
       const d = new Date(pr.invoiceDate);
@@ -138,7 +135,8 @@ export default function AccountingModule({
     });
   };
 
-  const getChallanDate = (id: string) => {
+  const getChallanDate = (id: string, createdAt?: string) => {
+    if (createdAt) return createdAt.slice(0, 10);
     if (id === 'ch-1') return '2026-06-12';
     if (id === 'ch-2') return '2026-06-18';
     if (id === 'ch-3') return '2026-06-22';
@@ -146,6 +144,13 @@ export default function AccountingModule({
     if (id === 'ch-5') return '2026-06-25';
     if (id.startsWith('ch-')) {
       const ms = Number(id.split('-')[1]);
+      if (!isNaN(ms)) {
+        return new Date(ms).toISOString().split('T')[0];
+      }
+    }
+    const timestampStr = id.split('-')[1];
+    if (timestampStr) {
+      const ms = Number(timestampStr);
       if (!isNaN(ms)) {
         return new Date(ms).toISOString().split('T')[0];
       }
