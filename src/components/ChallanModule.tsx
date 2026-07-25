@@ -26,6 +26,7 @@ import { ChallanItem, SR, Route, DeliveryMan, Product, ProductAttribute } from '
 import { translations, Language } from '../translations';
 import { printChallanInvoice, printChallanSheet } from '../lib/printUtils';
 import { Customer } from '../lib/localStore';
+import { formatProductStock } from '../lib/productUtils';
 
 export interface GroupedOrder {
   id: string;
@@ -970,6 +971,52 @@ export default function ChallanModule({
 
   const handleRemoveEditOrderItem = (itemId: string) => {
     setEditOrderItems(prev => prev.filter(item => item.id !== itemId));
+  };
+
+  const handleAddNewProductToOrder = (prodName: string) => {
+    const prod = products.find(p => p.name === prodName);
+    if (!prod) return;
+
+    const exists = editOrderItems.some(item => item.productName === prodName);
+    if (exists) {
+      showToast(language === 'bn'
+        ? 'পণ্যটি ইতিমধ্যেই অর্ডারে যুক্ত আছে, অনুগ্রহ করে পরিমাণ বাড়িয়ে দিন।'
+        : 'Product already added, please increase billing quantity instead.', 'error');
+      return;
+    }
+
+    const availableStock = prod.currentStock;
+    if (availableStock <= 0) {
+      showToast(language === 'bn'
+        ? 'দুঃখিত! এই পণ্যটি স্টকে নেই।'
+        : 'Sorry! This product is out of stock.', 'error');
+      return;
+    }
+
+    const newItem: ChallanItem = {
+      id: `item-${Date.now()}`,
+      productName: prod.name,
+      company: prod.company || '',
+      qty: 1,
+      bonusQty: 0,
+      totalQty: 1,
+      rate: prod.defaultWSP,
+      attribute: 'Default',
+      totalAmount: prod.defaultWSP,
+      srName: editSR,
+      routeName: editRoute,
+      deliveryManName: editDeliveryMan,
+      status: editStatus,
+      returnedQty: 0,
+      damagedQty: 0,
+      customerName: editingOrder?.items[0]?.customerName || '',
+      customerId: editingOrder?.items[0]?.customerId || undefined,
+      commissionAmount: 0,
+      createdAt: editingOrder?.items[0]?.createdAt || new Date().toISOString()
+    };
+
+    setEditOrderItems(prev => [...prev, newItem]);
+    showToast(language === 'bn' ? 'পণ্যটি অর্ডারে যোগ করা হয়েছে!' : 'Product added to order!');
   };
 
   const handleSaveEditOrder = (e: React.FormEvent) => {
@@ -2697,38 +2744,68 @@ export default function ChallanModule({
                             </td>
                             <td className="px-3 py-2 text-center">
                               {editModeEnabled ? (
-                                <input
-                                  type="number" min="1" required
-                                  value={item.qty}
-                                  onChange={(e) => handleEditOrderItemChange(item.id, 'qty', Number(e.target.value))}
-                                  className="w-20 h-8 rounded-lg border border-blue-300 text-center font-semibold font-mono text-xs focus:border-blue-500 outline-none bg-blue-50/20"
-                                />
+                                <div className="flex items-center justify-center gap-1">
+                                  <input
+                                    type="number" min="1" required
+                                    value={item.qty}
+                                    onChange={(e) => handleEditOrderItemChange(item.id, 'qty', Number(e.target.value))}
+                                    className="w-16 h-8 rounded-lg border border-blue-300 text-center font-semibold font-mono text-xs focus:border-blue-500 outline-none bg-blue-50/20"
+                                  />
+                                  <span className="text-[10px] font-black text-slate-500 font-mono">
+                                    {prod?.primaryUnit === 'Carton' ? 'Ctn' : 'Pcs'}
+                                  </span>
+                                </div>
                               ) : (
-                                <span className="inline-block w-20 h-8 rounded-lg border border-slate-200 bg-slate-100 text-center font-mono font-semibold text-xs leading-8 select-none">{item.qty}</span>
+                                <div className="flex items-center justify-center gap-1 font-mono font-bold text-slate-800">
+                                  <span>{item.qty}</span>
+                                  <span className="text-[10px] text-slate-400">
+                                    {prod?.primaryUnit === 'Carton' ? 'Ctn' : 'Pcs'}
+                                  </span>
+                                </div>
                               )}
                             </td>
                             <td className="px-3 py-2 text-center">
                               {editModeEnabled ? (
-                                <input
-                                  type="number" min="0"
-                                  value={item.returnedQty || 0}
-                                  onChange={(e) => handleEditOrderItemChange(item.id, 'returnedQty', Number(e.target.value))}
-                                  className="w-20 h-8 rounded-lg border border-blue-300 text-center font-semibold font-mono text-xs focus:border-blue-500 outline-none bg-blue-50/20"
-                                />
+                                <div className="flex items-center justify-center gap-1">
+                                  <input
+                                    type="number" min="0"
+                                    value={item.returnedQty || 0}
+                                    onChange={(e) => handleEditOrderItemChange(item.id, 'returnedQty', Number(e.target.value))}
+                                    className="w-16 h-8 rounded-lg border border-blue-300 text-center font-semibold font-mono text-xs focus:border-blue-500 outline-none bg-blue-50/20"
+                                  />
+                                  <span className="text-[10px] font-black text-slate-500 font-mono">
+                                    {prod?.primaryUnit === 'Carton' ? 'Ctn' : 'Pcs'}
+                                  </span>
+                                </div>
                               ) : (
-                                <span className="inline-block w-20 h-8 rounded-lg border border-slate-200 bg-slate-100 text-center font-mono font-semibold text-xs leading-8 text-rose-600 select-none">{item.returnedQty || 0}</span>
+                                <div className="flex items-center justify-center gap-1 font-mono font-bold text-rose-600">
+                                  <span>{item.returnedQty || 0}</span>
+                                  <span className="text-[10px] text-rose-450">
+                                    {prod?.primaryUnit === 'Carton' ? 'Ctn' : 'Pcs'}
+                                  </span>
+                                </div>
                               )}
                             </td>
                             <td className="px-3 py-2 text-center">
                               {editModeEnabled ? (
-                                <input
-                                  type="number" min="0"
-                                  value={item.damagedQty || 0}
-                                  onChange={(e) => handleEditOrderItemChange(item.id, 'damagedQty', Number(e.target.value))}
-                                  className="w-20 h-8 rounded-lg border border-blue-300 text-center font-semibold font-mono text-xs focus:border-blue-500 outline-none bg-blue-50/20"
-                                />
+                                <div className="flex items-center justify-center gap-1">
+                                  <input
+                                    type="number" min="0"
+                                    value={item.damagedQty || 0}
+                                    onChange={(e) => handleEditOrderItemChange(item.id, 'damagedQty', Number(e.target.value))}
+                                    className="w-16 h-8 rounded-lg border border-blue-300 text-center font-semibold font-mono text-xs focus:border-blue-500 outline-none bg-blue-50/20"
+                                  />
+                                  <span className="text-[10px] font-black text-slate-500 font-mono">
+                                    {prod?.primaryUnit === 'Carton' ? 'Ctn' : 'Pcs'}
+                                  </span>
+                                </div>
                               ) : (
-                                <span className="inline-block w-20 h-8 rounded-lg border border-slate-200 bg-slate-100 text-center font-mono font-semibold text-xs leading-8 text-rose-600 select-none">{item.damagedQty || 0}</span>
+                                <div className="flex items-center justify-center gap-1 font-mono font-bold text-rose-600">
+                                  <span>{item.damagedQty || 0}</span>
+                                  <span className="text-[10px] text-rose-450">
+                                    {prod?.primaryUnit === 'Carton' ? 'Ctn' : 'Pcs'}
+                                  </span>
+                                </div>
                               )}
                             </td>
                             <td className="px-3 py-2 text-right font-mono font-bold text-slate-900">
@@ -2765,13 +2842,52 @@ export default function ChallanModule({
                 </div>
               </div>
 
+              {/* Add Product Section for Active Orders */}
+              {editModeEnabled && (editStatus === 'Pending' || editStatus === 'Shipped') && (
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                    {language === 'bn' ? 'অর্ডারে নতুন পণ্য যোগ করুন' : 'Add New Product to Order'}
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-3 items-end">
+                    <div className="flex-1">
+                      <label className="mb-1 block text-xs font-semibold text-slate-700">
+                        {language === 'bn' ? 'পণ্য নির্বাচন করুন' : 'Select Product'}
+                      </label>
+                      <select
+                        id="edit-order-add-product-select"
+                        defaultValue=""
+                        onChange={(e) => {
+                          const prodName = e.target.value;
+                          if (!prodName) return;
+                          handleAddNewProductToOrder(prodName);
+                          e.target.value = ""; // Reset selection after adding
+                        }}
+                        className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold outline-none focus:border-blue-500 transition-colors cursor-pointer"
+                      >
+                        <option value="">
+                          {language === 'bn' ? '--- পণ্য সিলেক্ট করুন ---' : '--- Choose Product ---'}
+                        </option>
+                        {products
+                          .filter(p => !editOrderItems.some(item => item.productName === p.name))
+                          .map(p => (
+                            <option key={p.id} value={p.name}>
+                              {p.name} (Stock: {formatProductStock(p)}) - TP: ৳{p.defaultWSP}
+                            </option>
+                          ))
+                        }
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Dynamic summary calculations */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 border-t border-slate-200 pt-4">
                 {[
-                  { label: language === 'bn' ? 'চালানি সরবরাহ' : 'Dispatched', value: `৳${editOrderItems.reduce((acc, curr) => acc + (curr.qty * curr.rate), 0).toLocaleString('en-BD')}`, bg: 'bg-slate-50' },
-                  { label: language === 'bn' ? 'মোট বিক্রয়' : 'Sales Value', value: `৳${editOrderItems.reduce((acc, curr) => acc + (Math.max(0, curr.qty - (curr.returnedQty || 0) - (curr.damagedQty || 0)) * curr.rate), 0).toLocaleString('en-BD')}`, bg: 'bg-blue-50/50', text: 'text-blue-700' },
-                  { label: language === 'bn' ? 'মোট ফেরত' : 'Returned Value', value: `৳${editOrderItems.reduce((acc, curr) => acc + ((curr.returnedQty || 0) * curr.rate), 0).toLocaleString('en-BD')}`, bg: 'bg-amber-50/50', text: 'text-amber-700' },
-                  { label: language === 'bn' ? 'মোট ড্যামেজ' : 'Damaged Value', value: `৳${editOrderItems.reduce((acc, curr) => acc + ((curr.damagedQty || 0) * curr.rate), 0).toLocaleString('en-BD')}`, bg: 'bg-rose-50/50', text: 'text-rose-700' },
+                  { label: language === 'bn' ? 'চালানি সরবরাহ' : 'Dispatched', value: `৳${Number(editOrderItems.reduce((acc, curr) => acc + (curr.qty * curr.rate), 0).toFixed(2)).toLocaleString('en-BD')}`, bg: 'bg-slate-50' },
+                  { label: language === 'bn' ? 'মোট বিক্রয়' : 'Sales Value', value: `৳${Number(editOrderItems.reduce((acc, curr) => acc + (Math.max(0, curr.qty - (curr.returnedQty || 0) - (curr.damagedQty || 0)) * curr.rate), 0).toFixed(2)).toLocaleString('en-BD')}`, bg: 'bg-blue-50/50', text: 'text-blue-700' },
+                  { label: language === 'bn' ? 'মোট ফেরত' : 'Returned Value', value: `৳${Number(editOrderItems.reduce((acc, curr) => acc + ((curr.returnedQty || 0) * curr.rate), 0).toFixed(2)).toLocaleString('en-BD')}`, bg: 'bg-amber-50/50', text: 'text-amber-700' },
+                  { label: language === 'bn' ? 'মোট ড্যামেজ' : 'Damaged Value', value: `৳${Number(editOrderItems.reduce((acc, curr) => acc + ((curr.damagedQty || 0) * curr.rate), 0).toFixed(2)).toLocaleString('en-BD')}`, bg: 'bg-rose-50/50', text: 'text-rose-700' },
                 ].map((m, i) => (
                   <div key={i} className={`rounded-xl border border-slate-200 p-2.5 ${m.bg}`}>
                     <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block">{m.label}</span>
@@ -2786,7 +2902,7 @@ export default function ChallanModule({
                   {language === 'bn' ? 'মালিকের নিট পাওনা (পাবেন)' : 'Owner Net Receivable'}
                 </span>
                 <span className="font-mono font-black text-emerald-700 text-xl">
-                  ৳{editOrderItems.reduce((acc, curr) => acc + curr.totalAmount, 0).toLocaleString('en-BD')}
+                  ৳{Number(editOrderItems.reduce((acc, curr) => acc + curr.totalAmount, 0).toFixed(2)).toLocaleString('en-BD')}
                 </span>
               </div>
 

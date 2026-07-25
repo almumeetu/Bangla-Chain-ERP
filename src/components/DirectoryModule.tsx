@@ -32,11 +32,14 @@ import {
   UnitOfMeasure,
   Godown,
   Route,
-  DeliveryMan
+  DeliveryMan,
+  Procurement,
+  ChallanItem,
+  StockAdjustment
 } from '../types';
 import { translations as dict, Language } from '../translations';
 import { getLocalDateString } from './dashboard/dashboardUtils';
-import { getStockValueDP, getStockValueTP } from '../lib/productUtils';
+import { getStockValueDP, getStockValueTP, formatProductStock } from '../lib/productUtils';
 
 interface DirectoryModuleProps {
   products: Product[];
@@ -66,6 +69,9 @@ interface DirectoryModuleProps {
   pageTitle?: string;
   /** Override page subtitle */
   pageSubtitle?: string;
+  procurements?: Procurement[];
+  challans?: ChallanItem[];
+  adjustments?: StockAdjustment[];
 }
 
 type DirectoryTab =
@@ -504,7 +510,10 @@ export default function DirectoryModule({
   defaultTab,
   visibleTabs,
   pageTitle,
-  pageSubtitle
+  pageSubtitle,
+  procurements = [],
+  challans = [],
+  adjustments = []
 }: DirectoryModuleProps) {
   const tCommon = dict[language].common;
   const tDir = dict[language].directory;
@@ -542,6 +551,7 @@ export default function DirectoryModule({
   const [productStockFilter, setProductStockFilter] = useState('All'); // 'All' | 'Low'
   const [productStartDate, setProductStartDate] = useState('');
   const [productEndDate, setProductEndDate] = useState('');
+  const [stockHistoryDate, setStockHistoryDate] = useState('');
   const [categorySearch, setCategorySearch] = useState('');
   const [unitSearch, setUnitSearch] = useState('');
 
@@ -677,16 +687,35 @@ export default function DirectoryModule({
   }, []);
 
   const formatStock = useCallback((stock: number, size: number, primaryUnit?: string) => {
-    if (primaryUnit === 'Carton') {
-      return language === 'bn' ? `${stock} কার্টন` : `${stock} Ctn`;
-    }
     const s = size || 24;
-    const cartons = Math.floor(stock / s);
-    const pieces = stock % s;
+    let cartons = 0;
+    let pieces = 0;
+
+    if (primaryUnit === 'Carton') {
+      cartons = Math.floor(stock);
+      pieces = Math.round((stock - cartons) * s);
+    } else {
+      cartons = Math.floor(stock / s);
+      pieces = Math.round(stock % s);
+    }
+
     if (language === 'bn') {
+      if (cartons === 0 && pieces > 0) {
+        return `${pieces} পিস`;
+      }
+      if (pieces === 0) {
+        return `${cartons} কার্টন`;
+      }
       return `${cartons} কার্টন, ${pieces} পিস`;
     }
-    return `${cartons} Carton${cartons !== 1 ? 's' : ''}, ${pieces} Pcs`;
+
+    if (cartons === 0 && pieces > 0) {
+      return `${pieces} Pcs`;
+    }
+    if (pieces === 0) {
+      return `${cartons} Ctn`;
+    }
+    return `${cartons} Ctn, ${pieces} Pcs`;
   }, [language]);
 
   const getCompanyBadgeStyle = useCallback((companyName: string) => {
@@ -754,8 +783,12 @@ export default function DirectoryModule({
       return;
     }
 
+    const isCtn = prodPrimaryUnit === 'Carton';
+    const cs = isCtn ? Math.max(1, Number(prodCartonSize) || 24) : 1;
+
     const dp = Number(prodPP);
-    const tp = Number(prodPricePerPiece);
+    const tp = isCtn ? Number(prodPricePerCarton) : Number(prodPricePerPiece);
+
     if (dp >= tp) {
       alert(language === 'bn' 
         ? 'ত্রুটি: DP (Purchase Price) মূল্য অবশ্যই TP (WSP) মূল্য থেকে কম হতে হবে!' 
@@ -764,22 +797,32 @@ export default function DirectoryModule({
       return;
     }
 
-    const isCtn = prodPrimaryUnit === 'Carton';
+    let ctnPrice = 0;
+    let piecePrice = 0;
+
+    if (isCtn) {
+      ctnPrice = tp;
+      piecePrice = Number((ctnPrice / cs).toFixed(2));
+    } else {
+      piecePrice = tp;
+      ctnPrice = piecePrice;
+    }
+
     const payload = {
       name: prodName,
       sku: prodSku,
       company: prodCompany,
       createdAt: editingProduct?.createdAt || new Date().toISOString(),
       categoryId: prodCategoryId || undefined,
-      customUnits: [{ name: 'Carton', multiplier: isCtn ? 1 : Number(prodCartonSize) }],
+      customUnits: [{ name: 'Carton', multiplier: cs }],
       defaultGodownId: prodGodownId || undefined,
       defaultPP: dp,
       defaultWSP: tp,
       defaultMRP: Number(prodMRP),
       currentStock: Number(prodStock),
-      cartonSize: isCtn ? 1 : Number(prodCartonSize),
-      pricePerCarton: isCtn ? tp : Number(prodPricePerCarton),
-      pricePerPiece: isCtn ? 0 : tp,
+      cartonSize: cs,
+      pricePerCarton: ctnPrice,
+      pricePerPiece: piecePrice,
       primaryUnit: prodPrimaryUnit
     };
 
@@ -869,31 +912,35 @@ export default function DirectoryModule({
     e.preventDefault();
     if (!selectedDamageProduct) return;
 
+    const size = selectedDamageProduct.cartonSize || 24;
+    const isCtn = selectedDamageProduct.primaryUnit === 'Carton';
+
     const currentDamageQty = selectedDamageProduct.damagedStock || 0;
     const requestedQty = Math.max(0, Number(damageQtyInput));
-    const deltaQty = damageMode === 'add' ? requestedQty : requestedQty - currentDamageQty;
+
+    // Convert requested qty (always in pieces) to storage unit (cartons or pieces)
+    const requestedInStorage = isCtn ? (requestedQty / size) : requestedQty;
+    const deltaQty = damageMode === 'add' ? requestedInStorage : requestedInStorage - currentDamageQty;
     const nextDamageQty = Math.max(0, currentDamageQty + deltaQty);
 
     setProducts(prevProducts => prevProducts.map(p => {
       if (p.id === selectedDamageProduct.id) {
         let salableStock = p.currentStock;
-        if (deductFromSalable && deltaQty > 0) {
+        if (deductFromSalable) {
           salableStock = Math.max(0, salableStock - deltaQty);
-        } else if (deductFromSalable && deltaQty < 0) {
-          salableStock = salableStock - deltaQty;
         }
 
         const history = p.damageHistory || [];
         return {
           ...p,
-          damagedStock: nextDamageQty,
-          currentStock: salableStock,
+          damagedStock: Number(nextDamageQty.toFixed(4)),
+          currentStock: Number(salableStock.toFixed(4)),
           damageHistory: [
             ...history,
             {
               id: `damage-${Date.now()}`,
-              qty: Math.abs(deltaQty),
-              deltaQty,
+              qty: isCtn ? Math.abs(requestedQty) : Math.abs(deltaQty),
+              deltaQty: isCtn ? deltaQty * size : deltaQty,
               recordedAt: new Date().toISOString(),
               note: damageNoteInput.trim() || undefined,
               type: 'new'
@@ -1099,6 +1146,10 @@ export default function DirectoryModule({
   // --- START EDIT HANDLERS ---
   const startEditProduct = useCallback((p: Product) => {
     const isCtn = p.primaryUnit === 'Carton';
+    const cSize = p.cartonSize && p.cartonSize > 1 ? p.cartonSize : (p.customUnits && p.customUnits[0] && p.customUnits[0].multiplier > 1 ? p.customUnits[0].multiplier : 24);
+    const ctnPrice = p.pricePerCarton || (isCtn ? p.defaultWSP : p.defaultWSP * cSize);
+    const pcsPrice = p.pricePerPiece || (isCtn ? (ctnPrice / cSize) : p.defaultWSP);
+
     setEditingProduct(p);
     setProdName(p.name);
     setProdSku(p.sku);
@@ -1109,9 +1160,9 @@ export default function DirectoryModule({
     setProdWSP(p.defaultWSP);
     setProdMRP(p.defaultMRP);
     setProdStock(p.currentStock);
-    setProdCartonSize(isCtn ? 1 : (p.cartonSize || (p.customUnits && p.customUnits[0] ? p.customUnits[0].multiplier : 24)));
-    setProdPricePerCarton(isCtn ? p.defaultWSP : (p.pricePerCarton || (p.defaultWSP * (p.cartonSize || 24))));
-    setProdPricePerPiece(isCtn ? p.defaultWSP : (p.pricePerPiece || p.defaultWSP));
+    setProdCartonSize(cSize);
+    setProdPricePerCarton(Number(ctnPrice.toFixed(2)));
+    setProdPricePerPiece(Number(pcsPrice.toFixed(2)));
     setProdPrimaryUnit(p.primaryUnit || 'Piece');
     setShowProductModal(true);
   }, []);
@@ -1275,18 +1326,66 @@ export default function DirectoryModule({
 
       {/* SUB-TAB: Products Catalog */}
       {activeSubTab === 'products' && (() => {
+        const getHistoricStockForProduct = (product: Product, targetDate: string) => {
+          if (product.createdAt && product.createdAt.slice(0, 10) > targetDate) {
+            return 0;
+          }
+          let stock = product.currentStock;
+
+          procurements.forEach(proc => {
+            const procDate = proc.deliveryDate || proc.invoiceDate || (proc.createdAt ? proc.createdAt.slice(0, 10) : null);
+            if (procDate && procDate > targetDate) {
+              const item = proc.items.find(i => i.productId === product.id);
+              if (item) {
+                stock -= (item.qty + (item.bonusQty || 0));
+              }
+            }
+          });
+
+          challans.forEach(challan => {
+            const challanDate = challan.createdAt.slice(0, 10);
+            if (challanDate && challanDate > targetDate) {
+              if (challan.productName === product.name) {
+                stock += (challan.totalQty - (challan.returnedQty || 0));
+              }
+            }
+          });
+
+          adjustments.forEach(adj => {
+            if (adj.productId === product.id && adj.date && adj.date > targetDate) {
+              stock -= adj.qtyChanged;
+            }
+          });
+
+          return Math.max(0, stock);
+        };
+
         const filteredProducts = products.filter(p => {
           const matchesSearch = p.name.toLowerCase().includes(productSearch.toLowerCase()) || p.sku.toLowerCase().includes(productSearch.toLowerCase());
           const matchesCompany = productCompanyFilter === 'All' || p.company === productCompanyFilter;
           const matchesCategory = productCategoryFilter === 'All' || p.categoryId === productCategoryFilter;
-          const matchesStock = productStockFilter === 'All' || (productStockFilter === 'Low' && p.currentStock < 600);
+          const displayStock = stockHistoryDate ? getHistoricStockForProduct(p, stockHistoryDate) : p.currentStock;
+          const matchesStock = productStockFilter === 'All' || (productStockFilter === 'Low' && displayStock < 600);
           const matchesDate = matchesDateRange(p.createdAt, productStartDate, productEndDate);
           return matchesSearch && matchesCompany && matchesCategory && matchesStock && matchesDate;
         });
 
-        const totalProductsStockValuationDP = filteredProducts.reduce((sum, p) => sum + getStockValueDP(p), 0);
-        const totalProductsStockValuationTP = filteredProducts.reduce((sum, p) => sum + getStockValueTP(p), 0);
-        const lowStockCount = filteredProducts.filter(p => p.currentStock < 600).length;
+        const totalProductsStockValuationDP = filteredProducts.reduce((sum, p) => {
+          const displayStock = stockHistoryDate ? getHistoricStockForProduct(p, stockHistoryDate) : p.currentStock;
+          return sum + displayStock * p.defaultPP;
+        }, 0);
+        const totalProductsStockValuationTP = filteredProducts.reduce((sum, p) => {
+          const displayStock = stockHistoryDate ? getHistoricStockForProduct(p, stockHistoryDate) : p.currentStock;
+          const isPiece = (p.primaryUnit ?? 'Piece') === 'Piece';
+          const tp = isPiece
+            ? (p.pricePerPiece || p.defaultWSP)
+            : (p.pricePerCarton || p.defaultWSP);
+          return sum + displayStock * tp;
+        }, 0);
+        const lowStockCount = filteredProducts.filter(p => {
+          const displayStock = stockHistoryDate ? getHistoricStockForProduct(p, stockHistoryDate) : p.currentStock;
+          return displayStock < 600;
+        }).length;
 
         return (
           <div className="space-y-6">
@@ -1351,123 +1450,221 @@ export default function DirectoryModule({
                   <span className="text-2xl font-black text-slate-855 font-mono tracking-tight">
                     {lowStockCount} <span className="text-xs font-bold text-slate-500">{language === 'bn' ? 'টি সংকটে' : 'Items'}</span>
                   </span>
-                  {productStockFilter === 'Low' && (
-                    <span className="text-[9px] text-amber-700 font-extrabold block mt-0.5 animate-bounce">
-                      {language === 'bn' ? '✓ ফিল্টার সক্রিয়' : '✓ Filter Active'}
-                    </span>
-                  )}
                 </div>
               </button>
             </div>
 
-            {/* Highly highlighted interactive Filter bar */}
-            <div className="bg-indigo-50/30 border border-indigo-200 rounded-3xl p-5 shadow-sm space-y-4">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-ping shrink-0" />
-                  <span className="text-[10px] bg-indigo-100 text-indigo-700 font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider font-mono">
-                    {language === 'bn' ? 'ফিল্টার এবং লাইভ সার্চ কন্ট্রোল' : 'Live Filter & Search Control'}
-                  </span>
+            {/* Beautiful two-column filters section */}
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+              {/* Column 1 & 2: Live Catalog Filters */}
+              <div className="xl:col-span-2 bg-white border border-slate-200 rounded-3xl p-6 shadow-sm flex flex-col justify-between space-y-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-indigo-500 shrink-0" />
+                    <span className="text-[10px] bg-indigo-50 text-indigo-700 font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider font-mono">
+                      {language === 'bn' ? 'লাইভ ফিল্টার ও পণ্য অনুসন্ধান' : 'Live Filter & Catalog Search'}
+                    </span>
+                  </div>
+                  {(productSearch || productCompanyFilter !== 'All' || productCategoryFilter !== 'All' || productStockFilter !== 'All' || productStartDate || productEndDate) && (
+                    <button
+                      onClick={() => {
+                        setProductSearch('');
+                        setProductCompanyFilter('All');
+                        setProductCategoryFilter('All');
+                        setProductStockFilter('All');
+                        setProductStartDate('');
+                        setProductEndDate('');
+                      }}
+                      className="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold underline transition-colors cursor-pointer"
+                    >
+                      {language === 'bn' ? 'ফিল্টার রিসেট করুন' : 'Reset Filters'}
+                    </button>
+                  )}
                 </div>
-                {(productSearch || productCompanyFilter !== 'All' || productCategoryFilter !== 'All' || productStockFilter !== 'All' || productStartDate || productEndDate) && (
-                  <button
-                    onClick={() => {
-                      setProductSearch('');
-                      setProductCompanyFilter('All');
-                      setProductCategoryFilter('All');
-                      setProductStockFilter('All');
-                      setProductStartDate('');
-                      setProductEndDate('');
-                    }}
-                    className="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold underline transition-colors cursor-pointer"
-                  >
-                    {language === 'bn' ? 'ফিল্টার রিসেট করুন' : 'Reset Filters'}
-                  </button>
-                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  {/* Search query */}
+                  <div className="space-y-1.5 sm:col-span-2 md:col-span-2">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                      {language === 'bn' ? 'পণ্য বা SKU খুঁজুন' : 'Search Product / SKU'}
+                    </label>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                      <input
+                        type="text"
+                        value={productSearch}
+                        onChange={e => setProductSearch(e.target.value)}
+                        placeholder={language === 'bn' ? 'পণ্যের নাম বা SKU...' : 'Product name or SKU...'}
+                        className="w-full h-10 pl-9 pr-3 rounded-xl border border-slate-200 bg-slate-50/20 text-xs font-semibold text-slate-750 outline-none focus:border-indigo-500 transition-all placeholder:text-slate-400"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Company Filter */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                      {language === 'bn' ? 'কোম্পানি ফিল্টার' : 'Filter by Company'}
+                    </label>
+                    <select
+                      value={productCompanyFilter}
+                      onChange={e => setProductCompanyFilter(e.target.value)}
+                      className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50/20 px-3 text-xs font-bold text-slate-700 outline-none focus:border-indigo-500 transition-all cursor-pointer"
+                    >
+                      <option value="All">{language === 'bn' ? 'সকল কোম্পানি' : 'All Companies'}</option>
+                      {Array.from(new Set(products.map(p => p.company).filter(Boolean))).map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Stock Level Filter */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                      {language === 'bn' ? 'স্টক পরিমাণ ফিল্টার' : 'Filter by Stock Level'}
+                    </label>
+                    <select
+                      value={productStockFilter}
+                      onChange={e => setProductStockFilter(e.target.value)}
+                      className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50/20 px-3 text-xs font-bold text-slate-700 outline-none focus:border-indigo-500 transition-all cursor-pointer"
+                    >
+                      <option value="All">{language === 'bn' ? 'সকল লেভেল' : 'All Levels'}</option>
+                      <option value="Low">{language === 'bn' ? 'স্টক সংকট (< ৬০০ পিস)' : 'Low Stock (< 600 Pcs)'}</option>
+                    </select>
+                  </div>
+
+                  {/* From Date */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 tracking-wider block">
+                      {language === 'bn' ? 'শুরুর তারিখ (রেজিস্ট্রেশন)' : 'From Date (Reg)'}
+                    </label>
+                    <div className="relative">
+                      <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                      <input
+                        type="date"
+                        value={productStartDate}
+                        onChange={e => setProductStartDate(e.target.value)}
+                        className="w-full h-10 pl-9 pr-3 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-755 outline-none focus:border-indigo-500 transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  {/* To Date */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 tracking-wider block">
+                      {language === 'bn' ? 'শেষের তারিখ (রেজিস্ট্রেশন)' : 'To Date (Reg)'}
+                    </label>
+                    <div className="relative">
+                      <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                      <input
+                        type="date"
+                        value={productEndDate}
+                        onChange={e => setProductEndDate(e.target.value)}
+                        className="w-full h-10 pl-9 pr-3 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-755 outline-none focus:border-indigo-500 transition-all"
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
-                {/* Search query */}
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-                    {language === 'bn' ? 'পণ্য বা SKU খুঁজুন' : 'Search Product / SKU'}
-                  </label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-sky-500" />
-                    <input
-                      type="text"
-                      value={productSearch}
-                      onChange={e => setProductSearch(e.target.value)}
-                      placeholder={language === 'bn' ? 'পণ্যের নাম বা SKU...' : 'Product name or SKU...'}
-                      className="w-full h-10 pl-9 pr-3 rounded-xl border border-sky-200 bg-sky-50/10 text-xs font-semibold text-slate-750 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 transition-all placeholder:text-slate-450"
-                    />
+              {/* Column 3: Super Simple & Friendly Datewise Stock Selector */}
+              <div className="bg-gradient-to-br from-indigo-50/70 via-white to-purple-50/40 border border-indigo-200/80 rounded-3xl p-5 shadow-sm flex flex-col justify-between space-y-3.5 relative overflow-hidden">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${stockHistoryDate ? 'bg-indigo-600 animate-ping' : 'bg-slate-400'}`} />
+                    <span className="text-[10px] bg-indigo-100/80 text-indigo-800 font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider font-mono">
+                      {language === 'bn' ? 'তারিখ ভিত্তিক স্টক রিপোর্ট' : 'Datewise Stock Report'}
+                    </span>
                   </div>
+                  {stockHistoryDate && (
+                    <button
+                      onClick={() => setStockHistoryDate('')}
+                      className="text-[10px] text-indigo-600 hover:text-indigo-900 font-extrabold underline transition-colors cursor-pointer"
+                    >
+                      {language === 'bn' ? 'আজকের স্টক' : 'Reset to Today'}
+                    </button>
+                  )}
                 </div>
 
-                {/* Company Filter */}
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-orange-600 uppercase tracking-wider block">
-                    {language === 'bn' ? 'কোম্পানি ফিল্টার' : 'Filter by Company'}
-                  </label>
-                  <select
-                    value={productCompanyFilter}
-                    onChange={e => setProductCompanyFilter(e.target.value)}
-                    className="h-10 w-full rounded-xl border border-orange-200 bg-orange-50/10 px-3 text-xs font-bold text-orange-850 outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 transition-all cursor-pointer"
+                <div>
+                  <h4 className="text-xs font-black text-slate-800 tracking-tight">
+                    {language === 'bn' ? 'কোন দিনের স্টক দেখতে চান?' : 'Select Stock History Date'}
+                  </h4>
+                  <p className="text-[10px] text-slate-500 font-medium mt-0.5">
+                    {language === 'bn' 
+                      ? 'অতীতের যেকোনো তারিখ নির্বাচন করে ঐ দিনের স্টক ও মূল্য দেখুন।' 
+                      : 'Choose a date to view historical inventory & valuation.'}
+                  </p>
+                </div>
+
+                {/* Quick Date Presets */}
+                <div className="flex flex-wrap gap-1.5 pt-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setStockHistoryDate('')}
+                    className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold transition-all cursor-pointer ${!stockHistoryDate 
+                      ? 'bg-indigo-600 text-white shadow-sm' 
+                      : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}
                   >
-                    <option value="All">{language === 'bn' ? 'সকল কোম্পানি' : 'All Companies'}</option>
-                    {Array.from(new Set(products.map(p => p.company).filter(Boolean))).map(c => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
-                </div>
-
-
-                {/* Stock Level Filter */}
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-rose-600 uppercase tracking-wider block">
-                    {language === 'bn' ? 'স্টক পরিমাণ ফিল্টার' : 'Filter by Stock Level'}
-                  </label>
-                  <select
-                    value={productStockFilter}
-                    onChange={e => setProductStockFilter(e.target.value)}
-                    className="h-10 w-full rounded-xl border border-rose-200 bg-rose-50/10 px-3 text-xs font-bold text-rose-855 outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100 transition-all cursor-pointer"
+                    {language === 'bn' ? 'আজকে' : 'Today'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const d = new Date();
+                      d.setDate(d.getDate() - 1);
+                      setStockHistoryDate(d.toISOString().slice(0, 10));
+                    }}
+                    className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold transition-all cursor-pointer ${stockHistoryDate === new Date(Date.now() - 86400000).toISOString().slice(0, 10)
+                      ? 'bg-indigo-600 text-white shadow-sm' 
+                      : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}
                   >
-                    <option value="All">{language === 'bn' ? 'সকল লেভেল' : 'All Levels'}</option>
-                    <option value="Low">{language === 'bn' ? 'স্টক সংকট (< ৬০০ পিস)' : 'Low Stock (< 600 Pcs)'}</option>
-                  </select>
+                    {language === 'bn' ? 'গতকাল' : 'Yesterday'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const d = new Date();
+                      d.setDate(d.getDate() - 7);
+                      setStockHistoryDate(d.toISOString().slice(0, 10));
+                    }}
+                    className="px-2.5 py-1 rounded-lg text-[10px] font-extrabold bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 transition-all cursor-pointer"
+                  >
+                    {language === 'bn' ? '৭ দিন আগে' : '7 Days Ago'}
+                  </button>
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-                    {language === 'bn' ? 'শুরুর তারিখ' : 'From Date'}
-                  </label>
-                  <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
-                    <input
-                      type="date"
-                      value={productStartDate}
-                      onChange={e => setProductStartDate(e.target.value)}
-                      className="w-full h-10 pl-9 pr-3 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-750 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-100 transition-all"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-                    {language === 'bn' ? 'শেষের তারিখ' : 'To Date'}
-                  </label>
-                  <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
-                    <input
-                      type="date"
-                      value={productEndDate}
-                      onChange={e => setProductEndDate(e.target.value)}
-                      className="w-full h-10 pl-9 pr-3 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-750 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-100 transition-all"
-                    />
-                  </div>
+                {/* Date Input with clean light contrast styling */}
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-600 pointer-events-none z-10" />
+                  <input
+                    type="date"
+                    value={stockHistoryDate}
+                    onChange={e => setStockHistoryDate(e.target.value)}
+                    className="w-full h-10 pl-9 pr-3 rounded-xl border border-indigo-200 bg-white text-xs font-bold text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all cursor-pointer shadow-sm"
+                  />
                 </div>
               </div>
             </div>
+
+            {stockHistoryDate && (
+              <div className="bg-indigo-50 border border-indigo-200 text-indigo-900 px-5 py-3.5 rounded-2xl flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between text-xs font-bold shadow-sm relative overflow-hidden">
+                <div className="flex items-center gap-2.5">
+                  <Calendar className="w-4 h-4 text-indigo-600 shrink-0" />
+                  <span>
+                    {language === 'bn' 
+                      ? `আপনি বর্তমানে "${stockHistoryDate}" তারিখের পূর্বের স্টক ও ভ্যালুয়েশন দেখছেন।` 
+                      : `You are currently viewing historical stock & valuation for "${stockHistoryDate}".`}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setStockHistoryDate('')}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-1.5 rounded-xl transition-all font-extrabold text-[11px] shrink-0 cursor-pointer shadow-sm active:scale-95"
+                >
+                  {language === 'bn' ? 'আজকের স্টকে ফিরে যান' : 'Back to Today\'s Stock'}
+                </button>
+              </div>
+            )}
 
             {/* List Sub-header */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4.5 border border-slate-200 rounded-2xl shadow-sm">
@@ -1511,7 +1708,8 @@ export default function DirectoryModule({
                   const godownName = godowns.find(g => g.id === p.defaultGodownId)?.name || 'Main Godown';
                   const marginPct = p.defaultWSP > 0 ? ((p.defaultWSP - p.defaultPP) / p.defaultWSP) * 100 : 0;
 
-                  const isLowStock = p.currentStock < 600;
+                  const displayStock = stockHistoryDate ? getHistoricStockForProduct(p, stockHistoryDate) : p.currentStock;
+                  const isLowStock = displayStock < 600;
 
                   let brandTheme = {
                     border: "hover:border-purple-300",
@@ -1608,23 +1806,23 @@ export default function DirectoryModule({
                              <div className={isLowStock ? "text-amber-600 animate-pulse font-extrabold" : "text-slate-700"}>
                                <div className="space-y-0.5">
                                  <div className="text-xs">
-                                   {formatStock(p.currentStock, p.cartonSize || 24, p.primaryUnit)}
+                                   {formatStock(displayStock, p.cartonSize || 24, p.primaryUnit)}
                                  </div>
                                  {p.primaryUnit !== 'Carton' && (
                                    <div className="text-[9px] text-slate-400">
-                                     (Total: {p.currentStock.toLocaleString()} Pcs)
+                                     (Total: {displayStock.toLocaleString()} Pcs)
                                    </div>
                                  )}
                                </div>
                              </div>
                              <span className={`text-[10px] ${brandTheme.valText} ${brandTheme.valBg} border px-2 py-0.5 rounded font-mono block mt-1 font-bold`}>
-                                Val: DP {getStockValueDP(p).toLocaleString('en-BD')} | TP {getStockValueTP(p).toLocaleString('en-BD')}
+                                Val: DP {(displayStock * p.defaultPP).toLocaleString('en-BD')} | TP {(displayStock * (p.primaryUnit === 'Carton' ? (p.pricePerCarton || p.defaultWSP) : (p.pricePerPiece || p.defaultWSP))).toLocaleString('en-BD')}
                               </span>
                            </div>
                          </div>
                          <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
                            <div
-                             style={{ width: `${Math.min(100, (p.currentStock / 5000) * 100)}%` }}
+                             style={{ width: `${Math.min(100, (displayStock / 5000) * 100)}%` }}
                              className={`h-full rounded-full transition-all duration-500 ${isLowStock ? 'bg-amber-500' : 'bg-emerald-500'}`}
                            />
                          </div>
@@ -1720,7 +1918,8 @@ export default function DirectoryModule({
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {filteredProducts.map(p => {
-                        const isLowStock = p.currentStock < 600;
+                        const displayStock = stockHistoryDate ? getHistoricStockForProduct(p, stockHistoryDate) : p.currentStock;
+                        const isLowStock = displayStock < 600;
                         const isEditing = inlineEditingProductId === p.id;
 
                         if (isEditing) {
@@ -1772,7 +1971,7 @@ export default function DirectoryModule({
                                 />
                               </td>
                               <td className="p-2 align-top text-slate-400 text-xs font-bold pt-4">
-                                {formatStock(p.currentStock, p.cartonSize || 24, p.primaryUnit)}
+                                {formatStock(displayStock, p.cartonSize || 24, p.primaryUnit)}
                               </td>
                               <td className="p-2 align-top">
                                 <input
@@ -1892,7 +2091,7 @@ export default function DirectoryModule({
                                 : "bg-emerald-50 text-emerald-700 border-emerald-100"
                                 }`}>
                                 <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${isLowStock ? "bg-rose-500 animate-pulse" : "bg-emerald-500"}`} />
-                                {formatStock(p.currentStock, p.cartonSize || 24, p.primaryUnit)}
+                                {formatStock(displayStock, p.cartonSize || 24, p.primaryUnit)}
                               </span>
                             </td>
                             <td className="px-5 py-3.5 text-xs font-semibold text-slate-600 whitespace-nowrap font-mono">
@@ -2251,21 +2450,44 @@ export default function DirectoryModule({
         });
 
         const getDamageBreakdown = (product: Product) => {
+          const isCtn = product.primaryUnit === 'Carton';
+          const size = product.cartonSize || 24;
           const historyEntries = product.damageHistory || [];
           const signedDelta = historyEntries.reduce((sum, entry) => sum + (entry.type === 'new' ? (entry.deltaQty ?? entry.qty) : 0), 0);
           const positiveDelta = historyEntries.reduce((sum, entry) => sum + (entry.type === 'new' && (entry.deltaQty ?? entry.qty) > 0 ? (entry.deltaQty ?? entry.qty) : 0), 0);
-          const existingDamageQty = Math.max(0, (product.damagedStock || 0) - signedDelta);
+          const productDamagedStockInPieces = isCtn ? (product.damagedStock || 0) * size : (product.damagedStock || 0);
+          const existingDamageQty = Math.max(0, productDamagedStockInPieces - signedDelta);
           const newDamageQty = Math.max(0, positiveDelta);
-          return { existingDamageQty, newDamageQty, totalDamageQty: existingDamageQty + newDamageQty };
+          return { 
+            existingDamageQty: Math.round(existingDamageQty), 
+            newDamageQty: Math.round(newDamageQty), 
+            totalDamageQty: Math.round(existingDamageQty + newDamageQty) 
+          };
         };
 
         // Calculations for KPI Cards
         const totalDamagedUnits = damageFilteredProducts.reduce((sum, p) => sum + getDamageBreakdown(p).totalDamageQty, 0);
         const totalExistingDamageUnits = damageFilteredProducts.reduce((sum, p) => sum + getDamageBreakdown(p).existingDamageQty, 0);
         const totalNewDamageUnits = damageFilteredProducts.reduce((sum, p) => sum + getDamageBreakdown(p).newDamageQty, 0);
-        const totalDamagedValueDP = damageFilteredProducts.reduce((sum, p) => sum + getStockValueDP(p, getDamageBreakdown(p).totalDamageQty), 0);
-        const totalDamagedValueTP = damageFilteredProducts.reduce((sum, p) => sum + getStockValueTP(p, getDamageBreakdown(p).totalDamageQty), 0);
-        const totalSalableUnits = damageFilteredProducts.reduce((sum, p) => sum + p.currentStock, 0);
+        const totalDamagedValueDP = damageFilteredProducts.reduce((sum, p) => {
+          const isCtn = p.primaryUnit === 'Carton';
+          const size = p.cartonSize || 24;
+          const damagedQtyInPieces = getDamageBreakdown(p).totalDamageQty;
+          const qtyInStorageUnit = isCtn ? (damagedQtyInPieces / size) : damagedQtyInPieces;
+          return sum + getStockValueDP(p, qtyInStorageUnit);
+        }, 0);
+        const totalDamagedValueTP = damageFilteredProducts.reduce((sum, p) => {
+          const isCtn = p.primaryUnit === 'Carton';
+          const size = p.cartonSize || 24;
+          const damagedQtyInPieces = getDamageBreakdown(p).totalDamageQty;
+          const qtyInStorageUnit = isCtn ? (damagedQtyInPieces / size) : damagedQtyInPieces;
+          return sum + getStockValueTP(p, qtyInStorageUnit);
+        }, 0);
+        const totalSalableUnits = damageFilteredProducts.reduce((sum, p) => {
+          const isCtn = p.primaryUnit === 'Carton';
+          const size = p.cartonSize || 24;
+          return sum + (isCtn ? p.currentStock * size : p.currentStock);
+        }, 0);
         const totalUnitsCount = totalSalableUnits + totalDamagedUnits;
         const damageRatio = totalUnitsCount > 0 ? (totalDamagedUnits / totalUnitsCount) * 100 : 0;
 
@@ -2452,7 +2674,7 @@ export default function DirectoryModule({
                   const damagedQty = damageBreakdown.totalDamageQty;
                   const existingDamageQty = damageBreakdown.existingDamageQty;
                   const newDamageQty = damageBreakdown.newDamageQty;
-                  const totalQty = p.currentStock + damagedQty;
+                  const totalQty = (p.primaryUnit === 'Carton' ? p.currentStock * (p.cartonSize || 24) : p.currentStock) + damagedQty;
                   const itemDamageRatio = totalQty > 0 ? (damagedQty / totalQty) * 100 : 0;
 
                   return (
@@ -2487,8 +2709,8 @@ export default function DirectoryModule({
                           <span className="text-[9px] text-emerald-600 font-bold uppercase tracking-wider block">
                             {language === 'bn' ? 'বিক্রয়যোগ্য স্টক' : 'Salable Stock'}
                           </span>
-                          <span className="font-mono text-sm font-black text-slate-800">
-                            {p.currentStock.toLocaleString()} <span className="text-[10px] font-semibold text-slate-400">{language === 'bn' ? 'টি' : 'Units'}</span>
+                          <span className="font-mono text-xs font-black text-slate-800 block truncate" title={formatProductStock(p)}>
+                            {formatProductStock(p)}
                           </span>
                           <span className="text-[9px] text-slate-450 font-mono block mt-0.5">
                             DP: ৳{getStockValueDP(p).toLocaleString('en-BD')} | TP: ৳{getStockValueTP(p).toLocaleString('en-BD')}
@@ -2499,11 +2721,11 @@ export default function DirectoryModule({
                           <span className="text-[9px] text-rose-600 font-bold uppercase tracking-wider block">
                             {language === 'bn' ? 'ড্যামেজ স্টক' : 'Damaged Stock'}
                           </span>
-                          <span className="font-mono text-sm font-black text-slate-800">
-                            {damagedQty.toLocaleString()} <span className="text-[10px] font-semibold text-slate-400">{language === 'bn' ? 'টি' : 'Units'}</span>
+                          <span className="font-mono text-xs font-black text-slate-800 block truncate" title={formatProductStock(p, p.primaryUnit === 'Carton' ? damagedQty / (p.cartonSize || 24) : damagedQty)}>
+                            {formatProductStock(p, p.primaryUnit === 'Carton' ? damagedQty / (p.cartonSize || 24) : damagedQty)}
                           </span>
                           <span className="text-[9px] text-slate-450 font-mono block mt-0.5">
-                            DP: ৳{getStockValueDP(p, damagedQty).toLocaleString('en-BD')} | TP: ৳{getStockValueTP(p, damagedQty).toLocaleString('en-BD')}
+                            DP: ৳{getStockValueDP(p, p.primaryUnit === 'Carton' ? damagedQty / (p.cartonSize || 24) : damagedQty).toLocaleString('en-BD')} | TP: ৳{getStockValueTP(p, p.primaryUnit === 'Carton' ? damagedQty / (p.cartonSize || 24) : damagedQty).toLocaleString('en-BD')}
                           </span>
                         </div>
                       </div>
@@ -2549,7 +2771,7 @@ export default function DirectoryModule({
                             {language === 'bn' ? 'আর্থিক ক্ষতি প্রাক্কলন' : 'Loss Estimate'}
                           </span>
                           <span className="font-mono text-xs font-black text-rose-600">
-                            DP: {formatBDT(getStockValueDP(p, damagedQty))} | TP: {formatBDT(getStockValueTP(p, damagedQty))}
+                            DP: {formatBDT(getStockValueDP(p, p.primaryUnit === 'Carton' ? damagedQty / (p.cartonSize || 24) : damagedQty))} | TP: {formatBDT(getStockValueTP(p, p.primaryUnit === 'Carton' ? damagedQty / (p.cartonSize || 24) : damagedQty))}
                           </span>
                         </div>
 
@@ -2589,9 +2811,11 @@ export default function DirectoryModule({
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {damageFilteredProducts.map(p => {
+                        const isCtn = p.primaryUnit === 'Carton';
+                        const size = p.cartonSize || 24;
                         const damageBreakdown = getDamageBreakdown(p);
-                        const damagedQty = damageBreakdown.totalDamageQty;
-                        const totalQty = p.currentStock + damagedQty;
+                        const damagedQty = damageBreakdown.totalDamageQty; // in pieces
+                        const totalQty = (isCtn ? p.currentStock * size : p.currentStock) + damagedQty;
                         const itemDamageRatio = totalQty > 0 ? (damagedQty / totalQty) * 100 : 0;
                         const primaryUnit = p.customUnits && p.customUnits.length > 0 ? p.customUnits[0] : null;
                         const multiplier = primaryUnit ? primaryUnit.multiplier : 1;
@@ -2619,7 +2843,7 @@ export default function DirectoryModule({
                               </span>
                             </td>
                             <td className="px-5 py-3.5 whitespace-nowrap">
-                              <div className="text-xs font-bold text-slate-800">{p.currentStock.toLocaleString()} {p.primaryUnit === 'Carton' ? 'Ctn' : 'Units'}</div>
+                              <div className="text-xs font-bold text-slate-800">{formatProductStock(p)}</div>
                               <div className="text-[9px] text-slate-400 font-mono mt-0.5">DP: {formatBDT(getStockValueDP(p))} | TP: {formatBDT(getStockValueTP(p))}</div>
                             </td>
                             <td className="px-5 py-3.5 whitespace-nowrap">
@@ -2628,10 +2852,10 @@ export default function DirectoryModule({
                                 : "bg-slate-50 text-slate-500 border-slate-200"
                                 }`}>
                                 <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${damagedQty > 0 ? "bg-rose-500 animate-pulse" : "bg-slate-400"}`} />
-                                {damagedQty.toLocaleString()} Units
+                                {formatProductStock(p, isCtn ? damagedQty / size : damagedQty)}
                               </span>
                               {damagedQty > 0 && (
-                                <div className="text-[9px] text-slate-400 font-mono mt-0.5">DP: {formatBDT(getStockValueDP(p, damagedQty))} | TP: {formatBDT(getStockValueTP(p, damagedQty))}</div>
+                                <div className="text-[9px] text-slate-400 font-mono mt-0.5">DP: {formatBDT(getStockValueDP(p, isCtn ? damagedQty / size : damagedQty))} | TP: {formatBDT(getStockValueTP(p, isCtn ? damagedQty / size : damagedQty))}</div>
                               )}
                             </td>
                             <td className="px-5 py-3.5 whitespace-nowrap">
@@ -2645,8 +2869,8 @@ export default function DirectoryModule({
                               </span>
                             </td>
                             <td className="px-5 py-3.5 text-xs text-rose-600 font-extrabold whitespace-nowrap">
-                              DP: {formatBDT(getStockValueDP(p, damagedQty))}
-                              <div className="text-[9px] text-slate-400 font-normal">TP: {formatBDT(getStockValueTP(p, damagedQty))}</div>
+                              DP: {formatBDT(getStockValueDP(p, isCtn ? damagedQty / size : damagedQty))}
+                              <div className="text-[9px] text-slate-400 font-normal">TP: {formatBDT(getStockValueTP(p, isCtn ? damagedQty / size : damagedQty))}</div>
                             </td>
                             <td className="px-5 py-3.5 text-right">
                               <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -3228,107 +3452,189 @@ export default function DirectoryModule({
                 </p>
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="mb-2 block text-xs font-semibold text-slate-705">
-                    {prodPrimaryUnit === 'Piece'
-                      ? (language === 'bn' ? 'পিস/কার্টন সংখ্যা *' : 'Pcs per Carton *')
-                      : (language === 'bn' ? 'পিস/কার্টন প্রযোজ্য নয়' : 'N/A for Carton')}
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    required={prodPrimaryUnit === 'Piece'}
-                    disabled={prodPrimaryUnit === 'Carton'}
-                    value={prodPrimaryUnit === 'Carton' ? 1 : prodCartonSize}
-                    onChange={e => {
-                      const size = Math.max(1, Number(e.target.value));
-                      setProdCartonSize(size);
-                      if (prodPricePerPiece > 0) {
-                        setProdPricePerCarton(Number((prodPricePerPiece * size).toFixed(2)));
-                      }
-                    }}
-                    className={`h-10 w-full rounded-lg border px-3 font-mono font-semibold outline-none ${prodPrimaryUnit === 'Carton' ? 'border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed' : 'border-slate-200 bg-slate-50 focus:border-slate-800'}`}
-                  />
-                </div>
-                <div>
-                  <label className="mb-2 block text-xs font-semibold text-slate-750">
-                    {prodPrimaryUnit === 'Piece'
-                      ? (language === 'bn' ? 'TP মূল্য (৳/পিস)' : 'TP Price (৳/Pcs)')
-                      : (language === 'bn' ? 'TP মূল্য (৳/কার্টন)' : 'TP Price (৳/Ctn)')}
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    required
-                    value={prodPricePerPiece}
-                    onChange={e => {
-                      const price = Number(e.target.value);
-                      setProdPricePerPiece(price);
-                      if (prodPrimaryUnit === 'Piece' && prodCartonSize > 0) {
-                        setProdPricePerCarton(Number((price * prodCartonSize).toFixed(2)));
-                      }
-                    }}
-                    className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 font-mono font-semibold outline-none focus:border-slate-800"
-                  />
-                </div>
-                <div>
-                  <label className="mb-2 block text-xs font-semibold text-slate-750">
-                    {prodPrimaryUnit === 'Piece'
-                      ? (language === 'bn' ? 'কার্টন মূল্য (৳)' : 'Price/Carton (৳)')
-                      : (language === 'bn' ? 'প্রযোজ্য নয়' : 'N/A')}
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    disabled={prodPrimaryUnit === 'Carton'}
-                    value={prodPrimaryUnit === 'Carton' ? 0 : prodPricePerCarton}
-                    onChange={e => {
-                      const cartonPrice = Number(e.target.value);
-                      setProdPricePerCarton(cartonPrice);
-                      if (prodCartonSize > 0) {
-                        setProdPricePerPiece(Number((cartonPrice / prodCartonSize).toFixed(2)));
-                      }
-                    }}
-                    className={`h-10 w-full rounded-lg border px-3 font-mono font-semibold outline-none ${prodPrimaryUnit === 'Carton' ? 'border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed' : 'border-slate-200 bg-slate-50 focus:border-slate-800'}`}
-                  />
-                </div>
-              </div>
+              {/* Unit & Price Setup */}
+              {prodPrimaryUnit === 'Carton' ? (
+                // --- CARTON PRIMARY UNIT LAYOUT (Super Intuitive & Beautiful) ---
+                <div className="bg-indigo-50/40 border border-indigo-100 rounded-2xl p-4.5 space-y-4">
+                  <div className="flex items-center justify-between border-b border-indigo-100 pb-2">
+                    <span className="text-xs font-black text-indigo-900 uppercase tracking-wider">
+                      {language === 'bn' ? '📦 কার্টন ভিত্তিক মূল্য তালিকা' : '📦 Carton-Based Pricing Setup'}
+                    </span>
+                    <span className="text-[10px] font-extrabold text-indigo-700 bg-indigo-100 px-2.5 py-0.5 rounded-full font-mono">
+                      1 Carton = {prodCartonSize} Pcs
+                    </span>
+                  </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="mb-2 block text-xs font-semibold text-slate-705">
-                    {prodPrimaryUnit === 'Piece'
-                      ? (language === 'bn' ? 'DP মূল্য (৳/পিস)' : 'DP Price (৳/Pcs)')
-                      : (language === 'bn' ? 'DP মূল্য (৳/কার্টন)' : 'DP Price (৳/Ctn)')}
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={prodPP}
-                    onChange={e => setProdPP(Number(e.target.value))}
-                    className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 font-mono font-semibold outline-none focus:border-slate-800"
-                  />
+                  {/* Carton Size Input */}
+                  <div>
+                    <label className="mb-1.5 block text-xs font-bold text-slate-700">
+                      {language === 'bn' ? '১ কার্টনে মোট পিস সংখ্যা *' : 'Total Pieces inside 1 Carton *'}
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      required
+                      value={prodCartonSize}
+                      onChange={e => {
+                        const size = Math.max(1, Number(e.target.value));
+                        setProdCartonSize(size);
+                        if (prodPricePerCarton > 0) {
+                          setProdPricePerPiece(Number((prodPricePerCarton / size).toFixed(2)));
+                        }
+                      }}
+                      className="h-10 w-full rounded-xl border border-indigo-200 bg-white px-3.5 font-mono font-bold text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all shadow-sm"
+                    />
+                  </div>
+
+                  {/* Pricing Rows */}
+                  <div className="space-y-3.5">
+                    {/* TP Price Row */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+                      <div>
+                        <label className="mb-1 block text-xs font-bold text-slate-700">
+                          {language === 'bn' ? 'TP মূল্য (৳/কার্টন) *' : 'Wholesale Price (TP/Ctn) *'}
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          required
+                          value={prodPricePerCarton}
+                          onChange={e => {
+                            const price = Number(e.target.value);
+                            setProdPricePerCarton(price);
+                            if (prodCartonSize > 0) {
+                              setProdPricePerPiece(Number((price / prodCartonSize).toFixed(2)));
+                            }
+                          }}
+                          className="h-10 w-full rounded-xl border border-indigo-200 bg-white px-3.5 font-mono font-bold text-indigo-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all shadow-sm"
+                        />
+                      </div>
+                      <div className="bg-indigo-50/60 border border-indigo-100 rounded-xl p-2.5 h-10 flex items-center justify-between">
+                        <span className="text-[10px] text-indigo-900 font-bold">
+                          {language === 'bn' ? '➔ পিস প্রতি TP রেট:' : '➔ TP Price per Piece:'}
+                        </span>
+                        <span className="font-mono text-xs font-black text-indigo-700">
+                          ৳ {prodPricePerPiece.toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* DP Price Row */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+                      <div>
+                        <label className="mb-1 block text-xs font-bold text-slate-700">
+                          {language === 'bn' ? 'DP ক্রয় মূল্য (৳/কার্টন)' : 'Purchase Price (DP/Ctn)'}
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={prodPP}
+                          onChange={e => setProdPP(Number(e.target.value))}
+                          className="h-10 w-full rounded-xl border border-indigo-200 bg-white px-3.5 font-mono font-bold text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all shadow-sm"
+                        />
+                      </div>
+                      <div className="bg-emerald-50/60 border border-emerald-100 rounded-xl p-2.5 h-10 flex items-center justify-between">
+                        <span className="text-[10px] text-emerald-900 font-bold">
+                          {language === 'bn' ? '➔ পিস প্রতি DP রেট:' : '➔ DP Price per Piece:'}
+                        </span>
+                        <span className="font-mono text-xs font-black text-emerald-700">
+                          ৳ {prodCartonSize > 0 ? (prodPP / prodCartonSize).toFixed(2) : '0.00'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* MRP Price Row */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+                      <div>
+                        <label className="mb-1 block text-xs font-bold text-slate-700">
+                          {language === 'bn' ? 'MRP বিক্রয় মূল্য (৳/কার্টন)' : 'Retail Price (MRP/Ctn)'}
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={prodMRP}
+                          onChange={e => setProdMRP(Number(e.target.value))}
+                          className="h-10 w-full rounded-xl border border-indigo-200 bg-white px-3.5 font-mono font-bold text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all shadow-sm"
+                        />
+                      </div>
+                      <div className="bg-amber-50/60 border border-amber-100 rounded-xl p-2.5 h-10 flex items-center justify-between">
+                        <span className="text-[10px] text-amber-900 font-bold">
+                          {language === 'bn' ? '➔ পিস প্রতি MRP রেট:' : '➔ MRP Price per Piece:'}
+                        </span>
+                        <span className="font-mono text-xs font-black text-amber-700">
+                          ৳ {prodCartonSize > 0 ? (prodMRP / prodCartonSize).toFixed(2) : '0.00'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <label className="mb-2 block text-xs font-semibold text-slate-705">
-                    {prodPrimaryUnit === 'Piece'
-                      ? (language === 'bn' ? 'MRP মূল্য (৳/পিস)' : 'MRP Price (৳/Pcs)')
-                      : (language === 'bn' ? 'MRP মূল্য (৳/কার্টন)' : 'MRP Price (৳/Ctn)')}
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={prodMRP}
-                    onChange={e => setProdMRP(Number(e.target.value))}
-                    className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 font-mono font-semibold outline-none focus:border-slate-800"
-                  />
+              ) : (
+                // --- PIECE PRIMARY UNIT LAYOUT (Super Intuitive & Beautiful) ---
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4.5 space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                    <span className="text-xs font-black text-slate-800 uppercase tracking-wider">
+                      {language === 'bn' ? '🔹 পিস ভিত্তিক মূল্য তালিকা' : '🔹 Piece-Based Pricing Setup'}
+                    </span>
+                  </div>
+
+                  <div className="space-y-3.5">
+                    {/* TP Price Pcs */}
+                    <div>
+                      <label className="mb-1.5 block text-xs font-bold text-slate-700">
+                        {language === 'bn' ? 'TP মূল্য (৳/পিস) *' : 'Wholesale Price (TP/Piece) *'}
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        required
+                        value={prodPricePerPiece}
+                        onChange={e => {
+                          const price = Number(e.target.value);
+                          setProdPricePerPiece(price);
+                          setProdPricePerCarton(price);
+                        }}
+                        className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3.5 font-mono font-bold text-indigo-700 outline-none focus:border-slate-800 shadow-sm"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      {/* DP Price Pcs */}
+                      <div>
+                        <label className="mb-1.5 block text-xs font-bold text-slate-700">
+                          {language === 'bn' ? 'DP ক্রয় মূল্য (৳/পিস)' : 'Purchase Price (DP/Piece)'}
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={prodPP}
+                          onChange={e => setProdPP(Number(e.target.value))}
+                          className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3.5 font-mono font-bold text-slate-800 outline-none focus:border-slate-800 shadow-sm"
+                        />
+                      </div>
+
+                      {/* MRP Price Pcs */}
+                      <div>
+                        <label className="mb-1.5 block text-xs font-bold text-slate-700">
+                          {language === 'bn' ? 'MRP বিক্রয় মূল্য (৳/পিস)' : 'Retail Price (MRP/Piece)'}
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={prodMRP}
+                          onChange={e => setProdMRP(Number(e.target.value))}
+                          className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3.5 font-mono font-bold text-slate-800 outline-none focus:border-slate-800 shadow-sm"
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div>
                 <label className={`mb-2 block text-xs font-semibold ${editingProduct ? 'text-slate-400' : 'text-slate-700'}`}>
@@ -3947,12 +4253,56 @@ export default function DirectoryModule({
                   onChange={e => setDamageQtyInput(Number(e.target.value))}
                   className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3.5 font-semibold outline-none focus:border-slate-800 focus:bg-white"
                 />
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {[1, 5, 10, 20].map(q => (
-                    <button key={q} type="button" onClick={() => setDamageQtyInput(q)} className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-semibold text-slate-600 hover:border-slate-400 hover:bg-slate-50">
-                      +{q}
+
+                {/* Auto calculation helper box */}
+                {selectedDamageProduct && (
+                  <div className="mt-2.5 p-3 rounded-xl bg-indigo-50/70 border border-indigo-100 space-y-1">
+                    {(() => {
+                      const cSize = selectedDamageProduct.cartonSize || 24;
+                      const ctns = Math.floor(damageQtyInput / cSize);
+                      const pcs = damageQtyInput % cSize;
+                      const pPrice = selectedDamageProduct.pricePerPiece || (selectedDamageProduct.pricePerCarton ? selectedDamageProduct.pricePerCarton / cSize : selectedDamageProduct.defaultWSP);
+                      const lossVal = damageQtyInput * pPrice;
+
+                      return (
+                        <>
+                          <div className="flex items-center justify-between text-xs font-bold text-indigo-900">
+                            <span>
+                              {language === 'bn' ? 'হিসাবকৃত পরিমাণ:' : 'Calculated Quantity:'}
+                            </span>
+                            <span className="font-mono text-indigo-700">
+                              {cSize > 1 
+                                ? (ctns > 0 && pcs > 0
+                                    ? `${ctns} Cartons & ${pcs} Pieces (${damageQtyInput} Pcs Total)`
+                                    : ctns > 0
+                                    ? `${ctns} Cartons (${damageQtyInput} Pcs Total)`
+                                    : `${pcs} Pieces`)
+                                : `${damageQtyInput} Units`}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-[11px] font-semibold text-indigo-700">
+                            <span>{language === 'bn' ? 'আনুমানিক ক্ষতি (Loss):' : 'Est. Loss Valuation:'}</span>
+                            <span className="font-mono font-bold text-rose-600">৳ {lossVal.toLocaleString('en-BD', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
+                )}
+
+                {/* Quick Add Buttons */}
+                <div className="mt-2.5 flex flex-wrap gap-2">
+                  <button type="button" onClick={() => setDamageQtyInput(prev => prev + 1)} className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-bold text-slate-700 hover:border-indigo-400 hover:bg-indigo-50 shadow-sm transition-all cursor-pointer">
+                    +1 Pc
+                  </button>
+                  <button type="button" onClick={() => setDamageQtyInput(prev => prev + 5)} className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-bold text-slate-700 hover:border-indigo-400 hover:bg-indigo-50 shadow-sm transition-all cursor-pointer">
+                    +5 Pcs
+                  </button>
+                  {selectedDamageProduct && (selectedDamageProduct.cartonSize || 24) > 1 && (
+                    <button type="button" onClick={() => setDamageQtyInput(prev => prev + (selectedDamageProduct.cartonSize || 24))} className="rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[10px] font-bold text-indigo-700 hover:bg-indigo-100 shadow-sm transition-all cursor-pointer">
+                      +1 Ctn (+{selectedDamageProduct.cartonSize || 24} Pcs)
                     </button>
-                  ))}
+                  )}
                 </div>
               </div>
 

@@ -53,16 +53,18 @@ export default function ProcurementModule({
     const htmlRows = proc.items.map((item, index) => {
       const prod = products.find(p => p.id === item.productId);
       const cs = prod?.cartonSize || 24;
-      const cartons = item.cartons ?? Math.floor(item.qty / cs);
-      const pcs = item.pcs ?? (item.qty % cs);
+      const isCtn = prod?.primaryUnit === 'Carton';
+      const cartons = item.cartons ?? (isCtn ? item.qty : Math.floor(item.qty / cs));
+      const pcs = isCtn ? 0 : (item.pcs ?? (item.qty % cs));
+      const qtyLabel = isCtn ? 'Ctn' : 'Pcs';
       return `
         <tr style="border-bottom: 1px solid #e2e8f0;">
           <td style="padding: 10px; text-align: center; font-family: monospace;">${index + 1}</td>
           <td style="padding: 10px;"><b>${prod ? prod.name : 'Unknown Product'}</b></td>
           <td style="padding: 10px; text-align: center; font-family: monospace;">${cartons} Ctn</td>
-          <td style="padding: 10px; text-align: center; font-family: monospace;">${pcs} Pcs</td>
-          <td style="padding: 10px; text-align: center; font-family: monospace; color: #475569;">${item.qty} Pcs</td>
-          <td style="padding: 10px; text-align: center; font-family: monospace; color: #64748b;">${item.bonusQty || 0} Pcs</td>
+          <td style="padding: 10px; text-align: center; font-family: monospace;">${isCtn ? '-' : `${pcs} Pcs`}</td>
+          <td style="padding: 10px; text-align: center; font-family: monospace; color: #475569;">${item.qty} ${qtyLabel}</td>
+          <td style="padding: 10px; text-align: center; font-family: monospace; color: #64748b;">${item.bonusQty || 0} ${qtyLabel}</td>
           <td style="padding: 10px; text-align: right; font-family: monospace;">৳${item.purchasePrice.toFixed(2)}</td>
           <td style="padding: 10px; text-align: right; font-family: monospace; font-weight: bold;">৳${item.totalPrice.toFixed(2)}</td>
         </tr>
@@ -144,10 +146,12 @@ export default function ProcurementModule({
               <tr>
                 <th style="width: 40px; text-align: center;">#</th>
                 <th>PRODUCT DESCRIPTION</th>
-                <th style="text-align: center; width: 100px;">QTY IMPORTED</th>
-                <th style="text-align: center; width: 100px;">BONUS RECEIVED</th>
-                <th style="text-align: right; width: 130px;">UNIT PURCHASE PRICE</th>
-                <th style="text-align: right; width: 150px;">NET TOTAL COST (BDT)</th>
+                <th style="text-align: center; width: 80px;">CARTONS</th>
+                <th style="text-align: center; width: 80px;">PIECES</th>
+                <th style="text-align: center; width: 100px;">TOTAL QTY</th>
+                <th style="text-align: center; width: 100px;">BONUS QTY</th>
+                <th style="text-align: right; width: 120px;">UNIT PP</th>
+                <th style="text-align: right; width: 130px;">NET TOTAL (BDT)</th>
               </tr>
             </thead>
             <tbody>
@@ -237,20 +241,19 @@ export default function ProcurementModule({
       setSupplierName(defaultSup);
       const initProd = products.find(p => p.company === defaultSup) || products[0];
       if (initProd) {
-        const initCartonSize = initProd.cartonSize || 24;
         setFormItems([
           {
             productId: initProd.id,
             purchasePrice: initProd.defaultPP,
             mrp: initProd.defaultMRP,
             wsp: initProd.defaultWSP,
-            cartons: 4,
+            cartons: 0,
             pcs: 0,
-            qty: 4 * initCartonSize,
+            qty: 0,
             bonusQty: 0,
             discountType: 'Percentage',
             discountValue: 0,
-            totalPrice: initProd.defaultPP * (4 * initCartonSize),
+            totalPrice: 0,
           }
         ]);
       } else {
@@ -281,7 +284,6 @@ export default function ProcurementModule({
     const defaultProduct = supplierProds[0] || products[0];
     if (!defaultProduct) return;
 
-    const defCartonSize = defaultProduct.cartonSize || 24;
     setFormItems(prev => [
       ...prev,
       {
@@ -289,13 +291,13 @@ export default function ProcurementModule({
         purchasePrice: defaultProduct.defaultPP,
         mrp: defaultProduct.defaultMRP,
         wsp: defaultProduct.defaultWSP,
-        cartons: 2,
+        cartons: 0,
         pcs: 0,
-        qty: 2 * defCartonSize,
+        qty: 0,
         bonusQty: 0,
         discountType: 'Percentage',
         discountValue: 0,
-        totalPrice: defaultProduct.defaultPP * (2 * defCartonSize),
+        totalPrice: 0,
       }
     ]);
   };
@@ -307,19 +309,18 @@ export default function ProcurementModule({
 
     setFormItems(
       brandProducts.map(p => {
-        const cs = p.cartonSize || 24;
         return {
           productId: p.id,
           purchasePrice: p.defaultPP,
           mrp: p.defaultMRP,
           wsp: p.defaultWSP,
-          cartons: 4,
+          cartons: 0,
           pcs: 0,
-          qty: 4 * cs,
+          qty: 0,
           bonusQty: 0,
           discountType: 'Percentage',
           discountValue: 0,
-          totalPrice: p.defaultPP * (4 * cs),
+          totalPrice: 0,
         };
       })
     );
@@ -344,11 +345,12 @@ export default function ProcurementModule({
         const prod = products.find(p => p.id === value);
         if (prod) {
           const cs = prod.cartonSize || 24;
+          const isCtn = prod.primaryUnit === 'Carton';
           row.productId = value;
           row.purchasePrice = prod.defaultPP;
           row.mrp = prod.defaultMRP;
           row.wsp = prod.defaultWSP;
-          row.qty = (row.cartons || 0) * cs + (row.pcs || 0);
+          row.qty = isCtn ? (row.cartons || 0) : (row.cartons || 0) * cs + (row.pcs || 0);
           row.totalPrice = calculateRowTotal(prod.defaultPP, row.qty, row.discountType, row.discountValue);
         }
       } else if (field === 'cartons' || field === 'pcs') {
@@ -356,9 +358,10 @@ export default function ProcurementModule({
         // Recompute qty from cartons + pcs
         const prod = products.find(p => p.id === row.productId);
         const cs = prod?.cartonSize || 24;
+        const isCtn = prod?.primaryUnit === 'Carton';
         const newCartons = field === 'cartons' ? Number(value) : (row.cartons || 0);
         const newPcs = field === 'pcs' ? Number(value) : (row.pcs || 0);
-        row.qty = newCartons * cs + newPcs;
+        row.qty = isCtn ? newCartons : newCartons * cs + newPcs;
         row.totalPrice = calculateRowTotal(
           Number(row.purchasePrice),
           row.qty,
@@ -399,7 +402,10 @@ export default function ProcurementModule({
       const prod = products.find(p => p.id === item.productId);
       const prodName = prod?.name || 'Unknown Product';
       const cs = prod?.cartonSize || 24;
-      const totalPieces = (Number(item.cartons) || 0) * cs + (Number(item.pcs) || 0);
+      const isCtn = prod?.primaryUnit === 'Carton';
+      const totalPieces = isCtn
+        ? (Number(item.cartons) || 0)
+        : (Number(item.cartons) || 0) * cs + (Number(item.pcs) || 0);
       return {
         id: `pi-${Date.now()}-${idx}`,
         ...item,
@@ -471,20 +477,19 @@ export default function ProcurementModule({
     
     // Prepopulate with a default row
     const resetProd = products[0];
-    const resetCs = resetProd?.cartonSize || 24;
     setFormItems([
       {
         productId: resetProd?.id || '',
         purchasePrice: resetProd?.defaultPP || 100,
         mrp: resetProd?.defaultMRP || 200,
         wsp: resetProd?.defaultWSP || 150,
-        cartons: 4,
+        cartons: 0,
         pcs: 0,
-        qty: 4 * resetCs,
+        qty: 0,
         bonusQty: 0,
         discountType: 'Percentage',
         discountValue: 0,
-        totalPrice: (resetProd?.defaultPP || 100) * (4 * resetCs),
+        totalPrice: 0,
       }
     ]);
 
@@ -930,20 +935,19 @@ export default function ProcurementModule({
                     setSupplierName(newSup);
                     const initProd = getInitialProductForSupplier(newSup);
                     if (initProd) {
-                      const supCs = initProd.cartonSize || 24;
                       setFormItems([
                         {
                           productId: initProd.id,
                           purchasePrice: initProd.defaultPP,
                           mrp: initProd.defaultMRP,
                           wsp: initProd.defaultWSP,
-                          cartons: 4,
+                          cartons: 0,
                           pcs: 0,
-                          qty: 4 * supCs,
+                          qty: 0,
                           bonusQty: 0,
                           discountType: 'Percentage',
                           discountValue: 0,
-                          totalPrice: initProd.defaultPP * (4 * supCs),
+                          totalPrice: 0,
                         }
                       ]);
                     }
@@ -1050,17 +1054,15 @@ export default function ProcurementModule({
 
               <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs border-collapse min-w-[1000px]">
+                  <table className="w-full text-left text-xs border-collapse min-w-[900px]">
                     <thead>
                       <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[10px]">
                         <th className="py-3 px-4 w-[280px]">{tProc.colProduct}</th>
                         <th className="py-3 px-3 text-center w-[120px]">{tProc.colPP}</th>
                         <th className="py-3 px-3 text-center w-[110px]">{tProc.colWSP}</th>
                         <th className="py-3 px-3 text-center w-[110px]">{tProc.colMRP}</th>
-                        <th className="py-3 px-3 text-center w-[100px]">{tProc.colQty}</th>
+                        <th className="py-3 px-3 text-center w-[180px]" colSpan={2}>{language === 'bn' ? 'পরিমাণ (কার্টন / পিস)' : 'Qty (Ctn / Pcs)'}</th>
                         <th className="py-3 px-3 text-center w-[110px]">{tProc.colBonus}</th>
-                        <th className="py-3 px-3 text-center w-[120px]">{tProc.colDiscType}</th>
-                        <th className="py-3 px-3 text-center w-[100px]">{tProc.colDiscVal}</th>
                         <th className="py-3 px-4 text-right w-[120px]">{tProc.colSubtotal}</th>
                         <th className="py-3 px-3 text-center w-[50px]"></th>
                       </tr>
@@ -1070,17 +1072,11 @@ export default function ProcurementModule({
                         const prod = products.find(p => p.id === item.productId);
                         const cs = prod?.cartonSize || 24;
                         const totalQtyCalculated = Number(item.qty || 0) + Number(item.bonusQty || 0);
-                        
-                        // Live Margin Math
-                        const pp = Number(item.purchasePrice || 0);
-                        const mrp = Number(item.mrp || 0);
-                        const marginVal = mrp - pp;
-                        const marginPercent = mrp > 0 ? Math.round((marginVal / mrp) * 100) : 0;
 
                         return (
                           <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
                             {/* Product Selection */}
-                            <td className="py-3 px-4 space-y-1.5">
+                            <td className="py-3 px-4">
                               <select
                                 id={`proc-row-${idx}-product`}
                                 value={item.productId}
@@ -1091,19 +1087,6 @@ export default function ProcurementModule({
                                   <option key={p.id} value={p.id}>{p.name}</option>
                                 ))}
                               </select>
-
-                              {/* Dynamic Profit Margin / Loss Warning Badge */}
-                              <div className="flex items-center gap-1.5 px-0.5">
-                                {marginVal < 0 ? (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-rose-50 text-rose-700 border border-rose-100">
-                                    ⚠️ {language === 'bn' ? 'লোকসান' : 'Loss'}: {formatBDT(Math.abs(marginVal))}
-                                  </span>
-                                ) : (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-teal-50 text-teal-700 border border-teal-100">
-                                    📈 {language === 'bn' ? 'মুনাফা' : 'Margin'}: {formatBDT(marginVal)} ({marginPercent}%)
-                                  </span>
-                                )}
-                              </div>
                             </td>
 
                             {/* Purchase Price PP */}
@@ -1203,30 +1186,7 @@ export default function ProcurementModule({
                               </span>
                             </td>
 
-                            {/* Discount Type */}
-                            <td className="py-3 px-3">
-                              <select
-                                id={`proc-row-${idx}-disctype`}
-                                value={item.discountType}
-                                onChange={(e) => handleRowChange(idx, 'discountType', e.target.value)}
-                                className="h-10 w-full rounded-xl border border-slate-200 bg-white px-1 py-1 text-xs font-semibold text-slate-600 outline-none focus:border-slate-800 transition-all"
-                              >
-                                <option value="Percentage">{tProc.percentage}</option>
-                                <option value="Flat">{tProc.flat}</option>
-                              </select>
-                            </td>
 
-                            {/* Discount value */}
-                            <td className="py-3 px-3">
-                              <input
-                                id={`proc-row-${idx}-discval`}
-                                type="number"
-                                min="0"
-                                value={item.discountValue || ''}
-                                onChange={(e) => handleRowChange(idx, 'discountValue', Number(e.target.value))}
-                                className="h-10 w-full rounded-xl border border-slate-200 bg-white px-1.5 text-center text-xs font-semibold text-slate-700 font-mono outline-none focus:border-slate-800 transition-all"
-                              />
-                            </td>
 
                             {/* Total price subtotal */}
                             <td className="py-3 px-4 text-right font-extrabold font-mono text-slate-900 text-xs">
@@ -1374,9 +1334,8 @@ export default function ProcurementModule({
                         <th className="py-3 px-3 text-right">{tProc.colMRP}</th>
                         <th className="py-3 px-3 text-center">Cartons</th>
                         <th className="py-3 px-3 text-center">Pieces</th>
-                        <th className="py-3 px-3 text-center">Total Pcs</th>
+                        <th className="py-3 px-3 text-center">Total Qty</th>
                         <th className="py-3 px-3 text-center">{tProc.colBonus}</th>
-                        <th className="py-3 px-3 text-center">{tProc.colDiscType}</th>
                         <th className="py-3 px-3 text-right">{tProc.finalPrice}</th>
                       </tr>
                     </thead>
@@ -1384,8 +1343,9 @@ export default function ProcurementModule({
                       {selectedProcurement.items.map((item) => {
                         const detailProd = products.find(p => p.id === item.productId);
                         const detailCs = detailProd?.cartonSize || 24;
-                        const detailCartons = item.cartons ?? Math.floor(item.qty / detailCs);
-                        const detailPcs = item.pcs ?? (item.qty % detailCs);
+                        const isCtn = detailProd?.primaryUnit === 'Carton';
+                        const detailCartons = item.cartons ?? (isCtn ? item.qty : Math.floor(item.qty / detailCs));
+                        const detailPcs = isCtn ? 0 : (item.pcs ?? (item.qty % detailCs));
                         return (
                         <tr key={item.id} className="hover:bg-slate-100/30 transition-all duration-150">
                           <td className="py-3 px-3 font-semibold text-slate-800">{item.productName}</td>
@@ -1393,18 +1353,9 @@ export default function ProcurementModule({
                           <td className="py-3 px-3 text-right font-mono text-slate-600">{formatBDT(item.wsp)}</td>
                           <td className="py-3 px-3 text-right font-mono text-slate-500">{formatBDT(item.mrp)}</td>
                           <td className="py-3 px-3 text-center font-semibold font-mono text-indigo-700">{detailCartons} Ctn</td>
-                          <td className="py-3 px-3 text-center font-semibold font-mono text-emerald-700">{detailPcs} Pcs</td>
-                          <td className="py-3 px-3 text-center font-mono text-slate-500">{item.qty}</td>
+                          <td className="py-3 px-3 text-center font-semibold font-mono text-emerald-700">{isCtn ? '-' : `${detailPcs} Pcs`}</td>
+                          <td className="py-3 px-3 text-center font-mono text-slate-500">{item.qty} {isCtn ? 'Ctn' : 'Pcs'}</td>
                           <td className="py-3 px-3 text-center font-mono text-slate-400">{item.bonusQty} bonus</td>
-                          <td className="py-3 px-3 text-center">
-                            {item.discountValue > 0 ? (
-                              <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-mono text-[9px] font-semibold border border-slate-200">
-                                {item.discountType === 'Percentage' ? `${item.discountValue}% Off` : `-${formatBDT(item.discountValue)}`}
-                              </span>
-                            ) : (
-                              <span className="text-slate-300">-</span>
-                            )}
-                          </td>
                           <td className="py-3 px-3 text-right font-semibold font-mono text-slate-900">{formatBDT(item.totalPrice)}</td>
                         </tr>
                         );

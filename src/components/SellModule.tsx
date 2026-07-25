@@ -428,10 +428,9 @@ export default function SellModule({
 
     const existingIdx = cart.findIndex(i => i.product.id === product.id && i.selectedSpec === defaultSpec);
 
-    // Default: if no custom cartons/pcs passed, add 1 carton (or if cartonSize is 0, add 1 piece)
-    const cartonSize = product.cartonSize || 24;
-    const cartonsToAdd = customCartons ?? (cartonSize > 1 ? 1 : 0);
-    const pcsToAdd = customPcs ?? (cartonSize <= 1 ? 1 : 0);
+    // Default: if no custom cartons/pcs passed, default to 0
+    const cartonsToAdd = customCartons ?? 0;
+    const pcsToAdd = customPcs ?? 0;
     const bonus = customBonus ?? 0;
 
     if (existingIdx > -1) {

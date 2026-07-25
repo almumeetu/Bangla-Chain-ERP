@@ -161,8 +161,25 @@ input[type="number"]:focus,
 input[type="email"]:focus,
 input[type="password"]:focus,
 input[type="search"]:focus,
-select:focus,
+input[type="date"]:focus,
 textarea:focus {
   border-color: #a5b4fc !important; /* Lighter indigo active border */
   box-shadow: 0 0 0 3px rgba(165, 180, 252, 0.2) !important; /* Lighter soft focus ring */
+}
+
+/* Make date inputs cleaner by hiding native calendar picker icon and making the whole input clickable */
+input[type="date"] {
+  position: relative;
+}
+input[type="date"]::-webkit-calendar-picker-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: auto;
+  height: auto;
+  color: transparent;
+  background: transparent;
+  cursor: pointer;
 }
