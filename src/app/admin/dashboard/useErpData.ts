@@ -9,7 +9,7 @@ import { useState } from 'react';
 import type {
   Product, ProductAttribute, ChallanItem, Procurement,
   StockAdjustment, ExpenseCategory, ExpenseRecord, SR,
-  CompanyBrand, Category, UnitOfMeasure, Godown, Route, DeliveryMan,
+  CompanyBrand, Category, UnitOfMeasure, Godown, Route, DeliveryMan, Claim,
 } from '../../../types';
 import {
   upsertProduct,    deleteProduct,
@@ -28,6 +28,7 @@ import {
   upsertExpense,    deleteExpense,
   upsertCustomer,   deleteCustomer,
   upsertSettings,
+  upsertClaim,      deleteClaim,
   type AppSettings,
   type Customer,
 } from '../../../lib/db';
@@ -76,6 +77,7 @@ export interface ErpDataStore {
   shopName:          string;
   shopSubBrand:      string;
   shopLogo:          string;
+  claims:            Claim[];
 
   syncProducts:          (u: Product[]          | ((prev: Product[])          => Product[]))          => void;
   syncSrs:               (u: SR[]               | ((prev: SR[])               => SR[]))               => void;
@@ -92,6 +94,7 @@ export interface ErpDataStore {
   syncUnits:             (u: UnitOfMeasure[]    | ((prev: UnitOfMeasure[])    => UnitOfMeasure[]))    => void;
   syncGodowns:           (u: Godown[]           | ((prev: Godown[])           => Godown[]))           => void;
   syncRoutes:            (u: Route[]            | ((prev: Route[])            => Route[]))            => void;
+  syncClaims:            (u: Claim[]            | ((prev: Claim[])            => Claim[]))            => void;
   syncShopName:     (val: string | ((p: string) => string)) => void;
   syncShopSubBrand: (val: string | ((p: string) => string)) => void;
   syncShopLogo:     (val: string | ((p: string) => string)) => void;
@@ -111,6 +114,7 @@ export interface ErpDataStore {
   setUnits:             React.Dispatch<React.SetStateAction<UnitOfMeasure[]>>;
   setGodowns:           React.Dispatch<React.SetStateAction<Godown[]>>;
   setRoutes:            React.Dispatch<React.SetStateAction<Route[]>>;
+  setClaims:            React.Dispatch<React.SetStateAction<Claim[]>>;
   setShopName:          React.Dispatch<React.SetStateAction<string>>;
   setShopSubBrand:      React.Dispatch<React.SetStateAction<string>>;
   setShopLogo:          React.Dispatch<React.SetStateAction<string>>;
@@ -139,6 +143,7 @@ export function useErpData(
   const [units,             setUnits]             = useState<UnitOfMeasure[]>([]);
   const [godowns,           setGodowns]           = useState<Godown[]>([]);
   const [routes,            setRoutes]            = useState<Route[]>([]);
+  const [claims,            setClaims]            = useState<Claim[]>([]);
   const [_shopName,         setShopName]          = useState(shopName);
   const [_shopSubBrand,     setShopSubBrand]      = useState(shopSubBrand);
   const [_shopLogo,         setShopLogo]          = useState(shopLogo);
@@ -157,6 +162,7 @@ export function useErpData(
   const syncUnits             = makeSyncer(setUnits,             upsertUnit,             deleteUnit);
   const syncGodowns           = makeSyncer(setGodowns,           upsertGodown,           deleteGodown);
   const syncRoutes            = makeSyncer(setRoutes,            upsertRoute,            deleteRoute);
+  const syncClaims            = makeSyncer(setClaims,            upsertClaim,            deleteClaim);
 
   function syncAdjustments(updaterOrValue: StockAdjustment[] | ((prev: StockAdjustment[]) => StockAdjustment[])) {
     setAdjustments(prev => {
@@ -203,15 +209,15 @@ export function useErpData(
   return {
     products, srs, deliveryMen, customers, attributes, challans,
     procurements, adjustments, categories, expenses, companies,
-    productCategories, units, godowns, routes,
+    productCategories, units, godowns, routes, claims,
     shopName: _shopName, shopSubBrand: _shopSubBrand, shopLogo: _shopLogo,
     syncProducts, syncSrs, syncDeliveryMen, syncCustomers, syncAttributes,
     syncChallans, syncProcurements, syncAdjustments, syncExpenseCategories,
     syncExpenses, syncCompanies, syncProductCategories, syncUnits,
-    syncGodowns, syncRoutes, syncShopName, syncShopSubBrand, syncShopLogo,
+    syncGodowns, syncRoutes, syncClaims, syncShopName, syncShopSubBrand, syncShopLogo,
     setProducts, setSrs, setDeliveryMen, setCustomers, setAttributes,
     setChallans, setProcurements, setAdjustments, setCategories, setExpenses,
-    setCompanies, setProductCategories, setUnits, setGodowns, setRoutes,
+    setCompanies, setProductCategories, setUnits, setGodowns, setRoutes, setClaims,
     setShopName, setShopSubBrand, setShopLogo,
   };
 }

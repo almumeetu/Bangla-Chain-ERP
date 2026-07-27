@@ -424,3 +424,19 @@ export const INITIAL_ROUTES: Route[] = [
   { id: 'route-2', name: 'Chawkbazar Beat', area: 'Sadarghat', territory: 'Dhaka South', assignedSRId: 'sr-2' },
   { id: 'route-3', name: 'Bogura Sadar Beat', area: 'Bogura Sadar', territory: 'Rajshahi Division', assignedSRId: 'sr-3' }
 ];
+
+export interface Claim {
+  id: string;
+  claimDate: string;
+  companyId: string;
+  companyName: string;
+  srId: string;
+  srName: string;
+  productId: string;
+  productName: string;
+  qty: number;
+  reason: string;
+  notes: string;
+  status: 'Pending' | 'Approved' | 'Rejected';
+}
+

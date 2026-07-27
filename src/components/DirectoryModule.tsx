@@ -547,6 +547,7 @@ export default function DirectoryModule({
   );
   const [productSearch, setProductSearch] = useState('');
   const [productCompanyFilter, setProductCompanyFilter] = useState('All');
+  const [productSrFilter, setProductSrFilter] = useState('All');
   const [productCategoryFilter, setProductCategoryFilter] = useState('All');
   const [productStockFilter, setProductStockFilter] = useState('All'); // 'All' | 'Low'
   const [productStartDate, setProductStartDate] = useState('');
@@ -1326,6 +1327,12 @@ export default function DirectoryModule({
 
       {/* SUB-TAB: Products Catalog */}
       {activeSubTab === 'products' && (() => {
+        const getCategoryName = (categoryId?: string) => {
+          if (!categoryId) return '—';
+          const cat = productCategories.find(c => c.id === categoryId);
+          return cat ? cat.name : '—';
+        };
+
         const getHistoricStockForProduct = (product: Product, targetDate: string) => {
           if (product.createdAt && product.createdAt.slice(0, 10) > targetDate) {
             return 0;
@@ -1367,7 +1374,25 @@ export default function DirectoryModule({
           const displayStock = stockHistoryDate ? getHistoricStockForProduct(p, stockHistoryDate) : p.currentStock;
           const matchesStock = productStockFilter === 'All' || (productStockFilter === 'Low' && displayStock < 600);
           const matchesDate = matchesDateRange(p.createdAt, productStartDate, productEndDate);
-          return matchesSearch && matchesCompany && matchesCategory && matchesStock && matchesDate;
+          
+          let matchesSr = true;
+          if (productSrFilter !== 'All') {
+            const selectedSr = srs.find(sr => sr.id === productSrFilter);
+            if (selectedSr) {
+              const assignedCompanies = (selectedSr.assignedCompanyIds || []).map(cid => {
+                if (cid === 'comp-1') return 'pran';
+                if (cid === 'comp-2') return 'olympic';
+                if (cid === 'comp-3') return 'haque';
+                const comp = companies.find(c => c.id === cid);
+                return comp ? comp.name.toLowerCase() : cid.toLowerCase();
+              });
+              matchesSr = assignedCompanies.includes(p.company.toLowerCase());
+            } else {
+              matchesSr = false;
+            }
+          }
+
+          return matchesSearch && matchesCompany && matchesCategory && matchesStock && matchesDate && matchesSr;
         });
 
         const totalProductsStockValuationDP = filteredProducts.reduce((sum, p) => {
@@ -1382,6 +1407,10 @@ export default function DirectoryModule({
             : (p.pricePerCarton || p.defaultWSP);
           return sum + displayStock * tp;
         }, 0);
+        const totalStockQty = filteredProducts.reduce((sum, p) => {
+          const displayStock = stockHistoryDate ? getHistoricStockForProduct(p, stockHistoryDate) : p.currentStock;
+          return sum + displayStock;
+        }, 0);
         const lowStockCount = filteredProducts.filter(p => {
           const displayStock = stockHistoryDate ? getHistoricStockForProduct(p, stockHistoryDate) : p.currentStock;
           return displayStock < 600;
@@ -1390,9 +1419,9 @@ export default function DirectoryModule({
         return (
           <div className="space-y-6">
             {/* KPI Metrics */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 
-              {/* Card 1: Total Registered Items */}
+              {/* Card 1: Total Products */}
               <div className="bg-gradient-to-br from-blue-50/70 to-indigo-50/20 rounded-2xl border border-blue-100 p-5 shadow-sm flex items-center gap-4 relative overflow-hidden group hover:shadow-md transition-all duration-300">
                 <div className="absolute right-0 bottom-0 w-24 h-24 bg-blue-500/5 rounded-tl-full pointer-events-none" />
                 <div className="p-3 bg-blue-500 rounded-xl text-white shadow-sm shadow-blue-200">
@@ -1400,7 +1429,7 @@ export default function DirectoryModule({
                 </div>
                 <div>
                   <span className="text-[10px] text-blue-500 font-bold uppercase tracking-wider block">
-                    {language === 'bn' ? 'মোট নিবন্ধিত পণ্য' : 'Total SKU Count'}
+                    {language === 'bn' ? 'মোট পণ্য' : 'Total Products'}
                   </span>
                   <span className="text-2xl font-black text-slate-855 font-mono tracking-tight">
                     {filteredProducts.length} <span className="text-xs font-bold text-slate-500">/ {products.length} {language === 'bn' ? 'টি' : 'Products'}</span>
@@ -1408,7 +1437,23 @@ export default function DirectoryModule({
                 </div>
               </div>
 
-              {/* Card 2: Total Inventory Valuation */}
+              {/* Card 2: Total Stock Quantity */}
+              <div className="bg-gradient-to-br from-purple-50/70 to-fuchsia-50/20 rounded-2xl border border-purple-100 p-5 shadow-sm flex items-center gap-4 relative overflow-hidden group hover:shadow-md transition-all duration-300">
+                <div className="absolute right-0 bottom-0 w-24 h-24 bg-purple-500/5 rounded-tl-full pointer-events-none" />
+                <div className="p-3 bg-purple-500 rounded-xl text-white shadow-sm shadow-purple-200">
+                  <Layers className="w-6 h-6" />
+                </div>
+                <div>
+                  <span className="text-[10px] text-purple-600 font-bold uppercase tracking-wider block">
+                    {language === 'bn' ? 'মোট স্টক পরিমাণ' : 'Total Stock Quantity'}
+                  </span>
+                  <span className="text-2xl font-black text-slate-855 font-mono tracking-tight">
+                    {totalStockQty.toLocaleString('en-BD')}
+                  </span>
+                </div>
+              </div>
+
+              {/* Card 3: Total Inventory Value (DP) */}
               <div className="bg-gradient-to-br from-emerald-50/70 to-teal-50/20 rounded-2xl border border-emerald-100 p-5 shadow-sm flex items-center gap-4 relative overflow-hidden group hover:shadow-md transition-all duration-300">
                 <div className="absolute right-0 bottom-0 w-24 h-24 bg-emerald-500/5 rounded-tl-full pointer-events-none" />
                 <div className="p-3 bg-emerald-500 rounded-xl text-white shadow-sm shadow-emerald-200">
@@ -1416,42 +1461,29 @@ export default function DirectoryModule({
                 </div>
                 <div>
                   <span className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider block">
-                    {language === 'bn' ? 'মোট ইনভেন্টরি মূল্য' : 'Inventory Valuation'}
+                    {language === 'bn' ? 'মোট ইনভেন্টরি মূল্য (DP)' : 'Total Inventory Value (DP)'}
                   </span>
                   <span className="text-2xl font-black text-slate-855 font-mono tracking-tight">
                     {formatBDT(totalProductsStockValuationDP)}
                   </span>
-                  <span className="text-[10px] text-slate-400 font-mono block">
-                    TP: {formatBDT(totalProductsStockValuationTP)}
-                  </span>
                 </div>
               </div>
 
-              {/* Card 3: Low Stock Alerts */}
-              <button
-                type="button"
-                onClick={() => {
-                  setProductStockFilter(productStockFilter === 'Low' ? 'All' : 'Low');
-                  setViewMode('list');
-                }}
-                className={`bg-gradient-to-br from-amber-50/70 to-orange-50/20 rounded-2xl p-5 shadow-sm flex items-center gap-4 relative overflow-hidden group hover:shadow-md transition-all duration-300 text-left w-full cursor-pointer ${productStockFilter === 'Low'
-                  ? 'border-2 border-amber-500 ring-4 ring-amber-100 bg-amber-50/40'
-                  : 'border border-amber-100'
-                  }`}
-              >
+              {/* Card 4: Total Inventory Value (TP) */}
+              <div className="bg-gradient-to-br from-amber-50/70 to-orange-50/20 rounded-2xl border border-amber-100 p-5 shadow-sm flex items-center gap-4 relative overflow-hidden group hover:shadow-md transition-all duration-300">
                 <div className="absolute right-0 bottom-0 w-24 h-24 bg-amber-500/5 rounded-tl-full pointer-events-none" />
                 <div className="p-3 bg-amber-500 rounded-xl text-white shadow-sm shadow-amber-200">
-                  <AlertTriangle className="w-6 h-6 animate-pulse" />
+                  <span className="text-xl font-bold font-mono">৳</span>
                 </div>
                 <div>
-                  <span className="text-[10px] text-amber-605 font-bold uppercase tracking-wider block">
-                    {language === 'bn' ? 'স্টক সংকট অ্যালার্ট' : 'Low Stock Alerts'}
+                  <span className="text-[10px] text-amber-600 font-bold uppercase tracking-wider block">
+                    {language === 'bn' ? 'মোট ইনভেন্টরি মূল্য (TP)' : 'Total Inventory Value (TP)'}
                   </span>
                   <span className="text-2xl font-black text-slate-855 font-mono tracking-tight">
-                    {lowStockCount} <span className="text-xs font-bold text-slate-500">{language === 'bn' ? 'টি সংকটে' : 'Items'}</span>
+                    {formatBDT(totalProductsStockValuationTP)}
                   </span>
                 </div>
-              </button>
+              </div>
             </div>
 
             {/* Beautiful two-column filters section */}
@@ -1465,11 +1497,12 @@ export default function DirectoryModule({
                       {language === 'bn' ? 'লাইভ ফিল্টার ও পণ্য অনুসন্ধান' : 'Live Filter & Catalog Search'}
                     </span>
                   </div>
-                  {(productSearch || productCompanyFilter !== 'All' || productCategoryFilter !== 'All' || productStockFilter !== 'All' || productStartDate || productEndDate) && (
+                  {(productSearch || productCompanyFilter !== 'All' || productSrFilter !== 'All' || productCategoryFilter !== 'All' || productStockFilter !== 'All' || productStartDate || productEndDate) && (
                     <button
                       onClick={() => {
                         setProductSearch('');
                         setProductCompanyFilter('All');
+                        setProductSrFilter('All');
                         setProductCategoryFilter('All');
                         setProductStockFilter('All');
                         setProductStartDate('');
@@ -1513,6 +1546,23 @@ export default function DirectoryModule({
                       <option value="All">{language === 'bn' ? 'সকল কোম্পানি' : 'All Companies'}</option>
                       {Array.from(new Set(products.map(p => p.company).filter(Boolean))).map(c => (
                         <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* SR Filter */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                      {language === 'bn' ? 'এসআর ফিল্টার' : 'Filter by SR'}
+                    </label>
+                    <select
+                      value={productSrFilter}
+                      onChange={e => setProductSrFilter(e.target.value)}
+                      className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50/20 px-3 text-xs font-bold text-slate-700 outline-none focus:border-indigo-500 transition-all cursor-pointer"
+                    >
+                      <option value="All">{language === 'bn' ? 'সকল এসআর' : 'All SRs'}</option>
+                      {srs.map(sr => (
+                        <option key={sr.id} value={sr.id}>{sr.name}</option>
                       ))}
                     </select>
                   </div>
@@ -1572,7 +1622,7 @@ export default function DirectoryModule({
                   <div className="flex items-center gap-2">
                     <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${stockHistoryDate ? 'bg-indigo-600 animate-ping' : 'bg-slate-400'}`} />
                     <span className="text-[10px] bg-indigo-100/80 text-indigo-800 font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider font-mono">
-                      {language === 'bn' ? 'তারিখ ভিত্তিক স্টক রিপোর্ট' : 'Datewise Stock Report'}
+                      {language === 'bn' ? 'ইনভেন্টরি ইতিহাস ও মূল্য' : 'Inventory History & Valuation'}
                     </span>
                   </div>
                   {stockHistoryDate && (
@@ -1591,8 +1641,8 @@ export default function DirectoryModule({
                   </h4>
                   <p className="text-[10px] text-slate-500 font-medium mt-0.5">
                     {language === 'bn' 
-                      ? 'অতীতের যেকোনো তারিখ নির্বাচন করে ঐ দিনের স্টক ও মূল্য দেখুন।' 
-                      : 'Choose a date to view historical inventory & valuation.'}
+                      ? 'অতীতের যেকোনো তারিখ নির্বাচন করে ঐ দিনের পণ্যের স্টক, স্টক মূল্যায়ন এবং ইনভেন্টরি অবস্থা দেখুন।' 
+                      : 'Select any previous date to view historical product stock, stock valuation, and inventory status.'}
                   </p>
                 </div>
 
@@ -1699,7 +1749,77 @@ export default function DirectoryModule({
             </div>
 
             {/* Product View */}
-            {viewMode === 'grid' ? (
+            {stockHistoryDate ? (
+              // Specialized snapshot table
+              <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse min-w-[1000px]">
+                    <thead>
+                      <tr className="bg-slate-100/70 border-b border-slate-200 text-slate-600 text-[10px] uppercase font-extrabold tracking-wider">
+                        <th className="px-5 py-4">{language === 'bn' ? 'পণ্যের নাম' : 'Product Name'}</th>
+                        <th className="px-5 py-4">{language === 'bn' ? 'কোম্পানি' : 'Company'}</th>
+                        <th className="px-5 py-4">{language === 'bn' ? 'ক্যাটাগরি' : 'Category'}</th>
+                        <th className="px-5 py-4">{language === 'bn' ? 'স্টক পরিমাণ' : 'Stock Quantity'}</th>
+                        <th className="px-5 py-4 text-right">{language === 'bn' ? 'ডিলার মূল্য (DP)' : 'Dealer Price (DP)'}</th>
+                        <th className="px-5 py-4 text-right">{language === 'bn' ? 'পাইকারি মূল্য (TP)' : 'Trade Price (TP)'}</th>
+                        <th className="px-5 py-4 text-right">{language === 'bn' ? 'স্টক মূল্য (DP)' : 'Stock Value (DP)'}</th>
+                        <th className="px-5 py-4 text-right">{language === 'bn' ? 'স্টক মূল্য (TP)' : 'Stock Value (TP)'}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {filteredProducts.map(p => {
+                        const displayStock = getHistoricStockForProduct(p, stockHistoryDate);
+                        const tp = p.primaryUnit === 'Carton'
+                          ? (p.pricePerCarton || p.defaultWSP)
+                          : (p.pricePerPiece || p.defaultWSP);
+                        const stockValDP = displayStock * p.defaultPP;
+                        const stockValTP = displayStock * tp;
+                        const categoryName = getCategoryName(p.categoryId);
+
+                        return (
+                          <tr key={p.id} className="hover:bg-slate-50 transition-colors">
+                            <td className="px-5 py-3.5">
+                              <div className="font-bold text-slate-900 text-sm mb-0.5">{p.name}</div>
+                              <div className="text-[10px] font-medium text-slate-400 uppercase tracking-wide">{p.sku}</div>
+                            </td>
+                            <td className="px-5 py-3.5">
+                              <span className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border shadow-sm ${getCompanyBadgeStyle(p.company)}`}>
+                                {p.company}
+                              </span>
+                            </td>
+                            <td className="px-5 py-3.5 text-xs font-semibold text-slate-650">
+                              {categoryName}
+                            </td>
+                            <td className="px-5 py-3.5 whitespace-nowrap">
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide border bg-slate-50 text-slate-700 border-slate-200">
+                                {formatStock(displayStock, p.cartonSize || 24, p.primaryUnit)}
+                              </span>
+                              {p.primaryUnit !== 'Carton' && (
+                                <span className="text-[10px] text-slate-400 ml-1.5 font-medium">
+                                  ({displayStock.toLocaleString()} Pcs)
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-5 py-3.5 text-xs text-right font-semibold text-slate-600 whitespace-nowrap font-mono">
+                              {formatBDT(p.defaultPP)}/{p.primaryUnit === 'Carton' ? 'Ctn' : 'pc'}
+                            </td>
+                            <td className="px-5 py-3.5 text-xs text-right text-indigo-600 font-bold whitespace-nowrap font-mono">
+                              {formatBDT(tp)}/{p.primaryUnit === 'Carton' ? 'Ctn' : 'pc'}
+                            </td>
+                            <td className="px-5 py-3.5 text-xs text-right text-emerald-600 font-bold whitespace-nowrap font-mono">
+                              {formatBDT(stockValDP)}
+                            </td>
+                            <td className="px-5 py-3.5 text-xs text-right text-slate-900 font-extrabold whitespace-nowrap font-mono">
+                              {formatBDT(stockValTP)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : viewMode === 'grid' ? (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {filteredProducts.map(p => {
                   const primaryUnit = p.customUnits && p.customUnits.length > 0 ? p.customUnits[0] : null;

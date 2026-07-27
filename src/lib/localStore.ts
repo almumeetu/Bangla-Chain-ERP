@@ -7,7 +7,7 @@
 import type {
   Product, ProductAttribute, ChallanItem, Procurement,
   StockAdjustment, ExpenseCategory, ExpenseRecord, SR, DeliveryMan,
-  CompanyBrand, Category, UnitOfMeasure, Godown, Route,
+  CompanyBrand, Category, UnitOfMeasure, Godown, Route, Claim,
 } from '../types';
 import {
   INITIAL_SRS, INITIAL_DELIVERY_MEN, INITIAL_PRODUCTS,
@@ -65,6 +65,7 @@ const KEYS = {
   settings:          'erp_settings',
   admins:            'erp_admins',
   seeded:            'erp_seeded',
+  claims:            'erp_claims',
 } as const;
 
 // ── Generic localStorage helpers ──────────────────────────────────────────────
@@ -305,6 +306,15 @@ export function saveRoutes(items: Route[]): void {
   write(KEYS.routes, items);
 }
 
+// ── Claims ────────────────────────────────────────────────────────────────────
+
+export function getClaims(): Claim[] {
+  return read<Claim[]>(KEYS.claims, []);
+}
+export function saveClaims(items: Claim[]): void {
+  write(KEYS.claims, items);
+}
+
 // ── Load all ──────────────────────────────────────────────────────────────────
 
 export interface AllErpData {
@@ -324,6 +334,7 @@ export interface AllErpData {
   godowns:           Godown[];
   routes:            Route[];
   settings:          AppSettings;
+  claims:            Claim[];
 }
 
 export function loadAllData(): AllErpData {
@@ -344,10 +355,56 @@ export function loadAllData(): AllErpData {
     godowns:           getGodowns(),
     routes:            getRoutes(),
     settings:          getSettings(),
+    claims:            getClaims(),
   };
 }
 
 // ── Seed initial demo data (called once on first run) ─────────────────────────
+
+export const INITIAL_CLAIMS: Claim[] = [
+  {
+    id: 'claim-1',
+    claimDate: '2026-07-20',
+    companyId: 'comp-1',
+    companyName: 'Pran',
+    srId: 'sr-1',
+    srName: 'Rakib',
+    productId: 'prod-1',
+    productName: 'Pran Mango Juice 250ml',
+    qty: 50,
+    reason: 'Damaged packaging',
+    notes: 'Carton was wet during delivery.',
+    status: 'Pending'
+  },
+  {
+    id: 'claim-2',
+    claimDate: '2026-07-22',
+    companyId: 'comp-2',
+    companyName: 'Olympic',
+    srId: 'sr-2',
+    srName: 'Rahman',
+    productId: 'prod-4',
+    productName: 'Olympic Energy Biscuits 50g',
+    qty: 120,
+    reason: 'Shortage in shipment',
+    notes: 'Received 5 cartons less than invoiced.',
+    status: 'Approved'
+  },
+  {
+    id: 'claim-3',
+    claimDate: '2026-07-25',
+    companyId: 'comp-3',
+    companyName: 'Haque',
+    srId: 'sr-3',
+    srName: 'Rahim',
+    productId: 'prod-7',
+    productName: 'Haque Bourbon Biscuit 100g',
+    qty: 24,
+    reason: 'Expired items',
+    notes: 'Expiry date was June 2026.',
+    status: 'Rejected'
+  }
+];
 
 export function seedInitialData(): void {
   const alreadySeeded = localStorage.getItem(KEYS.seeded);
@@ -367,6 +424,7 @@ export function seedInitialData(): void {
   saveUnits(INITIAL_UNITS);
   saveGodowns(INITIAL_GODOWNS);
   saveRoutes(INITIAL_ROUTES);
+  saveClaims(INITIAL_CLAIMS);
 
   localStorage.setItem(KEYS.seeded, 'true');
 }
@@ -391,6 +449,7 @@ export function clearAllData(): void {
     KEYS.godowns,
     KEYS.routes,
     KEYS.seeded,
+    KEYS.claims,
   ];
   businessKeys.forEach(k => localStorage.removeItem(k));
   // Write empty arrays so the app gets [] instead of re-seeding
@@ -409,6 +468,7 @@ export function clearAllData(): void {
   saveUnits([]);
   saveGodowns([]);
   saveRoutes([]);
+  saveClaims([]);
   // Mark seeded = 'cleared' so demo data is NOT re-injected on next load
   localStorage.setItem(KEYS.seeded, 'cleared');
 }
@@ -432,6 +492,7 @@ export function restoreAllData(data: Partial<AllErpData>): void {
   if (data.godowns)           saveGodowns(data.godowns);
   if (data.routes)            saveRoutes(data.routes);
   if (data.settings)          saveSettings(data.settings);
+  if (data.claims)            saveClaims(data.claims);
   // Mark as seeded so demo data is not re-applied on top
   localStorage.setItem(KEYS.seeded, 'true');
 }

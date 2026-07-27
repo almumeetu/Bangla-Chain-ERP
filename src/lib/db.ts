@@ -14,7 +14,7 @@ export type { AppSettings, Customer } from './localStore';
 import type {
   Product, ProductAttribute, ChallanItem, Procurement,
   StockAdjustment, ExpenseCategory, ExpenseRecord, SR, DeliveryMan,
-  CompanyBrand, Category, UnitOfMeasure, Godown, Route,
+  CompanyBrand, Category, UnitOfMeasure, Godown, Route, Claim,
 } from '../types';
 
 import {
@@ -34,6 +34,7 @@ import {
   getGodowns,      saveGodowns,
   getRoutes,       saveRoutes,
   getSettings,     saveSettings,
+  getClaims,       saveClaims,
   srLogin,
   loadAllData      as _loadAllData,
   seedInitialData  as _seedInitialData,
@@ -208,6 +209,15 @@ export async function upsertCustomer(c: Customer): Promise<void> {
 }
 export async function deleteCustomer(id: string): Promise<void> {
   return deleteItem(getCustomers, saveCustomers, id);
+}
+
+// ── Claims ────────────────────────────────────────────────────────────────────
+
+export async function upsertClaim(c: Claim): Promise<void> {
+  return upsertItem(getClaims, saveClaims, c);
+}
+export async function deleteClaim(id: string): Promise<void> {
+  return deleteItem(getClaims, saveClaims, id);
 }
 
 // ── Load all / seed ───────────────────────────────────────────────────────────

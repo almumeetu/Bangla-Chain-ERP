@@ -106,6 +106,12 @@ export const ITEM_STYLES: Record<TabID, ItemStyle> = {
     bar:    'bg-violet-500',
     icon:   'text-violet-400',
   },
+  claims: {
+    active: 'bg-orange-500/10 text-orange-300 border border-orange-500/20 font-bold',
+    hover:  'hover:text-orange-300 hover:bg-orange-500/5',
+    bar:    'bg-orange-500',
+    icon:   'text-orange-400',
+  },
 };
 
 // ── Menu section configs ──────────────────────────────────────────────────────
@@ -139,6 +145,12 @@ export const ADMIN_SECTIONS: MenuSection[] = [
     items: [
       { id: 'sales',    icon: ShoppingCart },
       { id: 'delivery', icon: Truck        },
+    ],
+  },
+  {
+    label: 'CLAIMS & RETURNS', labelBn: 'দাবি ও ফেরত',
+    items: [
+      { id: 'claims', icon: ClipboardList },
     ],
   },
   {
@@ -184,6 +196,7 @@ export function getMenuItemName(
     damage:    language === 'bn' ? 'ড্যামেজ তালিকা'          : 'Damage Option',
     reports:   language === 'bn' ? 'রিপোর্ট ও বিশ্লেষণ'     : 'Reports & Analytics',
     settings:  s.settings,
+    claims:    language === 'bn' ? 'ক্লেম ম্যানেজমেন্ট'       : 'Claim Management',
   };
   return nameMap[id] ?? id;
 }

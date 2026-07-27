@@ -15,7 +15,7 @@ export type TabID =
   | 'dashboard' | 'sales'    | 'delivery' | 'purchase'
   | 'stock'     | 'accounts' | 'companies'| 'products'
   | 'routes'    | 'damage'   | 'reports'  | 'settings'
-  | 'help';
+  | 'help'      | 'claims';
 
 /** @deprecated use TabID */
 export type LegacyTabID =

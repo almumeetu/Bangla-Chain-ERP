@@ -16,6 +16,7 @@ import SettingsModule        from '../../../components/SettingsModule';
 import HelpGuideModule       from '../../../components/HelpGuideModule';
 import ReportsModule         from '../../../components/ReportsModule';
 import LoginPage             from '../../../components/LoginPage';
+import ClaimManagementModule from '../../../components/ClaimManagementModule';
 
 import { loadAllData, seedInitialData } from '../../../lib/db';
 import { generatePDF, type PDFView }    from '../../../lib/generatePDF';
@@ -265,6 +266,16 @@ export default function App() {
           srs={db.srs} setSrs={db.syncSrs} />
       );
       case 'help': return <HelpGuideModule language={language} />;
+      case 'claims': return (
+        <ClaimManagementModule
+          claims={db.claims}
+          setClaims={db.syncClaims}
+          products={db.products}
+          srs={db.srs}
+          companies={db.companies}
+          language={language}
+        />
+      );
       default: return (
         <div className="py-20 text-center font-bold text-slate-400">
           {language === 'bn' ? 'এই পেজ তৈরি হচ্ছে...' : 'Coming soon...'}
