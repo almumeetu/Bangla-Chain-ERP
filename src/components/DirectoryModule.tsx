@@ -785,7 +785,7 @@ export default function DirectoryModule({
     }
 
     const isCtn = prodPrimaryUnit === 'Carton';
-    const cs = isCtn ? Math.max(1, Number(prodCartonSize) || 24) : 1;
+    const cs = Math.max(1, Number(prodCartonSize) || 24);
 
     const dp = Number(prodPP);
     const tp = isCtn ? Number(prodPricePerCarton) : Number(prodPricePerPiece);
@@ -806,7 +806,7 @@ export default function DirectoryModule({
       piecePrice = Number((ctnPrice / cs).toFixed(2));
     } else {
       piecePrice = tp;
-      ctnPrice = piecePrice;
+      ctnPrice = Number((piecePrice * cs).toFixed(2));
     }
 
     const payload = {
@@ -3693,38 +3693,72 @@ export default function DirectoryModule({
                 </div>
               ) : (
                 // --- PIECE PRIMARY UNIT LAYOUT (Super Intuitive & Beautiful) ---
-                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4.5 space-y-4">
-                  <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-                    <span className="text-xs font-black text-slate-800 uppercase tracking-wider">
+                <div className="bg-indigo-50/40 border border-indigo-100 rounded-2xl p-4.5 space-y-4">
+                  <div className="flex items-center justify-between border-b border-indigo-100 pb-2">
+                    <span className="text-xs font-black text-indigo-900 uppercase tracking-wider">
                       {language === 'bn' ? '🔹 পিস ভিত্তিক মূল্য তালিকা' : '🔹 Piece-Based Pricing Setup'}
+                    </span>
+                    <span className="text-[10px] font-extrabold text-indigo-700 bg-indigo-100 px-2.5 py-0.5 rounded-full font-mono">
+                      1 Carton = {prodCartonSize} Pcs
                     </span>
                   </div>
 
+                  {/* Carton Size Input */}
+                  <div>
+                    <label className="mb-1.5 block text-xs font-bold text-slate-700">
+                      {language === 'bn' ? '১ কার্টনে মোট পিস সংখ্যা *' : 'Total Pieces inside 1 Carton *'}
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      required
+                      value={prodCartonSize}
+                      onChange={e => {
+                        const size = Math.max(1, Number(e.target.value));
+                        setProdCartonSize(size);
+                        if (prodPricePerPiece > 0) {
+                          setProdPricePerCarton(Number((prodPricePerPiece * size).toFixed(2)));
+                        }
+                      }}
+                      className="h-10 w-full rounded-xl border border-indigo-200 bg-white px-3.5 font-mono font-bold text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all shadow-sm"
+                    />
+                  </div>
+
                   <div className="space-y-3.5">
-                    {/* TP Price Pcs */}
-                    <div>
-                      <label className="mb-1.5 block text-xs font-bold text-slate-700">
-                        {language === 'bn' ? 'TP মূল্য (৳/পিস) *' : 'Wholesale Price (TP/Piece) *'}
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        required
-                        value={prodPricePerPiece}
-                        onChange={e => {
-                          const price = Number(e.target.value);
-                          setProdPricePerPiece(price);
-                          setProdPricePerCarton(price);
-                        }}
-                        className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3.5 font-mono font-bold text-indigo-700 outline-none focus:border-slate-800 shadow-sm"
-                      />
+                    {/* TP Price Row */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+                      <div>
+                        <label className="mb-1 block text-xs font-bold text-slate-700">
+                          {language === 'bn' ? 'TP মূল্য (৳/পিস) *' : 'Wholesale Price (TP/Piece) *'}
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          required
+                          value={prodPricePerPiece}
+                          onChange={e => {
+                            const price = Number(e.target.value);
+                            setProdPricePerPiece(price);
+                            setProdPricePerCarton(Number((price * prodCartonSize).toFixed(2)));
+                          }}
+                          className="h-10 w-full rounded-xl border border-indigo-200 bg-white px-3.5 font-mono font-bold text-indigo-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all shadow-sm"
+                        />
+                      </div>
+                      <div className="bg-indigo-50/60 border border-indigo-100 rounded-xl p-2.5 h-10 flex items-center justify-between">
+                        <span className="text-[10px] text-indigo-900 font-bold">
+                          {language === 'bn' ? '➔ কার্টন প্রতি TP রেট:' : '➔ TP Price per Carton:'}
+                        </span>
+                        <span className="font-mono text-xs font-black text-indigo-700">
+                          ৳ {prodPricePerCarton.toFixed(2)}
+                        </span>
+                      </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                      {/* DP Price Pcs */}
+                    {/* DP Price Row */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
                       <div>
-                        <label className="mb-1.5 block text-xs font-bold text-slate-700">
+                        <label className="mb-1 block text-xs font-bold text-slate-700">
                           {language === 'bn' ? 'DP ক্রয় মূল্য (৳/পিস)' : 'Purchase Price (DP/Piece)'}
                         </label>
                         <input
@@ -3733,13 +3767,23 @@ export default function DirectoryModule({
                           step="0.01"
                           value={prodPP}
                           onChange={e => setProdPP(Number(e.target.value))}
-                          className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3.5 font-mono font-bold text-slate-800 outline-none focus:border-slate-800 shadow-sm"
+                          className="h-10 w-full rounded-xl border border-indigo-200 bg-white px-3.5 font-mono font-bold text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all shadow-sm"
                         />
                       </div>
+                      <div className="bg-emerald-50/60 border border-emerald-100 rounded-xl p-2.5 h-10 flex items-center justify-between">
+                        <span className="text-[10px] text-emerald-900 font-bold">
+                          {language === 'bn' ? '➔ কার্টন প্রতি DP রেট:' : '➔ DP Price per Carton:'}
+                        </span>
+                        <span className="font-mono text-xs font-black text-emerald-700">
+                          ৳ {prodCartonSize > 0 ? (prodPP * prodCartonSize).toFixed(2) : '0.00'}
+                        </span>
+                      </div>
+                    </div>
 
-                      {/* MRP Price Pcs */}
+                    {/* MRP Price Row */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
                       <div>
-                        <label className="mb-1.5 block text-xs font-bold text-slate-700">
+                        <label className="mb-1 block text-xs font-bold text-slate-700">
                           {language === 'bn' ? 'MRP বিক্রয় মূল্য (৳/পিস)' : 'Retail Price (MRP/Piece)'}
                         </label>
                         <input
@@ -3748,8 +3792,16 @@ export default function DirectoryModule({
                           step="0.01"
                           value={prodMRP}
                           onChange={e => setProdMRP(Number(e.target.value))}
-                          className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3.5 font-mono font-bold text-slate-800 outline-none focus:border-slate-800 shadow-sm"
+                          className="h-10 w-full rounded-xl border border-indigo-200 bg-white px-3.5 font-mono font-bold text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all shadow-sm"
                         />
+                      </div>
+                      <div className="bg-amber-50/60 border border-amber-100 rounded-xl p-2.5 h-10 flex items-center justify-between">
+                        <span className="text-[10px] text-amber-900 font-bold">
+                          {language === 'bn' ? '➔ কার্টন প্রতি MRP রেট:' : '➔ MRP Price per Carton:'}
+                        </span>
+                        <span className="font-mono text-xs font-black text-amber-700">
+                          ৳ {prodCartonSize > 0 ? (prodMRP * prodCartonSize).toFixed(2) : '0.00'}
+                        </span>
                       </div>
                     </div>
                   </div>
