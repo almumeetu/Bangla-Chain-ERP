@@ -423,15 +423,32 @@ export default function SellModule({
 
   const formatBDT = useCallback((n: number) => `৳${n.toLocaleString('en-BD')}`, []);
 
+  const getCartItemQtyInPrimaryUnit = useCallback((cartons: number, pcs: number, product: Product) => {
+    const isCarton = product.primaryUnit === 'Carton';
+    const cartonSize = product.cartonSize || 24;
+    return isCarton ? cartons : (cartons * cartonSize + pcs);
+  }, []);
+
   const handleAddToCart = useCallback((product: Product, customCartons?: number, customPcs?: number, customBonus?: number) => {
     const defaultSpec = attributes.filter(a => a.status === 'Active')[0]?.name || 'Default';
-
     const existingIdx = cart.findIndex(i => i.product.id === product.id && i.selectedSpec === defaultSpec);
 
-    // Default: if no custom cartons/pcs passed, default to 0
-    const cartonsToAdd = customCartons ?? 0;
-    const pcsToAdd = customPcs ?? 0;
+    const isCarton = product.primaryUnit === 'Carton';
+    const cartonsToAdd = customCartons !== undefined ? customCartons : (customPcs === undefined ? (isCarton ? 1 : 0) : 0);
+    const pcsToAdd = customPcs !== undefined ? customPcs : (customCartons === undefined ? (isCarton ? 0 : 1) : 0);
     const bonus = customBonus ?? 0;
+
+    const addedQty = getCartItemQtyInPrimaryUnit(cartonsToAdd, pcsToAdd, product);
+    const existingQty = existingIdx > -1
+      ? getCartItemQtyInPrimaryUnit(cart[existingIdx].cartons, cart[existingIdx].pcs, product)
+      : 0;
+
+    if (existingQty + addedQty > product.currentStock) {
+      alert(language === 'bn'
+        ? `স্টক পর্যাপ্ত নয়! এই পণ্যের সর্বোচ্চ উপলব্ধ স্টক: ${product.currentStock} ${isCarton ? 'কার্টন' : 'পিস'}`
+        : `Insufficient stock! Maximum available: ${product.currentStock} ${isCarton ? 'Ctn' : 'Pcs'}`);
+      return;
+    }
 
     if (existingIdx > -1) {
       setCart(prev => {
@@ -452,17 +469,41 @@ export default function SellModule({
         damagedQty: 0
       }]);
     }
-  }, [cart, attributes]);
+  }, [cart, attributes, language, getCartItemQtyInPrimaryUnit]);
 
   const handleUpdateCartons = useCallback((i: number, cartons: number) => {
     if (cartons < 0) return;
-    setCart(p => { const u = [...p]; u[i].cartons = cartons; return u; });
-  }, []);
+    setCart(p => {
+      const u = [...p];
+      const item = u[i];
+      const newQty = getCartItemQtyInPrimaryUnit(cartons, item.pcs, item.product);
+      if (newQty > item.product.currentStock) {
+        alert(language === 'bn'
+          ? `স্টক পর্যাপ্ত নয়! এই পণ্যের সর্বোচ্চ উপলব্ধ স্টক: ${item.product.currentStock} ${item.product.primaryUnit === 'Carton' ? 'কার্টন' : 'পিস'}`
+          : `Insufficient stock! Maximum available: ${item.product.currentStock} ${item.product.primaryUnit === 'Carton' ? 'Ctn' : 'Pcs'}`);
+        return p;
+      }
+      u[i].cartons = cartons;
+      return u;
+    });
+  }, [getCartItemQtyInPrimaryUnit, language]);
 
   const handleUpdatePcs = useCallback((i: number, pcs: number) => {
     if (pcs < 0) return;
-    setCart(p => { const u = [...p]; u[i].pcs = pcs; return u; });
-  }, []);
+    setCart(p => {
+      const u = [...p];
+      const item = u[i];
+      const newQty = getCartItemQtyInPrimaryUnit(item.cartons, pcs, item.product);
+      if (newQty > item.product.currentStock) {
+        alert(language === 'bn'
+          ? `স্টক পর্যাপ্ত নয়! এই পণ্যের সর্বোচ্চ উপলব্ধ স্টক: ${item.product.currentStock} ${item.product.primaryUnit === 'Carton' ? 'কার্টন' : 'পিস'}`
+          : `Insufficient stock! Maximum available: ${item.product.currentStock} ${item.product.primaryUnit === 'Carton' ? 'Ctn' : 'Pcs'}`);
+        return p;
+      }
+      u[i].pcs = pcs;
+      return u;
+    });
+  }, [getCartItemQtyInPrimaryUnit, language]);
 
   const handleUpdateSpec = useCallback((i: number, v: string) => {
     setCart(p => { const u = [...p]; u[i].selectedSpec = v; return u; });
@@ -504,16 +545,28 @@ export default function SellModule({
     e.preventDefault();
     if (cart.length === 0) { alert('Cart is empty!'); return; }
 
+    const activeCartItems = cart.filter(item => {
+      const isCarton = item.product.primaryUnit === 'Carton';
+      const cartonSize = item.product.cartonSize || 24;
+      const totalQty = isCarton ? item.cartons : (item.cartons * cartonSize + item.pcs);
+      return totalQty > 0;
+    });
+
+    if (activeCartItems.length === 0) {
+      alert(language === 'bn' 
+        ? 'সব পণ্যের পরিমাণ ০! অনুগ্রহ করে অন্তত একটি পণ্যের পরিমাণ ১ বা তার বেশি দিন।' 
+        : 'All items have 0 quantity! Please increase quantity for at least one item.');
+      return;
+    }
 
     const currentTimeStr = new Date().toISOString().slice(11, 24);
     const orderTimestamp = new Date(`${orderDate}T${currentTimeStr}`).toISOString();
     const orderIdSuffix = Date.now();
 
-    const newChallans: ChallanItem[] = cart.map((item, idx) => {
+    const newChallans: ChallanItem[] = activeCartItems.map((item, idx) => {
       const isCarton = item.product.primaryUnit === 'Carton';
       const cartonSize = item.product.cartonSize || 24;
       const totalQty = isCarton ? item.cartons : (item.cartons * cartonSize + item.pcs);
-      const netQty = totalQty - (item.returnedQty || 0) - (item.damagedQty || 0);
 
       const pricePerCarton = item.product.pricePerCarton || (item.product.defaultWSP * (isCarton ? 1 : cartonSize));
       const pricePerPiece = item.product.pricePerPiece || item.product.defaultWSP;
@@ -542,7 +595,7 @@ export default function SellModule({
     setChallans(prev => [...newChallans, ...prev]);
 
     const orderData: SalesOrderData = {
-      items: cart.map(i => {
+      items: activeCartItems.map(i => {
         const isCarton = i.product.primaryUnit === 'Carton';
         const cartonSize = i.product.cartonSize || 24;
         const totalQty = isCarton ? i.cartons : (i.cartons * cartonSize + i.pcs);
@@ -572,93 +625,99 @@ export default function SellModule({
     setOrderStatus('Pending');
     alert('Checkout successful! Challans generated.');
     onNavigate('delivery');
-  }, [cart, cartSubtotalTP, netTotal, selectedSR, selectedRoute, selectedDeliveryMan, orderDate, setChallans, onNavigate, customers]);
+  }, [cart, cartSubtotalTP, netTotal, selectedSR, selectedRoute, selectedDeliveryMan, orderDate, setChallans, onNavigate, customers, language]);
 
-  const LabelInput = ({ label, children }: { label: string; children: React.ReactNode }) => (
+  const LabelInput = ({ label, icon: Icon, children }: { label: string; icon?: React.ComponentType<{ className?: string }>; children: React.ReactNode }) => (
     <div className="space-y-1">
-      <label className="block text-[8px] font-black text-slate-400 uppercase tracking-widest">{label}</label>
+      <label className="flex items-center gap-1.5 text-[9px] font-black text-slate-450 uppercase tracking-widest">
+        {Icon && <Icon className="w-3.5 h-3.5 text-indigo-500" />}
+        {label}
+      </label>
       {children}
     </div>
   );
 
-  const inputCls = "h-9 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-[11px] font-medium text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-50 transition-all duration-200";
-  const selectCls = inputCls + " cursor-pointer";
+  const inputCls = "h-10 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-xs font-semibold text-slate-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all duration-200 shadow-sm";
+  const selectCls = inputCls + " cursor-pointer pr-8 appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%252364748b%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')] bg-[length:14px] bg-[right_12px_center] bg-no-repeat";
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between px-1">
+    <div className="space-y-5">
+      {/* Top Title Bar */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4.5 border border-slate-200 rounded-2xl shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-600 to-indigo-700 flex items-center justify-center shadow-lg shadow-indigo-200">
-            <ShoppingBag className="w-4.5 h-4.5 text-white" />
+          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-indigo-600 to-indigo-800 flex items-center justify-center shadow-lg shadow-indigo-100 shrink-0">
+            <ShoppingBag className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h2 className="text-[16px] font-black text-slate-800 leading-tight">{translations[language].sell.title}</h2>
-            <p className="text-[11px] text-slate-500">{translations[language].sell.subtitle}</p>
+            <h2 className="text-[17px] font-black text-slate-800 leading-tight">{translations[language].sell.title}</h2>
+            <p className="text-[11px] text-slate-455 font-medium mt-0.5">{translations[language].sell.subtitle}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 bg-gradient-to-r from-slate-50 to-slate-100 rounded-xl px-3.5 py-1.5 border border-slate-200">
-            <Zap className="w-3.5 h-3.5 text-amber-500" />
-            <span className="text-[11px] font-black text-slate-600">{cart.length} {language === 'bn' ? 'কার্টে' : 'in cart'}</span>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="flex items-center gap-1.5 bg-indigo-50/60 rounded-xl px-4 py-2 border border-indigo-100 text-indigo-700 text-xs font-black shadow-sm">
+            <Zap className="w-4 h-4 text-amber-500 fill-amber-400" />
+            <span>{cart.length} {language === 'bn' ? 'কার্টে' : 'in cart'}</span>
           </div>
           {lastOrder && (
             <button type="button" onClick={handlePrintLastOrder}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-600 font-black text-[11px] hover:border-slate-300 hover:bg-slate-50 cursor-pointer transition-all duration-200 shadow-sm hover:shadow">
-              <Printer className="w-3.5 h-3.5" />
+              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4.5 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 font-extrabold text-xs hover:border-slate-350 hover:bg-slate-50 cursor-pointer transition-all duration-200 shadow-sm">
+              <Printer className="w-4 h-4 text-slate-500" />
               {language === 'bn' ? 'প্রিন্ট' : 'Print'}
             </button>
           )}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        <div className="lg:col-span-7 space-y-3">
-          <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-3 shadow-sm">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+        {/* Left Side: Product Browser */}
+        <div className="lg:col-span-7 space-y-4">
+          <div className="bg-white border border-slate-200 rounded-3xl p-5 space-y-4 shadow-sm">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-[11px] font-black text-slate-700">
+                <span className="text-xs font-black text-slate-800 uppercase tracking-wider">
                   {language === 'bn' ? 'পণ্য তালিকা' : 'Products'}
                 </span>
-                <span className="bg-gradient-to-r from-indigo-50 to-indigo-100 text-indigo-600 text-[9px] font-black px-2.5 py-1 rounded-lg border border-indigo-200">
+                <span className="bg-indigo-50 text-indigo-700 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border border-indigo-150 shadow-sm font-mono">
                   {filteredProducts.length}/{products.length}
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="flex items-center bg-slate-100 rounded-xl p-0.5">
+                <div className="flex items-center bg-slate-100/80 rounded-xl p-0.5 border border-slate-200/50 shadow-sm">
                   <button type="button" onClick={() => setViewMode('grid')} title="Grid View"
-                    className={`p-1.5 rounded-lg transition-all duration-200 cursor-pointer ${viewMode === 'grid' ? 'bg-white shadow text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}>
+                    className={`p-1.5 rounded-lg transition-all duration-200 cursor-pointer ${viewMode === 'grid' ? 'bg-white shadow-sm text-indigo-600 font-extrabold' : 'text-slate-400 hover:text-slate-650'}`}>
                     <LayoutGrid className="w-3.5 h-3.5" />
                   </button>
                   <button type="button" onClick={() => setViewMode('list')} title="List View"
-                    className={`p-1.5 rounded-lg transition-all duration-200 cursor-pointer ${viewMode === 'list' ? 'bg-white shadow text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}>
+                    className={`p-1.5 rounded-lg transition-all duration-200 cursor-pointer ${viewMode === 'list' ? 'bg-white shadow-sm text-indigo-600 font-extrabold' : 'text-slate-400 hover:text-slate-650'}`}>
                     <List className="w-3.5 h-3.5" />
                   </button>
                 </div>
                 {hasFilters && (
                   <button type="button" onClick={resetFilters}
-                    className="flex items-center gap-1 text-[9px] font-black text-rose-500 bg-rose-50 border border-rose-100 hover:bg-rose-100 px-2.5 py-1.5 rounded-xl transition-all duration-200 cursor-pointer">
-                    <X className="w-3 h-3" /> Reset
+                    className="flex items-center gap-1 text-[10px] font-black text-rose-600 bg-rose-50 border border-rose-100 hover:bg-rose-100 px-3 py-1.5 rounded-xl transition-all duration-200 cursor-pointer active:scale-95 shadow-sm">
+                    <X className="w-3.5 h-3.5" /> Reset
                   </button>
                 )}
               </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              <LabelInput label={language === 'bn' ? 'খুঁজুন' : 'Search'}>
+            {/* Filters Row */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+              <LabelInput label={language === 'bn' ? 'খুঁজুন' : 'Search'} icon={Search}>
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                   <input type="text" value={searchQuery} onChange={handleSearchChange}
                     placeholder={language === 'bn' ? 'নাম / SKU' : 'Name / SKU'}
-                    className="h-9 w-full rounded-xl border border-slate-200 bg-white pl-8 pr-3 text-[11px] font-medium text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-50 transition-all duration-200 placeholder:text-slate-400" />
+                    className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-xs font-semibold text-slate-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all duration-200 placeholder:text-slate-400 shadow-sm" />
                 </div>
               </LabelInput>
-              <LabelInput label={language === 'bn' ? 'কোম্পানি' : 'Company'}>
+              <LabelInput label={language === 'bn' ? 'কোম্পানি' : 'Company'} icon={Building}>
                 <select value={selectedCompany} onChange={e => setSelectedCompany(e.target.value)} className={selectCls}>
                   <option value="All">{language === 'bn' ? 'সকল' : 'All'}</option>
                   {uniqueCompanies.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </LabelInput>
-              <LabelInput label={language === 'bn' ? 'স্টক' : 'Stock'}>
+              <LabelInput label={language === 'bn' ? 'স্টক অবস্থা' : 'Stock Status'} icon={Package}>
                 <select value={selectedStockFilter} onChange={e => setSelectedStockFilter(e.target.value)} className={selectCls}>
                   <option value="All">{language === 'bn' ? 'সকল' : 'All'}</option>
                   <option value="InStock">{language === 'bn' ? 'আছে' : 'In Stock'}</option>
@@ -668,160 +727,163 @@ export default function SellModule({
               </LabelInput>
             </div>
 
-            <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
-              <div className="flex items-center gap-1.5 shrink-0">
-                <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-                <span className="text-[9px] font-black text-slate-500">{language === 'bn' ? 'দ্রুত যোগ:' : 'Quick Add:'}</span>
+            {/* Quick Add Block */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-3 border-t border-slate-100">
+              <div className="flex items-center gap-1.5 shrink-0 text-slate-500">
+                <Sparkles className="w-4 h-4 text-indigo-500 fill-indigo-200" />
+                <span className="text-[10px] font-black uppercase tracking-wider">{language === 'bn' ? 'দ্রুত যোগ:' : 'Quick Add:'}</span>
               </div>
               <select value="" onChange={e => { const p = products.find(x => x.id === e.target.value); if (p) handleAddToCart(p); }}
-                className="flex-1 h-8.5 rounded-xl border border-slate-200 bg-white px-3 text-[10px] font-medium text-slate-600 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-50 transition-all duration-200 cursor-pointer">
+                className={selectCls + " h-9 text-[11px] font-semibold"}>
                 <option value="" disabled>{language === 'bn' ? 'পণ্য বেছে নিন...' : 'Select product...'}</option>
                 {filteredProducts.map(p => (
                   <option key={p.id} value={p.id} disabled={p.currentStock <= 0}>
-                    {p.name} — {p.currentStock} {language === 'bn' ? 'পিস' : 'pcs'}
+                    {p.name} — {p.currentStock} {language === 'bn' ? 'পিস স্টক আছে' : 'pcs in stock'}
                   </option>
                 ))}
               </select>
             </div>
           </div>
 
-          <div className={`max-h-[600px] overflow-y-auto pr-0.5 modal-body ${viewMode === 'grid'
-            ? 'grid grid-cols-2 sm:grid-cols-3 gap-3'
-            : 'flex flex-col gap-2.5'
-            }`}>
-            {filteredProducts.map(p => (
-              <ProductCard key={p.id} product={p} onAddToCart={handleAddToCart} formatBDT={formatBDT} language={language} listView={viewMode === 'list'} />
-            ))}
-            {filteredProducts.length === 0 && (
-              <div className="col-span-3 py-24 flex flex-col items-center justify-center gap-3 text-slate-400 bg-white rounded-3xl border border-dashed border-slate-200">
-                <Package className="w-12 h-12 text-slate-200" />
-                <p className="text-[12px] font-black text-slate-500">{language === 'bn' ? 'কোনো পণ্য পাওয়া যায়নি' : 'No products found'}</p>
-                <button type="button" onClick={resetFilters} className="text-[10px] font-black text-indigo-600 hover:text-indigo-700 hover:underline cursor-pointer">
-                  {language === 'bn' ? 'ফিল্টার রিসেট করুন' : 'Reset filters'}
-                </button>
+          {/* Product Cards Browser container */}
+          <div className={`max-h-[650px] overflow-y-auto pr-1 modal-body grid gap-4 ${
+            viewMode === 'grid' ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'
+          }`}>
+            {filteredProducts.length > 0 ? (
+              filteredProducts.map(p => (
+                <ProductCard key={p.id} product={p} onAddToCart={handleAddToCart} formatBDT={formatBDT} language={language} listView={viewMode === 'list'} />
+              ))
+            ) : (
+              <div className="col-span-full flex flex-col items-center justify-center gap-3.5 py-20 text-slate-450 bg-white rounded-3xl border border-dashed border-slate-200 shadow-sm">
+                <div className="w-14 h-14 rounded-2xl bg-slate-50 flex items-center justify-center border border-slate-100 shadow-sm">
+                  <Package className="w-7 h-7 text-slate-400" />
+                </div>
+                <div className="text-center">
+                  <p className="text-sm font-bold text-slate-800 mb-1">{language === 'bn' ? 'কোনো পণ্য পাওয়া যায়নি' : 'No products found'}</p>
+                  <button type="button" onClick={resetFilters} className="text-xs text-indigo-600 hover:text-indigo-800 font-extrabold underline transition-all cursor-pointer">
+                    {language === 'bn' ? 'ফিল্টার রিসেট করুন' : 'Reset filters'}
+                  </button>
+                </div>
               </div>
             )}
           </div>
         </div>
 
-        <div className="lg:col-span-5 flex flex-col min-h-0">
-          <form onSubmit={handleCheckout}
-            className="bg-white rounded-2xl border border-slate-200 overflow-hidden flex flex-col sticky top-4 shadow-sm"
-            style={{ maxHeight: 'calc(100vh - 110px)' }}>
-            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-gradient-to-r from-slate-50 to-white">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-600 to-indigo-700 flex items-center justify-center shadow shadow-indigo-200">
-                  <ShoppingBag className="w-3.5 h-3.5 text-white" />
-                </div>
-                <div>
-                  <p className="text-[13px] font-black text-slate-800 leading-none">{language === 'bn' ? 'বিক্রয় কার্ট' : 'Sales Cart'}</p>
-                  <p className="text-[10px] text-slate-500 mt-0.5">{language === 'bn' ? 'পণ্য যোগ করুন' : 'Add products then checkout'}</p>
-                </div>
-              </div>
-              <span className={`text-[10px] font-black px-3 py-1.5 rounded-full ${cart.length > 0 ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow shadow-indigo-200' : 'bg-slate-100 text-slate-400'}`}>
-                {cart.length} {language === 'bn' ? 'টি' : `item${cart.length !== 1 ? 's' : ''}`}
-              </span>
-            </div>
-
-            <div className="px-5 py-3.5 border-b border-slate-100 bg-gradient-to-r from-slate-50/80 to-white shrink-0 space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <LabelInput label={translations[language].challan.srSelectLabel}>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
-                    <select id="pos-form-sr" value={selectedSR} onChange={handleSRChange}
-                      className="h-9 w-full rounded-xl border border-slate-200 bg-white pl-8 pr-3 text-[10px] font-medium text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-50 cursor-pointer transition-all duration-200">
-                      {filteredSrs.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
-                    </select>
+        {/* Right Side: Sales Cart Terminal */}
+        <div className="lg:col-span-5 lg:sticky lg:top-20">
+          <form onSubmit={handleCheckout} className="space-y-4">
+            <div className="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden flex flex-col lg:h-[calc(100vh-155px)] min-h-[500px]">
+              {/* Cart Header */}
+              <div className="p-5 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center shrink-0">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-sm">
+                    <ShoppingBag className="w-4 h-4" />
                   </div>
-                </LabelInput>
-                <LabelInput label={language === 'bn' ? 'রুট' : 'Route'}>
-                  <div className="relative">
-                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
-                    <select id="pos-form-route" value={selectedRoute} onChange={handleRouteChange}
-                      className="h-9 w-full rounded-xl border border-slate-200 bg-white pl-8 pr-3 text-[10px] font-medium text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-50 cursor-pointer transition-all duration-200">
+                  <div>
+                    <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider">{language === 'bn' ? 'বিক্রয় কার্ট' : 'Sales Cart'}</h3>
+                    <p className="text-[10px] text-slate-400 font-medium">{language === 'bn' ? 'পণ্য যোগ করে চালান তৈরি করুন' : 'Add products then checkout'}</p>
+                  </div>
+                </div>
+                <span className="bg-indigo-50 text-indigo-700 text-[10px] font-black px-3 py-1 rounded-full border border-indigo-150 shadow-sm font-mono">
+                  {cart.length} {language === 'bn' ? 'আইটেম' : `item${cart.length !== 1 ? 's' : ''}`}
+                </span>
+              </div>
+
+              {/* Form Settings Card Grid */}
+              <div className="p-4 bg-white border-b border-slate-100 space-y-4 shrink-0">
+                <div className="grid grid-cols-2 gap-3.5">
+                  <LabelInput label={translations[language].challan.srSelectLabel} icon={User}>
+                    <select value={selectedSR} onChange={handleSRChange} className={selectCls}>
+                      {srs.map(sr => <option key={sr.id} value={sr.name}>{sr.name}</option>)}
+                    </select>
+                  </LabelInput>
+
+                  <LabelInput label={language === 'bn' ? 'রুট / বিট' : 'Route / Beat'} icon={MapPin}>
+                    <select value={selectedRoute} onChange={handleRouteChange} className={selectCls}>
                       {routes.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
                     </select>
-                  </div>
-                </LabelInput>
-              </div>
+                  </LabelInput>
 
-              <div className="grid grid-cols-2 gap-3">
-                <LabelInput label={translations[language].challan.deliverySelectLabel}>
-                  <div className="relative">
-                    <Truck className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
-                    <select id="pos-form-delivery" value={selectedDeliveryMan} onChange={handleDMChange}
-                      className="h-9 w-full rounded-xl border border-slate-200 bg-white pl-8 pr-3 text-[10px] font-medium text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-50 cursor-pointer transition-all duration-200">
+                  <LabelInput label={translations[language].challan.deliverySelectLabel} icon={Truck}>
+                    <select value={selectedDeliveryMan} onChange={handleDMChange} className={selectCls}>
                       {deliveryMen.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
                     </select>
-                  </div>
-                </LabelInput>
-                <LabelInput label={language === 'bn' ? 'অর্ডারের তারিখ' : 'Order Date'}>
-                  <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
-                    <input type="date" value={orderDate} onChange={e => setOrderDate(e.target.value)}
-                      className="h-9 w-full rounded-xl border border-slate-200 bg-white pl-8 pr-3 text-[11px] font-medium text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-50 transition-all duration-200 cursor-pointer" />
-                  </div>
-                </LabelInput>
+                  </LabelInput>
+
+                  <LabelInput label={language === 'bn' ? 'অর্ডারের তারিখ' : 'Order Date'} icon={Calendar}>
+                    <input type="date" value={orderDate} onChange={e => setOrderDate(e.target.value)} className={inputCls} />
+                  </LabelInput>
+                </div>
               </div>
-            </div>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-2.5 modal-body min-h-[100px]">
-              {cart.length === 0 ? (
-                <div className="flex flex-col items-center justify-center gap-3 py-8 text-slate-400 bg-gradient-to-b from-slate-50 to-white rounded-2xl border border-dashed border-slate-200">
-                  <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center">
-                    <ShoppingBag className="w-7 h-7 text-slate-300" />
+              {/* Cart List Items Scroll block */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-3 modal-body min-h-[220px]">
+                {cart.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center gap-3.5 py-12 text-slate-455 bg-gradient-to-b from-slate-50/50 to-white rounded-2xl border border-dashed border-slate-200">
+                    <div className="w-14 h-14 rounded-2xl bg-slate-100/85 flex items-center justify-center border border-slate-200/50 shadow-sm">
+                      <ShoppingBag className="w-7 h-7 text-slate-350" />
+                    </div>
+                    <div className="text-center">
+                      <p className="text-[11px] font-black text-slate-500 mb-1">{language === 'bn' ? 'কার্ট খালি' : 'Cart is empty'}</p>
+                      <p className="text-[10px] text-slate-400 font-medium">{language === 'bn' ? 'বাম থেকে পণ্য বেছে নিন' : 'Pick products from the left'}</p>
+                    </div>
                   </div>
-                  <div className="text-center">
-                    <p className="text-[12px] font-black text-slate-500 mb-1">{language === 'bn' ? 'কার্ট খালি' : 'Cart is empty'}</p>
-                    <p className="text-[10px] text-slate-400">{language === 'bn' ? 'বাম থেকে পণ্য বেছে নিন' : 'Pick products from the left'}</p>
-                  </div>
-                </div>
-              ) : (
-                cart.map((item, idx) => (
-                  <CartItemRow key={idx} item={item} idx={idx} attributes={attributes}
-                    formatBDT={formatBDT} onUpdateSpec={handleUpdateSpec}
-                    onUpdateCartons={handleUpdateCartons} onUpdatePcs={handleUpdatePcs}
-                    onRemove={handleRemoveFromCart} language={language} />
-                ))
-              )}
-            </div>
+                ) : (
+                  cart.map((item, idx) => (
+                    <CartItemRow key={idx} item={item} idx={idx} attributes={attributes}
+                      formatBDT={formatBDT} onUpdateSpec={handleUpdateSpec}
+                      onUpdateCartons={handleUpdateCartons} onUpdatePcs={handleUpdatePcs}
+                      onRemove={handleRemoveFromCart} language={language} />
+                  ))
+                )}
+              </div>
 
-            <div className="border-t border-slate-100 shrink-0">
-              <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 px-5 py-4 space-y-2">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="text-right">
-                    <p className="text-[8px] font-black text-indigo-300 uppercase tracking-widest mb-1">DP</p>
-                    <p className="text-[15px] font-black font-mono text-indigo-100">{formatBDT(cartSubtotalDP)}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[8px] font-black text-emerald-300 uppercase tracking-widest mb-1">TP</p>
-                    <p className="text-[15px] font-black font-mono text-emerald-100">{formatBDT(cartSubtotalTP)}</p>
-                  </div>
-                </div>
-                <div className="pt-2 border-t border-slate-700">
-                  <div className="flex items-end justify-between">
-                    <div>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{language === 'bn' ? 'মোট বিল' : 'Net Total'}</p>
-                      <p className="text-[9px] font-medium text-slate-500">{cart.length} {language === 'bn' ? 'টি আইটেম' : `item${cart.length !== 1 ? 's' : ''}`}</p>
+              {/* Total calculations receipt overlay footer */}
+              <div className="border-t border-slate-200 shrink-0">
+                <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 px-6 py-5 rounded-t-3xl text-white shadow-xl space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="text-right">
+                      <p className="text-[9px] font-black text-indigo-300 uppercase tracking-widest mb-1">DP (Cost)</p>
+                      <p className="text-base font-black font-mono text-indigo-100">{formatBDT(cartSubtotalDP)}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-[30px] font-black font-mono text-white leading-none tracking-tight">{formatBDT(Math.max(0, netTotal))}</p>
+                      <p className="text-[9px] font-black text-emerald-300 uppercase tracking-widest mb-1">TP (Wholesale)</p>
+                      <p className="text-base font-black font-mono text-emerald-100">{formatBDT(cartSubtotalTP)}</p>
+                    </div>
+                  </div>
+                  <div className="pt-3 border-t border-white/10">
+                    <div className="flex items-end justify-between">
+                      <div>
+                        <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest leading-none">{language === 'bn' ? 'মোট বিল' : 'Net Total'}</p>
+                        <p className="text-[9px] font-bold text-slate-400 mt-1">{cart.length} {language === 'bn' ? 'টি আইটেম' : `item${cart.length !== 1 ? 's' : ''}`}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-3xl font-black font-mono text-emerald-400 leading-none tracking-tight">{formatBDT(Math.max(0, netTotal))}</p>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="bg-gradient-to-r from-slate-50/90 to-white px-5 py-4 space-y-3">
-
-                <button id="pos-btn-checkout" type="submit" disabled={cart.length === 0}
-                  className={`w-full py-4 text-[15px] font-black flex items-center justify-center gap-2 rounded-2xl transition-all duration-200 cursor-pointer shadow-xl ${cart.length > 0
-                    ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-emerald-200 active:scale-[0.97]'
-                    : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
-                    }`}>
-                  <Check className="w-5 h-5" />
-                  {translations[language].challan.dispatchBtn}
-                  {cart.length > 0 && <ChevronRight className="w-5 h-5" />}
-                </button>
+                <div className="bg-gradient-to-r from-slate-50/90 to-white px-5 py-4 space-y-3">
+                  {(() => {
+                    const isCartQtyZero = cart.length === 0 || cart.reduce((sum, item) => {
+                      const isCarton = item.product.primaryUnit === 'Carton';
+                      const cartonSize = item.product.cartonSize || 24;
+                      return sum + (isCarton ? item.cartons : (item.cartons * cartonSize + item.pcs));
+                    }, 0) === 0;
+                    return (
+                      <button id="pos-btn-checkout" type="submit" disabled={isCartQtyZero}
+                        className={`w-full py-4 text-[15px] font-black flex items-center justify-center gap-2 rounded-2xl transition-all duration-200 cursor-pointer shadow-xl ${!isCartQtyZero
+                          ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-emerald-200 active:scale-[0.97]'
+                          : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
+                          }`}>
+                        <Check className="w-5 h-5" />
+                        {translations[language].challan.dispatchBtn}
+                        {!isCartQtyZero && <ChevronRight className="w-5 h-5 animate-pulse" />}
+                      </button>
+                    );
+                  })()}
+                </div>
               </div>
             </div>
           </form>

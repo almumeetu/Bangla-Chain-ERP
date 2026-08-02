@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback, useRef } from 'react';
 import { Settings, ClipboardList, Users, Eye, EyeOff, Plus, Trash2, Check, Shield, KeyRound, UserCheck, Download, Upload, Database } from 'lucide-react';
-import { exportBackup, importBackup } from '../lib/backupRestore';
+import { exportBackup, exportPartialBackup, importBackup } from '../lib/backupRestore';
 import { clearAllData } from '../lib/localStore';
 import DirectoryModule from './DirectoryModule';
 import { SR } from '../types';
@@ -41,6 +41,7 @@ export default function SettingsModule({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importStatus, setImportStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [importMsg, setImportMsg] = useState('');
+  const [importTargetKey, setImportTargetKey] = useState<string>('all');
 
   // ─── Admin password change ───────────────────────────────────
   const [adminCurrentPassword, setAdminCurrentPassword] = useState('');
@@ -811,169 +812,192 @@ export default function SettingsModule({
 
       {/* ═══════════════════════════════════════════ BACKUP TAB */}
       {activeSettingsTab === 'backup' && (
-        <div className="max-w-2xl mx-auto space-y-5">
+        <div className="max-w-3xl mx-auto space-y-6">
 
           {/* Header card */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+          <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
             <div className="flex items-center gap-3 mb-1">
-              <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center shrink-0">
+              <div className="w-11 h-11 rounded-2xl bg-slate-900 flex items-center justify-center shrink-0 shadow-md">
                 <Database className="w-5 h-5 text-white" />
               </div>
               <div>
                 <h3 className="text-sm font-black text-slate-900">
                   {language === 'bn' ? 'ডেটা ব্যাকআপ ও রিস্টোর' : 'Data Backup & Restore'}
                 </h3>
-                <p className="text-[11px] text-slate-400 font-medium">
+                <p className="text-[11px] text-slate-500 font-medium">
                   {language === 'bn'
-                    ? 'সব ডেটা JSON ফাইলে সেভ করুন। যেকোনো ডিভাইসে রিস্টোর করুন।'
-                    : 'Save all data to a JSON file. Restore on any device anytime.'}
+                    ? 'আপনার ব্যবসার হিসাব সুরক্ষিত রাখতে ডেটা সেপারেটভাবে এক্সপোর্ট বা রিস্টোর করুন।'
+                    : 'Export or restore individual data segments to secure your business logs.'}
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Export card */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100 bg-emerald-50/40 flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center shrink-0">
-                <Download className="w-4 h-4 text-white" />
-              </div>
-              <div>
-                <h4 className="text-sm font-bold text-slate-800">
-                  {language === 'bn' ? 'ব্যাকআপ এক্সপোর্ট' : 'Export Backup'}
-                </h4>
-                <p className="text-[10px] text-slate-500 font-medium">
-                  {language === 'bn' ? 'সব ডেটা .json ফাইলে ডাউনলোড করুন' : 'Download all your data as a .json file'}
-                </p>
-              </div>
+          {/* Hidden file input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".json"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              setImportStatus('idle');
+              setImportMsg('');
+              importBackup(
+                file,
+                (restoredType) => {
+                  if (importTargetKey !== 'all' && restoredType !== importTargetKey) {
+                    setImportStatus('error');
+                    setImportMsg(
+                      language === 'bn'
+                        ? `ভুল ফাইল! আপনি "${importTargetKey === 'products_catalog' ? 'পণ্য তালিকা' : importTargetKey === 'challans_sales' ? 'চালান ডেটা' : importTargetKey}" রিস্টোর করতে চেয়েছেন, কিন্তু আপলোডকৃত ফাইলটি "${restoredType === 'full' ? 'পূর্ণাঙ্গ ব্যাকআপ' : restoredType}" এর ব্যাকআপ।`
+                        : `Invalid backup type! Expected "${importTargetKey}", but file contains "${restoredType}".`
+                    );
+                    return;
+                  }
+                  setImportStatus('success');
+                  setImportMsg(
+                    language === 'bn'
+                      ? '✓ ডেটা সফলভাবে রিস্টোর হয়েছে! পেজ রিলোড হচ্ছে…'
+                      : '✓ Data restored successfully! Reloading page…'
+                  );
+                  setTimeout(() => window.location.reload(), 1800);
+                },
+                (msg) => {
+                  setImportStatus('error');
+                  setImportMsg(msg);
+                },
+              );
+              e.target.value = '';
+            }}
+          />
+
+          {/* Status Messages */}
+          {importStatus === 'success' && (
+            <div className="flex items-center gap-3 px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-2xl shadow-sm animate-fade-in">
+              <Check className="w-5 h-5 text-emerald-600 shrink-0" />
+              <p className="text-xs font-bold text-emerald-700">{importMsg}</p>
             </div>
-            <div className="p-6 space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {[
-                  { icon: '🧾', label: language === 'bn' ? 'চালান' : 'Challans' },
-                  { icon: '📦', label: language === 'bn' ? 'পণ্য ও স্টক' : 'Products & Stock' },
-                  { icon: '💰', label: language === 'bn' ? 'হিসাব ও খরচ' : 'Accounts & Expenses' },
-                  { icon: '🏢', label: language === 'bn' ? 'কোম্পানি ও রুট' : 'Companies & Routes' },
-                  { icon: '👥', label: language === 'bn' ? 'SR ও কাস্টমার' : 'SRs & Customers' },
-                  { icon: '⚙️', label: language === 'bn' ? 'সেটিংস' : 'Settings' },
-                ].map(item => (
-                  <div key={item.label} className="flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-lg border border-slate-100">
-                    <span className="text-base leading-none">{item.icon}</span>
-                    <span className="text-[11px] font-semibold text-slate-600">{item.label}</span>
-                  </div>
-                ))}
-              </div>
-              <button
-                type="button"
-                onClick={() => exportBackup(shopName)}
-                className="w-full h-12 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white text-sm font-bold cursor-pointer flex items-center justify-center gap-2.5 transition-all shadow-sm shadow-emerald-200"
-              >
-                <Download className="w-4 h-4" />
-                {language === 'bn' ? 'এখনই ব্যাকআপ ডাউনলোড করুন' : 'Download Backup Now'}
-              </button>
-              <p className="text-center text-[10px] text-slate-400 font-medium">
+          )}
+          {importStatus === 'error' && (
+            <div className="flex items-center gap-3 px-4 py-3 bg-rose-50 border border-rose-200 rounded-2xl shadow-sm animate-fade-in">
+              <span className="text-base leading-none shrink-0">❌</span>
+              <p className="text-xs font-bold text-rose-700">{importMsg}</p>
+            </div>
+          )}
+
+          {/* Warning banner */}
+          <div className="flex gap-3 px-5 py-4 bg-amber-50 border border-amber-200 rounded-2xl shadow-sm">
+            <span className="text-lg leading-none shrink-0">⚠️</span>
+            <div>
+              <p className="text-xs font-black text-amber-800 leading-snug">
+                {language === 'bn' ? 'সতর্কতা / Warning' : 'Important Note'}
+              </p>
+              <p className="text-[10px] font-bold text-amber-700 leading-relaxed mt-0.5">
                 {language === 'bn'
-                  ? `ফাইলের নাম: ${shopName.replace(/\s+/g, '_')}_backup_[তারিখ].json`
-                  : `File: ${shopName.replace(/\s+/g, '_')}_backup_[date].json`}
+                  ? 'কোনো ডেটা গ্রুপ রিস্টোর করলে বর্তমান ডেটাবেজে থাকা ঐ গ্রুপের সকল তথ্য মুছে গিয়ে ব্যাকআপ ফাইলের ডেটা দিয়ে প্রতিস্থাপিত হবে। এটি ফেরত আনা সম্ভব নয়।'
+                  : 'Restoring any section will replace ALL existing data in that category with the backup file data. This action is irreversible.'}
               </p>
             </div>
           </div>
 
-          {/* Import card */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100 bg-blue-50/40 flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center shrink-0">
-                <Upload className="w-4 h-4 text-white" />
-              </div>
-              <div>
-                <h4 className="text-sm font-bold text-slate-800">
-                  {language === 'bn' ? 'ব্যাকআপ থেকে রিস্টোর' : 'Restore from Backup'}
-                </h4>
-                <p className="text-[10px] text-slate-500 font-medium">
-                  {language === 'bn' ? '.json ব্যাকআপ ফাইল আপলোড করুন' : 'Upload a previously exported .json backup file'}
-                </p>
-              </div>
-            </div>
-            <div className="p-6 space-y-4">
-              {/* Warning */}
-              <div className="flex gap-3 px-4 py-3 bg-amber-50 border border-amber-100 rounded-xl">
-                <span className="text-base leading-none shrink-0">⚠️</span>
-                <p className="text-[11px] font-semibold text-amber-700 leading-relaxed">
-                  {language === 'bn'
-                    ? 'রিস্টোর করলে বর্তমান সব ডেটা মুছে যাবে এবং ব্যাকআপ ফাইলের ডেটা লোড হবে।'
-                    : 'Restoring will replace ALL current data with the backup file contents. This cannot be undone.'}
-                </p>
-              </div>
+          {/* Backup List Container */}
+          <div className="space-y-4">
+            {[
+              {
+                id: 'all',
+                icon: '🗄️',
+                title: language === 'bn' ? 'পূর্ণাঙ্গ ডেটাবেস (Full Database)' : 'Full Database Backup',
+                desc: language === 'bn' ? 'সিস্টেমের সকল ডেটা ও সেটিংস একত্রে ব্যাকআপ' : 'Export and restore all tables, settings, and audits together.',
+                action: () => exportBackup(shopName)
+              },
+              {
+                id: 'products_catalog',
+                keys: ['products', 'attributes', 'units', 'productCategories', 'companies'],
+                icon: '📦',
+                title: language === 'bn' ? 'পণ্য ও স্টক ক্যাটালগ (Products & Stock)' : 'Products & Catalog',
+                desc: language === 'bn' ? 'পণ্য তালিকা, স্পেসিফিকেশন, ইউনিট এবং ব্র্যান্ড ক্যাটালগ' : 'Products list, packaging multiplier specs, units, and brands.',
+                action: () => exportPartialBackup(['products', 'attributes', 'units', 'productCategories', 'companies'], 'products_catalog', shopName)
+              },
+              {
+                id: 'challans_sales',
+                keys: ['challans', 'claims'],
+                icon: '🧾',
+                title: language === 'bn' ? 'চালান ও বিক্রয় রেকর্ড (Challans & Sales)' : 'Challans & Claims',
+                desc: language === 'bn' ? 'সকল ডিস্ট্রিবিউশন চালান এবং ক্লেইম ম্যানেজমেন্ট রেকর্ড' : 'Sales challans history, dispatch audits, and claim details.',
+                action: () => exportPartialBackup(['challans', 'claims'], 'challans_sales', shopName)
+              },
+              {
+                id: 'procurements',
+                keys: ['procurements'],
+                icon: '🚚',
+                title: language === 'bn' ? 'ক্রয় ও ডিলিং প্রাপ্তি (Procurements & Stock)' : 'Procurements & Stock',
+                desc: language === 'bn' ? 'কোম্পানি চালান রিসিভ এবং গুদামের আমদানি ভাউচার' : 'Supplier purchase orders, delivery details, and cost vouchers.',
+                action: () => exportPartialBackup(['procurements'], 'procurements', shopName)
+              },
+              {
+                id: 'customers_partners',
+                keys: ['customers', 'srs', 'deliveryMen'],
+                icon: '👥',
+                title: language === 'bn' ? 'প্রতিনিধি ও খুচরা বিক্রেতা (Customers & SRs)' : 'Customers & Partners',
+                desc: language === 'bn' ? 'এসআর (SR), কাস্টমার তালিকা এবং ডেলিভারিম্যান রেকর্ড' : 'Sales representatives, routes, customers directory, and delivery agents.',
+                action: () => exportPartialBackup(['customers', 'srs', 'deliveryMen'], 'customers_partners', shopName)
+              },
+              {
+                id: 'expenses',
+                keys: ['expenses', 'categories'],
+                icon: '💰',
+                title: language === 'bn' ? 'হিসাব ও খরচের রেকর্ড (Expenses & Accounting)' : 'Expenses & Cost Logs',
+                desc: language === 'bn' ? 'দৈনন্দিন ক্যাটাগরি ওয়াইজ ব্যবসার খরচের হিসাব' : 'Daily office expenses, company costs, and custom categories.',
+                action: () => exportPartialBackup(['expenses', 'categories'], 'expenses', shopName)
+              },
+              {
+                id: 'godowns_logistics',
+                keys: ['godowns', 'routes'],
+                icon: '🏢',
+                title: language === 'bn' ? 'গুদাম ও ডেলিভারি রুট (Godowns & Routes)' : 'Godowns & Routes',
+                desc: language === 'bn' ? 'গুদাম তালিকা এবং কাস্টমার ডেলিভারি রুট Beat' : 'Warehouse configurations and beat routes definitions.',
+                action: () => exportPartialBackup(['godowns', 'routes'], 'godowns_logistics', shopName)
+              }
+            ].map(item => (
+              <div key={item.id} className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm hover:border-slate-350 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center text-xl shrink-0 shadow-sm">
+                    {item.icon}
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-black text-slate-800 tracking-tight">{item.title}</h4>
+                    <p className="text-[10px] text-slate-450 font-medium leading-relaxed mt-0.5 max-w-lg">{item.desc}</p>
+                  </div>
+                </div>
 
-              {/* Hidden file input */}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".json"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (!file) return;
-                  setImportStatus('idle');
-                  setImportMsg('');
-                  importBackup(
-                    file,
-                    () => {
-                      setImportStatus('success');
-                      setImportMsg(
-                        language === 'bn'
-                          ? '✓ ডেটা সফলভাবে রিস্টোর হয়েছে! পেজ রিলোড হচ্ছে…'
-                          : '✓ Data restored successfully! Reloading page…'
-                      );
-                      setTimeout(() => window.location.reload(), 1800);
-                    },
-                    (msg) => {
-                      setImportStatus('error');
-                      setImportMsg(msg);
-                    },
-                  );
-                  // reset so same file can be re-selected
-                  e.target.value = '';
-                }}
-              />
-
-              {/* Drop zone / click to upload */}
-              <div
-                role="button"
-                tabIndex={0}
-                onClick={() => { setImportStatus('idle'); setImportMsg(''); fileInputRef.current?.click(); }}
-                onKeyDown={(e) => e.key === 'Enter' && fileInputRef.current?.click()}
-                className="w-full rounded-xl border-2 border-dashed border-blue-200 hover:border-blue-400 bg-blue-50/30 hover:bg-blue-50 p-8 flex flex-col items-center justify-center gap-3 cursor-pointer transition-all group"
-              >
-                <div className="w-12 h-12 rounded-2xl bg-blue-100 group-hover:bg-blue-200 flex items-center justify-center transition-all">
-                  <Upload className="w-5 h-5 text-blue-600" />
-                </div>
-                <div className="text-center">
-                  <p className="text-sm font-bold text-slate-700">
-                    {language === 'bn' ? 'ফাইল বেছে নিন' : 'Click to choose file'}
-                  </p>
-                  <p className="text-[11px] text-slate-400 font-medium mt-0.5">
-                    {language === 'bn' ? 'শুধুমাত্র .json ফাইল গ্রহণযোগ্য' : 'Only .json backup files are accepted'}
-                  </p>
+                {/* Actions */}
+                <div className="flex items-center gap-2 md:self-center shrink-0">
+                  <button
+                    type="button"
+                    onClick={item.action}
+                    className="inline-flex h-9 items-center justify-center gap-1.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-700 text-white text-[11px] font-black cursor-pointer transition-all active:scale-95 shadow-sm"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    {language === 'bn' ? 'ডাউনলোড' : 'Download'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setImportTargetKey(item.id);
+                      setImportStatus('idle');
+                      setImportMsg('');
+                      fileInputRef.current?.click();
+                    }}
+                    className="inline-flex h-9 items-center justify-center gap-1.5 px-4 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-[11px] font-black cursor-pointer transition-all active:scale-95 shadow-sm"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    {language === 'bn' ? 'রিস্টোর' : 'Restore'}
+                  </button>
                 </div>
               </div>
-
-              {/* Status messages */}
-              {importStatus === 'success' && (
-                <div className="flex items-center gap-3 px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-xl">
-                  <Check className="w-5 h-5 text-emerald-600 shrink-0" />
-                  <p className="text-xs font-bold text-emerald-700">{importMsg}</p>
-                </div>
-              )}
-              {importStatus === 'error' && (
-                <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-xl space-y-1">
-                  <p className="text-xs font-bold text-red-600">
-                    {language === 'bn' ? 'রিস্টোর ব্যর্থ হয়েছে' : 'Restore failed'}
-                  </p>
-                  <p className="text-[11px] text-red-500 font-medium">{importMsg}</p>
-                </div>
-              )}
-            </div>
+            ))}
           </div>
 
         </div>

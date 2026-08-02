@@ -568,7 +568,10 @@ export default function ChallanModule({
               if (p.name === item.productName) {
                 const currentStock = p.currentStock - totalQty;
                 if (currentStock < 0) {
-                  throw new Error(`Insufficient stock for product "${p.name}". Stock would drop to ${currentStock}.`);
+                  throw new Error(language === 'bn'
+                    ? `স্টক পর্যাপ্ত নয়! "${p.name}" পণ্যটির বর্তমানে মাত্র ${p.currentStock} টি স্টক আছে, কিন্তু আপনি ${totalQty} টি ডেলিভারি করার চেষ্টা করছেন (কমতি আছে: ${Math.abs(currentStock)} টি)। সমাধান: অনুগ্রহ করে প্রথমে প্রোডাক্টটির নতুন স্টক এন্ট্রি (Purchase/Procure) করুন, অথবা চালানের পরিমাণ কমিয়ে দিন।`
+                    : `Insufficient stock! Product "${p.name}" only has ${p.currentStock} units in stock, but you are trying to deliver ${totalQty} units (Deficit: ${Math.abs(currentStock)} units). Solution: Please procure/receive more stock for this product first, or reduce the quantity in the challan.`
+                  );
                 }
                 return { ...p, currentStock };
               }
@@ -825,7 +828,10 @@ export default function ChallanModule({
               }
 
               if (currentStock < 0) {
-                throw new Error(`Insufficient stock for product "${p.name}". Stock would drop to ${currentStock}.`);
+                throw new Error(language === 'bn'
+                  ? `স্টক পর্যাপ্ত নয়! "${p.name}" পণ্যটির বর্তমানে মাত্র ${p.currentStock} টি স্টক আছে, কিন্তু এই সেটেলমেন্টের পর স্টক আরও ${Math.abs(currentStock)} টি কম পড়বে। সমাধান: অনুগ্রহ করে প্রথমে প্রোডাক্টটির নতুন স্টক এন্ট্রি (Purchase/Procure) করুন, অথবা চালানের পরিমাণ কমিয়ে দিন।`
+                  : `Insufficient stock! Product "${p.name}" only has ${p.currentStock} units in stock, but this settlement requires ${Math.abs(currentStock)} more units than available. Solution: Please procure/receive more stock for this product first, or reduce the quantity in the challan.`
+                );
               }
 
               return {
@@ -957,6 +963,21 @@ export default function ChallanModule({
   };
 
   const handleEditOrderItemChange = (itemId: string, field: 'qty' | 'returnedQty' | 'damagedQty', val: number) => {
+    if (field === 'qty') {
+      const item = editOrderItems.find(i => i.id === itemId);
+      if (item) {
+        const prod = products.find(p => p.name === item.productName);
+        if (prod) {
+          const maxStock = prod.currentStock;
+          if (val > maxStock) {
+            showToast(language === 'bn'
+              ? `দুঃখিত! স্টকের অতিরিক্ত অর্ডার করা যাবে না। সর্বোচ্চ উপলব্ধ স্টক: ${maxStock} ${prod.primaryUnit === 'Carton' ? 'কার্টন' : 'পিস'}`
+              : `Cannot exceed available stock! Max available: ${maxStock} ${prod.primaryUnit === 'Carton' ? 'Ctn' : 'Pcs'}`, 'error');
+            return;
+          }
+        }
+      }
+    }
     setEditOrderItems(prev => prev.map(item => {
       if (item.id === itemId) {
         const updated = { ...item, [field]: val };
@@ -1075,7 +1096,10 @@ export default function ChallanModule({
                 const newDamage = newItem.damagedQty || 0;
                 const currentStock = p.currentStock - soldStock;
                 if (currentStock < 0) {
-                  throw new Error(`Insufficient stock for product "${p.name}". Stock would drop to ${currentStock}.`);
+                  throw new Error(language === 'bn'
+                    ? `স্টক পর্যাপ্ত নয়! "${p.name}" পণ্যটির বর্তমানে মাত্র ${p.currentStock} টি স্টক আছে, কিন্তু আপনি ${soldStock} টি ডেলিভারি করার চেষ্টা করছেন (কমতি আছে: ${Math.abs(currentStock)} টি)। সমাধান: অনুগ্রহ করে প্রথমে প্রোডাক্টটির নতুন স্টক এন্ট্রি (Purchase/Procure) করুন, অথবা চালানের পরিমাণ কমিয়ে দিন।`
+                    : `Insufficient stock! Product "${p.name}" only has ${p.currentStock} units in stock, but you are trying to deliver ${soldStock} units (Deficit: ${Math.abs(currentStock)} units). Solution: Please procure/receive more stock for this product first, or reduce the quantity in the challan.`
+                  );
                 }
                 return {
                   ...p,
@@ -2850,8 +2874,19 @@ export default function ChallanModule({
                   </p>
                   <div className="flex flex-col sm:flex-row gap-3 items-end">
                     <div className="flex-1">
-                      <label className="mb-1 block text-xs font-semibold text-slate-700">
-                        {language === 'bn' ? 'পণ্য নির্বাচন করুন' : 'Select Product'}
+                      <label className="mb-1 block text-xs font-semibold text-slate-700 flex justify-between items-center">
+                        <span>{language === 'bn' ? 'পণ্য নির্বাচন করুন' : 'Select Product'}</span>
+                        {(() => {
+                          const orderCompany = editOrderItems.length > 0 
+                            ? products.find(p => p.name === editOrderItems[0].productName)?.company 
+                            : null;
+                          if (!orderCompany) return null;
+                          return (
+                            <span className="text-[10px] bg-blue-100 text-blue-800 font-extrabold px-2.5 py-0.5 rounded-full border border-blue-200 uppercase tracking-wider">
+                              {orderCompany} {language === 'bn' ? 'ব্র্যান্ড লকড' : 'Brand Locked'}
+                            </span>
+                          );
+                        })()}
                       </label>
                       <select
                         id="edit-order-add-product-select"
@@ -2867,14 +2902,19 @@ export default function ChallanModule({
                         <option value="">
                           {language === 'bn' ? '--- পণ্য সিলেক্ট করুন ---' : '--- Choose Product ---'}
                         </option>
-                        {products
-                          .filter(p => !editOrderItems.some(item => item.productName === p.name))
-                          .map(p => (
-                            <option key={p.id} value={p.name}>
-                              {p.name} (Stock: {formatProductStock(p)}) - TP: ৳{p.defaultWSP}
-                            </option>
-                          ))
-                        }
+                        {(() => {
+                          const orderCompany = editOrderItems.length > 0 
+                            ? products.find(p => p.name === editOrderItems[0].productName)?.company 
+                            : null;
+                          return products
+                            .filter(p => !editOrderItems.some(item => item.productName === p.name))
+                            .filter(p => !orderCompany || p.company === orderCompany)
+                            .map(p => (
+                              <option key={p.id} value={p.name}>
+                                {p.name} (Stock: {formatProductStock(p)}) - TP: ৳{p.defaultWSP}
+                              </option>
+                            ));
+                        })()}
                       </select>
                     </div>
                   </div>

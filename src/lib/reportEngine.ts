@@ -234,7 +234,6 @@ function drawPageFooter(ctx: DocContext): void {
 }
 
 function addPage(ctx: DocContext, title: string, subtitle: string): void {
-  drawPageFooter(ctx);
   ctx.doc.addPage();
   ctx.currentPage++;
   drawPageHeader(ctx, title, subtitle);
@@ -1075,16 +1074,12 @@ export function exportReportPDF(opts: ReportOptions): void {
     case 'dayend':    genDayEnd(ctx, opts);    break;
   }
 
-  // Draw footer on last page
-  drawPageFooter(ctx);
-
-  // Update page numbers by iterating through all pages (jsPDF internal page count)
+  // Update page numbers by iterating through all pages (jsPDF internal page count) and draw the single footer on each
   const totalRendered = ctx.doc.getNumberOfPages();
   for (let pg = 1; pg <= totalRendered; pg++) {
     ctx.doc.setPage(pg);
     ctx.currentPage = pg;
     ctx.totalPages  = totalRendered;
-    // Redraw footer with correct page number
     drawPageFooter(ctx);
   }
 
@@ -1126,6 +1121,77 @@ export function exportReportExcel(opts: ReportOptions): void {
       .forEach(p => {
         const mgn = p.defaultPP > 0 ? (((p.defaultWSP - p.defaultPP) / p.defaultPP) * 100).toFixed(2) : '0';
         csv += row([++i, p.company, p.name, p.sku, p.defaultPP, p.defaultWSP, p.defaultMRP, mgn]);
+      });
+  } else if (opts.type === 'damage') {
+    csv += row(['#', 'Product', 'Company', 'Old Damaged Qty', 'New Damaged Qty', 'Total Damaged Qty', 'Damage Value (DP)', 'Recorded Sales Value']);
+    let i = 0;
+    opts.products
+      .filter(p => !opts.filterCompany || opts.filterCompany === 'All' || p.company === opts.filterCompany)
+      .forEach(p => {
+        const hist   = p.damageHistory || [];
+        const signed = hist.reduce((s, e) => s + (e.type === 'new' ? (e.deltaQty ?? e.qty) : 0), 0);
+        const posD   = hist.reduce((s, e) => s + (e.type === 'new' && (e.deltaQty ?? e.qty) > 0 ? (e.deltaQty ?? e.qty) : 0), 0);
+        const oldQty = Math.max(0, (p.damagedStock || 0) - signed);
+        const newQty = Math.max(0, posD);
+        const totQty = oldQty + newQty;
+        const up     = p.defaultPP || 0;
+        const salesV = fch.filter(ch => ch.productName?.toLowerCase() === p.name.toLowerCase())
+                         .reduce((s, ch) => s + ch.totalAmount, 0);
+        if (totQty > 0 || salesV > 0) {
+          csv += row([++i, p.name, p.company, oldQty, newQty, totQty, totQty * up, salesV]);
+        }
+      });
+  } else if (opts.type === 'profit') {
+    csv += row(['#', 'Company', 'Revenue', 'Cost of Goods Sold (DP)', 'Net Profit', 'Profit Margin %']);
+    const companies = Array.from(new Set(opts.products.map(p => p.company).filter(Boolean))).sort();
+    let i = 0;
+    companies
+      .filter(co => !opts.filterCompany || opts.filterCompany === 'All' || co === opts.filterCompany)
+      .forEach(co => {
+        const cc   = fch.filter(ch => ch.company === co);
+        const rev  = cc.reduce((s, ch) => s + ch.totalAmount, 0);
+        const cost = cc.reduce((s, ch) => {
+          const prod = opts.products.find(p => p.name === ch.productName);
+          const netQty = ch.qty - (ch.returnedQty || 0) - (ch.damagedQty || 0);
+          return s + (netQty * (prod?.defaultPP ?? ch.rate * 0.85));
+        }, 0);
+        const profit = rev - cost;
+        const margin = rev > 0 ? (profit / rev) * 100 : 0;
+        csv += row([++i, co, rev, cost, profit, `${margin.toFixed(2)}%`]);
+      });
+  } else if (opts.type === 'margin') {
+    csv += row(['#', 'Product', 'Company', 'DP (TK)', 'TP (TK)', 'MRP (TK)', 'Variance (TP-DP)', 'Margin %']);
+    let i = 0;
+    opts.products
+      .filter(p => !opts.filterCompany || opts.filterCompany === 'All' || p.company === opts.filterCompany)
+      .sort((a, b) => a.company.localeCompare(b.company) || a.name.localeCompare(b.name))
+      .forEach(p => {
+        const dp  = p.defaultPP  || 0;
+        const tp  = p.defaultWSP || 0;
+        const mrp = p.defaultMRP || 0;
+        const vr  = tp - dp;
+        const mgn = dp > 0 ? (vr / dp) * 100 : 0;
+        csv += row([++i, p.name, p.company, dp, tp, mrp, vr, `${mgn.toFixed(2)}%`]);
+      });
+  } else if (opts.type === 'dayend') {
+    csv += row(['#', 'Company', 'Product', 'SKU', 'DP (TK)', 'TP (TK)', 'Opening Stock', 'Sold Qty', 'Closing Stock', 'Sales Amount', 'Stock Valuation (DP)']);
+    const companies = Array.from(new Set(opts.products.map(p => p.company).filter(Boolean))).sort();
+    let i = 0;
+    companies
+      .filter(co => !opts.filterCompany || opts.filterCompany === 'All' || co === opts.filterCompany)
+      .forEach(co => {
+        const coProds = opts.products.filter(p => p.company === co).sort((a, b) => a.name.localeCompare(b.name));
+        const coChallans = fch.filter(ch => ch.company === co);
+        coProds.forEach(p => {
+          const pc        = coChallans.filter(ch => ch.productName === p.name);
+          const salesQty  = pc.reduce((s, ch) => s + ch.qty - (ch.returnedQty || 0) - (ch.damagedQty || 0), 0);
+          const salesAmt  = pc.reduce((s, ch) => s + ch.totalAmount, 0);
+          const grossQty  = pc.reduce((s, ch) => s + ch.qty, 0);
+          const opening   = p.currentStock + grossQty;
+          const closing   = p.currentStock;
+          const stockAmt  = closing * (p.defaultPP || 0);
+          csv += row([++i, co, p.name, p.sku, p.defaultPP || 0, p.defaultWSP || 0, opening, salesQty, closing, salesAmt, stockAmt]);
+        });
       });
   } else {
     csv += row(['Report', opts.type, 'Period', `${opts.startDate} to ${opts.endDate}`]);

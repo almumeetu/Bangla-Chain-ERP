@@ -40,12 +40,12 @@ html {
   --color-amber-200: #e2e8f0;
 
   /* Global border radius overrides to make UI look cleaner and more professional */
-  --radius-3xl: 20px;
-  --radius-2xl: 16px;
-  --radius-xl: 12px;
-  --radius-lg: 8px;
-  --radius-md: 6px;
-  --radius-sm: 4px;
+  --radius-3xl: 12px;
+  --radius-2xl: 10px;
+  --radius-xl: 8px;
+  --radius-lg: 6px;
+  --radius-md: 4px;
+  --radius-sm: 2px;
 }
 
 :root {
@@ -182,4 +182,28 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   color: transparent;
   background: transparent;
   cursor: pointer;
+}
+
+/* Custom Keyframe Animations for Splash Welcome screen & components */
+@keyframes progress-load {
+  0% { width: 0%; }
+  100% { width: 100%; }
+}
+@keyframes fade-in-up {
+  0% { opacity: 0; transform: translateY(12px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes scale-up-fade {
+  0% { opacity: 0; transform: scale(0.96); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.animate-progress {
+  animation: progress-load 2.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+.animate-fade-in-up {
+  animation: fade-in-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.animate-scale-up {
+  animation: scale-up-fade 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }

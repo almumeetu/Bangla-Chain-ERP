@@ -441,3 +441,111 @@ export function printSalesOrder(order: SalesOrderData): void {
     <div class="footer"><span>System: Bangla-Chain DMS</span><span>Printed: ${now()}</span></div>
   `);
 }
+
+export function printInventoryValuation(
+  targetDate: string,
+  products: {
+    name: string;
+    sku: string;
+    company: string;
+    historicStock: number;
+    defaultPP: number;
+    valuationDP: number;
+    valuationTP: number;
+    pricePerPiece: number;
+    pricePerCarton: number;
+    primaryUnit?: string;
+    cartonSize: number;
+  }[],
+  totalValuationDP: number,
+  totalValuationTP: number
+): void {
+  const shop = getShopName();
+
+  const rows = products.map((p, i) => {
+    const tpPrice = p.primaryUnit === 'Carton'
+      ? (p.pricePerCarton || p.defaultPP)
+      : (p.pricePerPiece || p.defaultPP);
+    
+    const formatStockInline = (stock: number, size: number, primaryUnit?: string) => {
+      const s = size || 24;
+      let cartons = 0;
+      let pieces = 0;
+      if (primaryUnit === 'Carton') {
+        cartons = Math.floor(stock);
+        pieces = Math.round((stock - cartons) * s);
+      } else {
+        cartons = Math.floor(stock / s);
+        pieces = Math.round(stock % s);
+      }
+      const parts = [];
+      if (cartons > 0) parts.push(`${cartons} Ctn`);
+      if (pieces > 0) parts.push(`${pieces} Pcs`);
+      return parts.join(', ') || '0 Pcs';
+    };
+
+    return `<tr>
+      <td class="text-center">${i + 1}</td>
+      <td><b>${p.name}</b><br><span style="font-size:9px;color:#64748b">${p.sku}</span></td>
+      <td>${p.company}</td>
+      <td>${formatStockInline(p.historicStock, p.cartonSize, p.primaryUnit)}</td>
+      <td class="text-right">৳${p.defaultPP.toLocaleString('en-BD')}/${p.primaryUnit === 'Carton' ? 'Ctn' : 'pc'}</td>
+      <td class="text-right">৳${tpPrice.toLocaleString('en-BD')}/${p.primaryUnit === 'Carton' ? 'Ctn' : 'pc'}</td>
+      <td class="text-right">৳${p.valuationDP.toLocaleString('en-BD')}</td>
+      <td class="text-right">৳${p.valuationTP.toLocaleString('en-BD')}</td>
+    </tr>`;
+  }).join('');
+
+  printHTML(`Valuation-${targetDate}`, `
+    <div class="header">
+      <div class="brand"><h1>${shop}</h1><p>FMCG Dealer &amp; Distributor</p></div>
+      <div class="doc-meta">
+        <div class="doc-type">Inventory Valuation</div>
+        <div class="doc-id">Snapshot Date: ${targetDate}</div>
+        <div class="doc-date">Generated: ${now()}</div>
+      </div>
+    </div>
+
+    <table style="margin-top:20px">
+      <thead>
+        <tr>
+          <th style="width:40px" class="text-center">#</th>
+          <th>Product Name</th>
+          <th>Company</th>
+          <th>Stock Quantity</th>
+          <th class="text-right">DP Price</th>
+          <th class="text-right">TP Price</th>
+          <th class="text-right">Valuation (DP)</th>
+          <th class="text-right">Valuation (TP)</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows}
+      </tbody>
+    </table>
+
+    <div class="summary">
+      <table style="width:320px">
+        <tr class="total">
+          <td>Total Value (DP Cost)</td>
+          <td class="text-right">৳${totalValuationDP.toLocaleString('en-BD')}</td>
+        </tr>
+        <tr class="total" style="background:#f8fafc">
+          <td>Total Value (TP Wholesale)</td>
+          <td class="text-right">৳${totalValuationTP.toLocaleString('en-BD')}</td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="signatures">
+      <div class="sig-line">Prepared By</div>
+      <div class="sig-line">Verified By</div>
+      <div class="sig-line">Authorized Signature</div>
+    </div>
+
+    <div class="footer">
+      <span>Bangla-Chain ERP Valuation Sheet</span>
+      <span>Printed: ${now()}</span>
+    </div>
+  `);
+}

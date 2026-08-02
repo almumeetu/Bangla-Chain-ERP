@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Menu, ChevronDown, LogOut, Globe, Check } from 'lucide-react';
+import { Menu, ChevronDown, LogOut, Globe, Check, Box } from 'lucide-react';
 import { translations, Language } from '../../../translations';
 
 import Sidebar, { TabID }    from '../../../components/Sidebar';
@@ -32,6 +32,8 @@ export default function App() {
   const [sidebarCollapsed,setSidebarCollapsed]= useState(false);
   const [language,        setLanguage]        = useState<Language>('en');
   const [langOpen,        setLangOpen]        = useState(false);
+  const [showSplash,      setShowSplash]      = useState(true);
+  const [splashFade,      setSplashFade]      = useState(false);
 
   const db = useErpData(language, 'Samir Enterprise', 'Dhaka & Chittagong Regional Hub', '');
 
@@ -74,6 +76,27 @@ export default function App() {
       setLanguage(data.settings.language);
     }
   }
+
+  useEffect(() => {
+    const shown = typeof window !== 'undefined' && sessionStorage.getItem('erp_splash_shown') === 'true';
+    if (shown) {
+      setShowSplash(false);
+    } else {
+      const fadeTimer = setTimeout(() => {
+        setSplashFade(true);
+      }, 2300);
+      const removeTimer = setTimeout(() => {
+        setShowSplash(false);
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem('erp_splash_shown', 'true');
+        }
+      }, 2800);
+      return () => {
+        clearTimeout(fadeTimer);
+        clearTimeout(removeTimer);
+      };
+    }
+  }, []);
 
   // ── Boot — synchronous localStorage read, instant ──────────────────────────────
   useEffect(() => {
@@ -211,7 +234,8 @@ export default function App() {
         <StockAdjustmentModule attributes={db.attributes} setAttributes={db.syncAttributes}
           adjustments={db.adjustments} setAdjustments={db.syncAdjustments}
           products={db.products} setProducts={db.syncProducts}
-          categories={db.productCategories} language={language} />
+          categories={db.productCategories} language={language}
+          procurements={db.procurements} challans={db.challans} />
       );
       case 'purchase': return (
         <ProcurementModule procurements={db.procurements} setProcurements={db.syncProcurements}
@@ -282,6 +306,58 @@ export default function App() {
         </div>
       );
     }
+  }
+
+  if (showSplash) {
+    return (
+      <div className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 text-white transition-opacity duration-500 ease-out select-none ${
+        splashFade ? 'opacity-0 scale-105 pointer-events-none' : 'opacity-100'
+      }`}>
+        {/* Animated background blurs */}
+        <div className="absolute top-1/4 left-1/4 w-72 h-72 rounded-full bg-blue-500/10 blur-[80px] animate-pulse" style={{ animationDuration: '4s' }} />
+        <div className="absolute bottom-1/4 right-1/4 w-72 h-72 rounded-full bg-indigo-500/10 blur-[80px] animate-pulse" style={{ animationDuration: '6s' }} />
+
+        {/* Content Container */}
+        <div className="relative flex flex-col items-center text-center px-6 max-w-md space-y-6 animate-scale-up">
+          {/* Logo Icon */}
+          <div className="relative">
+            <div className="absolute inset-0 rounded-3xl bg-indigo-500/20 blur-xl animate-pulse" />
+            <div className="relative w-20 h-20 rounded-3xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-2xl border border-indigo-400/30 transform hover:scale-105 transition-transform duration-300">
+              <Box className="w-10 h-10 text-white animate-bounce" style={{ animationDuration: '2.5s' }} />
+            </div>
+            <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center shadow-lg border border-slate-950 animate-ping" />
+            <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center shadow-lg border border-slate-950">
+              <Check className="w-3.5 h-3.5 text-white stroke-[3px]" />
+            </div>
+          </div>
+
+          {/* Texts */}
+          <div className="space-y-2">
+            <span className="text-[10px] font-black text-indigo-400 tracking-[0.25em] uppercase block animate-fade-in-up">
+              Welcome To
+            </span>
+            <h1 className="text-3xl sm:text-4xl font-black tracking-tight bg-gradient-to-r from-white via-indigo-100 to-indigo-200 bg-clip-text text-transparent drop-shadow-sm uppercase">
+              Samir Enterprise
+            </h1>
+            <p className="text-xs text-slate-400 font-semibold tracking-wide">
+              {language === 'bn' 
+                ? 'স্মার্ট ও নির্ভরযোগ্য ডিস্ট্রিবিউশন ইআরপি' 
+                : 'Smart & Reliable Distribution ERP System'}
+            </p>
+          </div>
+
+          {/* Loader bar */}
+          <div className="w-48 h-1 bg-slate-800/80 rounded-full overflow-hidden relative shadow-inner">
+            <div className="absolute top-0 bottom-0 left-0 w-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full animate-progress" />
+          </div>
+
+          {/* Footer brand info */}
+          <span className="text-[9px] font-black text-slate-500 tracking-widest uppercase pt-4 block">
+            Bangla Chain ERP
+          </span>
+        </div>
+      </div>
+    );
   }
 
   // ── Render guards ──────────────────────────────────────────────────────────────

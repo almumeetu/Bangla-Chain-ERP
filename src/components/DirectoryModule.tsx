@@ -1486,10 +1486,8 @@ export default function DirectoryModule({
               </div>
             </div>
 
-            {/* Beautiful two-column filters section */}
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-              {/* Column 1 & 2: Live Catalog Filters */}
-              <div className="xl:col-span-2 bg-white border border-slate-200 rounded-3xl p-6 shadow-sm flex flex-col justify-between space-y-4">
+            {/* Beautiful full-width filters section */}
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm flex flex-col justify-between space-y-4">
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-indigo-500 shrink-0" />
@@ -1616,105 +1614,6 @@ export default function DirectoryModule({
                 </div>
               </div>
 
-              {/* Column 3: Super Simple & Friendly Datewise Stock Selector */}
-              <div className="bg-gradient-to-br from-indigo-50/70 via-white to-purple-50/40 border border-indigo-200/80 rounded-3xl p-5 shadow-sm flex flex-col justify-between space-y-3.5 relative overflow-hidden">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${stockHistoryDate ? 'bg-indigo-600 animate-ping' : 'bg-slate-400'}`} />
-                    <span className="text-[10px] bg-indigo-100/80 text-indigo-800 font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider font-mono">
-                      {language === 'bn' ? 'ইনভেন্টরি ইতিহাস ও মূল্য' : 'Inventory History & Valuation'}
-                    </span>
-                  </div>
-                  {stockHistoryDate && (
-                    <button
-                      onClick={() => setStockHistoryDate('')}
-                      className="text-[10px] text-indigo-600 hover:text-indigo-900 font-extrabold underline transition-colors cursor-pointer"
-                    >
-                      {language === 'bn' ? 'আজকের স্টক' : 'Reset to Today'}
-                    </button>
-                  )}
-                </div>
-
-                <div>
-                  <h4 className="text-xs font-black text-slate-800 tracking-tight">
-                    {language === 'bn' ? 'কোন দিনের স্টক দেখতে চান?' : 'Select Stock History Date'}
-                  </h4>
-                  <p className="text-[10px] text-slate-500 font-medium mt-0.5">
-                    {language === 'bn' 
-                      ? 'অতীতের যেকোনো তারিখ নির্বাচন করে ঐ দিনের পণ্যের স্টক, স্টক মূল্যায়ন এবং ইনভেন্টরি অবস্থা দেখুন।' 
-                      : 'Select any previous date to view historical product stock, stock valuation, and inventory status.'}
-                  </p>
-                </div>
-
-                {/* Quick Date Presets */}
-                <div className="flex flex-wrap gap-1.5 pt-0.5">
-                  <button
-                    type="button"
-                    onClick={() => setStockHistoryDate('')}
-                    className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold transition-all cursor-pointer ${!stockHistoryDate 
-                      ? 'bg-indigo-600 text-white shadow-sm' 
-                      : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}
-                  >
-                    {language === 'bn' ? 'আজকে' : 'Today'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const d = new Date();
-                      d.setDate(d.getDate() - 1);
-                      setStockHistoryDate(d.toISOString().slice(0, 10));
-                    }}
-                    className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold transition-all cursor-pointer ${stockHistoryDate === new Date(Date.now() - 86400000).toISOString().slice(0, 10)
-                      ? 'bg-indigo-600 text-white shadow-sm' 
-                      : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}
-                  >
-                    {language === 'bn' ? 'গতকাল' : 'Yesterday'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const d = new Date();
-                      d.setDate(d.getDate() - 7);
-                      setStockHistoryDate(d.toISOString().slice(0, 10));
-                    }}
-                    className="px-2.5 py-1 rounded-lg text-[10px] font-extrabold bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 transition-all cursor-pointer"
-                  >
-                    {language === 'bn' ? '৭ দিন আগে' : '7 Days Ago'}
-                  </button>
-                </div>
-
-                {/* Date Input with clean light contrast styling */}
-                <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-600 pointer-events-none z-10" />
-                  <input
-                    type="date"
-                    value={stockHistoryDate}
-                    onChange={e => setStockHistoryDate(e.target.value)}
-                    className="w-full h-10 pl-9 pr-3 rounded-xl border border-indigo-200 bg-white text-xs font-bold text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all cursor-pointer shadow-sm"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {stockHistoryDate && (
-              <div className="bg-indigo-50 border border-indigo-200 text-indigo-900 px-5 py-3.5 rounded-2xl flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between text-xs font-bold shadow-sm relative overflow-hidden">
-                <div className="flex items-center gap-2.5">
-                  <Calendar className="w-4 h-4 text-indigo-600 shrink-0" />
-                  <span>
-                    {language === 'bn' 
-                      ? `আপনি বর্তমানে "${stockHistoryDate}" তারিখের পূর্বের স্টক ও ভ্যালুয়েশন দেখছেন।` 
-                      : `You are currently viewing historical stock & valuation for "${stockHistoryDate}".`}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setStockHistoryDate('')}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-1.5 rounded-xl transition-all font-extrabold text-[11px] shrink-0 cursor-pointer shadow-sm active:scale-95"
-                >
-                  {language === 'bn' ? 'আজকের স্টকে ফিরে যান' : 'Back to Today\'s Stock'}
-                </button>
-              </div>
-            )}
 
             {/* List Sub-header */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4.5 border border-slate-200 rounded-2xl shadow-sm">

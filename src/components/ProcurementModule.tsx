@@ -15,7 +15,12 @@ import {
   ChevronRight,
   Info,
   Printer,
-  Search
+  Search,
+  Building,
+  CreditCard,
+  Truck,
+  Sparkles,
+  Layers
 } from 'lucide-react';
 import { Procurement, ProcurementItem, Product, CompanyBrand } from '../types';
 import { translations, Language } from '../translations';
@@ -847,8 +852,7 @@ export default function ProcurementModule({
           )}
         </div>
       )}
-
-      {/* RENDER TAB: Create Procurement Invoice */}
+              {/* RENDER TAB: Create Procurement Invoice */}
       {activeSubTab === 'create' && (() => {
         // Derive dynamic theme based on selected brand
         const getBrandTheme = (name: string) => {
@@ -860,7 +864,7 @@ export default function ProcurementModule({
               bg: 'bg-orange-50/50',
               focus: 'focus:border-orange-500 focus:ring-orange-100',
               badge: 'bg-orange-50 text-orange-700 border-orange-100',
-              btn: 'bg-orange-600 hover:bg-orange-700 focus:ring-orange-100'
+              btn: 'bg-orange-600 hover:bg-orange-705 focus:ring-orange-100'
             };
           }
           if (lName.includes('olympic')) {
@@ -870,7 +874,7 @@ export default function ProcurementModule({
               bg: 'bg-blue-50/50',
               focus: 'focus:border-blue-500 focus:ring-blue-100',
               badge: 'bg-blue-50 text-blue-700 border-blue-100',
-              btn: 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-100'
+              btn: 'bg-blue-600 hover:bg-blue-705 focus:ring-blue-100'
             };
           }
           if (lName.includes('haque')) {
@@ -880,7 +884,7 @@ export default function ProcurementModule({
               bg: 'bg-emerald-50/50',
               focus: 'focus:border-emerald-500 focus:ring-emerald-100',
               badge: 'bg-emerald-50 text-emerald-700 border-emerald-100',
-              btn: 'bg-emerald-600 hover:bg-emerald-700 focus:ring-emerald-100'
+              btn: 'bg-emerald-600 hover:bg-emerald-705 focus:ring-emerald-100'
             };
           }
           return {
@@ -889,33 +893,61 @@ export default function ProcurementModule({
             bg: 'bg-indigo-50/50',
             focus: 'focus:border-indigo-500 focus:ring-indigo-100',
             badge: 'bg-indigo-50 text-indigo-700 border-indigo-100',
-            btn: 'bg-slate-900 hover:bg-slate-800 focus:ring-slate-100'
+            btn: 'bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-105'
           };
         };
 
         const theme = getBrandTheme(supplierName);
 
+        const LabelInput = ({ label, icon: Icon, children }: { label: string; icon?: React.ComponentType<{ className?: string }>; children: React.ReactNode }) => (
+          <div className="space-y-1.5">
+            <label className="flex items-center gap-1.5 text-[9px] font-black text-slate-450 uppercase tracking-widest">
+              {Icon && <Icon className={`w-3.5 h-3.5 ${theme.text}`} />}
+              {label}
+            </label>
+            {children}
+          </div>
+        );
+
+        const focusRing = supplierName.toLowerCase().includes('pran') ? 'focus:ring-orange-100 focus:border-orange-500' :
+          supplierName.toLowerCase().includes('olympic') ? 'focus:ring-blue-100 focus:border-blue-500' :
+          supplierName.toLowerCase().includes('haque') ? 'focus:ring-emerald-100 focus:border-emerald-500' :
+          'focus:ring-indigo-100 focus:border-indigo-500';
+
+        const inputCls = `h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-xs font-semibold text-slate-700 outline-none hover:border-slate-350 focus:border-slate-900 transition-all duration-200 shadow-sm focus:ring-2 ${focusRing}`;
+        const selectCls = inputCls + " cursor-pointer pr-8 appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%252364748b%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')] bg-[length:14px] bg-[right_12px_center] bg-no-repeat";
+
         return (
-          <form onSubmit={handleSubmitProcurement} className={`bg-white rounded-2xl border border-slate-200 border-t-4 ${theme.border} p-6 shadow-md space-y-6 animate-fade-in`}>
+          <form onSubmit={handleSubmitProcurement} className={`bg-white rounded-3xl border border-slate-200 border-t-4 ${theme.border} p-6 shadow-sm space-y-6 animate-fade-in`}>
             {/* Header info */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-4.5 gap-4">
-              <div>
-                <h3 className="font-extrabold text-slate-900 text-base">{tProc.formTitle}</h3>
-                <p className="text-xs text-slate-500 font-medium mt-1">{tProc.formSub}</p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-5 gap-4">
+              <div className="flex items-center gap-3">
+                <div className={`w-11 h-11 rounded-2xl ${
+                  supplierName.toLowerCase().includes('pran') ? 'bg-orange-50 text-orange-600' :
+                  supplierName.toLowerCase().includes('olympic') ? 'bg-blue-50 text-blue-600' :
+                  supplierName.toLowerCase().includes('haque') ? 'bg-emerald-50 text-emerald-600' :
+                  'bg-indigo-50 text-indigo-650'
+                } flex items-center justify-center shadow-sm shrink-0`}>
+                  <Box className="w-5 h-5 animate-pulse" />
+                </div>
+                <div>
+                  <h3 className="font-black text-slate-800 text-[15px]">{tProc.formTitle}</h3>
+                  <p className="text-[10px] text-slate-455 font-medium mt-0.5">{tProc.formSub}</p>
+                </div>
               </div>
-              <span className={`px-3.5 py-1.5 rounded-full text-xs font-bold border ${theme.badge}`}>
-                {language === 'bn' ? `${supplierName} ব্র্যান্ড এর ক্রয়` : `Sourced from ${supplierName}`}
+              <span className={`px-4 py-1.5 rounded-full text-[10px] font-black border uppercase tracking-wider shadow-sm ${theme.badge}`}>
+                {language === 'bn' ? `${supplierName} ব্র্যান্ড এর ক্রয়` : `Sourced: ${supplierName}`}
               </span>
             </div>
 
             {/* Guide Card for Dealers */}
-            <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4.5 flex gap-3 text-indigo-900 leading-relaxed shadow-sm">
+            <div className="bg-indigo-50/60 border border-indigo-100 rounded-2xl p-4.5 flex gap-3 text-indigo-905 leading-relaxed shadow-sm">
               <Info className="w-5 h-5 text-indigo-500 shrink-0 mt-0.5" />
               <div className="text-xs space-y-1">
-                <p className="font-bold">
+                <p className="font-black">
                   {language === 'bn' ? 'কোম্পানি চালান স্টক রিসিভ করার নিয়ম:' : 'How Stock Receiving Works:'}
                 </p>
-                <p className="font-semibold text-indigo-805">
+                <p className="font-semibold text-indigo-850">
                   {language === 'bn' 
                     ? 'কোম্পানি (যেমন প্রাণ বা অলিম্পিক) থেকে যখনই নতুন পণ্য আসবে, তাদের দেওয়া চালানের পণ্য ও রেট এন্ট্রি করুন। এতে সিস্টেমের পণ্য স্টক অটোমেটিক বৃদ্ধি পাবে এবং মুনাফা রিপোর্টে পণ্য ক্রয়ের খরচ সঠিকভাবে হিসাব হবে।' 
                     : 'Use this form when you receive physical stock from a brand company. Saving it automatically increments warehouse stock levels for each item and updates gross margin cost data.'}
@@ -925,44 +957,53 @@ export default function ProcurementModule({
 
             {/* Form Fields Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
-              <div>
-                <label className="mb-1.5 block text-xs font-bold text-slate-700 uppercase tracking-wide">{tProc.supplierLabel}</label>
-                <select
-                  id="proc-form-supplier"
-                  value={supplierName}
-                  onChange={(e) => {
-                    const newSup = e.target.value;
-                    setSupplierName(newSup);
-                    const initProd = getInitialProductForSupplier(newSup);
-                    if (initProd) {
-                      setFormItems([
-                        {
-                          productId: initProd.id,
-                          purchasePrice: initProd.defaultPP,
-                          mrp: initProd.defaultMRP,
-                          wsp: initProd.defaultWSP,
-                          cartons: 0,
-                          pcs: 0,
-                          qty: 0,
-                          bonusQty: 0,
-                          discountType: 'Percentage',
-                          discountValue: 0,
-                          totalPrice: 0,
-                        }
-                      ]);
-                    }
-                  }}
-                  className={`h-11 w-full rounded-xl border-2 border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:ring-4 transition-all ${theme.focus}`}
-                >
-                  {suppliers.map(s => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
-              </div>
+              <LabelInput label={tProc.supplierLabel} icon={Building}>
+                <div className="relative">
+                  <select
+                    id="proc-form-supplier"
+                    value={supplierName}
+                    onChange={(e) => {
+                      const newSup = e.target.value;
+                      setSupplierName(newSup);
+                      const initProd = getInitialProductForSupplier(newSup);
+                      if (initProd) {
+                        setFormItems([
+                          {
+                            productId: initProd.id,
+                            purchasePrice: initProd.defaultPP,
+                            mrp: initProd.defaultMRP,
+                            wsp: initProd.defaultWSP,
+                            cartons: 0,
+                            pcs: 0,
+                            qty: 0,
+                            bonusQty: 0,
+                            discountType: 'Percentage',
+                            discountValue: 0,
+                            totalPrice: 0,
+                          }
+                        ]);
+                      }
+                    }}
+                    className={selectCls}
+                  >
+                    {suppliers.map(s => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
+              </LabelInput>
 
-              <div>
-                <div className="flex justify-between items-center mb-1.5">
-                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wide">{tProc.invRefLabel}</label>
+              <LabelInput label={tProc.invRefLabel} icon={FileText}>
+                <div className="relative">
+                  <input
+                    id="proc-form-ref"
+                    type="text"
+                    required
+                    placeholder="e.g., APX-INV-2026-99"
+                    value={invoiceRef}
+                    onChange={(e) => setInvoiceRef(e.target.value)}
+                    className={inputCls + " pr-20"}
+                  />
                   <button
                     type="button"
                     onClick={() => {
@@ -971,65 +1012,58 @@ export default function ProcurementModule({
                       const randomNum = Math.floor(100 + Math.random() * 900);
                       setInvoiceRef(`INV-${datePart}-${randomNum}`);
                     }}
-                    className="text-[10px] text-blue-600 hover:text-blue-800 hover:underline font-bold tracking-wide uppercase cursor-pointer"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 px-2.5 py-1.5 rounded-lg font-black tracking-wider uppercase cursor-pointer transition-all active:scale-95 shadow-sm"
                   >
                     {language === 'bn' ? 'অটো তৈরি' : 'Auto Gen'}
                   </button>
                 </div>
-                <input
-                  id="proc-form-ref"
-                  type="text"
-                  required
-                  placeholder="e.g., APX-INV-2026-99"
-                  value={invoiceRef}
-                  onChange={(e) => setInvoiceRef(e.target.value)}
-                  className={`h-11 w-full rounded-xl border-2 border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:ring-4 transition-all ${theme.focus}`}
-                />
-              </div>
+              </LabelInput>
 
-              <div>
-                <label className="mb-1.5 block text-xs font-bold text-slate-700 uppercase tracking-wide">{tProc.invDateLabel}</label>
+              <LabelInput label={tProc.invDateLabel} icon={Calendar}>
                 <input
                   id="proc-form-inv-date"
                   type="date"
                   required
                   value={invoiceDate}
                   onChange={(e) => setInvoiceDate(e.target.value)}
-                  className={`h-11 w-full rounded-xl border-2 border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:ring-4 transition-all ${theme.focus}`}
+                  className={inputCls}
                 />
-              </div>
+              </LabelInput>
 
-              <div>
-                <label className="mb-1.5 block text-xs font-bold text-slate-700 uppercase tracking-wide">{tProc.delDateLabel}</label>
+              <LabelInput label={tProc.delDateLabel} icon={Truck}>
                 <input
                   id="proc-form-del-date"
                   type="date"
                   required
                   value={deliveryDate}
                   onChange={(e) => setDeliveryDate(e.target.value)}
-                  className={`h-11 w-full rounded-xl border-2 border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:ring-4 transition-all ${theme.focus}`}
+                  className={inputCls}
                 />
-              </div>
+              </LabelInput>
 
-              <div>
-                <label className="mb-1.5 block text-xs font-bold text-slate-700 uppercase tracking-wide">{tProc.paymentStatusLabel}</label>
+              <LabelInput label={tProc.paymentStatusLabel} icon={CreditCard}>
                 <select
                   id="proc-form-status"
                   value={paymentStatus}
                   onChange={(e) => setPaymentStatus(e.target.value as any)}
-                  className={`h-11 w-full rounded-xl border-2 border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:ring-4 transition-all ${theme.focus}`}
+                  className={selectCls}
                 >
                   <option value="Paid">{tCommon.paid}</option>
                   <option value="Partial">{tCommon.partial}</option>
                   <option value="Pending">{tCommon.pending}</option>
                 </select>
-              </div>
+              </LabelInput>
             </div>
 
             {/* Sub-table: Dynamic Product Row Adder */}
             <div className="space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-2 gap-4">
-                <span className="text-xs font-extrabold text-slate-500 uppercase tracking-wider">{tProc.subVoucherTitle}</span>
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3 gap-4">
+                <div className="flex items-center gap-2">
+                  <div className={`w-7 h-7 rounded-xl bg-indigo-50 text-indigo-650 flex items-center justify-center shadow-sm`}>
+                    <Layers className="w-4 h-4" />
+                  </div>
+                  <span className="text-xs font-black text-slate-800 uppercase tracking-wider">{tProc.subVoucherTitle}</span>
+                </div>
                 <div className="flex items-center gap-2">
                   <button
                     id="proc-btn-add-row"
@@ -1044,9 +1078,10 @@ export default function ProcurementModule({
                     id="proc-btn-load-all-brand"
                     type="button"
                     onClick={handleLoadAllBrandProducts}
-                    className={`inline-flex h-9 items-center gap-1.5 rounded-xl px-3.5 text-xs font-bold cursor-pointer transition-all active:scale-95 shadow-sm ${theme.btn}`}
+                    className={`inline-flex h-9 items-center gap-1.5 rounded-xl px-3.5 text-xs font-bold text-white cursor-pointer transition-all active:scale-95 shadow-sm ${theme.btn}`}
                     title={`Pre-fill all products registered under ${supplierName}`}
                   >
+                    <Sparkles className="w-3.5 h-3.5 animate-spin" style={{ animationDuration: '4s' }} />
                     Load All {supplierName} Products
                   </button>
                 </div>
@@ -1056,7 +1091,7 @@ export default function ProcurementModule({
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs border-collapse min-w-[900px]">
                     <thead>
-                      <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[10px]">
+                      <tr className="bg-slate-50 border-b border-slate-200 text-slate-655 font-black uppercase tracking-wider text-[9px]">
                         <th className="py-3 px-4 w-[280px]">{tProc.colProduct}</th>
                         <th className="py-3 px-3 text-center w-[120px]">{tProc.colPP}</th>
                         <th className="py-3 px-3 text-center w-[110px]">{tProc.colWSP}</th>
@@ -1081,7 +1116,7 @@ export default function ProcurementModule({
                                 id={`proc-row-${idx}-product`}
                                 value={item.productId}
                                 onChange={(e) => handleRowChange(idx, 'productId', e.target.value)}
-                                className="h-10 w-full rounded-xl border border-slate-200 bg-white px-2.5 text-xs font-semibold outline-none focus:border-slate-800 transition-all"
+                                className="h-10 w-full rounded-xl border border-slate-200 bg-white px-2.5 text-xs font-semibold outline-none focus:border-slate-800 transition-all cursor-pointer pr-8 appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%252364748b%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')] bg-[length:12px] bg-[right_10px_center] bg-no-repeat shadow-sm"
                               >
                                 {products.filter(p => p.company === supplierName).map(p => (
                                   <option key={p.id} value={p.id}>{p.name}</option>
@@ -1092,14 +1127,14 @@ export default function ProcurementModule({
                             {/* Purchase Price PP */}
                             <td className="py-3 px-3">
                               <div className="relative">
-                                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-[10px]">৳</span>
+                                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold font-mono text-[10px]">৳</span>
                                 <input
                                   id={`proc-row-${idx}-pp`}
                                   type="number"
                                   min="0"
                                   value={item.purchasePrice || ''}
                                   onChange={(e) => handleRowChange(idx, 'purchasePrice', Number(e.target.value))}
-                                  className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-6 pr-2 text-center text-xs font-bold text-slate-800 font-mono outline-none focus:border-slate-800 transition-all"
+                                  className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-6 pr-2 text-center text-xs font-bold text-slate-800 font-mono outline-none focus:border-slate-800 transition-all shadow-sm focus:ring-2 focus:ring-slate-100"
                                 />
                               </div>
                             </td>
@@ -1107,14 +1142,14 @@ export default function ProcurementModule({
                             {/* WSP */}
                             <td className="py-3 px-3">
                               <div className="relative">
-                                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-[10px]">৳</span>
+                                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold font-mono text-[10px]">৳</span>
                                 <input
                                   id={`proc-row-${idx}-wsp`}
                                   type="number"
                                   min="0"
                                   value={item.wsp || ''}
                                   onChange={(e) => handleRowChange(idx, 'wsp', Number(e.target.value))}
-                                  className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-6 pr-2 text-center text-xs font-semibold text-slate-700 font-mono outline-none focus:border-slate-800 transition-all"
+                                  className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-6 pr-2 text-center text-xs font-semibold text-slate-700 font-mono outline-none focus:border-slate-800 transition-all shadow-sm focus:ring-2 focus:ring-slate-100"
                                 />
                               </div>
                             </td>
@@ -1122,14 +1157,14 @@ export default function ProcurementModule({
                             {/* MRP */}
                             <td className="py-3 px-3">
                               <div className="relative">
-                                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-[10px]">৳</span>
+                                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold font-mono text-[10px]">৳</span>
                                 <input
                                   id={`proc-row-${idx}-mrp`}
                                   type="number"
                                   min="0"
                                   value={item.mrp || ''}
                                   onChange={(e) => handleRowChange(idx, 'mrp', Number(e.target.value))}
-                                  className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-6 pr-2 text-center text-xs font-semibold text-slate-700 font-mono outline-none focus:border-slate-800 transition-all"
+                                  className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-6 pr-2 text-center text-xs font-semibold text-slate-700 font-mono outline-none focus:border-slate-800 transition-all shadow-sm focus:ring-2 focus:ring-slate-100"
                                 />
                               </div>
                             </td>
@@ -1142,10 +1177,10 @@ export default function ProcurementModule({
                                 min="0"
                                 value={item.cartons ?? ''}
                                 onChange={(e) => handleRowChange(idx, 'cartons', Number(e.target.value))}
-                                className="h-10 w-full rounded-xl border border-indigo-200 bg-indigo-50/50 px-2 text-center text-xs font-bold text-indigo-800 font-mono outline-none focus:border-indigo-500 transition-all"
+                                className="h-10 w-full rounded-xl border border-indigo-200 bg-indigo-50/40 px-2 text-center text-xs font-bold text-indigo-800 font-mono outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all shadow-sm"
                               />
-                              <div className="text-[9px] text-center text-slate-400 font-mono mt-0.5">
-                                {prod?.primaryUnit === 'Carton' ? (language === 'bn' ? 'কার্টন একক' : 'Carton Unit') : `×${cs} pcs`}
+                              <div className="text-[8px] text-center text-slate-450 font-bold mt-1">
+                                {prod?.primaryUnit === 'Carton' ? (language === 'bn' ? 'কার্টন একক' : 'Carton Unit') : `×${cs} Pcs`}
                               </div>
                             </td>
 
@@ -1158,13 +1193,13 @@ export default function ProcurementModule({
                                 disabled={prod?.primaryUnit === 'Carton'}
                                 value={prod?.primaryUnit === 'Carton' ? '' : (item.pcs ?? '')}
                                 onChange={(e) => handleRowChange(idx, 'pcs', Number(e.target.value))}
-                                className={`h-10 w-full rounded-xl border px-2 text-center text-xs font-bold font-mono outline-none transition-all ${
+                                className={`h-10 w-full rounded-xl border px-2 text-center text-xs font-bold font-mono outline-none transition-all shadow-sm focus:ring-2 ${
                                   prod?.primaryUnit === 'Carton'
                                     ? 'border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed'
-                                    : 'border-emerald-200 bg-emerald-50/50 text-emerald-800 focus:border-emerald-500'
+                                    : 'border-emerald-200 bg-emerald-50/40 text-emerald-800 focus:border-emerald-500 focus:ring-emerald-100'
                                 }`}
                               />
-                              <div className="text-[9px] text-center text-slate-400 font-mono mt-0.5">
+                              <div className="text-[8px] text-center text-slate-450 font-bold mt-1">
                                 {prod?.primaryUnit === 'Carton'
                                   ? (language === 'bn' ? `মোট: ${item.cartons || 0} কার্টন` : `Total: ${item.cartons || 0} Ctn`)
                                   : `= ${(item.cartons || 0) * cs + (item.pcs || 0)} Pcs`}
@@ -1179,17 +1214,15 @@ export default function ProcurementModule({
                                 min="0"
                                 value={item.bonusQty || ''}
                                 onChange={(e) => handleRowChange(idx, 'bonusQty', Number(e.target.value))}
-                                className="h-10 w-full rounded-xl border border-slate-200 bg-white px-1.5 text-center text-xs font-semibold text-slate-400 font-mono outline-none focus:border-slate-800 transition-all"
+                                className="h-10 w-full rounded-xl border border-slate-200 bg-white px-1.5 text-center text-xs font-semibold text-slate-455 font-mono outline-none focus:border-slate-800 transition-all shadow-sm focus:ring-2 focus:ring-slate-100"
                               />
-                              <span className="inline-block px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-slate-100 text-slate-500 font-mono">
+                              <span className="inline-block px-1.5 py-0.5 rounded-md text-[8px] font-black bg-slate-100 text-slate-500 font-mono">
                                 Lot: {totalQtyCalculated}
                               </span>
                             </td>
 
-
-
                             {/* Total price subtotal */}
-                            <td className="py-3 px-4 text-right font-extrabold font-mono text-slate-900 text-xs">
+                            <td className="py-3 px-4 text-right font-black font-mono text-slate-800 text-xs">
                               {formatBDT(item.totalPrice)}
                             </td>
 
@@ -1199,7 +1232,7 @@ export default function ProcurementModule({
                                 id={`proc-row-delete-btn-${idx}`}
                                 type="button"
                                 onClick={() => handleDeleteRow(idx)}
-                                className="grid h-8 w-8 place-items-center rounded-xl border border-rose-100 text-rose-500 hover:bg-rose-50 hover:text-rose-700 transition-all cursor-pointer mx-auto active:scale-95"
+                                className="grid h-8 w-8 place-items-center rounded-xl border border-rose-100 text-rose-500 hover:bg-rose-50 hover:text-rose-700 transition-all cursor-pointer mx-auto active:scale-95 shadow-sm"
                               >
                                 <Trash2 className="w-4 h-4" />
                               </button>
@@ -1214,10 +1247,9 @@ export default function ProcurementModule({
             </div>
 
             {/* Invoice Totals Summary card */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-6 rounded-2xl border border-slate-200 shadow-inner">
-              <div className="space-y-3">
-                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">{tProc.localCarrying}</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-6 bg-slate-50 p-6 rounded-3xl border border-slate-200/80 shadow-inner items-start">
+              <div className="md:col-span-5 space-y-3">
+                <LabelInput label={tProc.localCarrying} icon={Truck}>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-xs">৳</span>
                     <input
@@ -1227,27 +1259,28 @@ export default function ProcurementModule({
                       placeholder="e.g., 3500"
                       value={additionalCost || ''}
                       onChange={(e) => setAdditionalCost(Number(e.target.value))}
-                      className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-7 pr-3 text-sm font-bold outline-none focus:border-slate-800 transition-all font-mono"
+                      className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-7 pr-3 text-sm font-black outline-none focus:border-slate-800 transition-all font-mono shadow-sm"
                     />
                   </div>
-                  <div className="flex items-center text-[10px] text-slate-400 leading-normal font-semibold">
-                    <span>{tProc.localCarryingDesc}</span>
-                  </div>
+                </LabelInput>
+                <div className="flex items-center text-[10px] text-slate-400 leading-normal font-semibold">
+                  <span>{tProc.localCarryingDesc}</span>
                 </div>
               </div>
 
-              <div className="flex flex-col justify-center items-end space-y-2 text-right">
+              {/* Total Summary numbers */}
+              <div className="md:col-span-7 flex flex-col justify-center items-end space-y-2.5 text-right w-full">
                 <div className="text-xs">
-                  <span className="text-slate-400 font-semibold uppercase tracking-wider">{tProc.subtotalItems}</span>
-                  <span className="font-mono font-extrabold text-slate-700 ml-2">{formatBDT(itemsSum)}</span>
+                  <span className="text-slate-400 font-bold uppercase tracking-wider">{tProc.subtotalItems}</span>
+                  <span className="font-mono font-black text-slate-700 ml-3">{formatBDT(itemsSum)}</span>
                 </div>
                 <div className="text-xs">
-                  <span className="text-slate-400 font-semibold uppercase tracking-wider">{tProc.carriageCost}</span>
-                  <span className="font-mono text-slate-600 ml-2 font-bold">+{formatBDT(additionalCost)}</span>
+                  <span className="text-slate-400 font-bold uppercase tracking-wider">{tProc.carriageCost}</span>
+                  <span className="font-mono text-slate-600 ml-3 font-black">+{formatBDT(additionalCost)}</span>
                 </div>
-                <div className="border-t border-slate-200 pt-3 mt-1.5 w-full max-w-[280px]">
-                  <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block">{tProc.grandTotalLedger}</span>
-                  <span className={`font-mono text-2xl font-black ${theme.text} block mt-1`}>{formatBDT(globalTotalSum)}</span>
+                <div className="border-t border-slate-200/80 pt-4 mt-2 w-full max-w-[320px]">
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block leading-none">{tProc.grandTotalLedger}</span>
+                  <span className={`font-mono text-3xl font-black ${theme.text} block mt-1.5 leading-none`}>{formatBDT(globalTotalSum)}</span>
                 </div>
               </div>
             </div>
