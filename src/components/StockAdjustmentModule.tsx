@@ -24,6 +24,8 @@ interface StockAdjustmentModuleProps {
   language:      Language;
   procurements?: Procurement[];
   challans?:     any[];
+  defaultTab?:   'adjustments' | 'history';
+  onTabChange?:  (tab: 'adjustments' | 'history') => void;
 }
 
 // ── Empty-state panels ────────────────────────────────────────────────────────
@@ -73,6 +75,7 @@ function SuccessPanel({
 
 export default function StockAdjustmentModule({
   adjustments, setAdjustments, products, setProducts, categories, language, procurements = [], challans = [],
+  defaultTab = 'adjustments', onTabChange,
 }: StockAdjustmentModuleProps) {
   const getLocalDateString = (date: Date) => {
     const offset = date.getTimezoneOffset();
@@ -80,8 +83,19 @@ export default function StockAdjustmentModule({
     return localDate.toISOString().split('T')[0];
   };
 
-  const [activeTab, setActiveTab] = React.useState<'adjustments' | 'history'>('adjustments');
+  const [activeTab, setActiveTab] = React.useState<'adjustments' | 'history'>(defaultTab);
   const [stockHistoryDate, setStockHistoryDate] = React.useState<string>(() => getLocalDateString(new Date()));
+
+  React.useEffect(() => {
+    if (defaultTab) {
+      setActiveTab(defaultTab);
+    }
+  }, [defaultTab]);
+
+  const handleTabSelect = (tab: 'adjustments' | 'history') => {
+    setActiveTab(tab);
+    if (onTabChange) onTabChange(tab);
+  };
   
   // History tab filter states
   const [historySearch, setHistorySearch] = React.useState('');
@@ -225,6 +239,25 @@ export default function StockAdjustmentModule({
     return `৳${amount.toLocaleString('en-BD')}`;
   };
 
+  const getCompanyBadgeStyle = (companyName: string) => {
+    if (!companyName || companyName === 'N/A') return 'bg-slate-100 text-slate-600 border-slate-200';
+    const colors = [
+      'bg-blue-50 text-blue-700 border-blue-200/80',
+      'bg-purple-50 text-purple-700 border-purple-200/80',
+      'bg-emerald-50 text-emerald-700 border-emerald-200/80',
+      'bg-amber-50 text-amber-700 border-amber-200/80',
+      'bg-rose-50 text-rose-700 border-rose-200/80',
+      'bg-cyan-50 text-cyan-700 border-cyan-200/80',
+      'bg-indigo-50 text-indigo-700 border-indigo-200/80',
+    ];
+    let hash = 0;
+    for (let i = 0; i < companyName.length; i++) {
+      hash = companyName.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const index = Math.abs(hash) % colors.length;
+    return colors[index];
+  };
+
   // Compute stats for historical view
   const todayStr = getLocalDateString(new Date());
   const yesterdayStr = getLocalDateString(new Date(Date.now() - 86400000));
@@ -272,32 +305,6 @@ export default function StockAdjustmentModule({
               : 'Correct warehouse stock variances or analyze historical inventory valuation snapshots.'}
           </p>
         </div>
-      </div>
-
-      {/* Tab Switcher */}
-      <div className="flex border border-slate-200 gap-1.5 bg-slate-50/80 p-1.5 rounded-2xl shadow-inner max-w-md">
-        <button
-          onClick={() => setActiveTab('adjustments')}
-          className={`flex-1 py-2.5 text-xs font-bold rounded-xl cursor-pointer transition-all flex items-center justify-center gap-2 ${
-            activeTab === 'adjustments'
-              ? 'bg-indigo-600 text-white shadow-md font-black'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
-          }`}
-        >
-          <Wrench className="w-3.5 h-3.5" />
-          {bn ? 'লাইভ সমন্বয়' : 'Live Adjustments'}
-        </button>
-        <button
-          onClick={() => setActiveTab('history')}
-          className={`flex-1 py-2.5 text-xs font-bold rounded-xl cursor-pointer transition-all flex items-center justify-center gap-2 ${
-            activeTab === 'history'
-              ? 'bg-indigo-600 text-white shadow-md font-black'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
-          }`}
-        >
-          <History className="w-3.5 h-3.5" />
-          {bn ? 'ইনভেন্টরি ইতিহাস ও মূল্য' : 'Stock History & Valuation'}
-        </button>
       </div>
 
       {activeTab === 'adjustments' ? (
@@ -373,6 +380,8 @@ export default function StockAdjustmentModule({
                   onStepQty={hook.handleStepQty}
                   onSetReason={hook.handleSetReason}
                   onSubmit={hook.handleCommit}
+                  adjustmentDate={hook.adjustmentDate}
+                  onSetDate={hook.handleAdjustmentDateChange}
                 />
               )}
             </div>
@@ -458,13 +467,15 @@ export default function StockAdjustmentModule({
                 </div>
 
                 {/* Calendar Input */}
-                <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-400 pointer-events-none z-10" />
+                <div className="relative flex items-center">
+                  <div className="absolute left-3 w-6 h-6 rounded-md bg-indigo-500/25 border border-indigo-400/30 flex items-center justify-center pointer-events-none z-10">
+                    <Calendar className="w-3.5 h-3.5 text-indigo-300" />
+                  </div>
                   <input
                     type="date"
                     value={stockHistoryDate}
                     onChange={e => setStockHistoryDate(e.target.value)}
-                    className="w-full h-10 pl-9 pr-3 rounded-xl border border-white/20 bg-white/10 text-white text-xs font-bold outline-none focus:border-white focus:ring-2 focus:ring-white/20 transition-all cursor-pointer shadow-sm"
+                    className="w-full h-10 pl-11 pr-3 rounded-xl border border-white/20 bg-white/10 text-white text-xs font-bold outline-none focus:border-white focus:ring-2 focus:ring-white/20 transition-all cursor-pointer shadow-sm"
                   />
                 </div>
               </div>
@@ -580,8 +591,8 @@ export default function StockAdjustmentModule({
                             <div className="font-bold text-slate-900 text-sm mb-0.5">{p.name}</div>
                             <div className="text-[10px] font-medium text-slate-400 uppercase tracking-wide">{p.sku}</div>
                           </td>
-                          <td className="px-5 py-3.5">
-                            <span className="inline-block px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border bg-slate-50 border-slate-200 text-slate-600 shadow-sm">
+                          <td className="px-5 py-3.5 whitespace-nowrap">
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold whitespace-nowrap border shadow-2xs ${getCompanyBadgeStyle(p.company)}`}>
                               {p.company}
                             </span>
                           </td>

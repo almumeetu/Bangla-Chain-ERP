@@ -29,6 +29,7 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userRole,        setUserRole]        = useState<'admin' | 'sr'>('admin');
   const [activeTab,       setActiveTab]       = useState<TabID>('dashboard');
+  const [activeSubTab,    setActiveSubTab]    = useState<string>('');
   const [sidebarCollapsed,setSidebarCollapsed]= useState(false);
   const [language,        setLanguage]        = useState<Language>('en');
   const [langOpen,        setLangOpen]        = useState(false);
@@ -50,6 +51,8 @@ export default function App() {
     if (col !== null) setSidebarCollapsed(col === 'true');
     const tab = lsGet('erp_active_tab');
     if (tab) setActiveTab(tab as TabID);
+    const subTab = lsGet('erp_active_sub_tab');
+    if (subTab) setActiveSubTab(subTab);
   }
 
   // ── Apply all data to React state ──────────────────────────────────────────────
@@ -162,14 +165,23 @@ export default function App() {
     sessionStorage.removeItem('erp_sr_name');
     lsDel('erp_auth_role');
     lsDel('erp_active_tab');
+    lsDel('erp_active_sub_tab');
     setIsAuthenticated(false);
     setUserRole('admin');
     setActiveTab('dashboard');
+    setActiveSubTab('');
   }, [language]);
 
-  function handleNavigate(tab: TabID) {
+  function handleNavigate(tab: TabID, subTab?: string) {
     setActiveTab(tab);
     lsSet('erp_active_tab', tab);
+    if (subTab !== undefined) {
+      setActiveSubTab(subTab);
+      lsSet('erp_active_sub_tab', subTab);
+    } else {
+      setActiveSubTab('');
+      lsDel('erp_active_sub_tab');
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -235,7 +247,13 @@ export default function App() {
           adjustments={db.adjustments} setAdjustments={db.syncAdjustments}
           products={db.products} setProducts={db.syncProducts}
           categories={db.productCategories} language={language}
-          procurements={db.procurements} challans={db.challans} />
+          procurements={db.procurements} challans={db.challans}
+          defaultTab={activeSubTab === 'stock-history' ? 'history' : 'adjustments'}
+          onTabChange={(tab) => {
+            const sub = tab === 'history' ? 'stock-history' : 'stock-live';
+            setActiveSubTab(sub);
+            lsSet('erp_active_sub_tab', sub);
+          }} />
       );
       case 'purchase': return (
         <ProcurementModule procurements={db.procurements} setProcurements={db.syncProcurements}
@@ -245,27 +263,55 @@ export default function App() {
       case 'accounts': return (
         <AccountingModule categories={db.categories} setCategories={db.syncExpenseCategories}
           expenses={db.expenses} setExpenses={db.syncExpenses} challans={db.challans}
-          procurements={db.procurements} onDownloadPDF={handleDownloadPDF} language={language} />
+          procurements={db.procurements} onDownloadPDF={handleDownloadPDF} language={language}
+          defaultTab={activeSubTab === 'accounts-profit' ? 'profit-report' : 'expenses'}
+          onTabChange={(tab) => {
+            const sub = tab === 'profit-report' ? 'accounts-profit' : 'accounts-expenses';
+            setActiveSubTab(sub);
+            lsSet('erp_active_sub_tab', sub);
+          }} />
       );
       case 'companies': return (
         <DirectoryModule key="companies" {...directoryBaseProps}
           defaultTab="companies" visibleTabs={['companies']}
           pageTitle={t.companiesPage.title} pageSubtitle={t.companiesPage.subtitle} />
       );
-      case 'products': return (
-        <DirectoryModule key="products" {...directoryBaseProps}
-          defaultTab="products" visibleTabs={['products', 'units']}
-          pageTitle={t.productsPage.title} pageSubtitle={t.productsPage.subtitle}
-          procurements={db.procurements}
-          challans={db.challans}
-          adjustments={db.adjustments} />
-      );
-      case 'routes': return (
-        <DirectoryModule key="routes" {...directoryBaseProps}
-          defaultTab="routes" visibleTabs={['routes', 'srs', 'deliveryMen']}
-          pageTitle={language === 'bn' ? 'ডেলিভারি রুট, এসআর ও ডেলিভারি ম্যান' : 'Delivery Routes, SRs & Delivery Men'}
-          pageSubtitle={language === 'bn' ? 'রুট ম্যাপ, এসআর ও ডেলিভারি ম্যান তালিকা' : 'Manage routes, Sales Officers and Delivery personnel'} />
-      );
+      case 'products': {
+        let pTab: any = 'products';
+        if (activeSubTab === 'products-units') pTab = 'units';
+        if (activeSubTab === 'products-alerts') pTab = 'stockAlerts';
+        return (
+          <DirectoryModule key="products" {...directoryBaseProps}
+            defaultTab={pTab} visibleTabs={['products', 'units', 'stockAlerts']}
+            onTabChange={(tab) => {
+              const sub = tab === 'units' ? 'products-units' : tab === 'stockAlerts' ? 'products-alerts' : 'products-catalog';
+              setActiveSubTab(sub);
+              lsSet('erp_active_sub_tab', sub);
+            }}
+            pageTitle={t.productsPage.title} pageSubtitle={t.productsPage.subtitle}
+            procurements={db.procurements}
+            challans={db.challans}
+            adjustments={db.adjustments} />
+        );
+      }
+      case 'routes': {
+        let rTab: any = 'routes';
+        if (activeSubTab === 'routes-srs') rTab = 'srs';
+        if (activeSubTab === 'routes-delivery') rTab = 'deliveryMen';
+        return (
+          <DirectoryModule key="routes" {...directoryBaseProps}
+            defaultTab={rTab} visibleTabs={['routes', 'srs', 'deliveryMen']}
+            onTabChange={(tab) => {
+              let sub = 'routes-list';
+              if (tab === 'srs') sub = 'routes-srs';
+              if (tab === 'deliveryMen') sub = 'routes-delivery';
+              setActiveSubTab(sub);
+              lsSet('erp_active_sub_tab', sub);
+            }}
+            pageTitle={language === 'bn' ? 'ডেলিভারি রুট, এসআর ও ডেলিভারি ম্যান' : 'Delivery Routes, SRs & Delivery Men'}
+            pageSubtitle={language === 'bn' ? 'রুট ম্যাপ, এসআর ও ডেলিভারি ম্যান তালিকা' : 'Manage routes, Sales Officers and Delivery personnel'} />
+        );
+      }
       case 'damage': return (
         <DirectoryModule key="damage" {...directoryBaseProps}
           defaultTab="damage" visibleTabs={['damage']}
@@ -274,12 +320,22 @@ export default function App() {
       );
       case 'reports': {
         const srName = typeof window !== 'undefined' ? sessionStorage.getItem('erp_sr_name') || undefined : undefined;
+        let repTab: any = 'stock';
+        if (activeSubTab === 'reports-sales') repTab = 'sales';
+        if (activeSubTab === 'reports-damage') repTab = 'damage';
+        if (activeSubTab === 'reports-profit') repTab = 'profit';
         return (
           <ReportsModule products={db.products} challans={db.challans} srs={db.srs}
             companies={db.companies} expenses={db.expenses} deliveryMen={db.deliveryMen}
             units={db.units} language={language} userRole={userRole}
             shopName={db.shopName} shopSubBrand={db.shopSubBrand} shopLogo={db.shopLogo}
-            loggedInSrName={srName} />
+            loggedInSrName={srName}
+            defaultTab={repTab}
+            onTabChange={(tab) => {
+              const sub = `reports-${tab}`;
+              setActiveSubTab(sub);
+              lsSet('erp_active_sub_tab', sub);
+            }} />
         );
       }
       case 'settings': return (
@@ -298,6 +354,12 @@ export default function App() {
           srs={db.srs}
           companies={db.companies}
           language={language}
+          defaultTab={activeSubTab === 'claims-display' ? 'displays' : 'claims'}
+          onTabChange={(tab) => {
+            const sub = tab === 'displays' ? 'claims-display' : 'claims-list';
+            setActiveSubTab(sub);
+            lsSet('erp_active_sub_tab', sub);
+          }}
         />
       );
       default: return (
@@ -365,8 +427,8 @@ export default function App() {
   if (!isAuthenticated) return <LoginPage onLogin={handleLogin} />;
 
   // On mobile, clicking a nav item should close the drawer
-  function handleMobileNav(tab: TabID) {
-    handleNavigate(tab);
+  function handleMobileNav(tab: TabID, subTab?: string) {
+    handleNavigate(tab, subTab);
     // close sidebar on mobile after navigation
     if (typeof window !== 'undefined' && window.innerWidth < 1024) {
       setSidebarCollapsed(true);
@@ -396,9 +458,10 @@ export default function App() {
       `}>
         <Sidebar
           activeTab={activeTab}
-          setActiveTab={(tab) => {
-            handleMobileNav(tab);
+          setActiveTab={(tab, subTab) => {
+            handleMobileNav(tab, subTab);
           }}
+          activeSubTab={activeSubTab}
           collapsed={sidebarCollapsed}
           setCollapsed={setSidebarCollapsed}
           language={language}

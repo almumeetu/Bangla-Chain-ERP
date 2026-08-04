@@ -22,7 +22,7 @@ export default function SidebarHeader({
     <div className="h-16 flex items-center justify-between px-4 border-b border-slate-900 bg-slate-950/60 backdrop-blur-md">
       {!collapsed && (
         <div className="flex items-center gap-3 animate-fade-in overflow-hidden">
-          <div className="w-9 h-9 bg-slate-900 rounded-xl border border-slate-800 flex items-center justify-center overflow-hidden shrink-0">
+          <div className="w-9 h-9 bg-slate-900 rounded-none flex items-center justify-center overflow-hidden shrink-0">
             {logoContent}
           </div>
           <div className="overflow-hidden">
@@ -37,7 +37,7 @@ export default function SidebarHeader({
       )}
 
       {collapsed && (
-        <div className="mx-auto w-9 h-9 bg-slate-900 rounded-xl border border-slate-800 flex items-center justify-center overflow-hidden shrink-0">
+        <div className="mx-auto w-9 h-9 bg-slate-900 rounded-none flex items-center justify-center overflow-hidden shrink-0">
           {logoContent}
         </div>
       )}
@@ -46,12 +46,12 @@ export default function SidebarHeader({
         id="toggle-sidebar-btn"
         type="button"
         onClick={onToggle}
-        className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/80 transition-colors hidden md:block cursor-pointer"
+        className="p-1.5 rounded-none text-slate-300 hover:text-white hover:bg-slate-800/80 transition-colors hidden md:block cursor-pointer group"
         title={collapsed ? 'Expand' : 'Collapse'}
       >
         {collapsed
-          ? <ChevronRight className="w-5 h-5" />
-          : <ChevronLeft  className="w-5 h-5" />}
+          ? <ChevronRight className="w-5.5 h-5.5 stroke-[2.5px]" />
+          : <ChevronLeft  className="w-5.5 h-5.5 stroke-[2.5px]" />}
       </button>
     </div>
   );

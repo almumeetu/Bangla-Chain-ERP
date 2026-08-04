@@ -159,6 +159,8 @@ interface ReportsModuleProps {
   shopSubBrand?:string;
   shopLogo?:    string;
   loggedInSrName?: string;
+  defaultTab?: ReportTab;
+  onTabChange?: (tab: ReportTab) => void;
 }
 
 type ReportTab = 'stock' | 'sales' | 'profit' | 'margin' | 'damage' | 'dp' | 'dayend';
@@ -177,12 +179,25 @@ export default function ReportsModule({
   shopSubBrand = 'Distribution Management System',
   shopLogo,
   loggedInSrName,
+  defaultTab = 'stock',
+  onTabChange
 }: ReportsModuleProps) {
   const t = translations[language].reports;
   const tCommon = translations[language].common;
 
   // Tabs (restricted to stock/sales for SR)
-  const [activeTab, setActiveTab] = useState<ReportTab>('stock');
+  const [activeTab, setActiveTab] = useState<ReportTab>(defaultTab);
+
+  React.useEffect(() => {
+    if (defaultTab) {
+      setActiveTab(defaultTab);
+    }
+  }, [defaultTab]);
+
+  const handleTabSelect = (tab: ReportTab) => {
+    setActiveTab(tab);
+    if (onTabChange) onTabChange(tab);
+  };
   
   // Sub-tabs for stock and sales reports
   const [stockSubTab, setStockSubTab] = useState<'company' | 'product'>('company');
@@ -773,23 +788,33 @@ export default function ReportsModule({
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-bold text-slate-400 uppercase">{language === 'bn' ? 'শুরু:' : 'From:'}</span>
-            <input
-              type="date"
-              disabled={preset !== 'custom'}
-              value={startDate}
-              onChange={e => setStartDate(e.target.value)}
-              className="h-9 px-3 rounded-xl border border-indigo-200 bg-white text-xs font-bold text-slate-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 disabled:bg-slate-50 disabled:text-slate-450 transition-all font-mono shadow-sm"
-            />
+            <div className="relative flex items-center">
+              <div className="absolute left-2.5 w-6 h-6 rounded-md bg-indigo-50 border border-indigo-200/60 flex items-center justify-center pointer-events-none z-10">
+                <Calendar className="w-3.5 h-3.5 text-indigo-500" />
+              </div>
+              <input
+                type="date"
+                disabled={preset !== 'custom'}
+                value={startDate}
+                onChange={e => setStartDate(e.target.value)}
+                className="h-9 pl-10 pr-2.5 rounded-xl border border-indigo-200 bg-white text-xs font-bold text-slate-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 disabled:bg-slate-50 disabled:text-slate-450 transition-all font-mono shadow-sm"
+              />
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-bold text-slate-400 uppercase">{language === 'bn' ? 'শেষ:' : 'To:'}</span>
-            <input
-              type="date"
-              disabled={preset !== 'custom'}
-              value={endDate}
-              onChange={e => setEndDate(e.target.value)}
-              className="h-9 px-3 rounded-xl border border-indigo-200 bg-white text-xs font-bold text-slate-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 disabled:bg-slate-50 disabled:text-slate-450 transition-all font-mono shadow-sm"
-            />
+            <div className="relative flex items-center">
+              <div className="absolute left-2.5 w-6 h-6 rounded-md bg-rose-50 border border-rose-200/60 flex items-center justify-center pointer-events-none z-10">
+                <Calendar className="w-3.5 h-3.5 text-rose-500" />
+              </div>
+              <input
+                type="date"
+                disabled={preset !== 'custom'}
+                value={endDate}
+                onChange={e => setEndDate(e.target.value)}
+                className="h-9 pl-10 pr-2.5 rounded-xl border border-indigo-200 bg-white text-xs font-bold text-slate-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 disabled:bg-slate-50 disabled:text-slate-450 transition-all font-mono shadow-sm"
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -878,85 +903,6 @@ export default function ReportsModule({
             </select>
           </div>
         </div>
-      </div>
-
-      {/* Tabs Row */}
-      <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-2xl w-fit">
-        <button
-          onClick={() => setActiveTab('stock')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-            activeTab === 'stock'
-              ? 'bg-white text-slate-900 shadow-sm border border-slate-200/50'
-              : 'text-slate-500 hover:text-slate-900'
-          }`}
-        >
-          {t.tabStock}
-        </button>
-        <button
-          onClick={() => setActiveTab('sales')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-            activeTab === 'sales'
-              ? 'bg-white text-slate-900 shadow-sm border border-slate-200/50'
-              : 'text-slate-500 hover:text-slate-900'
-          }`}
-        >
-          {t.tabSales}
-        </button>
-
-        {userRole === 'admin' && (
-          <>
-            <button
-              onClick={() => setActiveTab('damage')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                activeTab === 'damage'
-                  ? 'bg-white text-slate-900 shadow-sm border border-slate-200/50'
-                  : 'text-slate-500 hover:text-slate-900'
-              }`}
-            >
-              {t.tabDamage}
-            </button>
-            <button
-              onClick={() => setActiveTab('profit')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                activeTab === 'profit'
-                  ? 'bg-white text-slate-900 shadow-sm border border-slate-200/50'
-                  : 'text-slate-500 hover:text-slate-900'
-              }`}
-            >
-              {t.tabProfit}
-            </button>
-            <button
-              onClick={() => setActiveTab('margin')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                activeTab === 'margin'
-                  ? 'bg-white text-slate-900 shadow-sm border border-slate-200/50'
-                  : 'text-slate-500 hover:text-slate-900'
-              }`}
-            >
-              {t.profitMarginTitle.replace('Tool (DP/TP Variance)', '')}
-            </button>
-            <button
-              onClick={() => setActiveTab('dp')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                activeTab === 'dp'
-                  ? 'bg-white text-slate-900 shadow-sm border border-slate-200/50'
-                  : 'text-slate-500 hover:text-slate-900'
-              }`}
-            >
-              {language === 'bn' ? 'প্রাইস লিস্ট' : 'Price List'}
-            </button>
-            <button
-              onClick={() => setActiveTab('dayend')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                activeTab === 'dayend'
-                  ? 'bg-white text-slate-900 shadow-sm border border-slate-200/50'
-                  : 'text-slate-500 hover:text-slate-900'
-              }`}
-            >
-              {language === 'bn' ? 'দিন শেষ হিসাব' : 'Day-End Settlement'}
-            </button>
-          </>
-        )}
       </div>
 
       {/* TAB CONTENT: STOCK REPORT */}

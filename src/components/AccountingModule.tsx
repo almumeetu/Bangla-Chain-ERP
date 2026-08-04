@@ -32,6 +32,8 @@ interface AccountingModuleProps {
   procurements: Procurement[];
   onDownloadPDF: (view: 'dashboard' | 'procurement' | 'accounting') => void;
   language: Language;
+  defaultTab?: 'expenses' | 'profit-report';
+  onTabChange?: (tab: 'expenses' | 'profit-report') => void;
 }
 
 export default function AccountingModule({
@@ -42,13 +44,26 @@ export default function AccountingModule({
   challans,
   procurements,
   onDownloadPDF,
-  language
+  language,
+  defaultTab = 'expenses',
+  onTabChange
 }: AccountingModuleProps) {
   const tCommon = translations[language].common;
   const tAcc = translations[language].accounting;
 
   // Sub-tabs: 'expenses' or 'profit-report'
-  const [activeTab, setActiveTab] = useState<'expenses' | 'profit-report'>('expenses');
+  const [activeTab, setActiveTab] = useState<'expenses' | 'profit-report'>(defaultTab);
+
+  React.useEffect(() => {
+    if (defaultTab) {
+      setActiveTab(defaultTab);
+    }
+  }, [defaultTab]);
+
+  const handleTabSelect = (tab: 'expenses' | 'profit-report') => {
+    setActiveTab(tab);
+    if (onTabChange) onTabChange(tab);
+  };
 
   // Profit Report Dates State
   const [fromDate, setFromDate] = useState('2026-06-01');
@@ -265,34 +280,7 @@ export default function AccountingModule({
           <p className="text-slate-300 text-xs">{tAcc.subtitle}</p>
         </div>
 
-        <div className="flex bg-white/5 p-1 rounded-xl border border-white/10 shadow-sm shrink-0 z-10 relative">
-          <button
-            id="accounting-tab-exp"
-            onClick={() => setActiveTab('expenses')}
-            className={`px-4.5 py-2 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${activeTab === 'expenses'
-                ? 'bg-white text-slate-950 shadow-md font-bold'
-                : 'text-slate-300 hover:text-white hover:bg-white/5'
-              }`}
-          >
-            <DollarSign className={`w-4 h-4 ${activeTab === 'expenses' ? 'text-slate-900' : 'text-slate-400'}`} />
-            {tAcc.expensesTab}
-          </button>
 
-          <button
-            id="accounting-tab-profit"
-            onClick={() => {
-              setActiveTab('profit-report');
-              setTimeout(() => handleCalculateReport(), 50);
-            }}
-            className={`px-4.5 py-2 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${activeTab === 'profit-report'
-                ? 'bg-white text-slate-950 shadow-md font-bold'
-                : 'text-slate-300 hover:text-white hover:bg-white/5'
-              }`}
-          >
-            <PieChart className={`w-4 h-4 ${activeTab === 'profit-report' ? 'text-slate-900' : 'text-slate-400'}`} />
-            {tAcc.profitReportTab}
-          </button>
-        </div>
       </div>
 
       {/* SUB TAB RENDER: Expense logs */}
@@ -351,20 +339,23 @@ export default function AccountingModule({
                   {language === 'bn' ? 'ফিল্টার রিসেট করুন' : 'Reset Filters'}
                 </button>
               )}
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-md">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-md mt-2">
               {/* Start Date */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                   {language === 'bn' ? 'শুরুর তারিখ' : 'Start Date'}
                 </label>
-                <input
-                  type="date"
-                  value={expenseFilterStartDate}
-                  onChange={e => setExpenseFilterStartDate(e.target.value)}
-                  className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-750 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all shadow-sm"
-                />
+                <div className="relative flex items-center">
+                  <div className="absolute left-2.5 w-6 h-6 rounded-md bg-indigo-50 border border-indigo-200/60 flex items-center justify-center pointer-events-none z-10">
+                    <Calendar className="w-3.5 h-3.5 text-indigo-500" />
+                  </div>
+                  <input
+                    type="date"
+                    value={expenseFilterStartDate}
+                    onChange={e => setExpenseFilterStartDate(e.target.value)}
+                    className="w-full h-10 pl-10 pr-3 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-755 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all shadow-sm"
+                  />
+                </div>
               </div>
 
               {/* End Date */}
@@ -372,13 +363,19 @@ export default function AccountingModule({
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                   {language === 'bn' ? 'শেষের তারিখ' : 'End Date'}
                 </label>
-                <input
-                  type="date"
-                  value={expenseFilterEndDate}
-                  onChange={e => setExpenseFilterEndDate(e.target.value)}
-                  className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-750 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all shadow-sm"
-                />
+                <div className="relative flex items-center">
+                  <div className="absolute left-2.5 w-6 h-6 rounded-md bg-rose-50 border border-rose-200/60 flex items-center justify-center pointer-events-none z-10">
+                    <Calendar className="w-3.5 h-3.5 text-rose-500" />
+                  </div>
+                  <input
+                    type="date"
+                    value={expenseFilterEndDate}
+                    onChange={e => setExpenseFilterEndDate(e.target.value)}
+                    className="w-full h-10 pl-10 pr-3 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-755 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all shadow-sm"
+                  />
+                </div>
               </div>
+            </div>
             </div>
           </div>
 
@@ -599,30 +596,34 @@ export default function AccountingModule({
 
               <div>
                 <label className="mb-2 block text-sm font-semibold text-slate-700">{tAcc.fromDate}</label>
-                <div className="relative">
-                  <Calendar className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <div className="relative flex items-center">
+                  <div className="absolute left-2.5 w-7 h-7 rounded-md bg-indigo-50 border border-indigo-200/60 flex items-center justify-center pointer-events-none z-10">
+                    <Calendar className="w-4 h-4 text-indigo-500" />
+                  </div>
                   <input
                     id="profit-from-date"
                     type="date"
                     required
                     value={fromDate}
                     onChange={(e) => setFromDate(e.target.value)}
-                    className="h-11 w-full rounded-lg border-2 border-slate-200 bg-white pl-10 pr-3.5 text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all"
+                    className="h-11 w-full rounded-lg border-2 border-slate-200 bg-white pl-12 pr-3.5 text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all"
                   />
                 </div>
               </div>
 
               <div>
                 <label className="mb-2 block text-sm font-semibold text-slate-700">{tAcc.toDate}</label>
-                <div className="relative">
-                  <Calendar className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <div className="relative flex items-center">
+                  <div className="absolute left-2.5 w-7 h-7 rounded-md bg-rose-50 border border-rose-200/60 flex items-center justify-center pointer-events-none z-10">
+                    <Calendar className="w-4 h-4 text-rose-500" />
+                  </div>
                   <input
                     id="profit-to-date"
                     type="date"
                     required
                     value={toDate}
                     onChange={(e) => setToDate(e.target.value)}
-                    className="h-11 w-full rounded-lg border-2 border-slate-200 bg-white pl-10 pr-3.5 text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all"
+                    className="h-11 w-full rounded-lg border-2 border-slate-200 bg-white pl-12 pr-3.5 text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all"
                   />
                 </div>
               </div>

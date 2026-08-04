@@ -95,6 +95,7 @@ export interface Product {
   pricePerCarton: number;
   pricePerPiece: number;
   primaryUnit?: 'Piece' | 'Carton';
+  stockAlertThreshold?: number; // Alert when stock falls below this value (in primary unit pcs)
 }
 
 export interface ProductAttribute {
@@ -438,5 +439,7 @@ export interface Claim {
   reason: string;
   notes: string;
   status: 'Pending' | 'Approved' | 'Rejected';
+  type?: 'Claim' | 'Display';
+  claimValue?: number;
 }
 

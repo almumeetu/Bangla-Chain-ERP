@@ -63,6 +63,7 @@ interface DirectoryModuleProps {
   language: Language;
   /** Which sub-tab to open by default when rendered */
   defaultTab?: DirectoryTab;
+  onTabChange?: (tab: DirectoryTab) => void;
   /** Filter visible tabs — only show these. If undefined, show all. */
   visibleTabs?: DirectoryTab[];
   /** Override page title (used when accessed via dedicated sidebar menus) */
@@ -84,7 +85,8 @@ type DirectoryTab =
   | 'units'
   | 'godowns'
   | 'routes'
-  | 'deliveryMen';
+  | 'deliveryMen'
+  | 'stockAlerts';
 
 // --- SUB-COMPONENT: Product Catalog Row ---
 interface ProductRowProps {
@@ -149,7 +151,7 @@ function ProductRow({ p, index, companies, categories, units, godowns, onEdit, o
           <button
             type="button"
             onClick={handleEdit}
-            className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+            className="p-1.5 text-indigo-600 hover:text-indigo-700 bg-indigo-50/50 hover:bg-indigo-50 border border-indigo-100/70 rounded-lg transition-all active:scale-90 cursor-pointer shadow-2xs inline-flex items-center justify-center"
             title="Edit product"
           >
             <Edit3 className="w-4 h-4" />
@@ -157,7 +159,7 @@ function ProductRow({ p, index, companies, categories, units, godowns, onEdit, o
           <button
             type="button"
             onClick={handleDelete}
-            className="p-1.5 text-rose-500 hover:text-rose-900 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+            className="p-1.5 text-rose-600 hover:text-rose-750 bg-rose-50/50 hover:bg-rose-50 border border-rose-100/70 rounded-lg transition-all active:scale-90 cursor-pointer shadow-2xs inline-flex items-center justify-center"
             title="Delete product"
           >
             <Trash2 className="w-4 h-4" />
@@ -193,14 +195,14 @@ function SrRow({ sr, index, onEdit, onDelete }: SrRowProps) {
           <button
             type="button"
             onClick={handleEdit}
-            className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+            className="p-1.5 text-indigo-600 hover:text-indigo-700 bg-indigo-50/50 hover:bg-indigo-50 border border-indigo-100/70 rounded-lg transition-all active:scale-90 cursor-pointer shadow-2xs inline-flex items-center justify-center"
           >
             <Edit3 className="w-4 h-4" />
           </button>
           <button
             type="button"
             onClick={handleDelete}
-            className="p-1.5 text-rose-500 hover:text-rose-900 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+            className="p-1.5 text-rose-600 hover:text-rose-750 bg-rose-50/50 hover:bg-rose-50 border border-rose-100/70 rounded-lg transition-all active:scale-90 cursor-pointer shadow-2xs inline-flex items-center justify-center"
           >
             <Trash2 className="w-4 h-4" />
           </button>
@@ -258,14 +260,14 @@ function ShopRow({ c, index, routes, onEdit, onDelete, formatBDT }: ShopRowProps
           <button
             type="button"
             onClick={handleEdit}
-            className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+            className="p-1.5 text-indigo-600 hover:text-indigo-700 bg-indigo-50/50 hover:bg-indigo-50 border border-indigo-100/70 rounded-lg transition-all active:scale-90 cursor-pointer shadow-2xs inline-flex items-center justify-center"
           >
             <Edit3 className="w-4 h-4" />
           </button>
           <button
             type="button"
             onClick={handleDelete}
-            className="p-1.5 text-rose-500 hover:text-rose-900 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+            className="p-1.5 text-rose-600 hover:text-rose-750 bg-rose-50/50 hover:bg-rose-50 border border-rose-100/70 rounded-lg transition-all active:scale-90 cursor-pointer shadow-2xs inline-flex items-center justify-center"
           >
             <Trash2 className="w-4 h-4" />
           </button>
@@ -301,14 +303,14 @@ function CompanyRow({ comp, index, onEdit, onDelete }: CompanyRowProps) {
           <button
             type="button"
             onClick={handleEdit}
-            className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+            className="p-1.5 text-indigo-600 hover:text-indigo-700 bg-indigo-50/50 hover:bg-indigo-50 border border-indigo-100/70 rounded-lg transition-all active:scale-90 cursor-pointer shadow-2xs inline-flex items-center justify-center"
           >
             <Edit3 className="w-4 h-4" />
           </button>
           <button
             type="button"
             onClick={handleDelete}
-            className="p-1.5 text-rose-500 hover:text-rose-900 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+            className="p-1.5 text-rose-600 hover:text-rose-750 bg-rose-50/50 hover:bg-rose-50 border border-rose-100/70 rounded-lg transition-all active:scale-90 cursor-pointer shadow-2xs inline-flex items-center justify-center"
           >
             <Trash2 className="w-4 h-4" />
           </button>
@@ -340,14 +342,14 @@ function CategoryRow({ cat, index, onEdit, onDelete }: CategoryRowProps) {
           <button
             type="button"
             onClick={handleEdit}
-            className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+            className="p-1.5 text-indigo-600 hover:text-indigo-700 bg-indigo-50/50 hover:bg-indigo-50 border border-indigo-100/70 rounded-lg transition-all active:scale-90 cursor-pointer shadow-2xs inline-flex items-center justify-center"
           >
             <Edit3 className="w-4 h-4" />
           </button>
           <button
             type="button"
             onClick={handleDelete}
-            className="p-1.5 text-rose-500 hover:text-rose-900 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+            className="p-1.5 text-rose-600 hover:text-rose-750 bg-rose-50/50 hover:bg-rose-50 border border-rose-100/70 rounded-lg transition-all active:scale-90 cursor-pointer shadow-2xs inline-flex items-center justify-center"
           >
             <Trash2 className="w-4 h-4" />
           </button>
@@ -379,7 +381,7 @@ function UnitRow({ uom, index, onEdit, onDelete }: UnitRowProps) {
           <button
             type="button"
             onClick={handleEdit}
-            className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+            className="p-1.5 text-indigo-600 hover:text-indigo-700 bg-indigo-50/50 hover:bg-indigo-50 border border-indigo-100/70 rounded-lg transition-all active:scale-90 cursor-pointer shadow-2xs inline-flex items-center justify-center"
           >
             <Edit3 className="w-4 h-4" />
           </button>
@@ -426,14 +428,14 @@ function GodownRow({ g, index, onEdit, onDelete }: GodownRowProps) {
           <button
             type="button"
             onClick={handleEdit}
-            className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+            className="p-1.5 text-indigo-600 hover:text-indigo-700 bg-indigo-50/50 hover:bg-indigo-50 border border-indigo-100/70 rounded-lg transition-all active:scale-90 cursor-pointer shadow-2xs inline-flex items-center justify-center"
           >
             <Edit3 className="w-4 h-4" />
           </button>
           <button
             type="button"
             onClick={handleDelete}
-            className="p-1.5 text-rose-500 hover:text-rose-900 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+            className="p-1.5 text-rose-600 hover:text-rose-750 bg-rose-50/50 hover:bg-rose-50 border border-rose-100/70 rounded-lg transition-all active:scale-90 cursor-pointer shadow-2xs inline-flex items-center justify-center"
           >
             <Trash2 className="w-4 h-4" />
           </button>
@@ -469,7 +471,7 @@ function RouteRow({ r, index, srs, onEdit, onDelete }: RouteRowProps) {
           <button
             type="button"
             onClick={handleEdit}
-            className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+            className="p-1.5 text-indigo-600 hover:text-indigo-700 bg-indigo-50/50 hover:bg-indigo-50 border border-indigo-100/70 rounded-lg transition-all active:scale-90 cursor-pointer shadow-2xs inline-flex items-center justify-center"
           >
             <Edit3 className="w-4 h-4" />
           </button>
@@ -508,6 +510,7 @@ export default function DirectoryModule({
   setDeliveryMen,
   language,
   defaultTab,
+  onTabChange,
   visibleTabs,
   pageTitle,
   pageSubtitle,
@@ -519,7 +522,18 @@ export default function DirectoryModule({
   const tDir = dict[language].directory;
 
   const [activeSubTab, setActiveSubTab] = useState<DirectoryTab>(defaultTab || 'products');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+
+  useEffect(() => {
+    if (defaultTab) {
+      setActiveSubTab(defaultTab);
+    }
+  }, [defaultTab]);
+
+  const handleTabSelect = (tab: DirectoryTab) => {
+    setActiveSubTab(tab);
+    if (onTabChange) onTabChange(tab);
+  };
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   const ViewToggle = () => (
     <div className="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200">
@@ -602,6 +616,9 @@ export default function DirectoryModule({
   const [prodPricePerCarton, setProdPricePerCarton] = useState<number>(0);
   const [prodPricePerPiece, setProdPricePerPiece] = useState<number>(0);
   const [prodPrimaryUnit, setProdPrimaryUnit] = useState<'Piece' | 'Carton'>('Piece');
+  const [prodCreatedAt, setProdCreatedAt] = useState('');
+  const [prodAlertThreshold, setProdAlertThreshold] = useState<number>(50);
+  const [stockAlertFilter, setStockAlertFilter] = useState<'all' | 'out' | 'critical' | 'low'>('all');
 
   // Form Fields: SR
   const [srName, setSrName] = useState('');
@@ -813,7 +830,19 @@ export default function DirectoryModule({
       name: prodName,
       sku: prodSku,
       company: prodCompany,
-      createdAt: editingProduct?.createdAt || new Date().toISOString(),
+      createdAt: (() => {
+        const now = new Date();
+        const [year, month, day] = (prodCreatedAt || now.toISOString().split('T')[0]).split('-');
+        return new Date(
+          Number(year),
+          Number(month) - 1,
+          Number(day),
+          now.getHours(),
+          now.getMinutes(),
+          now.getSeconds(),
+          now.getMilliseconds()
+        ).toISOString();
+      })(),
       categoryId: prodCategoryId || undefined,
       customUnits: [{ name: 'Carton', multiplier: cs }],
       defaultGodownId: prodGodownId || undefined,
@@ -824,7 +853,8 @@ export default function DirectoryModule({
       cartonSize: cs,
       pricePerCarton: ctnPrice,
       pricePerPiece: piecePrice,
-      primaryUnit: prodPrimaryUnit
+      primaryUnit: prodPrimaryUnit,
+      stockAlertThreshold: Number(prodAlertThreshold) || 50
     };
 
     if (editingProduct) {
@@ -835,7 +865,7 @@ export default function DirectoryModule({
     }
 
     setShowProductModal(false);
-  }, [prodName, prodSku, prodCompany, prodCategoryId, prodCartonSize, prodPricePerCarton, prodPricePerPiece, prodGodownId, prodPP, prodMRP, prodStock, prodPrimaryUnit, editingProduct, setProducts, language]);
+  }, [prodName, prodSku, prodCompany, prodCategoryId, prodCartonSize, prodPricePerCarton, prodPricePerPiece, prodGodownId, prodPP, prodMRP, prodStock, prodPrimaryUnit, prodCreatedAt, prodAlertThreshold, editingProduct, setProducts, language]);
 
   // --- SUBMIT: SR ---
   const handleSrSubmit = useCallback((e: React.FormEvent) => {
@@ -1087,6 +1117,8 @@ export default function DirectoryModule({
     setProdPricePerCarton(0);
     setProdPricePerPiece(0);
     setProdPrimaryUnit('Piece');
+    setProdAlertThreshold(50);
+    setProdCreatedAt(new Date().toISOString().split('T')[0]);
     setShowProductModal(true);
   }, [companies, productCategories, godowns]);
 
@@ -1165,6 +1197,8 @@ export default function DirectoryModule({
     setProdPricePerCarton(Number(ctnPrice.toFixed(2)));
     setProdPricePerPiece(Number(pcsPrice.toFixed(2)));
     setProdPrimaryUnit(p.primaryUnit || 'Piece');
+    setProdAlertThreshold(p.stockAlertThreshold ?? 50);
+    setProdCreatedAt(p.createdAt ? p.createdAt.split('T')[0] : new Date().toISOString().split('T')[0]);
     setShowProductModal(true);
   }, []);
 
@@ -1290,39 +1324,41 @@ export default function DirectoryModule({
           <p className="text-slate-300 text-xs">{pageSubtitle || tDir.subtitle}</p>
         </div>
 
-        {/* Tab Selectors — filtered by visibleTabs if provided */}
-        <div className="flex flex-wrap bg-white/5 p-1 rounded-xl border border-white/10 shadow-sm gap-1 shrink-0 z-10 relative">
-          {[
-            { id: 'products', label: tDir.tabProducts, icon: Package },
-            { id: 'units', label: language === 'bn' ? 'পরিমাপের একক (UOM)' : 'Units of Measure (UOM)', icon: Layers },
-            { id: 'srs', label: tDir.tabSrs, icon: UserCheck },
-            { id: 'shops', label: tDir.tabShops || 'Retail Customers', icon: Building },
-            { id: 'damage', label: tDir.tabDamage || 'Damage List', icon: AlertTriangle },
-            { id: 'companies', label: tDir.tabCompanies, icon: Briefcase },
-            { id: 'godowns', label: tDir.tabGodowns, icon: HardDrive },
-            { id: 'routes', label: tDir.tabRoutes, icon: Compass },
-            { id: 'deliveryMen', label: language === 'bn' ? 'ডেলিভারি ম্যান' : 'Delivery Men', icon: Truck }
-          ]
-            .filter(tab => !visibleTabs || visibleTabs.includes(tab.id as DirectoryTab))
-            .map(tab => {
-              const Icon = tab.icon;
-              const isActive = activeSubTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setActiveSubTab(tab.id as DirectoryTab)}
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${isActive
-                    ? 'bg-white text-slate-950 shadow-md font-bold'
-                    : 'text-slate-300 hover:text-white hover:bg-white/5'
-                    }`}
-                >
-                  <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-slate-900' : 'text-slate-400'}`} />
-                  {tab.label}
-                </button>
-              );
-            })}
-        </div>
+        {/* Tab Selectors — only render when accessed directly without dedicated sidebar sub-menus */}
+        {!visibleTabs && (
+          <div className="flex flex-wrap bg-white/5 p-1 rounded-xl border border-white/10 shadow-sm gap-1 shrink-0 z-10 relative">
+            {[
+              { id: 'products', label: tDir.tabProducts, icon: Package },
+              { id: 'units', label: language === 'bn' ? 'পরিমাপের একক (UOM)' : 'Units of Measure (UOM)', icon: Layers },
+              { id: 'srs', label: tDir.tabSrs, icon: UserCheck },
+              { id: 'shops', label: tDir.tabShops || 'Retail Customers', icon: Building },
+              { id: 'damage', label: tDir.tabDamage || 'Damage List', icon: AlertTriangle },
+              { id: 'companies', label: tDir.tabCompanies, icon: Briefcase },
+              { id: 'godowns', label: tDir.tabGodowns, icon: HardDrive },
+              { id: 'routes', label: tDir.tabRoutes, icon: Compass },
+              { id: 'deliveryMen', label: language === 'bn' ? 'ডেলিভারি ম্যান' : 'Delivery Men', icon: Truck }
+            ]
+              .filter(tab => !visibleTabs || visibleTabs.includes(tab.id as DirectoryTab))
+              .map(tab => {
+                const Icon = tab.icon;
+                const isActive = activeSubTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => handleTabSelect(tab.id as DirectoryTab)}
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${isActive
+                      ? 'bg-white text-slate-950 shadow-md font-bold'
+                      : 'text-slate-300 hover:text-white hover:bg-white/5'
+                      }`}
+                  >
+                    <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-slate-900' : 'text-slate-400'}`} />
+                    {tab.label}
+                  </button>
+                );
+              })}
+          </div>
+        )}
       </div>
 
       {/* SUB-TAB: Products Catalog */}
@@ -1359,7 +1395,7 @@ export default function DirectoryModule({
           });
 
           adjustments.forEach(adj => {
-            if (adj.productId === product.id && adj.date && adj.date > targetDate) {
+            if (adj.productId === product.id && adj.date && adj.date.slice(0, 10) > targetDate) {
               stock -= adj.qtyChanged;
             }
           });
@@ -1585,13 +1621,15 @@ export default function DirectoryModule({
                     <label className="text-[10px] font-bold text-slate-500 tracking-wider block">
                       {language === 'bn' ? 'শুরুর তারিখ (রেজিস্ট্রেশন)' : 'From Date (Reg)'}
                     </label>
-                    <div className="relative">
-                      <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                    <div className="relative flex items-center rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 shadow-sm focus-within:border-indigo-500 focus-within:ring-4 focus-within:ring-indigo-100/80 overflow-hidden bg-white">
+                      <div className="absolute left-0 top-0 bottom-0 px-2.5 bg-indigo-500 border-r border-indigo-600 flex items-center justify-center text-white">
+                        <Calendar className="w-3.5 h-3.5" />
+                      </div>
                       <input
                         type="date"
                         value={productStartDate}
                         onChange={e => setProductStartDate(e.target.value)}
-                        className="w-full h-10 pl-9 pr-3 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-755 outline-none focus:border-indigo-500 transition-all"
+                        className="w-full h-10 pl-12 pr-3 bg-transparent text-xs font-semibold text-slate-700 font-mono outline-none cursor-pointer"
                       />
                     </div>
                   </div>
@@ -1601,13 +1639,15 @@ export default function DirectoryModule({
                     <label className="text-[10px] font-bold text-slate-500 tracking-wider block">
                       {language === 'bn' ? 'শেষের তারিখ (রেজিস্ট্রেশন)' : 'To Date (Reg)'}
                     </label>
-                    <div className="relative">
-                      <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                    <div className="relative flex items-center rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 shadow-sm focus-within:border-indigo-500 focus-within:ring-4 focus-within:ring-indigo-100/80 overflow-hidden bg-white">
+                      <div className="absolute left-0 top-0 bottom-0 px-2.5 bg-rose-500 border-r border-rose-600 flex items-center justify-center text-white">
+                        <Calendar className="w-3.5 h-3.5" />
+                      </div>
                       <input
                         type="date"
                         value={productEndDate}
                         onChange={e => setProductEndDate(e.target.value)}
-                        className="w-full h-10 pl-9 pr-3 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-755 outline-none focus:border-indigo-500 transition-all"
+                        className="w-full h-10 pl-12 pr-3 bg-transparent text-xs font-semibold text-slate-700 font-mono outline-none cursor-pointer"
                       />
                     </div>
                   </div>
@@ -1679,10 +1719,16 @@ export default function DirectoryModule({
                           <tr key={p.id} className="hover:bg-slate-50 transition-colors">
                             <td className="px-5 py-3.5">
                               <div className="font-bold text-slate-900 text-sm mb-0.5">{p.name}</div>
-                              <div className="text-[10px] font-medium text-slate-400 uppercase tracking-wide">{p.sku}</div>
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <span className="text-[10px] font-medium text-slate-400 font-mono">{p.sku}</span>
+                                <span className="text-slate-300">|</span>
+                                <span className="text-[9px] font-bold text-indigo-500 font-mono flex items-center gap-1" title={language === 'bn' ? 'এন্ট্রি তারিখ' : 'Registration Date'}>
+                                  📅 {new Date(p.createdAt).toLocaleDateString('en-BD')}
+                                </span>
+                              </div>
                             </td>
-                            <td className="px-5 py-3.5">
-                              <span className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border shadow-sm ${getCompanyBadgeStyle(p.company)}`}>
+                            <td className="px-5 py-3.5 whitespace-nowrap">
+                              <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold whitespace-nowrap border shadow-2xs ${getCompanyBadgeStyle(p.company)}`}>
                                 {p.company}
                               </span>
                             </td>
@@ -1702,13 +1748,13 @@ export default function DirectoryModule({
                             <td className="px-5 py-3.5 text-xs text-right font-semibold text-slate-600 whitespace-nowrap font-mono">
                               {formatBDT(p.defaultPP)}/{p.primaryUnit === 'Carton' ? 'Ctn' : 'pc'}
                             </td>
-                            <td className="px-5 py-3.5 text-xs text-right text-indigo-600 font-bold whitespace-nowrap font-mono">
+                            <td className="px-5 py-3.5 text-xs text-right text-indigo-600 font-semibold whitespace-nowrap font-mono">
                               {formatBDT(tp)}/{p.primaryUnit === 'Carton' ? 'Ctn' : 'pc'}
                             </td>
-                            <td className="px-5 py-3.5 text-xs text-right text-emerald-600 font-bold whitespace-nowrap font-mono">
+                            <td className="px-5 py-3.5 text-xs text-right text-emerald-600 font-semibold whitespace-nowrap font-mono">
                               {formatBDT(stockValDP)}
                             </td>
-                            <td className="px-5 py-3.5 text-xs text-right text-slate-900 font-extrabold whitespace-nowrap font-mono">
+                            <td className="px-5 py-3.5 text-xs text-right text-slate-900 font-semibold whitespace-nowrap font-mono">
                               {formatBDT(stockValTP)}
                             </td>
                           </tr>
@@ -1722,195 +1768,128 @@ export default function DirectoryModule({
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {filteredProducts.map(p => {
                   const primaryUnit = p.customUnits && p.customUnits.length > 0 ? p.customUnits[0] : null;
-                  const uomName = primaryUnit ? `${primaryUnit.name} (${primaryUnit.multiplier})` : 'Pcs';
-                  const multiplier = primaryUnit ? primaryUnit.multiplier : 1;
                   const godownName = godowns.find(g => g.id === p.defaultGodownId)?.name || 'Main Godown';
                   const marginPct = p.defaultWSP > 0 ? ((p.defaultWSP - p.defaultPP) / p.defaultWSP) * 100 : 0;
-
                   const displayStock = stockHistoryDate ? getHistoricStockForProduct(p, stockHistoryDate) : p.currentStock;
-                  const isLowStock = displayStock < 600;
+                  const alertThreshold = p.stockAlertThreshold ?? 50;
+                  const isLowStock = displayStock <= alertThreshold;
+                  const tpPrice = p.primaryUnit === 'Carton' ? (p.pricePerCarton || p.defaultWSP) : (p.pricePerPiece || p.defaultWSP);
 
                   let brandTheme = {
-                    border: "hover:border-purple-300",
-                    bgGradient: "from-purple-50/30 via-white to-white border-slate-200",
-                    badge: "bg-purple-50 text-purple-700 border-purple-200",
-                    valText: "text-purple-700",
-                    valBg: "bg-purple-50/40 border-purple-100",
-                    shadow: "shadow-purple-100/50"
+                    border: 'hover:border-purple-300',
+                    bgGradient: 'from-purple-50/30 via-white to-white border-slate-200',
+                    valText: 'text-purple-700',
+                    valBg: 'bg-purple-50/40 border-purple-100',
                   };
-
                   const compLower = p.company.toLowerCase();
                   if (compLower === 'pran') {
-                    brandTheme = {
-                      border: "hover:border-orange-300",
-                      bgGradient: "from-orange-50/30 via-white to-white border-slate-200",
-                      badge: "bg-orange-50 text-orange-700 border-orange-200",
-                      valText: "text-orange-700",
-                      valBg: "bg-orange-50/40 border-orange-100",
-                      shadow: "shadow-orange-100/50"
-                    };
+                    brandTheme = { border: 'hover:border-orange-300', bgGradient: 'from-orange-50/30 via-white to-white border-slate-200', valText: 'text-orange-700', valBg: 'bg-orange-50/40 border-orange-100' };
                   } else if (compLower === 'olympic') {
-                    brandTheme = {
-                      border: "hover:border-blue-300",
-                      bgGradient: "from-blue-50/30 via-white to-white border-slate-200",
-                      badge: "bg-blue-50 text-blue-700 border-blue-200",
-                      valText: "text-blue-700",
-                      valBg: "bg-blue-50/40 border-blue-100",
-                      shadow: "shadow-blue-100/50"
-                    };
+                    brandTheme = { border: 'hover:border-blue-300', bgGradient: 'from-blue-50/30 via-white to-white border-slate-200', valText: 'text-blue-700', valBg: 'bg-blue-50/40 border-blue-100' };
                   } else if (compLower === 'haque') {
-                    brandTheme = {
-                      border: "hover:border-emerald-300",
-                      bgGradient: "from-emerald-50/30 via-white to-white border-slate-200",
-                      badge: "bg-emerald-50 text-emerald-700 border-emerald-200",
-                      valText: "text-emerald-700",
-                      valBg: "bg-emerald-50/40 border-emerald-100",
-                      shadow: "shadow-emerald-100/50"
-                    };
+                    brandTheme = { border: 'hover:border-emerald-300', bgGradient: 'from-emerald-50/30 via-white to-white border-slate-200', valText: 'text-emerald-700', valBg: 'bg-emerald-50/40 border-emerald-100' };
                   } else if (compLower === 'coca-cola' || compLower === 'coca cola') {
-                    brandTheme = {
-                      border: "hover:border-red-300",
-                      bgGradient: "from-red-50/30 via-white to-white border-slate-200",
-                      badge: "bg-red-50 text-red-700 border-red-200",
-                      valText: "text-red-700",
-                      valBg: "bg-red-50/40 border-red-100",
-                      shadow: "shadow-red-100/50"
-                    };
+                    brandTheme = { border: 'hover:border-red-300', bgGradient: 'from-red-50/30 via-white to-white border-slate-200', valText: 'text-red-700', valBg: 'bg-red-50/40 border-red-100' };
                   }
 
                   return (
                     <div
                       key={p.id}
-                      className={`bg-gradient-to-br ${brandTheme.bgGradient} rounded-3xl border p-5 shadow-sm hover:shadow-md ${brandTheme.border} transition-all duration-300 flex flex-col justify-between space-y-4 group relative overflow-hidden`}
+                      className={`bg-gradient-to-br ${brandTheme.bgGradient} rounded-2xl border p-5 shadow-sm hover:shadow-md ${brandTheme.border} transition-all duration-200 flex flex-col gap-4 group relative overflow-hidden`}
                     >
-                      <div className="absolute -right-20 -top-20 w-36 h-36 rounded-full bg-slate-50 group-hover:bg-blue-500/5 transition-all duration-500 pointer-events-none" />
+                      <div className="absolute -right-16 -top-16 w-32 h-32 rounded-full bg-slate-50 group-hover:bg-slate-100/50 transition-all duration-500 pointer-events-none" />
 
-                      <div className="space-y-2.5 relative z-10">
-                        <div className="flex items-center justify-between">
-                          <span
-                            title={p.company}
-                            className={`inline-block px-2.5 py-1 rounded-md text-[10px] font-semibold uppercase tracking-wider max-w-[120px] truncate align-middle border ${getCompanyBadgeStyle(p.company)}`}
-                          >
+                      {/* Header */}
+                      <div className="relative z-10">
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-[9px] font-medium border whitespace-nowrap ${getCompanyBadgeStyle(p.company)}`}>
                             {p.company}
                           </span>
-                          <span className="font-mono text-[9px] font-bold text-slate-400 uppercase tracking-wide">
-                            {p.sku}
-                          </span>
+                          <div className="text-right flex items-center gap-1.5">
+                            {isLowStock && (
+                              <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium border ${
+                                p.currentStock === 0 ? 'bg-rose-50 text-rose-600 border-rose-200' : 'bg-amber-50 text-amber-600 border-amber-200'
+                              }`}>
+                                <span className={`w-1 h-1 rounded-full ${ p.currentStock === 0 ? 'bg-rose-500 animate-pulse' : 'bg-amber-400'}`} />
+                                {p.currentStock === 0 ? 'Out' : 'Low'}
+                              </span>
+                            )}
+                            <span className="font-mono text-[9px] text-slate-400">{p.sku}</span>
+                          </div>
                         </div>
-
-                        <h4 className="font-bold text-slate-800 text-sm sm:text-base group-hover:text-slate-900 transition-colors line-clamp-1 leading-snug">
-                          {p.name}
-                        </h4>
+                        <h4 className="font-semibold text-slate-800 text-sm line-clamp-2 leading-snug">{p.name}</h4>
                         {p.defaultPP >= p.defaultWSP && (
-                          <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-rose-50 text-rose-600 border border-rose-100 text-[8px] font-bold animate-pulse">
-                            <AlertTriangle className="w-2.5 h-2.5 shrink-0" />
-                            {"Price Rule Violation: DP >= TP"}
+                          <div className="mt-1 inline-flex items-center gap-1 text-[9px] text-rose-600">
+                            <AlertTriangle className="w-2.5 h-2.5" />
+                            Price violation: DP ≥ TP
                           </div>
                         )}
+                        <div className="flex items-center gap-1.5 mt-1.5 text-[9px] text-slate-400">
+                          <span>{p.primaryUnit === 'Carton' ? `1 Ctn = ${p.cartonSize || 24} pcs` : `Carton: ${p.cartonSize || 24} pcs`}</span>
+                          {godownName !== 'Main Godown' && godownName !== 'N/A' && (
+                            <><span>·</span><span>{godownName}</span></>
+                          )}
+                        </div>
+                      </div>
 
-                        <div className="flex flex-wrap items-center gap-1.5 text-[9px] font-bold uppercase tracking-wide">
-                           <span className="bg-purple-50 text-purple-700 border border-purple-100 px-2 py-0.5 rounded">
-                             {language === 'bn' ? `১ কার্টন = ${p.cartonSize || 24} পিস` : `1 Carton = ${p.cartonSize || 24} Pcs`}
-                           </span>
-                           {godownName !== 'Main Godown' && godownName !== 'N/A' && (
-                             <span className="bg-amber-50 text-amber-700 border border-amber-100 px-2 py-0.5 rounded">{godownName}</span>
-                           )}
-                         </div>
-                       </div>
-                       {/* Stock Meter */}
-                       <div className="space-y-1.5 relative z-10 pt-1">
-                         <div className="flex items-center justify-between text-[10px] font-bold text-slate-500">
-                           <span>{language === 'bn' ? 'স্টক লেভেল' : 'Stock Level'}</span>
-                           <div className="text-right">
-                             <div className={isLowStock ? "text-amber-600 animate-pulse font-extrabold" : "text-slate-700"}>
-                               <div className="space-y-0.5">
-                                 <div className="text-xs">
-                                   {formatStock(displayStock, p.cartonSize || 24, p.primaryUnit)}
-                                 </div>
-                                 {p.primaryUnit !== 'Carton' && (
-                                   <div className="text-[9px] text-slate-400">
-                                     (Total: {displayStock.toLocaleString()} Pcs)
-                                   </div>
-                                 )}
-                               </div>
-                             </div>
-                             <span className={`text-[10px] ${brandTheme.valText} ${brandTheme.valBg} border px-2 py-0.5 rounded font-mono block mt-1 font-bold`}>
-                                Val: DP {(displayStock * p.defaultPP).toLocaleString('en-BD')} | TP {(displayStock * (p.primaryUnit === 'Carton' ? (p.pricePerCarton || p.defaultWSP) : (p.pricePerPiece || p.defaultWSP))).toLocaleString('en-BD')}
-                              </span>
-                           </div>
-                         </div>
-                         <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                           <div
-                             style={{ width: `${Math.min(100, (displayStock / 5000) * 100)}%` }}
-                             className={`h-full rounded-full transition-all duration-500 ${isLowStock ? 'bg-amber-500' : 'bg-emerald-500'}`}
-                           />
-                         </div>
-                       </div>
- 
-                       {/* Prices Grid */}
-                       <div className="grid grid-cols-2 gap-2 relative z-10 pt-1 text-center">
-                         {p.primaryUnit === 'Carton' ? (
-                           <>
-                             <div className="bg-blue-50/40 rounded-xl p-2 border border-blue-100 flex flex-col justify-between">
-                               <span className="text-[8px] text-blue-500 font-extrabold uppercase tracking-wider block">TP Price / Ctn</span>
-                               <span className="font-mono text-xs font-black text-blue-700">{formatBDT(p.pricePerCarton || p.defaultWSP)}</span>
-                             </div>
-                             <div className="bg-emerald-50/40 rounded-xl p-2 border border-emerald-100 flex flex-col justify-between">
-                               <span className="text-[8px] text-emerald-600 font-extrabold uppercase tracking-wider block">DP Price / Ctn</span>
-                               <span className="font-mono text-xs font-black text-emerald-700">{formatBDT(p.defaultPP)}</span>
-                             </div>
-                           </>
-                         ) : (
-                           <>
-                             <div className="bg-blue-50/40 rounded-xl p-2 border border-blue-100 flex flex-col justify-between">
-                               <span className="text-[8px] text-blue-500 font-extrabold uppercase tracking-wider block">TP Price / Piece</span>
-                               <span className="font-mono text-xs font-black text-blue-700">{formatBDT(p.pricePerPiece || p.defaultWSP)}</span>
-                             </div>
-                             <div className="bg-emerald-50/40 rounded-xl p-2 border border-emerald-100 flex flex-col justify-between">
-                               <span className="text-[8px] text-emerald-600 font-extrabold uppercase tracking-wider block">DP Price / Piece</span>
-                               <span className="font-mono text-xs font-black text-emerald-700">{formatBDT(p.defaultPP)}</span>
-                             </div>
-                           </>
-                         )}
-                       </div>
-                       <div className="grid grid-cols-2 gap-2 text-center text-[9px] text-slate-450 font-bold border-t border-slate-100 pt-2">
-                         {p.primaryUnit === 'Carton' ? (
-                           <>
-                             <div>DP (Ctn): {formatBDT(p.defaultPP)}/Ctn</div>
-                             <div>MRP: {formatBDT(p.defaultMRP)}/Ctn</div>
-                           </>
-                         ) : (
-                           <>
-                             <div>TP (Ctn): {formatBDT(p.pricePerCarton || (p.defaultWSP * (p.cartonSize || 24)))}/Ctn</div>
-                             <div>MRP: {formatBDT(p.defaultMRP)}/pc</div>
-                           </>
-                         )}
-                       </div>
-                      {/* Margin Info & Actions */}
-                      <div className="pt-3 border-t border-slate-100 flex items-center justify-between relative z-10">
-                        <div className="space-y-0.5">
-                          <span className="text-[9px] text-slate-400 uppercase font-bold block">{language === 'bn' ? 'পাইকারি মার্জিন' : 'Wholesale Margin'}</span>
-                          <span className="font-mono text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 inline-block">
-                            +{marginPct.toFixed(1)}%
+                      {/* Prices */}
+                      <div className="grid grid-cols-2 gap-2 relative z-10">
+                        <div className="bg-white/70 rounded-xl p-2.5 border border-slate-100 text-center">
+                          <div className="text-[8px] text-slate-400 uppercase tracking-wider mb-0.5">TP / {p.primaryUnit === 'Carton' ? 'Ctn' : 'pc'}</div>
+                          <div className="font-mono text-xs font-semibold text-slate-800">{formatBDT(tpPrice)}</div>
+                        </div>
+                        <div className="bg-white/70 rounded-xl p-2.5 border border-slate-100 text-center">
+                          <div className="text-[8px] text-slate-400 uppercase tracking-wider mb-0.5">DP / {p.primaryUnit === 'Carton' ? 'Ctn' : 'pc'}</div>
+                          <div className="font-mono text-xs font-semibold text-slate-700">{formatBDT(p.defaultPP)}</div>
+                        </div>
+                        <div className="bg-white/70 rounded-xl p-2.5 border border-slate-100 text-center">
+                          <div className="text-[8px] text-slate-400 uppercase tracking-wider mb-0.5">MRP</div>
+                          <div className="font-mono text-xs text-slate-600">{formatBDT(p.defaultMRP)}</div>
+                        </div>
+                        <div className="bg-white/70 rounded-xl p-2.5 border border-slate-100 text-center">
+                          <div className="text-[8px] text-slate-400 uppercase tracking-wider mb-0.5">Margin</div>
+                          <div className={`font-mono text-xs font-semibold ${marginPct > 0 ? 'text-emerald-600' : 'text-slate-500'}`}>+{marginPct.toFixed(1)}%</div>
+                        </div>
+                      </div>
+
+                      {/* Stock bar */}
+                      <div className="relative z-10">
+                        <div className="flex items-center justify-between mb-1 text-[10px] text-slate-500">
+                          <span>{language === 'bn' ? 'স্টক' : 'Stock'}</span>
+                          <span className={`font-mono font-semibold ${isLowStock ? 'text-amber-600' : 'text-slate-700'}`}>
+                            {formatStock(displayStock, p.cartonSize || 24, p.primaryUnit)}
                           </span>
                         </div>
+                        <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                          <div
+                            style={{ width: `${Math.min(100, (displayStock / Math.max(alertThreshold * 4, 100)) * 100)}%` }}
+                            className={`h-full rounded-full transition-all ${ isLowStock ? 'bg-amber-400' : 'bg-emerald-500'}`}
+                          />
+                        </div>
+                        <div className={`text-[9px] mt-1 ${brandTheme.valText} ${brandTheme.valBg} border px-2 py-0.5 rounded font-mono inline-block`}>
+                          Val: DP {(displayStock * p.defaultPP).toLocaleString('en-BD')} | TP {(displayStock * tpPrice).toLocaleString('en-BD')}
+                        </div>
+                      </div>
 
+                      {/* Actions */}
+                      <div className="pt-3 border-t border-slate-100/80 flex items-center justify-between relative z-10">
+                        <span className="text-[9px] text-slate-400 font-mono">{new Date(p.createdAt).toLocaleDateString('en-BD')}</span>
                         <div className="flex items-center gap-1">
                           <button
                             type="button"
                             onClick={() => startEditProduct(p)}
-                            className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer border border-transparent hover:border-slate-200"
+                            className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
                             title="Edit product"
                           >
-                            <Edit3 className="w-4 h-4" />
+                            <Edit3 className="w-3.5 h-3.5" />
                           </button>
                           <button
                             type="button"
                             onClick={() => handleDeleteProduct(p.id)}
-                            className="p-2 text-rose-500 hover:text-rose-900 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer border border-transparent hover:border-rose-100"
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
                             title="Delete product"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       </div>
@@ -2089,12 +2068,18 @@ export default function DirectoryModule({
                           <tr key={p.id} className="hover:bg-slate-50 transition-colors group">
                             <td className="px-5 py-3.5">
                               <div className="font-bold text-slate-900 text-sm mb-0.5">{p.name}</div>
-                              <div className="text-[10px] font-medium text-slate-400 uppercase tracking-wide">{p.sku}</div>
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <span className="text-[10px] font-medium text-slate-400 font-mono">{p.sku}</span>
+                                <span className="text-slate-300">|</span>
+                                <span className="text-[9px] font-bold text-indigo-500 font-mono flex items-center gap-1" title={language === 'bn' ? 'এন্ট্রি তারিখ' : 'Registration Date'}>
+                                  📅 {new Date(p.createdAt).toLocaleDateString('en-BD')}
+                                </span>
+                              </div>
                             </td>
-                            <td className="px-5 py-3.5">
+                            <td className="px-5 py-3.5 whitespace-nowrap">
                               <span
                                 title={p.company}
-                                className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider max-w-[120px] truncate align-middle border shadow-sm ${getCompanyBadgeStyle(p.company)}`}
+                                className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold whitespace-nowrap border shadow-2xs ${getCompanyBadgeStyle(p.company)}`}
                               >
                                 {p.company}
                               </span>
@@ -2708,7 +2693,7 @@ export default function DirectoryModule({
                         <div className="flex items-center justify-between">
                           <span
                             title={p.company}
-                            className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider max-w-[120px] truncate align-middle border shadow-sm ${getCompanyBadgeStyle(p.company)}`}
+                            className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold whitespace-nowrap border shadow-2xs ${getCompanyBadgeStyle(p.company)}`}
                           >
                             {p.company}
                           </span>
@@ -2853,10 +2838,10 @@ export default function DirectoryModule({
                                 )}
                               </div>
                             </td>
-                            <td className="px-5 py-3.5">
+                            <td className="px-5 py-3.5 whitespace-nowrap">
                               <span
                                 title={p.company}
-                                className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider max-w-[120px] truncate align-middle border shadow-sm ${getCompanyBadgeStyle(p.company)}`}
+                                className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold whitespace-nowrap border shadow-2xs ${getCompanyBadgeStyle(p.company)}`}
                               >
                                 {p.company}
                               </span>
@@ -3014,6 +2999,241 @@ export default function DirectoryModule({
           </div>
         </div>
       )}
+
+
+      {/* SUB-TAB: Stock Alerts */}
+      {activeSubTab === 'stockAlerts' && (() => {
+        const allAlertProducts = products.filter(p => p.currentStock <= (p.stockAlertThreshold ?? 50));
+        const outOfStock = allAlertProducts.filter(p => p.currentStock === 0);
+        const critical = allAlertProducts.filter(p => {
+          const t = p.stockAlertThreshold ?? 50;
+          return p.currentStock > 0 && p.currentStock <= Math.ceil(t * 0.3);
+        });
+        const low = allAlertProducts.filter(p => {
+          const t = p.stockAlertThreshold ?? 50;
+          return p.currentStock > Math.ceil(t * 0.3);
+        });
+
+        const displayed = stockAlertFilter === 'out' ? outOfStock
+          : stockAlertFilter === 'critical' ? critical
+          : stockAlertFilter === 'low' ? low
+          : allAlertProducts;
+
+        return (
+          <div className="space-y-5">
+            {/* Header */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+                <div>
+                  <h2 className="text-base font-semibold text-slate-800 flex items-center gap-2">
+                    <span className="inline-flex w-7 h-7 items-center justify-center rounded-lg bg-rose-500 text-white">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                      </svg>
+                    </span>
+                    {language === 'bn' ? 'স্টক অ্যালার্ট' : 'Stock Alerts'}
+                  </h2>
+                  <p className="text-xs text-slate-400 mt-1">
+                    {language === 'bn'
+                      ? 'অ্যালার্ট সীমার নিচে থাকা পণ্যগুলো। ফিল্টার করতে ব্যাজে ক্লিক করুন।'
+                      : 'Products below their alert threshold. Click a badge to filter by status.'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Clickable filter badges & Summary Valuation */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex flex-wrap gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setStockAlertFilter('all')}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all cursor-pointer ${
+                      stockAlertFilter === 'all'
+                        ? 'bg-slate-800 text-white border-slate-800 shadow-xs'
+                        : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    {language === 'bn' ? 'সব পণ্য' : 'All Alerts'} ({allAlertProducts.length})
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setStockAlertFilter(stockAlertFilter === 'out' ? 'all' : 'out')}
+                    className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border text-xs font-medium transition-all cursor-pointer ${
+                      stockAlertFilter === 'out'
+                        ? 'bg-rose-100 text-rose-800 border-rose-400 ring-2 ring-rose-200/50 shadow-2xs font-semibold'
+                        : 'bg-rose-50/40 text-rose-700 border-rose-200/80 hover:bg-rose-50'
+                    }`}
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full ${stockAlertFilter === 'out' ? 'bg-rose-600' : 'bg-rose-500 animate-pulse'}`} />
+                    {outOfStock.length} {language === 'bn' ? 'স্টক শেষ' : 'Out of stock'}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setStockAlertFilter(stockAlertFilter === 'critical' ? 'all' : 'critical')}
+                    className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border text-xs font-medium transition-all cursor-pointer ${
+                      stockAlertFilter === 'critical'
+                        ? 'bg-orange-100 text-orange-850 border-orange-400 ring-2 ring-orange-200/50 shadow-2xs font-semibold'
+                        : 'bg-orange-50/40 text-orange-700 border-orange-200/80 hover:bg-orange-50'
+                    }`}
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full ${stockAlertFilter === 'critical' ? 'bg-orange-600' : 'bg-orange-500'}`} />
+                    {critical.length} {language === 'bn' ? 'সংকটজনক' : 'Critical'}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setStockAlertFilter(stockAlertFilter === 'low' ? 'all' : 'low')}
+                    className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border text-xs font-medium transition-all cursor-pointer ${
+                      stockAlertFilter === 'low'
+                        ? 'bg-amber-100 text-amber-900 border-amber-400 ring-2 ring-amber-300/50 shadow-2xs font-semibold'
+                        : 'bg-amber-50/40 text-amber-700 border-amber-200/80 hover:bg-amber-50'
+                    }`}
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full ${stockAlertFilter === 'low' ? 'bg-amber-500' : 'bg-amber-400'}`} />
+                    {low.length} {language === 'bn' ? 'কম স্টক' : 'Low Stock'}
+                  </button>
+                </div>
+
+                {displayed.length > 0 && (
+                  <div className="flex items-center gap-3 text-[11px] text-slate-500 font-medium font-mono bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200/60 self-start md:self-auto">
+                    <span>Val (DP): <strong className="text-slate-800">{formatBDT(displayed.reduce((sum, p) => sum + (p.currentStock * p.defaultPP), 0))}</strong></span>
+                    <span className="text-slate-300">|</span>
+                    <span>Val (TP): <strong className="text-indigo-650">{formatBDT(displayed.reduce((sum, p) => sum + (p.currentStock * (p.primaryUnit === 'Carton' ? (p.pricePerCarton || p.defaultWSP) : (p.pricePerPiece || p.defaultWSP))), 0))}</strong></span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {allAlertProducts.length === 0 ? (
+              <div className="bg-white border border-slate-200 rounded-2xl p-12 shadow-sm flex flex-col items-center justify-center text-center">
+                <div className="w-14 h-14 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center mb-4">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-7 h-7 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+                  </svg>
+                </div>
+                <p className="text-sm font-medium text-slate-700">{language === 'bn' ? 'সব পণ্যের স্টক স্বাভাবিক' : 'All products are well-stocked'}</p>
+                <p className="text-xs text-slate-400 mt-1">{language === 'bn' ? 'কোনো পণ্য অ্যালার্ট সীমার নিচে নেই।' : 'No products are below their alert threshold.'}</p>
+              </div>
+            ) : (
+              <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                {/* Section label when filtered */}
+                {stockAlertFilter !== 'all' && (
+                  <div className={`px-5 py-2.5 border-b text-xs font-medium ${
+                    stockAlertFilter === 'out' ? 'bg-rose-50 border-rose-100 text-rose-700'
+                    : stockAlertFilter === 'critical' ? 'bg-orange-50 border-orange-100 text-orange-700'
+                    : 'bg-amber-50 border-amber-100 text-amber-700'
+                  }`}>
+                    {stockAlertFilter === 'out' ? (language === 'bn' ? `স্টক শেষ — ${displayed.length}টি পণ্য` : `Out of Stock — ${displayed.length} products`)
+                    : stockAlertFilter === 'critical' ? (language === 'bn' ? `সংকটজনক — ${displayed.length}টি পণ্য` : `Critical — ${displayed.length} products`)
+                    : (language === 'bn' ? `কম স্টক — ${displayed.length}টি পণ্য` : `Low Stock — ${displayed.length} products`)}
+                  </div>
+                )}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse min-w-[700px]">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+                        <th className="px-5 py-3.5">{language === 'bn' ? 'অবস্থা' : 'Status'}</th>
+                        <th className="px-5 py-3.5">{language === 'bn' ? 'পণ্য' : 'Product'}</th>
+                        <th className="px-5 py-3.5">{language === 'bn' ? 'কোম্পানি' : 'Company'}</th>
+                        <th className="px-5 py-3.5 text-right">{language === 'bn' ? 'বর্তমান স্টক' : 'Current Stock'}</th>
+                        <th className="px-5 py-3.5 text-right">{language === 'bn' ? 'সীমা' : 'Threshold'}</th>
+                        <th className="px-5 py-3.5 w-36">{language === 'bn' ? 'মাত্রা' : 'Level'}</th>
+                        <th className="px-5 py-3.5 text-right">{language === 'bn' ? 'অ্যাকশন' : 'Action'}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {displayed.map(p => {
+                        const threshold = p.stockAlertThreshold ?? 50;
+                        const pct = threshold > 0 ? Math.min(100, Math.round((p.currentStock / threshold) * 100)) : 0;
+                        const isEmpty = p.currentStock === 0;
+                        const isCritical = !isEmpty && pct <= 30;
+                        const barColor = isEmpty ? 'bg-rose-500' : isCritical ? 'bg-orange-500' : 'bg-amber-400';
+                        const statusLabel = isEmpty
+                          ? (language === 'bn' ? 'শেষ' : 'Out of Stock')
+                          : isCritical
+                            ? (language === 'bn' ? 'সংকটজনক' : 'Critical')
+                            : (language === 'bn' ? 'কম স্টক' : 'Low Stock');
+                        const statusColor = isEmpty
+                          ? 'bg-rose-50 text-rose-700 border-rose-200'
+                          : isCritical
+                            ? 'bg-orange-50 text-orange-700 border-orange-200'
+                            : 'bg-amber-50 text-amber-700 border-amber-200';
+                        const dotColor = isEmpty ? 'bg-rose-500 animate-pulse' : isCritical ? 'bg-orange-500' : 'bg-amber-400';
+
+                        return (
+                          <tr key={p.id} className="hover:bg-slate-50/60 transition-colors">
+                            <td className="px-5 py-3.5">
+                              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-medium ${statusColor}`}>
+                                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${dotColor}`} />
+                                {statusLabel}
+                              </span>
+                            </td>
+                            <td className="px-5 py-3.5">
+                              <div className="text-sm font-medium text-slate-800">{p.name}</div>
+                              <div className="text-[10px] text-slate-400 font-mono mt-0.5">{p.sku}</div>
+                            </td>
+                            <td className="px-5 py-3.5">
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded text-[9px] font-medium border whitespace-nowrap ${getCompanyBadgeStyle(p.company)}`}>
+                                {p.company}
+                              </span>
+                            </td>
+                            <td className="px-5 py-3.5 text-right">
+                              <span className={`text-sm font-semibold font-mono ${isEmpty ? 'text-rose-600' : isCritical ? 'text-orange-600' : 'text-amber-600'}`}>
+                                {p.currentStock.toLocaleString()}
+                              </span>
+                              <span className="text-[10px] text-slate-400 ml-1">{p.primaryUnit === 'Carton' ? 'Ctn' : 'pcs'}</span>
+                            </td>
+                            <td className="px-5 py-3.5 text-right">
+                              <span className="text-sm font-mono text-slate-500">{threshold}</span>
+                            </td>
+                            <td className="px-5 py-3.5">
+                              <div className="flex items-center gap-2">
+                                <div className="flex-1 bg-slate-100 h-2 rounded-full overflow-hidden">
+                                  <div className={`h-full rounded-full ${barColor}`} style={{ width: `${pct}%` }} />
+                                </div>
+                                <span className="text-[10px] font-mono text-slate-400 w-8 text-right">{pct}%</span>
+                              </div>
+                            </td>
+                            <td className="px-5 py-3.5 text-right">
+                              <button
+                                type="button"
+                                onClick={() => startEditProduct(p)}
+                                className="p-1.5 text-indigo-600 hover:text-indigo-700 bg-indigo-50/50 hover:bg-indigo-50 border border-indigo-100/70 rounded-lg transition-all active:scale-90 cursor-pointer inline-flex items-center justify-center"
+                                title="Edit alert threshold"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="px-5 py-3 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                  <span className="text-[10px] text-slate-400">
+                    {language === 'bn'
+                      ? `${displayed.length}টি পণ্য দেখাচ্ছে`
+                      : `Showing ${displayed.length} product${displayed.length !== 1 ? 's' : ''}`}
+                  </span>
+                  {stockAlertFilter !== 'all' && (
+                    <button
+                      type="button"
+                      onClick={() => setStockAlertFilter('all')}
+                      className="text-[10px] text-slate-500 hover:text-slate-700 underline cursor-pointer"
+                    >
+                      {language === 'bn' ? 'সব দেখুন' : 'Show all'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
 
       {/* SUB-TAB: Units (UOM) */}
@@ -3393,6 +3613,52 @@ export default function DirectoryModule({
                   onChange={e => setProdName(e.target.value)}
                   className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3.5 font-semibold outline-none focus:border-slate-800 focus:bg-white"
                 />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-xs font-semibold text-slate-705">
+                  {language === 'bn' ? 'এন্ট্রি তারিখ *' : 'Entry Date *'}
+                </label>
+                <div className="relative flex items-center rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 shadow-sm focus-within:border-slate-800 focus-within:bg-white overflow-hidden">
+                  <div className="absolute left-0 top-0 bottom-0 px-3 bg-slate-100 border-r border-slate-200 flex items-center justify-center text-slate-600">
+                    <Calendar className="w-4 h-4" />
+                  </div>
+                  <input
+                    type="date"
+                    required
+                    value={prodCreatedAt}
+                    onChange={e => setProdCreatedAt(e.target.value)}
+                    className="h-10 w-full pl-12 pr-3.5 bg-transparent font-semibold font-mono text-xs text-slate-700 outline-none cursor-pointer"
+                  />
+                </div>
+              </div>
+
+              {/* Stock Alert Threshold */}
+              <div>
+                <label className="mb-2 block text-xs font-semibold text-slate-705">
+                  {language === 'bn' ? '⚠️ লো স্টক অ্যালার্ট সীমা (পিস)' : '⚠️ Low Stock Alert Threshold (pcs)'}
+                </label>
+                <div className="relative flex items-center rounded-xl border border-amber-200 bg-amber-50/30 hover:bg-amber-50/60 hover:border-amber-300 transition-all duration-200 shadow-sm focus-within:border-amber-400 overflow-hidden">
+                  <div className="absolute left-0 top-0 bottom-0 px-3 bg-amber-50 border-r border-amber-200 flex items-center justify-center text-amber-600">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                      <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                    </svg>
+                  </div>
+                  <input
+                    type="number"
+                    min="1"
+                    value={prodAlertThreshold}
+                    onChange={e => setProdAlertThreshold(Math.max(1, Number(e.target.value)))}
+                    placeholder="e.g. 50"
+                    className="h-10 w-full pl-12 pr-3.5 bg-transparent font-semibold font-mono text-xs text-slate-700 outline-none"
+                  />
+                </div>
+                <p className="text-[10px] text-amber-600 mt-1.5 font-medium">
+                  {language === 'bn'
+                    ? `স্টক এই সংখ্যার নিচে গেলে অ্যালার্ট দেখাবে (বর্তমান: ${prodAlertThreshold} পিস)`
+                    : `Alert will show when stock drops to or below ${prodAlertThreshold} pcs`}
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">

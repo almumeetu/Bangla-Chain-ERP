@@ -53,7 +53,7 @@ export default function SidebarBottomActions({
             id={`sidebar-tab-${id}`}
             type="button"
             onClick={handleClick}
-            className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-2xl transition-all duration-300 group relative cursor-pointer border border-transparent min-h-[44px] ${activeClass}`}
+            className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-none transition-all duration-300 group relative cursor-pointer border-none min-h-[44px] ${activeClass}`}
           >
             <Icon
               className={`w-[18px] h-[18px] shrink-0 transition-transform duration-300 group-hover:scale-110 ${extraClass} ${isActive ? '' : styles.icon}`}

@@ -17,6 +17,7 @@ export interface UseStockAdjustmentReturn {
   variance:           number;
   adjustmentStartDate: string;
   adjustmentEndDate:   string;
+  adjustmentDate:      string;
   currentPage:        number;
   totalPages:         number;
   startIndex:         number;
@@ -33,6 +34,7 @@ export interface UseStockAdjustmentReturn {
   handleAdjustmentStartDateChange: (date: string) => void;
   handleAdjustmentEndDateChange:   (date: string) => void;
   handleResetAdjustmentDates:      () => void;
+  handleAdjustmentDateChange:      (date: string) => void;
   handleCommit:       (e: React.FormEvent) => void;
   handleReset:        () => void;
   handlePageChange:   (page: number) => void;
@@ -57,6 +59,7 @@ export function useStockAdjustment(
   const [currentPage,     setCurrentPage]       = useState(1);
   const [adjustmentStartDate, setAdjustmentStartDate] = useState('');
   const [adjustmentEndDate, setAdjustmentEndDate] = useState('');
+  const [adjustmentDate, setAdjustmentDate] = useState(() => getLocalDateString(new Date()));
 
   const selectedProduct = products.find(p => p.id === selectedProdId) ?? null;
   const variance        = selectedProduct ? newStockQty - selectedProduct.currentStock : 0;
@@ -92,6 +95,7 @@ export function useStockAdjustment(
     setNewStockQty(prod.currentStock);
     setAdjustReason('');
     setSubmitted(false);
+    setAdjustmentDate(getLocalDateString(new Date()));
   }, [products]);
 
   const handleSetQty    = useCallback((qty: number) => setNewStockQty(Math.max(0, qty)), []);
@@ -119,8 +123,15 @@ export function useStockAdjustment(
     setAdjustmentEndDate('');
     setCurrentPage(1);
   }, []);
+  const handleAdjustmentDateChange = useCallback((date: string) => {
+    setAdjustmentDate(date);
+  }, []);
   const handlePageChange   = useCallback((page: number) => setCurrentPage(page), []);
-  const handleReset        = useCallback(() => { setSubmitted(false); setSelectedProdId(null); }, []);
+  const handleReset        = useCallback(() => { 
+    setSubmitted(false); 
+    setSelectedProdId(null); 
+    setAdjustmentDate(getLocalDateString(new Date()));
+  }, []);
 
   const handleCommit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
@@ -134,6 +145,18 @@ export function useStockAdjustment(
     if (!adjustReason.trim())  { alert(language === 'bn' ? 'কারণ লিখুন।' : 'Please provide a reason.'); return; }
     if (variance === 0)        { alert(language === 'bn' ? 'কোনো পরিবর্তন নেই।' : 'No change detected.'); return; }
 
+    const now = new Date();
+    const [year, month, day] = (adjustmentDate || now.toISOString().split('T')[0]).split('-');
+    const adjDate = new Date(
+      Number(year),
+      Number(month) - 1,
+      Number(day),
+      now.getHours(),
+      now.getMinutes(),
+      now.getSeconds(),
+      now.getMilliseconds()
+    );
+
     const newAdj: StockAdjustment = {
       id:             `adj-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       productId:      selectedProduct.id,
@@ -144,24 +167,25 @@ export function useStockAdjustment(
       qtyChanged:     variance,
       adjustedBy:     language === 'bn' ? 'ডিলার/মালিক (অ্যাডমিন)' : 'Owner/Dealer (Admin)',
       reason:         adjustReason.trim(),
-      date:           new Date().toISOString(),
+      date:           adjDate.toISOString(),
     };
 
     setAdjustments(prev => [newAdj, ...prev]);
     setProducts(prev => prev.map(p => p.id === selectedProdId ? { ...p, currentStock: newStockQty } : p));
     setSubmitted(true);
     setAdjustReason('');
-  }, [selectedProduct, newStockQty, adjustReason, variance, language, selectedProdId, setAdjustments, setProducts]);
+  }, [selectedProduct, newStockQty, adjustReason, variance, language, selectedProdId, adjustmentDate, setAdjustments, setProducts]);
 
   return {
     selectedProdId, selectedProduct,
     newStockQty, adjustReason, searchQuery, selectedCompany, selectedCategory, submitted, variance,
-    adjustmentStartDate, adjustmentEndDate,
+    adjustmentStartDate, adjustmentEndDate, adjustmentDate,
     currentPage, totalPages, startIndex,
     filteredProducts, paginatedAdjustments, quickReasons,
     handleSelectProduct, handleSetQty, handleStepQty,
     handleSetReason, handleSearchChange, handleCompanyChange, handleCategoryChange, handleCommit,
     handleAdjustmentStartDateChange, handleAdjustmentEndDateChange, handleResetAdjustmentDates,
+    handleAdjustmentDateChange,
     handleReset, handlePageChange,
   };
 }

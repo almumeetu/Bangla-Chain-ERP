@@ -26,7 +26,8 @@ export type LegacyTabID =
 
 interface SidebarProps {
   activeTab:    TabID;
-  setActiveTab: (tab: TabID) => void;
+  setActiveTab: (tab: TabID, subTab?: string) => void;
+  activeSubTab: string;
   collapsed:    boolean;
   setCollapsed: (collapsed: boolean) => void;
   language:     Language;
@@ -39,7 +40,7 @@ interface SidebarProps {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function Sidebar({
-  activeTab, setActiveTab,
+  activeTab, setActiveTab, activeSubTab,
   collapsed, setCollapsed,
   language, shopName, shopSubBrand, shopLogo,
   userRole = 'admin',
@@ -55,8 +56,8 @@ export default function Sidebar({
     setCollapsed(!collapsed);
   }
 
-  function handleNavSelect(tab: TabID) {
-    setActiveTab(tab);
+  function handleNavSelect(tab: TabID, subTab?: string) {
+    setActiveTab(tab, subTab);
   }
 
   return (
@@ -83,6 +84,7 @@ export default function Sidebar({
                 section={section}
                 sectionIdx={idx}
                 activeTab={activeTab}
+                activeSubTab={activeSubTab}
                 collapsed={collapsed}
                 language={language}
                 userRole={userRole}

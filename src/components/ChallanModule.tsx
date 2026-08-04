@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { 
   FileText, 
+  Calendar,
   Search, 
   RotateCcw, 
   Download, 
@@ -1320,12 +1321,17 @@ export default function ChallanModule({
             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
               {language === 'bn' ? 'শুরুর তারিখ:' : 'Start Date:'}
             </label>
-            <input
-              type="date"
-              value={filterStartDate}
-              onChange={(e) => setFilterStartDate(e.target.value)}
-              className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all shadow-sm"
-            />
+            <div className="relative flex items-center">
+              <div className="absolute left-2.5 w-6 h-6 rounded-md bg-indigo-50 border border-indigo-200/60 flex items-center justify-center pointer-events-none z-10">
+                <Calendar className="w-3.5 h-3.5 text-indigo-500" />
+              </div>
+              <input
+                type="date"
+                value={filterStartDate}
+                onChange={(e) => setFilterStartDate(e.target.value)}
+                className="h-10 w-full pl-10 pr-3 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all shadow-sm"
+              />
+            </div>
           </div>
 
           {/* End Date */}
@@ -1333,12 +1339,17 @@ export default function ChallanModule({
             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
               {language === 'bn' ? 'শেষের তারিখ:' : 'End Date:'}
             </label>
-            <input
-              type="date"
-              value={filterEndDate}
-              onChange={(e) => setFilterEndDate(e.target.value)}
-              className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all shadow-sm"
-            />
+            <div className="relative flex items-center">
+              <div className="absolute left-2.5 w-6 h-6 rounded-md bg-rose-50 border border-rose-200/60 flex items-center justify-center pointer-events-none z-10">
+                <Calendar className="w-3.5 h-3.5 text-rose-500" />
+              </div>
+              <input
+                type="date"
+                value={filterEndDate}
+                onChange={(e) => setFilterEndDate(e.target.value)}
+                className="h-10 w-full pl-10 pr-3 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all shadow-sm"
+              />
+            </div>
           </div>
 
         </div>

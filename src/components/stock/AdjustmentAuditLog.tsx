@@ -114,26 +114,30 @@ export default function AdjustmentAuditLog({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">{bn ? 'শুরুর তারিখ' : 'From Date'}</label>
-                  <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                  <div className="relative flex items-center rounded-xl border border-violet-200 bg-white hover:border-violet-400 transition-all duration-200 focus-within:border-violet-500 focus-within:ring-2 focus-within:ring-violet-100/85 overflow-hidden">
+                    <div className="absolute left-0 top-0 bottom-0 px-2.5 bg-violet-50 border-r border-violet-200 flex items-center justify-center text-violet-600">
+                      <Calendar className="w-3.5 h-3.5" />
+                    </div>
                     <input
                       type="date"
                       value={adjustmentStartDate}
                       onChange={e => onAdjustmentStartDateChange(e.target.value)}
-                      className="w-full h-10 pl-9 pr-3 rounded-xl border border-violet-200 bg-white text-xs font-semibold text-slate-750 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100 transition-all"
+                      className="w-full h-10 pl-11 pr-3 bg-transparent text-xs font-semibold text-slate-700 font-mono outline-none cursor-pointer"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">{bn ? 'শেষের তারিখ' : 'To Date'}</label>
-                  <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                  <div className="relative flex items-center rounded-xl border border-violet-200 bg-white hover:border-violet-400 transition-all duration-200 focus-within:border-violet-500 focus-within:ring-2 focus-within:ring-violet-100/85 overflow-hidden">
+                    <div className="absolute left-0 top-0 bottom-0 px-2.5 bg-violet-50 border-r border-violet-200 flex items-center justify-center text-violet-600">
+                      <Calendar className="w-3.5 h-3.5" />
+                    </div>
                     <input
                       type="date"
                       value={adjustmentEndDate}
                       onChange={e => onAdjustmentEndDateChange(e.target.value)}
-                      className="w-full h-10 pl-9 pr-3 rounded-xl border border-violet-200 bg-white text-xs font-semibold text-slate-750 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100 transition-all"
+                      className="w-full h-10 pl-11 pr-3 bg-transparent text-xs font-semibold text-slate-700 font-mono outline-none cursor-pointer"
                     />
                   </div>
                 </div>

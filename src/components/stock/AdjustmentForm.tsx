@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Package, TrendingUp, TrendingDown, Minus, Plus, CheckCircle2 } from 'lucide-react';
+import { Package, TrendingUp, TrendingDown, Minus, Plus, CheckCircle2, Calendar } from 'lucide-react';
 import type { Product }  from '../../types';
 import type { Language } from '../../translations';
 
@@ -16,6 +16,8 @@ interface AdjustmentFormProps {
   onStepQty:      (step: number) => void;
   onSetReason:    (r: string) => void;
   onSubmit:       (e: React.FormEvent) => void;
+  adjustmentDate: string;
+  onSetDate:      (date: string) => void;
 }
 
 const STEPS = [-50, -10, -1, +1, +10, +50] as const;
@@ -37,6 +39,7 @@ function handleReasonInputChange(
 export default function AdjustmentForm({
   language, product, newStockQty, adjustReason, variance,
   quickReasons, onSetQty, onStepQty, onSetReason, onSubmit,
+  adjustmentDate, onSetDate,
 }: AdjustmentFormProps) {
   const bn            = language === 'bn';
   const isSubmittable = variance !== 0 && adjustReason.trim();
@@ -105,6 +108,25 @@ export default function AdjustmentForm({
               {step > 0 ? `+${step}` : step}
             </button>
           ))}
+        </div>
+      </div>
+
+      {/* Date */}
+      <div>
+        <label className="block text-xs font-bold text-slate-600 uppercase tracking-wide mb-2">
+          {bn ? 'সমন্বয়ের তারিখ *' : 'Adjustment Date *'}
+        </label>
+        <div className="relative flex items-center rounded-xl border-2 border-slate-200 bg-slate-50/50 hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 focus-within:border-indigo-600 focus-within:ring-4 focus-within:ring-indigo-100/80 overflow-hidden bg-white">
+          <div className="absolute left-0 top-0 bottom-0 px-3 bg-indigo-50 border-r-2 border-slate-200 flex items-center justify-center text-indigo-600">
+            <Calendar className="w-4 h-4" />
+          </div>
+          <input
+            type="date"
+            required
+            value={adjustmentDate}
+            onChange={e => onSetDate(e.target.value)}
+            className="w-full h-10 pl-12 pr-3 bg-transparent text-xs font-bold text-slate-850 font-mono outline-none cursor-pointer"
+          />
         </div>
       </div>
 

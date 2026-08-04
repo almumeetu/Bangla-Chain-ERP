@@ -8,15 +8,16 @@ interface SidebarSectionProps {
   section:   MenuSection;
   sectionIdx:number;
   activeTab: TabID;
+  activeSubTab: string;
   collapsed: boolean;
   language:  string;
   userRole:  'admin' | 'sr';
   sidebarTranslations: Record<string, string>;
-  onSelect:  (id: TabID) => void;
+  onSelect:  (id: TabID, subTab?: string) => void;
 }
 
 export default function SidebarSection({
-  section, sectionIdx, activeTab, collapsed, language, userRole,
+  section, sectionIdx, activeTab, activeSubTab, collapsed, language, userRole,
   sidebarTranslations, onSelect,
 }: SidebarSectionProps) {
   const showLabel   = !collapsed && sectionIdx > 0;
@@ -24,7 +25,7 @@ export default function SidebarSection({
   const sectionLabel = language === 'bn' ? section.labelBn : section.label;
 
   return (
-    <div>
+    <div className="space-y-0.5">
       {showLabel && (
         <div className="pt-4 pb-1.5 px-3.5">
           <p className="text-[9px] font-bold text-slate-500 tracking-[0.15em] uppercase">
@@ -39,16 +40,20 @@ export default function SidebarSection({
         </div>
       )}
 
-      {section.items.map(item => (
-        <SidebarNavItem
-          key={item.id}
-          item={item}
-          isActive={activeTab === item.id}
-          collapsed={collapsed}
-          displayName={getMenuItemName(item.id, language, userRole, sidebarTranslations)}
-          onSelect={onSelect}
-        />
-      ))}
+      <div className="space-y-1">
+        {section.items.map(item => (
+          <SidebarNavItem
+            key={item.id}
+            item={item}
+            isActive={activeTab === item.id}
+            activeSubTab={activeSubTab}
+            collapsed={collapsed}
+            displayName={getMenuItemName(item.id, language, userRole, sidebarTranslations)}
+            language={language}
+            onSelect={onSelect}
+          />
+        ))}
+      </div>
     </div>
   );
 }
