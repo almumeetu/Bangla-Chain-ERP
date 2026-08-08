@@ -904,14 +904,66 @@ export default function SettingsModule({
 
           {/* Backup List Container */}
           <div className="space-y-4">
+            {/* Featured Full Database Backup Card */}
+            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-6 shadow-xl border border-indigo-500/30 hover:border-indigo-500/50 transition-all duration-300 group">
+              <div className="absolute -top-24 -right-24 w-60 h-60 bg-indigo-500/20 rounded-full blur-3xl group-hover:bg-indigo-500/30 transition-all duration-500 pointer-events-none" />
+              <div className="absolute -bottom-20 -left-20 w-48 h-48 bg-purple-500/20 rounded-full blur-2xl pointer-events-none" />
+
+              <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
+                <div className="flex items-start gap-4.5">
+                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-500 to-purple-600 border border-white/20 flex items-center justify-center text-2xl shrink-0 shadow-lg shadow-indigo-500/25">
+                    🗄️
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        {language === 'bn' ? 'সুপারিশকৃত / Recommended' : 'Full Backup'}
+                      </span>
+                    </div>
+                    <h4 className="text-sm font-black text-white tracking-tight">
+                      {language === 'bn' ? 'পূর্ণাঙ্গ ডেটাবেস (Full Database Backup)' : 'Full Database Backup'}
+                    </h4>
+                    <p className="text-xs text-indigo-200/80 font-medium leading-relaxed mt-1 max-w-xl">
+                      {language === 'bn' ? 'সিস্টেমের সকল ডেটা, হিস্ট্রি ও সেটিংস একত্রে নিরাপদ ব্যাকআপ ও রিস্টোর করুন।' : 'Export and restore all tables, settings, and audits together in a single file.'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 shrink-0 self-end md:self-center">
+                  <button
+                    type="button"
+                    onClick={() => exportBackup(shopName)}
+                    className="inline-flex h-10 items-center justify-center gap-2 px-5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white text-xs font-black cursor-pointer transition-all active:scale-95 shadow-lg shadow-emerald-500/25"
+                  >
+                    <Download className="w-4 h-4" />
+                    {language === 'bn' ? 'ডাউনলোড করুন' : 'Download'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setImportTargetKey('all');
+                      setImportStatus('idle');
+                      setImportMsg('');
+                      fileInputRef.current?.click();
+                    }}
+                    className="inline-flex h-10 items-center justify-center gap-2 px-5 rounded-xl bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/20 text-xs font-bold cursor-pointer transition-all active:scale-95 shadow-sm"
+                  >
+                    <Upload className="w-4 h-4" />
+                    {language === 'bn' ? 'রিস্টোর করুন' : 'Restore'}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Partial / Category Backups Header */}
+            <div className="pt-2">
+              <p className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 px-1">
+                {language === 'bn' ? 'ক্যাটাগরি বা বিষয় ভিত্তিক ব্যাকআপ (Partial Backups)' : 'Section-Specific Backups'}
+              </p>
+            </div>
+
             {[
-              {
-                id: 'all',
-                icon: '🗄️',
-                title: language === 'bn' ? 'পূর্ণাঙ্গ ডেটাবেস (Full Database)' : 'Full Database Backup',
-                desc: language === 'bn' ? 'সিস্টেমের সকল ডেটা ও সেটিংস একত্রে ব্যাকআপ' : 'Export and restore all tables, settings, and audits together.',
-                action: () => exportBackup(shopName)
-              },
               {
                 id: 'products_catalog',
                 keys: ['products', 'attributes', 'units', 'productCategories', 'companies'],

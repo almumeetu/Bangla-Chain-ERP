@@ -7,7 +7,7 @@ import {
   Package, ChevronRight, Zap, User, Truck, MapPin, Calendar,
   LayoutGrid, List, X, Building
 } from 'lucide-react';
-import { Product, ProductAttribute, SR, Route, ChallanItem, DeliveryMan, Category, UnitOfMeasure } from '../types';
+import { Product, ProductAttribute, SR, Route, ChallanItem, DeliveryMan, Category, UnitOfMeasure, CompanyBrand } from '../types';
 import { translations, Language } from '../translations';
 import { printSalesOrder, type SalesOrderData } from '../lib/printUtils';
 import { Customer } from '../lib/localStore';
@@ -26,6 +26,7 @@ interface SellModuleProps {
   language: Language;
   customers: Customer[];
   setCustomers: React.Dispatch<React.SetStateAction<Customer[]>>;
+  companies?: CompanyBrand[];
 }
 
 interface CartItem {
@@ -373,10 +374,32 @@ function CartItemRow({
 
 // ── Main SellModule ───────────────────────────────────────────────────────────
 export default function SellModule({
-  products, setProducts, attributes, srs, routes, deliveryMen,
+  products: propProducts, setProducts, attributes, srs, routes, deliveryMen,
   setChallans, categories, units, onNavigate, language,
-  customers, setCustomers
+  customers, setCustomers, companies = []
 }: SellModuleProps) {
+  const loggedInSrId = typeof window !== 'undefined' ? sessionStorage.getItem('erp_sr_id') : null;
+  const loggedInSr = React.useMemo(() => {
+    return srs.find(sr => sr.id === loggedInSrId);
+  }, [srs, loggedInSrId]);
+
+  const srAssignedCompanyNames = React.useMemo(() => {
+    if (!loggedInSr) return [];
+    return (loggedInSr.assignedCompanyIds || []).map(cid => {
+      const comp = companies.find(c => c.id === cid);
+      return comp ? comp.name : '';
+    }).filter(Boolean);
+  }, [loggedInSr, companies]);
+
+  const products = React.useMemo(() => {
+    if (loggedInSr) {
+      return propProducts.filter(p => 
+        srAssignedCompanyNames.some(cn => cn.toLowerCase() === (p.company || '').toLowerCase())
+      );
+    }
+    return propProducts;
+  }, [propProducts, loggedInSr, srAssignedCompanyNames]);
+
   const [cart, setCart] = useState<CartItem[]>([]);
   const [lastOrder, setLastOrder] = useState<SalesOrderData | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -384,7 +407,12 @@ export default function SellModule({
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedStockFilter, setSelectedStockFilter] = useState('All');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [selectedSR, setSelectedSR] = useState(srs[0]?.name || '');
+  const [selectedSR, setSelectedSR] = useState(() => {
+    const sId = typeof window !== 'undefined' ? sessionStorage.getItem('erp_sr_id') : null;
+    const currentSr = srs.find(sr => sr.id === sId);
+    if (currentSr) return currentSr.name;
+    return srs[0]?.name || '';
+  });
   const [selectedRoute, setSelectedRoute] = useState(routes[0]?.name || '');
   const [selectedDeliveryMan, setSelectedDeliveryMan] = useState(deliveryMen[0]?.name || '');
   const [orderStatus, setOrderStatus] = useState<'Shipped' | 'Delivered' | 'Pending'>('Pending');
@@ -393,11 +421,32 @@ export default function SellModule({
   const uniqueCompanies = Array.from(new Set(products.map(p => p.company).filter(Boolean)));
 
   const filteredSrs = React.useMemo(() => {
-    return selectedCompany === 'All'
-      ? srs
-      : srs.filter(sr => sr.assignedCompanyIds && sr.assignedCompanyIds.includes(selectedCompany));
-  }, [selectedCompany, srs]);
+    if (selectedCompany === 'All') return srs;
+    const comp = companies.find(c => 
+      c.name.toLowerCase().includes(selectedCompany.toLowerCase()) ||
+      selectedCompany.toLowerCase().includes(c.name.toLowerCase())
+    );
+    if (!comp) return srs;
+    return srs.filter(sr => (sr.assignedCompanyIds || []).includes(comp.id));
+  }, [selectedCompany, srs, companies]);
 
+  const filteredRoutes = React.useMemo(() => {
+    if (!selectedSR) return routes;
+    const srObj = srs.find(sr => sr.name === selectedSR);
+    if (!srObj) return routes;
+    const matched = routes.filter(r => r.assignedSRId === srObj.id);
+    return matched.length > 0 ? matched : routes;
+  }, [selectedSR, routes, srs]);
+
+  const filteredDeliveryMen = React.useMemo(() => {
+    if (!selectedRoute) return deliveryMen;
+    const routeObj = routes.find(r => r.name === selectedRoute);
+    if (!routeObj || !routeObj.assignedDeliveryManId) return deliveryMen;
+    const matched = deliveryMen.filter(dm => dm.id === routeObj.assignedDeliveryManId);
+    return matched.length > 0 ? matched : deliveryMen;
+  }, [selectedRoute, deliveryMen, routes]);
+
+  // Cascade selections
   React.useEffect(() => {
     if (filteredSrs.length > 0) {
       const exists = filteredSrs.some(sr => sr.name === selectedSR);
@@ -408,6 +457,34 @@ export default function SellModule({
       setSelectedSR('');
     }
   }, [filteredSrs, selectedSR]);
+
+  React.useEffect(() => {
+    if (filteredRoutes.length > 0) {
+      const exists = filteredRoutes.some(r => r.name === selectedRoute);
+      if (!exists) {
+        setSelectedRoute(filteredRoutes[0].name);
+      }
+    } else {
+      setSelectedRoute('');
+    }
+  }, [filteredRoutes, selectedRoute]);
+
+  React.useEffect(() => {
+    if (filteredDeliveryMen.length > 0) {
+      const exists = filteredDeliveryMen.some(dm => dm.name === selectedDeliveryMan);
+      if (!exists) {
+        setSelectedDeliveryMan(filteredDeliveryMen[0].name);
+      }
+    } else {
+      setSelectedDeliveryMan('');
+    }
+  }, [filteredDeliveryMen, selectedDeliveryMan]);
+
+  React.useEffect(() => {
+    if (cart.length === 0 && selectedCompany !== 'All') {
+      setSelectedCompany('All');
+    }
+  }, [cart, selectedCompany]);
 
   const filteredProducts = products.filter(p => {
     const q = searchQuery.toLowerCase();
@@ -430,6 +507,27 @@ export default function SellModule({
   }, []);
 
   const handleAddToCart = useCallback((product: Product, customCartons?: number, customPcs?: number, customBonus?: number) => {
+    // Prevent mixing companies in the cart
+    if (cart.length > 0) {
+      const activeCompany = cart[0].product.company;
+      if (activeCompany.toLowerCase() !== product.company.toLowerCase()) {
+        const confirmClear = confirm(language === 'bn'
+          ? `আপনার কার্টে ইতিমধ্যে "${activeCompany}" কোম্পানির পণ্য রয়েছে। নতুন কোম্পানির পণ্য যোগ করতে কার্ট খালি করতে হবে। আপনি কি কার্ট খালি করতে চান?`
+          : `Your cart already contains products from "${activeCompany}". To add products from "${product.company}", you must clear your cart. Clear cart and proceed?`);
+        if (confirmClear) {
+          setCart([]);
+          setSelectedCompany(product.company);
+        } else {
+          return;
+        }
+      }
+    } else {
+      // Auto-set the company filter when adding the first product
+      if (selectedCompany === 'All') {
+        setSelectedCompany(product.company);
+      }
+    }
+
     const defaultSpec = attributes.filter(a => a.status === 'Active')[0]?.name || 'Default';
     const existingIdx = cart.findIndex(i => i.product.id === product.id && i.selectedSpec === defaultSpec);
 
@@ -469,7 +567,7 @@ export default function SellModule({
         damagedQty: 0
       }]);
     }
-  }, [cart, attributes, language, getCartItemQtyInPrimaryUnit]);
+  }, [cart, attributes, language, getCartItemQtyInPrimaryUnit, selectedCompany]);
 
   const handleUpdateCartons = useCallback((i: number, cartons: number) => {
     if (cartons < 0) return;
@@ -793,20 +891,29 @@ export default function SellModule({
               <div className="p-4 bg-white border-b border-slate-100 space-y-4 shrink-0">
                 <div className="grid grid-cols-2 gap-3.5">
                   <LabelInput label={translations[language].challan.srSelectLabel} icon={User}>
-                    <select value={selectedSR} onChange={handleSRChange} className={selectCls}>
-                      {srs.map(sr => <option key={sr.id} value={sr.name}>{sr.name}</option>)}
+                    <select
+                      value={selectedSR}
+                      onChange={handleSRChange}
+                      disabled={!!loggedInSr}
+                      className={selectCls + " disabled:opacity-60 disabled:cursor-not-allowed"}
+                    >
+                      {loggedInSr ? (
+                        <option value={loggedInSr.name}>{loggedInSr.name}</option>
+                      ) : (
+                        filteredSrs.map(sr => <option key={sr.id} value={sr.name}>{sr.name}</option>)
+                      )}
                     </select>
                   </LabelInput>
 
                   <LabelInput label={language === 'bn' ? 'রুট / বিট' : 'Route / Beat'} icon={MapPin}>
                     <select value={selectedRoute} onChange={handleRouteChange} className={selectCls}>
-                      {routes.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
+                      {filteredRoutes.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
                     </select>
                   </LabelInput>
 
                   <LabelInput label={translations[language].challan.deliverySelectLabel} icon={Truck}>
                     <select value={selectedDeliveryMan} onChange={handleDMChange} className={selectCls}>
-                      {deliveryMen.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
+                      {filteredDeliveryMen.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
                     </select>
                   </LabelInput>
 

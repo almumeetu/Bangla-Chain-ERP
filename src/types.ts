@@ -56,6 +56,8 @@ export interface DeliveryMan {
   id: string;
   name: string;
   vehicle: string;
+  phone?: string;
+  assignedCompanyIds?: string[];
 }
 
 export interface DamageLogEntry {
@@ -206,9 +208,9 @@ export const INITIAL_SRS: SR[] = [
 ];
 
 export const INITIAL_DELIVERY_MEN: DeliveryMan[] = [
-  { id: 'dm-1', name: 'Abul Kalam', vehicle: 'PickUp Truck (Metro-Tha-11-2044)' },
-  { id: 'dm-2', name: 'Sujon Mia', vehicle: 'Covered Van (Metro-Cha-54-9988)' },
-  { id: 'dm-3', name: 'Khorshed Alam', vehicle: 'Three Wheeler Cargo (Dhaka-H-12-3456)' },
+  { id: 'dm-1', name: 'Abul Kalam', vehicle: 'PickUp Truck (Metro-Tha-11-2044)', phone: '01711998877', assignedCompanyIds: ['PRAN DAIRY MILKMAN GROUP', 'Pran'] },
+  { id: 'dm-2', name: 'Sujon Mia', vehicle: 'Covered Van (Metro-Cha-54-9988)', phone: '01811998877', assignedCompanyIds: ['COCOLA FOOD PRODUCTS LTD C GROUP', 'Olympic'] },
+  { id: 'dm-3', name: 'Khorshed Alam', vehicle: 'Three Wheeler Cargo (Dhaka-H-12-3456)', phone: '01911998877', assignedCompanyIds: ['ABUL KHAIR MILK PRODUCTS LTD SKY GROUP', 'Haque'] },
 ];
 
 // Products categorized by Company: Pran, Olympic, Haque

@@ -122,12 +122,12 @@ export function useDashboardMetrics(
   }, [challans, todayStr, yesterdayStr]);
 
   function sumSales(list: ChallanItem[]) {
-    return list.filter(ch => ch.status === 'Delivered').reduce((s, ch) => s + Math.max(0, ch.totalAmount - (ch.returnedQty ?? 0) * ch.rate), 0);
+    return list.reduce((s, ch) => s + ch.totalAmount, 0);
   }
   function sumCOGS(list: ChallanItem[]) {
-    return list.filter(ch => ch.status === 'Delivered').reduce((s, ch) => {
+    return list.reduce((s, ch) => {
       const pp = products.find(p => p.name === ch.productName)?.defaultPP ?? ch.rate * 0.65;
-      return s + (ch.qty - (ch.returnedQty ?? 0)) * pp;
+      return s + Math.max(0, ch.qty - (ch.returnedQty ?? 0) - (ch.damagedQty ?? 0)) * pp;
     }, 0);
   }
 

@@ -292,19 +292,88 @@ export default function StockAdjustmentModule({
     <div className="space-y-6">
 
       {/* Header */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-2xl p-5 text-white border border-slate-800 shadow-md relative overflow-hidden">
+      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-2xl p-5 text-white border border-slate-800 shadow-md relative overflow-hidden flex flex-col lg:flex-row lg:items-center justify-between gap-5">
         <div className="absolute -right-20 -top-20 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
         <div className="relative z-10">
           <h2 className="text-xl font-bold tracking-tight flex items-center gap-2">
-            <Sliders className="w-5 h-5 text-indigo-300" />
-            {bn ? 'স্টক অ্যাডজাস্টমেন্ট ও ইনভেন্টরি ইতিহাস' : 'Stock Adjustments & Inventory History'}
+            {activeTab === 'adjustments' ? (
+              <>
+                <Sliders className="w-5 h-5 text-indigo-300" />
+                {bn ? 'স্টক অ্যাডজাস্টমেন্ট (লাইভ)' : 'Stock Adjustments (Live)'}
+              </>
+            ) : (
+              <>
+                <History className="w-5 h-5 text-indigo-300" />
+                {bn ? 'ইনভেন্টরি ইতিহাস ও মূল্যমান' : 'Inventory History & Valuation'}
+              </>
+            )}
           </h2>
           <p className="text-slate-400 text-xs mt-1">
-            {bn
-              ? 'গুদামের বাস্তব স্টক সমন্বয় করুন অথবা ইনভেন্টরি ইতিহাস ও মূল্যমান রিপোর্ট বিশ্লেষণ করুন।'
-              : 'Correct warehouse stock variances or analyze historical inventory valuation snapshots.'}
+            {activeTab === 'adjustments' ? (
+              bn
+                ? 'গুদামের বাস্তব স্টক সমন্বয় এবং লাইভ স্টক লেভেল আপডেট করুন।'
+                : 'Correct warehouse stock variances and update live stock levels.'
+            ) : (
+              bn
+                ? 'অতীতের যেকোনো তারিখ নির্বাচন করে ঐ দিনের পণ্যের স্টক, স্টক মূল্যায়ন এবং ইনভেন্টরি অবস্থা দেখুন।'
+                : 'Select any previous date to view historical product stock, stock valuation, and inventory status.'
+            )}
           </p>
         </div>
+
+        {activeTab === 'history' && (
+          <div className="relative z-10 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
+            {/* Presets */}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setStockHistoryDate(todayStr)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                  stockHistoryDate === todayStr
+                    ? 'bg-white text-indigo-950 shadow-md animate-scale-up'
+                    : 'bg-white/10 hover:bg-white/20 text-white border border-white/10'
+                }`}
+              >
+                {bn ? 'আজকে' : 'Today'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setStockHistoryDate(yesterdayStr)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                  stockHistoryDate === yesterdayStr
+                    ? 'bg-white text-indigo-950 shadow-md animate-scale-up'
+                    : 'bg-white/10 hover:bg-white/20 text-white border border-white/10'
+                }`}
+              >
+                {bn ? 'গতকাল' : 'Yesterday'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setStockHistoryDate(sevenDaysAgoStr)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                  stockHistoryDate === sevenDaysAgoStr
+                    ? 'bg-white text-indigo-950 shadow-md animate-scale-up'
+                    : 'bg-white/10 hover:bg-white/20 text-white border border-white/10'
+                }`}
+              >
+                {bn ? '৭ দিন আগে' : '7 Days Ago'}
+              </button>
+            </div>
+
+            {/* Calendar Input */}
+            <div className="relative flex items-center">
+              <div className="absolute left-3 w-6 h-6 rounded-md bg-indigo-500/25 border border-indigo-400/30 flex items-center justify-center pointer-events-none z-10">
+                <Calendar className="w-3.5 h-3.5 text-indigo-300" />
+              </div>
+              <input
+                type="date"
+                value={stockHistoryDate}
+                onChange={e => setStockHistoryDate(e.target.value)}
+                className="w-full h-10 pl-11 pr-3 rounded-xl border border-white/20 bg-white/10 text-white text-xs font-bold outline-none focus:border-white focus:ring-2 focus:ring-white/20 transition-all cursor-pointer shadow-sm"
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {activeTab === 'adjustments' ? (
@@ -407,80 +476,7 @@ export default function StockAdjustmentModule({
         // ── INVENTORY HISTORY & VALUATION TAB ─────────────────────────────────────────
         <div className="space-y-6">
           
-          {/* Beautiful highlighted selector header */}
-          <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-6 text-white border border-slate-800 shadow-md relative overflow-hidden">
-            <div className="absolute -right-10 -top-10 w-40 h-40 bg-indigo-500/20 rounded-full blur-2xl pointer-events-none" />
-            <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${stockHistoryDate ? 'bg-indigo-400 animate-ping' : 'bg-slate-500'}`} />
-                  <span className="text-[10px] bg-indigo-500/30 text-indigo-300 font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider font-mono border border-indigo-500/10">
-                    {bn ? 'ইনভেন্টরি ইতিহাস ও মূল্য' : 'Inventory History & Valuation'}
-                  </span>
-                </div>
-                <h3 className="text-lg font-black tracking-tight mt-2.5">
-                  {bn ? 'কোন দিনের স্টক ও মূল্য দেখতে চান?' : 'Select Stock History Date'}
-                </h3>
-                <p className="text-slate-350 text-xs font-medium max-w-xl">
-                  {bn 
-                    ? 'অতীতের যেকোনো তারিখ নির্বাচন করে ঐ দিনের পণ্যের স্টক, স্টক মূল্যায়ন এবং ইনভেন্টরি অবস্থা দেখুন।' 
-                    : 'Select any previous date to view historical product stock, stock valuation, and inventory status.'}
-                </p>
-              </div>
-
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
-                {/* Presets */}
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setStockHistoryDate(todayStr)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                      stockHistoryDate === todayStr
-                        ? 'bg-white text-indigo-950 shadow-md'
-                        : 'bg-white/10 hover:bg-white/20 text-white border border-white/10'
-                    }`}
-                  >
-                    {bn ? 'আজকে' : 'Today'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setStockHistoryDate(yesterdayStr)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                      stockHistoryDate === yesterdayStr
-                        ? 'bg-white text-indigo-950 shadow-md'
-                        : 'bg-white/10 hover:bg-white/20 text-white border border-white/10'
-                    }`}
-                  >
-                    {bn ? 'গতকাল' : 'Yesterday'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setStockHistoryDate(sevenDaysAgoStr)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                      stockHistoryDate === sevenDaysAgoStr
-                        ? 'bg-white text-indigo-950 shadow-md'
-                        : 'bg-white/10 hover:bg-white/20 text-white border border-white/10'
-                    }`}
-                  >
-                    {bn ? '৭ দিন আগে' : '7 Days Ago'}
-                  </button>
-                </div>
-
-                {/* Calendar Input */}
-                <div className="relative flex items-center">
-                  <div className="absolute left-3 w-6 h-6 rounded-md bg-indigo-500/25 border border-indigo-400/30 flex items-center justify-center pointer-events-none z-10">
-                    <Calendar className="w-3.5 h-3.5 text-indigo-300" />
-                  </div>
-                  <input
-                    type="date"
-                    value={stockHistoryDate}
-                    onChange={e => setStockHistoryDate(e.target.value)}
-                    className="w-full h-10 pl-11 pr-3 rounded-xl border border-white/20 bg-white/10 text-white text-xs font-bold outline-none focus:border-white focus:ring-2 focus:ring-white/20 transition-all cursor-pointer shadow-sm"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
+          {/* Main Controls Header - date controls moved to main header */}
 
           {/* KPI Analytics Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

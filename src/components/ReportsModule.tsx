@@ -166,8 +166,8 @@ interface ReportsModuleProps {
 type ReportTab = 'stock' | 'sales' | 'profit' | 'margin' | 'damage' | 'dp' | 'dayend';
 
 export default function ReportsModule({
-  products,
-  challans,
+  products: propProducts,
+  challans: propChallans,
   srs,
   companies,
   deliveryMen,
@@ -182,6 +182,36 @@ export default function ReportsModule({
   defaultTab = 'stock',
   onTabChange
 }: ReportsModuleProps) {
+  // ── SR Restriction Calculations ──────────────────────────────────────────────
+  const loggedInSr = useMemo(() => {
+    if (userRole !== 'sr' || !loggedInSrName) return null;
+    return srs.find(sr => sr.name.toLowerCase() === loggedInSrName.toLowerCase());
+  }, [userRole, loggedInSrName, srs]);
+
+  const srAssignedCompanyNames = useMemo(() => {
+    if (!loggedInSr) return [];
+    return (loggedInSr.assignedCompanyIds || []).map(cid => {
+      const comp = companies.find(c => c.id === cid);
+      return comp ? comp.name : '';
+    }).filter(Boolean);
+  }, [loggedInSr, companies]);
+
+  const products = useMemo(() => {
+    if (userRole === 'sr' && loggedInSr) {
+      return propProducts.filter(p => 
+        srAssignedCompanyNames.some(cn => cn.toLowerCase() === (p.company || '').toLowerCase())
+      );
+    }
+    return propProducts;
+  }, [propProducts, userRole, loggedInSr, srAssignedCompanyNames]);
+
+  const challans = useMemo(() => {
+    if (userRole === 'sr' && loggedInSrName) {
+      return propChallans.filter(ch => (ch.srName || '').toLowerCase() === loggedInSrName.toLowerCase());
+    }
+    return propChallans;
+  }, [propChallans, userRole, loggedInSrName]);
+
   const t = translations[language].reports;
   const tCommon = translations[language].common;
 
@@ -223,6 +253,27 @@ export default function ReportsModule({
     return 'All';
   });
   const [selectedDeliveryManFilter, setSelectedDeliveryManFilter] = useState('All');
+
+  // Filter SRs by selected company
+  const filteredSrsForFilter = useMemo(() => {
+    if (selectedCompanyFilter === 'All') return srs;
+    const comp = companies.find(c => 
+      c.name.toLowerCase().includes(selectedCompanyFilter.toLowerCase()) ||
+      selectedCompanyFilter.toLowerCase().includes(c.name.toLowerCase())
+    );
+    if (!comp) return srs;
+    return srs.filter(sr => (sr.assignedCompanyIds || []).includes(comp.id));
+  }, [selectedCompanyFilter, companies, srs]);
+
+  // Auto reset SR filter if selected SR is not in company's SR list
+  React.useEffect(() => {
+    if (selectedCompanyFilter !== 'All' && selectedSrFilter !== 'All' && userRole !== 'sr') {
+      const isSrInCompany = filteredSrsForFilter.some(sr => sr.name.toLowerCase() === selectedSrFilter.toLowerCase());
+      if (!isSrInCompany) {
+        setSelectedSrFilter('All');
+      }
+    }
+  }, [selectedCompanyFilter, filteredSrsForFilter, selectedSrFilter, userRole]);
 
   const handlePresetChange = useCallback((val: string) => {
     setPreset(val);
@@ -878,7 +929,7 @@ export default function ReportsModule({
               ) : (
                 <>
                   <option value="All">{language === 'bn' ? 'সকল এসআর (SR)' : 'All SRs'}</option>
-                  {srs.map(sr => (
+                  {filteredSrsForFilter.map(sr => (
                     <option key={sr.id} value={sr.name}>{sr.name}</option>
                   ))}
                 </>

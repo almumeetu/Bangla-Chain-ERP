@@ -233,14 +233,16 @@ export default function App() {
           deliveryMen={db.deliveryMen} setChallans={db.syncChallans}
           categories={db.productCategories} units={db.units}
           onNavigate={handleNavigate} language={language}
-          customers={db.customers} setCustomers={db.syncCustomers as any} />
+          customers={db.customers} setCustomers={db.syncCustomers as any}
+          companies={db.companies} />
       );
       case 'delivery': return (
         <ChallanModule challans={db.challans} setChallans={db.syncChallans}
           srs={db.srs} routes={db.routes} deliveryMen={db.deliveryMen}
           products={db.products} setProducts={db.syncProducts}
           attributes={db.attributes} language={language}
-          customers={db.customers} setCustomers={db.syncCustomers as any} />
+          customers={db.customers} setCustomers={db.syncCustomers as any}
+          companies={db.companies} />
       );
       case 'stock': return (
         <StockAdjustmentModule attributes={db.attributes} setAttributes={db.syncAttributes}
@@ -296,6 +298,7 @@ export default function App() {
       }
       case 'routes': {
         let rTab: any = 'routes';
+        if (activeSubTab === 'routes-list') rTab = 'routes';
         if (activeSubTab === 'routes-srs') rTab = 'srs';
         if (activeSubTab === 'routes-delivery') rTab = 'deliveryMen';
         return (

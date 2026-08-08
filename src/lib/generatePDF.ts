@@ -170,15 +170,15 @@ function generateDashboardPDF(ctx: DocCtx, opts: GeneratePDFOptions) {
   const todayStr = getLocalDateString(new Date());
 
   const todaysChallans    = challans.filter(ch => getChallanDate(ch.id, ch.createdAt) === todayStr);
-  const todaysSales       = todaysChallans.reduce((s, ch) => s + Math.max(0, ch.totalAmount - (ch.returnedQty ?? 0) * ch.rate), 0);
+  const todaysSales       = todaysChallans.reduce((s, ch) => s + ch.totalAmount, 0);
   const todaysCOGS        = todaysChallans.reduce((s, ch) => {
     const pp = products.find(p => p.name === ch.productName)?.defaultPP ?? ch.rate * 0.65;
-    return s + (ch.qty - (ch.returnedQty ?? 0)) * pp;
+    return s + (ch.qty - (ch.returnedQty ?? 0) - (ch.damagedQty ?? 0)) * pp;
   }, 0);
   const todaysExpenses    = expenses.filter(e => e.expenseDate === todayStr).reduce((s, e) => s + e.amount, 0);
   const todaysNetProfit   = todaysSales - todaysCOGS - todaysExpenses;
   const totalStockValue   = products.reduce((s, p) => s + getStockValueDP(p), 0);
-  const cumulativeSales   = challans.reduce((s, ch) => s + Math.max(0, ch.totalAmount - (ch.returnedQty ?? 0) * ch.rate), 0);
+  const cumulativeSales   = challans.reduce((s, ch) => s + ch.totalAmount, 0);
   const cumulativeProcure = opts.procurements.reduce((s, p) => s + p.globalTotal, 0);
   const cumulativeExp     = expenses.reduce((s, e) => s + e.amount, 0);
   const cumulativeProfit  = cumulativeSales - cumulativeProcure - cumulativeExp;

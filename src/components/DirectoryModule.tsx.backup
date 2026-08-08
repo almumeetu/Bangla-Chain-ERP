@@ -641,7 +641,6 @@ export default function DirectoryModule({
   const [dmAssignedCompanies, setDmAssignedCompanies] = useState<string[]>([]);
   const [dmCompanyFilter, setDmCompanyFilter] = useState('All');
   const [dmSearch, setDmSearch] = useState('');
-  const [routeSearch, setRouteSearch] = useState('');
 
   // Accordion collapse states for SR and DM company cards
   const [collapsedSrCompanies, setCollapsedSrCompanies] = useState<Record<string, boolean>>({});
@@ -1431,8 +1430,22 @@ export default function DirectoryModule({
           const matchesStock = productStockFilter === 'All' || (productStockFilter === 'Low' && displayStock < 600);
           const matchesDate = matchesDateRange(p.createdAt, productStartDate, productEndDate);
           
-          // SR Filter removed - company filter is sufficient
-          const matchesSr = true;
+          let matchesSr = true;
+          if (productSrFilter !== 'All') {
+            const selectedSr = srs.find(sr => sr.id === productSrFilter);
+            if (selectedSr) {
+              const assignedCompanies = (selectedSr.assignedCompanyIds || []).map(cid => {
+                if (cid === 'comp-1') return 'pran';
+                if (cid === 'comp-2') return 'olympic';
+                if (cid === 'comp-3') return 'haque';
+                const comp = companies.find(c => c.id === cid);
+                return comp ? comp.name.toLowerCase() : cid.toLowerCase();
+              });
+              matchesSr = assignedCompanies.includes(p.company.toLowerCase());
+            } else {
+              matchesSr = false;
+            }
+          }
 
           return matchesSearch && matchesCompany && matchesCategory && matchesStock && matchesDate && matchesSr;
         });
@@ -1537,11 +1550,12 @@ export default function DirectoryModule({
                       {language === 'bn' ? 'লাইভ ফিল্টার ও পণ্য অনুসন্ধান' : 'Live Filter & Catalog Search'}
                     </span>
                   </div>
-                  {(productSearch || productCompanyFilter !== 'All' || productCategoryFilter !== 'All' || productStockFilter !== 'All' || productStartDate || productEndDate) && (
+                  {(productSearch || productCompanyFilter !== 'All' || productSrFilter !== 'All' || productCategoryFilter !== 'All' || productStockFilter !== 'All' || productStartDate || productEndDate) && (
                     <button
                       onClick={() => {
                         setProductSearch('');
                         setProductCompanyFilter('All');
+                        setProductSrFilter('All');
                         setProductCategoryFilter('All');
                         setProductStockFilter('All');
                         setProductStartDate('');
@@ -1589,7 +1603,22 @@ export default function DirectoryModule({
                     </select>
                   </div>
 
-                  {/* SR Filter - REMOVED: Company filter is sufficient */}
+                  {/* SR Filter */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                      {language === 'bn' ? 'এসআর ফিল্টার' : 'Filter by SR'}
+                    </label>
+                    <select
+                      value={productSrFilter}
+                      onChange={e => setProductSrFilter(e.target.value)}
+                      className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50/20 px-3 text-xs font-bold text-slate-700 outline-none focus:border-indigo-500 transition-all cursor-pointer"
+                    >
+                      <option value="All">{language === 'bn' ? 'সকল এসআর' : 'All SRs'}</option>
+                      {srs.map(sr => (
+                        <option key={sr.id} value={sr.id}>{sr.name}</option>
+                      ))}
+                    </select>
+                  </div>
 
                   {/* Stock Level Filter */}
                   <div className="space-y-1.5">
@@ -2311,453 +2340,942 @@ export default function DirectoryModule({
         );
       })()}
 
-      {/* SUB-TAB: Sales Representatives (SR) - Separate Page */}
-      {activeSubTab === 'srs' && (
-        <PersonnelManagement
-          srs={srs}
-          deliveryMen={[]} // Empty array - SR page only shows SRs
-          companies={companies}
-          customers={customers}
-          language={language}
-          mode="sr-only" // New prop to enforce SR-only mode
-          onAddSR={() => {
-            setEditingSr(null);
-            setSrName('');
-            setSrPhone('');
-            setSrCommissionRate(0);
-            setSrAssignedCompanies([]);
-            setSrLoginUsername('');
-            setSrLoginPassword('');
-            setShowSrModal(true);
-          }}
-          onEditSR={(sr) => {
-            setEditingSr(sr);
-            setSrName(sr.name);
-            setSrPhone(sr.phone);
-            setSrCommissionRate(sr.commissionRate || 0);
-            setSrAssignedCompanies(sr.assignedCompanyIds || []);
-            setSrLoginUsername(sr.loginUsername || '');
-            setSrLoginPassword(sr.loginPassword || '');
-            setShowSrModal(true);
-          }}
-          onDeleteSR={handleDeleteSr}
-          onAddDM={() => {}}
-          onEditDM={() => {}}
-          onDeleteDM={() => {}}
-        />
-      )}
+      {/* SUB-TAB: Personnel Management — unified SR + DSR view */}
+      {(activeSubTab === 'srs' || activeSubTab === 'deliveryMen') && (() => {
+        // Which role tab is active: 'sr' | 'dsr' | 'all'
+        const defaultRoleTab = activeSubTab === 'deliveryMen' ? 'dsr' : 'sr';
+        // We use a local ref-like trick: store in a module-level variable won't work,
+        // so we derive the active role tab from srCompanyFilter sentinel values.
+        // Instead, we introduce a unified search state using dmSearch for DSR, srCompanyFilter for company.
+        // The tab is driven by activeSubTab — SR tab = 'srs', DSR tab = 'deliveryMen'.
+        // We expose a switch so the user can flip between them without leaving the page.
+        const activeRoleTab = activeSubTab; // 'srs' or 'deliveryMen'
 
-      {/* SUB-TAB: Delivery Personnel (DSR) - Separate Page */}
-      {activeSubTab === 'deliveryMen' && (
-        <PersonnelManagement
-          srs={[]} // Empty array - DSR page only shows delivery men
-          deliveryMen={deliveryMen}
-          companies={companies}
-          customers={customers}
-          language={language}
-          mode="dsr-only" // New prop to enforce DSR-only mode
-          onAddSR={() => {}}
-          onEditSR={() => {}}
-          onDeleteSR={() => {}}
-          onAddDM={() => {
-            setEditingDm(null);
-            setDmName('');
-            setDmVehicle('');
-            setDmPhone('');
-            setDmAssignedCompanies([]);
-            setShowDmModal(true);
-          }}
-          onEditDM={(dm) => {
-            setEditingDm(dm);
-            setDmName(dm.name);
-            setDmVehicle(dm.vehicle || '');
-            setDmPhone(dm.phone || '');
-            setDmAssignedCompanies(dm.assignedCompanyIds || []);
-            setShowDmModal(true);
-          }}
-          onDeleteDM={handleDeleteDm}
-        />
-      )}
+        // ── shared search state ───────────────────────────────────────────────
+        const srSearch = ''; // SR uses srCompanyFilter only (no free-text state existed)
+        // dmSearch is already declared above in component scope
 
-      {/* SUB-TAB: Delivery Routes */}
-      {activeSubTab === 'routes' && (() => {
-        const filteredRoutes = routes.filter(r => {
-          if (!routeSearch) return true;
-          const q = routeSearch.toLowerCase();
-          return (
-            r.name.toLowerCase().includes(q) ||
-            r.area.toLowerCase().includes(q) ||
-            r.territory.toLowerCase().includes(q)
-          );
-        });
+        // ── derived data ──────────────────────────────────────────────────────
+        const totalSRs   = srs.length;
+        const totalDSRs  = deliveryMen.length;
+        const totalPersonnel = totalSRs + totalDSRs;
+        const assignedShopsTotal = customers.length;
+        const unassignedSRs  = srs.filter(s => !s.assignedCompanyIds || s.assignedCompanyIds.length === 0).length;
+        const unassignedDSRs = deliveryMen.filter(d => !d.assignedCompanyIds || d.assignedCompanyIds.length === 0).length;
+        const unassignedTotal = unassignedSRs + unassignedDSRs;
 
-        const getSRName = (srId?: string) => {
-          if (!srId) return null;
-          return srs.find(s => s.id === srId)?.name || null;
+        // ── company color hash helper ─────────────────────────────────────────
+        const getCompanyTheme = (compName) => {
+          if (!compName || compName === 'Unassigned') {
+            return {
+              headerBg: 'bg-slate-50',
+              headerText: 'text-slate-600',
+              borderColor: 'border-slate-200',
+              dotBg: 'bg-slate-400',
+              activeTabBg: 'bg-slate-800 text-white shadow-md ring-2 ring-slate-400/30',
+              badgeBg: 'bg-slate-200/90 text-slate-700 border-slate-300',
+              accentColor: 'text-slate-600'
+            };
+          }
+          const themes = [
+            {
+              headerBg: 'bg-gradient-to-r from-blue-50/90 via-indigo-50/40 to-white',
+              headerText: 'text-blue-950',
+              borderColor: 'border-blue-200/80',
+              dotBg: 'bg-blue-600',
+              activeTabBg: 'bg-blue-600 text-white shadow-md shadow-blue-500/20 ring-2 ring-blue-500/30',
+              badgeBg: 'bg-blue-100/90 text-blue-800 border-blue-200',
+              accentColor: 'text-blue-600'
+            },
+            {
+              headerBg: 'bg-gradient-to-r from-emerald-50/90 via-teal-50/40 to-white',
+              headerText: 'text-emerald-950',
+              borderColor: 'border-emerald-200/80',
+              dotBg: 'bg-emerald-600',
+              activeTabBg: 'bg-emerald-600 text-white shadow-md shadow-emerald-500/20 ring-2 ring-emerald-500/30',
+              badgeBg: 'bg-emerald-100/90 text-emerald-800 border-emerald-200',
+              accentColor: 'text-emerald-600'
+            },
+            {
+              headerBg: 'bg-gradient-to-r from-purple-50/90 via-violet-50/40 to-white',
+              headerText: 'text-purple-950',
+              borderColor: 'border-purple-200/80',
+              dotBg: 'bg-purple-600',
+              activeTabBg: 'bg-purple-600 text-white shadow-md shadow-purple-500/20 ring-2 ring-purple-500/30',
+              badgeBg: 'bg-purple-100/90 text-purple-800 border-purple-200',
+              accentColor: 'text-purple-600'
+            },
+            {
+              headerBg: 'bg-gradient-to-r from-amber-50/90 via-orange-50/40 to-white',
+              headerText: 'text-amber-950',
+              borderColor: 'border-amber-200/80',
+              dotBg: 'bg-amber-500',
+              activeTabBg: 'bg-amber-600 text-white shadow-md shadow-amber-500/20 ring-2 ring-amber-500/30',
+              badgeBg: 'bg-amber-100/90 text-amber-800 border-amber-200',
+              accentColor: 'text-amber-600'
+            },
+            {
+              headerBg: 'bg-gradient-to-r from-rose-50/90 via-pink-50/40 to-white',
+              headerText: 'text-rose-950',
+              borderColor: 'border-rose-200/80',
+              dotBg: 'bg-rose-600',
+              activeTabBg: 'bg-rose-600 text-white shadow-md shadow-rose-500/20 ring-2 ring-rose-500/30',
+              badgeBg: 'bg-rose-100/90 text-rose-800 border-rose-200',
+              accentColor: 'text-rose-600'
+            },
+            {
+              headerBg: 'bg-gradient-to-r from-cyan-50/90 via-sky-50/40 to-white',
+              headerText: 'text-cyan-950',
+              borderColor: 'border-cyan-200/80',
+              dotBg: 'bg-cyan-600',
+              activeTabBg: 'bg-cyan-600 text-white shadow-md shadow-cyan-500/20 ring-2 ring-cyan-500/30',
+              badgeBg: 'bg-cyan-100/90 text-cyan-800 border-cyan-200',
+              accentColor: 'text-cyan-600'
+            }
+          ];
+
+          let hash = 0;
+          for (let i = 0; i < compName.length; i++) {
+            hash = compName.charCodeAt(i) + ((hash << 5) - hash);
+          }
+          return themes[Math.abs(hash) % themes.length];
         };
 
-        const getShopsOnRoute = (routeId: string) =>
-          customers.filter(c => c.routeId === routeId).length;
+        // ── filtered sets for the active role tab ─────────────────────────────
+        const companyFilterValue = activeRoleTab === 'srs' ? srCompanyFilter : dmCompanyFilter;
+        const setCompanyFilter   = activeRoleTab === 'srs'
+          ? setSrCompanyFilter
+          : setDmCompanyFilter;
+
+        const personnelSearchText = activeRoleTab === 'srs' ? '' : dmSearch;
+
+        const filteredSRs = srs.filter(sr => {
+          const matchesCompany = srCompanyFilter === 'All' || srCompanyFilter === 'Unassigned'
+            ? true
+            : (sr.assignedCompanyIds || []).includes(srCompanyFilter);
+          const isUnassignedFilter = srCompanyFilter === 'Unassigned';
+          if (isUnassignedFilter) return !sr.assignedCompanyIds || sr.assignedCompanyIds.length === 0;
+          return matchesCompany;
+        });
+
+        const filteredDSRs = deliveryMen.filter(dm => {
+          const matchesSearch = !dmSearch ||
+            dm.name.toLowerCase().includes(dmSearch.toLowerCase()) ||
+            (dm.vehicle || '').toLowerCase().includes(dmSearch.toLowerCase()) ||
+            (dm.phone || '').includes(dmSearch);
+          const matchesCompany = dmCompanyFilter === 'All'
+            ? true
+            : dmCompanyFilter === 'Unassigned'
+              ? (!dm.assignedCompanyIds || dm.assignedCompanyIds.length === 0)
+              : (dm.assignedCompanyIds || []).includes(dmCompanyFilter);
+          return matchesSearch && matchesCompany;
+        });
+
+        // ── companies shown in grouping for current tab ────────────────────────
+        const activePersonnel   = activeRoleTab === 'srs' ? filteredSRs : filteredDSRs;
+        const isSrTab           = activeRoleTab === 'srs';
+
+        // group companies for SR tab
+        const srCompanyGroups = companies.map(c => ({
+          company: c,
+          members: srs.filter(sr => (sr.assignedCompanyIds || []).includes(c.name)),
+        })).filter(g => {
+          if (srCompanyFilter === 'All') return g.members.length > 0;
+          if (srCompanyFilter === 'Unassigned') return false;
+          return g.company.name === srCompanyFilter && g.members.length > 0;
+        });
+        const srUnassigned = srs.filter(sr => !sr.assignedCompanyIds || sr.assignedCompanyIds.length === 0);
+        const showSrUnassigned = srCompanyFilter === 'All' || srCompanyFilter === 'Unassigned';
+        const filteredCompanies = companies.filter(c => {
+          if (srCompanyFilter === 'All') return true;
+          return c.name === srCompanyFilter;
+        });
+
+        // group companies for DSR tab
+        const dsrCompanyGroups = companies.map(c => ({
+          company: c,
+          members: filteredDSRs.filter(dm => (dm.assignedCompanyIds || []).includes(c.name)),
+        })).filter(g => {
+          if (dmCompanyFilter === 'All') return g.members.length > 0;
+          if (dmCompanyFilter === 'Unassigned') return false;
+          return g.company.name === dmCompanyFilter && g.members.length > 0;
+        });
+        const dsrUnassigned = filteredDSRs.filter(dm => !dm.assignedCompanyIds || dm.assignedCompanyIds.length === 0);
+        const showDsrUnassigned = dmCompanyFilter === 'All' || dmCompanyFilter === 'Unassigned';
+
+        const hasActiveFilters = isSrTab
+          ? srCompanyFilter !== 'All'
+          : (dmCompanyFilter !== 'All' || !!dmSearch);
 
         return (
-          <div className="space-y-5">
+          <div className="space-y-6">
+            {/* Action Bar & Premium Company Filters */}
+            <div className="bg-white p-5 border border-slate-200 rounded-2xl shadow-sm space-y-4">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div className="space-y-0.5">
+                  <h3 className="text-sm font-extrabold text-[#0e1726] uppercase tracking-wide flex items-center gap-2">
+                    <UserCheck className="w-4 h-4 text-[#0e1726]" />
+                    {language === 'bn' ? 'সেলস রিপ্রেজেন্টেティブস (SR)' : 'Sales Representatives (SR)'}
+                  </h3>
+                  <p className="text-[11px] text-slate-500 font-semibold">
+                    {language === 'bn' ? 'কোম্পানি অনুযায়ী অ্যাকর্ডিয়ন ফোল্ডারে ক্যাটাগরাইজড প্রতিনিধিগণ' : 'Field force agents organized by assigned company with accordion view'}
+                  </p>
+                </div>
 
-            {/* Header row */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                  <MapPin className="w-5 h-5 text-amber-600" />
-                  {language === 'bn' ? 'ডেলিভারি রুট ম্যানেজমেন্ট' : 'Delivery Routes Management'}
-                </h2>
-                <p className="text-sm text-slate-500 mt-0.5">
-                  {language === 'bn' ? 'বিট রুট, এলাকা ও টেরিটোরি পরিচালনা করুন' : 'Manage beat routes, areas and territories'}
-                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingSr(null);
+                    setSrName('');
+                    setSrPhone('');
+                    setSrCommissionRate(0);
+                    setSrAssignedCompanies([]);
+                    setSrLoginUsername('');
+                    setSrLoginPassword('');
+                    setShowSrModal(true);
+                  }}
+                  className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#0e1726] hover:bg-[#1e293b] px-5 text-xs font-bold text-white transition-all active:scale-95 shadow-sm shrink-0 border border-slate-950 cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  {language === 'bn' ? 'এসআর যুক্ত করুন' : 'Add Salesman'}
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={handleOpenRoute}
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold rounded-lg transition-colors shrink-0"
-              >
-                <Plus className="w-4 h-4" />
-                {language === 'bn' ? '+ রুট যোগ করুন' : '+ Add Route'}
-              </button>
+
+              {/* Premium ERP Tab Pills */}
+              <div className="flex flex-wrap items-center gap-2 bg-slate-100/90 p-2 rounded-2xl border border-slate-200 shadow-2xs overflow-x-auto">
+                <button
+                  type="button"
+                  onClick={() => setSrCompanyFilter('All')}
+                  className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-2 whitespace-nowrap ${
+                    srCompanyFilter === 'All'
+                      ? 'bg-[#0e1726] text-white shadow-md ring-2 ring-slate-900/20'
+                      : 'text-slate-700 hover:bg-white hover:text-slate-950 hover:shadow-2xs'
+                  }`}
+                >
+                  <span>{language === 'bn' ? 'সকল কোম্পানি' : 'All Companies'}</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                    srCompanyFilter === 'All' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+                  }`}>
+                    {srs.length}
+                  </span>
+                </button>
+
+                {companies.map(c => {
+                  const compSrs = srs.filter(sr => sr.assignedCompanyIds?.includes(c.name));
+                  const theme = getCompanyTheme(c.name);
+                  const isActive = srCompanyFilter === c.name;
+
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => setSrCompanyFilter(c.name)}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 whitespace-nowrap ${
+                        isActive
+                          ? theme.activeTabBg
+                          : 'text-slate-700 hover:bg-white hover:text-slate-950 hover:shadow-2xs border border-transparent'
+                      }`}
+                    >
+                      <span className={`w-2 h-2 rounded-full ${isActive ? 'bg-white' : theme.dotBg}`} />
+                      <span>{c.name}</span>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        isActive ? 'bg-white/20 text-white' : 'bg-slate-200/80 text-slate-700'
+                      }`}>
+                        {compSrs.length}
+                      </span>
+                    </button>
+                  );
+                })}
+
+                {(() => {
+                  const unassignedCount = srs.filter(sr => !sr.assignedCompanyIds || sr.assignedCompanyIds.length === 0).length;
+                  const isActive = srCompanyFilter === 'Unassigned';
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => setSrCompanyFilter('Unassigned')}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 whitespace-nowrap ${
+                        isActive
+                          ? 'bg-slate-800 text-white shadow-md ring-2 ring-slate-400/30'
+                          : 'text-slate-600 hover:bg-white hover:text-slate-950 hover:shadow-2xs'
+                      }`}
+                    >
+                      <span className="w-2 h-2 rounded-full bg-slate-400" />
+                      <span>{language === 'bn' ? 'অ্যাসাইন করা হয়নি' : 'Unassigned'}</span>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        isActive ? 'bg-white/20 text-white' : 'bg-slate-200/80 text-slate-600'
+                      }`}>
+                        {unassignedCount}
+                      </span>
+                    </button>
+                  );
+                })()}
+              </div>
             </div>
 
-            {/* Summary stats */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="bg-white border border-slate-200 rounded-lg p-4">
-                <div className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">
-                  {language === 'bn' ? 'মোট রুট' : 'Total Routes'}
-                </div>
-                <div className="text-2xl font-bold text-slate-900">{routes.length}</div>
-              </div>
-              <div className="bg-white border border-slate-200 rounded-lg p-4">
-                <div className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">
-                  {language === 'bn' ? 'সক্রিয় এলাকা' : 'Areas Covered'}
-                </div>
-                <div className="text-2xl font-bold text-amber-600">
-                  {new Set(routes.map(r => r.area)).size}
-                </div>
-              </div>
-              <div className="bg-white border border-slate-200 rounded-lg p-4">
-                <div className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">
-                  {language === 'bn' ? 'টেরিটোরি' : 'Territories'}
-                </div>
-                <div className="text-2xl font-bold text-slate-900">
-                  {new Set(routes.map(r => r.territory)).size}
-                </div>
-              </div>
-              <div className="bg-white border border-slate-200 rounded-lg p-4">
-                <div className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">
-                  {language === 'bn' ? 'রুটে দোকান' : 'Shops on Routes'}
-                </div>
-                <div className="text-2xl font-bold text-slate-900">
-                  {customers.filter(c => c.routeId).length}
-                </div>
-              </div>
-            </div>
+            {/* FULL WIDTH Accordion Company Cards */}
+            <div className="space-y-4 w-full">
+              {filteredCompanies.map((company) => {
+                const assignedSrs = srs.filter(sr => sr.assignedCompanyIds?.includes(company.name));
+                if (assignedSrs.length === 0) return null;
+                const theme = getCompanyTheme(company.name);
+                const isCollapsed = Boolean(collapsedSrCompanies[company.name]);
 
-            {/* Search bar */}
-            <div className="bg-white border border-slate-200 rounded-lg p-4">
-              <div className="relative max-w-sm">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input
-                  type="text"
-                  value={routeSearch}
-                  onChange={e => setRouteSearch(e.target.value)}
-                  placeholder={language === 'bn' ? 'রুট নাম বা এলাকা খুঁজুন...' : 'Search route name or area...'}
-                  className="w-full h-10 pl-9 pr-4 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
-                />
-              </div>
-            </div>
+                return (
+                  <div
+                    key={company.id}
+                    className={`bg-white rounded-2xl border ${theme.borderColor} shadow-xs overflow-hidden w-full flex flex-col transition-all hover:shadow-sm`}
+                  >
+                    {/* Accordion Company Banner Header */}
+                    <div
+                      onClick={() => toggleSrCompanyAccordion(company.name)}
+                      className={`px-6 py-4 border-b ${theme.borderColor} flex items-center justify-between ${theme.headerBg} cursor-pointer select-none hover:opacity-95 transition-all`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`w-3 h-3 rounded-full ${theme.dotBg} shadow-2xs`} />
+                        <h4 className={`font-black text-sm sm:text-base tracking-wide uppercase leading-tight ${theme.headerText}`}>
+                          {company.name}
+                        </h4>
+                      </div>
 
-            {/* Routes table */}
-            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200">
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider w-10">#</th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                        {language === 'bn' ? 'রুটের নাম' : 'Route Name'}
-                      </th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                        {language === 'bn' ? 'এলাকা' : 'Area'}
-                      </th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                        {language === 'bn' ? 'টেরিটোরি' : 'Territory'}
-                      </th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                        {language === 'bn' ? 'নির্ধারিত এসআর' : 'Assigned SR'}
-                      </th>
-                      <th className="px-5 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                        {language === 'bn' ? 'দোকান' : 'Shops'}
-                      </th>
-                      <th className="px-5 py-3 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                        {language === 'bn' ? 'অ্যাকশন' : 'Actions'}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {filteredRoutes.map((route, idx) => {
-                      const srName   = getSRName(route.assignedSRId);
-                      const shopsCnt = getShopsOnRoute(route.id);
+                      <div className="flex items-center gap-3">
+                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-extrabold border shadow-3xs ${theme.badgeBg}`}>
+                          {assignedSrs.length} {assignedSrs.length === 1 ? 'SR' : 'SRs'}
+                        </span>
+                        <div className="p-1.5 rounded-lg hover:bg-slate-200/60 text-slate-600 transition-colors">
+                          {isCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+                        </div>
+                      </div>
+                    </div>
 
-                      return (
-                        <tr key={route.id} className="hover:bg-slate-50 transition-colors group">
-                          <td className="px-5 py-4 text-sm text-slate-500 font-mono">
-                            {(idx + 1).toString().padStart(2, '0')}
-                          </td>
+                    {/* Accordion Content Table */}
+                    {!isCollapsed && (
+                      <div className="w-full overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                            <tr className="bg-slate-50/80 border-b border-slate-200/80 text-[11px] uppercase tracking-wider text-slate-500 font-extrabold">
+                              <th className="px-6 py-4 font-semibold w-16 text-center">#</th>
+                              <th className="px-6 py-4 font-semibold">{language === 'bn' ? 'এসআর নাম' : 'SR NAME'}</th>
+                              <th className="px-6 py-4 font-semibold">{language === 'bn' ? 'ফোন নাম্বার' : 'CONTACT PHONE'}</th>
+                              <th className="px-6 py-4 font-semibold">{language === 'bn' ? 'বরাদ্দকৃত দোকান' : 'ASSIGNED SHOPS'}</th>
+                              <th className="px-6 py-4 font-semibold text-right pr-6 w-28">{language === 'bn' ? 'অ্যাকশন' : 'ACTIONS'}</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 text-sm">
+                            {assignedSrs.map((sr, idx) => {
+                              const assignedShopsCount = customers.filter(c => c.assignedSR?.toLowerCase() === sr.name.toLowerCase()).length;
+                              const initials = sr.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
 
-                          <td className="px-5 py-4">
-                            <div className="flex items-center gap-2.5">
-                              <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center shrink-0">
-                                <MapPin className="w-4 h-4 text-amber-600" />
-                              </div>
-                              <div>
-                                <div className="text-sm font-semibold text-slate-900">{route.name}</div>
-                                <div className="text-xs text-slate-400 font-mono">ID: {route.id}</div>
-                              </div>
-                            </div>
-                          </td>
-
-                          <td className="px-5 py-4">
-                            <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
-                              {route.area}
-                            </span>
-                          </td>
-
-                          <td className="px-5 py-4">
-                            <span className="text-sm text-slate-600">{route.territory}</span>
-                          </td>
-
-                          <td className="px-5 py-4">
-                            {srName ? (
-                              <div className="flex items-center gap-2">
-                                <div className="w-6 h-6 bg-blue-100 text-blue-700 rounded-md flex items-center justify-center text-[10px] font-bold">
-                                  {srName[0].toUpperCase()}
-                                </div>
-                                <span className="text-sm text-slate-700 font-medium">{srName}</span>
-                              </div>
-                            ) : (
-                              <span className="text-xs text-slate-400 italic">
-                                {language === 'bn' ? 'অ্যাসাইন নেই' : 'Unassigned'}
-                              </span>
-                            )}
-                          </td>
-
-                          <td className="px-5 py-4 text-center">
-                            <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold border ${
-                              shopsCnt > 0
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                : 'bg-slate-50 text-slate-400 border-slate-200'
-                            }`}>
-                              {shopsCnt} {language === 'bn' ? 'দোকান' : 'shops'}
-                            </span>
-                          </td>
-
-                          <td className="px-5 py-4 text-right">
-                            <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button
-                                type="button"
-                                onClick={() => startEditRoute(route)}
-                                className="p-1.5 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors"
-                                title="Edit Route"
-                              >
-                                <Edit3 className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteRoute(route.id)}
-                                className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
-                                title="Delete Route"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-
-                {filteredRoutes.length === 0 && (
-                  <div className="py-14 text-center">
-                    <MapPin className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                    <p className="text-sm font-semibold text-slate-900">
-                      {routes.length === 0
-                        ? (language === 'bn' ? 'কোনো রুট যোগ করা হয়নি' : 'No routes added yet')
-                        : (language === 'bn' ? 'কোনো রুট পাওয়া যায়নি' : 'No routes match your search')}
-                    </p>
-                    <p className="text-xs text-slate-500 mt-1">
-                      {routes.length === 0
-                        ? (language === 'bn' ? '"+ রুট যোগ করুন" বাটনে ক্লিক করুন' : 'Click "+ Add Route" to create your first route')
-                        : (language === 'bn' ? 'ভিন্ন কীওয়ার্ড দিয়ে চেষ্টা করুন' : 'Try a different search keyword')}
-                    </p>
-                    {routes.length === 0 && (
-                      <button
-                        type="button"
-                        onClick={handleOpenRoute}
-                        className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white text-sm font-semibold rounded-lg hover:bg-slate-800 transition-colors"
-                      >
-                        <Plus className="w-4 h-4" />
-                        {language === 'bn' ? 'প্রথম রুট যোগ করুন' : 'Add First Route'}
-                      </button>
+                              return (
+                                <tr key={sr.id} className="hover:bg-slate-50/60 transition-colors group">
+                                  <td className="px-6 py-4 text-center text-slate-400 font-mono font-bold text-xs">
+                                    {idx + 1}
+                                  </td>
+                                  <td className="px-6 py-4 font-bold text-slate-800">
+                                    <div className="flex items-center gap-3">
+                                      <div className={`w-9 h-9 rounded-xl ${theme.badgeBg} flex items-center justify-center text-xs font-black shadow-3xs shrink-0`}>
+                                        {initials}
+                                      </div>
+                                      <span className="text-slate-900 font-extrabold text-sm">{sr.name}</span>
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-4 font-semibold text-slate-600 font-mono text-xs">
+                                    {sr.phone}
+                                  </td>
+                                  <td className="px-6 py-4">
+                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 border border-slate-200/90 text-slate-700">
+                                      <Building className="w-3.5 h-3.5 text-slate-500" />
+                                      {assignedShopsCount} {language === 'bn' ? 'দোকান' : 'Shops'}
+                                    </span>
+                                  </td>
+                                  <td className="px-6 py-4 text-right pr-6">
+                                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setEditingSr(sr);
+                                          setSrName(sr.name);
+                                          setSrPhone(sr.phone);
+                                          setSrCommissionRate(sr.commissionRate || 0);
+                                          setSrAssignedCompanies(sr.assignedCompanyIds || []);
+                                          setSrLoginUsername(sr.loginUsername || '');
+                                          setSrLoginPassword(sr.loginPassword || '');
+                                          setShowSrModal(true);
+                                        }}
+                                        className="p-1.5 text-slate-400 hover:text-[#0e1726] hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                                        title="Edit SR"
+                                      >
+                                        <Edit3 className="w-4 h-4" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDeleteSr(sr.id)}
+                                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                                        title="Delete SR"
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
                     )}
                   </div>
-                )}
-              </div>
+                );
+              })}
+
+              {/* Unassigned Srs Section Accordion */}
+              {showSrUnassigned && (() => {
+                const unassignedSrs = srs.filter(sr => !sr.assignedCompanyIds || sr.assignedCompanyIds.length === 0);
+                if (unassignedSrs.length === 0) return null;
+                const isCollapsed = Boolean(collapsedSrCompanies['Unassigned']);
+
+                return (
+                  <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden w-full flex flex-col transition-all">
+                    {/* Header */}
+                    <div
+                      onClick={() => toggleSrCompanyAccordion('Unassigned')}
+                      className="px-6 py-4 border-b border-slate-200/80 flex items-center justify-between bg-slate-100/70 cursor-pointer select-none hover:bg-slate-100 transition-all"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-3 h-3 rounded-full bg-slate-400 shadow-2xs" />
+                        <h4 className="font-extrabold text-sm sm:text-base tracking-wide uppercase leading-tight text-slate-600 italic">
+                          {language === 'bn' ? 'অ্যাসাইন করা হয়নি' : 'Unassigned Sales Representatives'}
+                        </h4>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-slate-200/80 text-slate-700 border border-slate-300">
+                          {unassignedSrs.length} {unassignedSrs.length === 1 ? 'SR' : 'SRs'}
+                        </span>
+                        <div className="p-1.5 rounded-lg hover:bg-slate-200/80 text-slate-600 transition-colors">
+                          {isCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Table */}
+                    {!isCollapsed && (
+                      <div className="w-full overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                            <tr className="bg-slate-50/80 border-b border-slate-200 text-[11px] uppercase tracking-wider text-slate-500 font-extrabold">
+                              <th className="px-6 py-4 font-semibold w-16 text-center">#</th>
+                              <th className="px-6 py-4 font-semibold">{language === 'bn' ? 'এসআর নাম' : 'SR NAME'}</th>
+                              <th className="px-6 py-4 font-semibold">{language === 'bn' ? 'ফোন নাম্বার' : 'CONTACT PHONE'}</th>
+                              <th className="px-6 py-4 font-semibold">{language === 'bn' ? 'বরাদ্দকৃত দোকান' : 'ASSIGNED SHOPS'}</th>
+                              <th className="px-6 py-4 font-semibold text-right pr-6 w-28">{language === 'bn' ? 'অ্যাকশন' : 'ACTIONS'}</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 text-sm">
+                            {unassignedSrs.map((sr, idx) => {
+                              const assignedShopsCount = customers.filter(c => c.assignedSR?.toLowerCase() === sr.name.toLowerCase()).length;
+                              const initials = sr.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+
+                              return (
+                                <tr key={sr.id} className="hover:bg-slate-50/60 transition-colors group">
+                                  <td className="px-6 py-4 text-center text-slate-400 font-mono font-bold text-xs">
+                                    {idx + 1}
+                                  </td>
+                                  <td className="px-6 py-4 font-bold text-slate-500">
+                                    <div className="flex items-center gap-3">
+                                      <div className="w-9 h-9 rounded-xl bg-slate-200 text-slate-600 flex items-center justify-center text-xs font-black shadow-3xs shrink-0">
+                                        {initials}
+                                      </div>
+                                      <span className="text-slate-700 font-bold text-sm">{sr.name}</span>
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-4 font-semibold text-slate-500 font-mono text-xs">
+                                    {sr.phone}
+                                  </td>
+                                  <td className="px-6 py-4">
+                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 border border-slate-200/90 text-slate-600">
+                                      <Building className="w-3.5 h-3.5 text-slate-400" />
+                                      {assignedShopsCount} {language === 'bn' ? 'দোকান' : 'Shops'}
+                                    </span>
+                                  </td>
+                                  <td className="px-6 py-4 text-right pr-6">
+                                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setEditingSr(sr);
+                                          setSrName(sr.name);
+                                          setSrPhone(sr.phone);
+                                          setSrCommissionRate(sr.commissionRate || 0);
+                                          setSrAssignedCompanies(sr.assignedCompanyIds || []);
+                                          setSrLoginUsername(sr.loginUsername || '');
+                                          setSrLoginPassword(sr.loginPassword || '');
+                                          setShowSrModal(true);
+                                        }}
+                                        className="p-1.5 text-slate-400 hover:text-[#0e1726] hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                                        title="Edit SR"
+                                      >
+                                        <Edit3 className="w-4 h-4" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDeleteSr(sr.id)}
+                                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                                        title="Delete SR"
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           </div>
         );
       })()}
 
-      {/* SUB-TAB: Damage Stock */}
-      {activeSubTab === 'damage' && (
-        <div className="space-y-6">
-          {/* Header */}
-          <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <div>
-                <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                  <AlertTriangle className="w-5 h-5 text-red-600" />
-                  {language === 'bn' ? 'ড্যামেজ স্টক ম্যানেজমেন্ট' : 'Damage Stock Management'}
-                </h3>
-                <p className="text-sm text-slate-600 mt-1">
-                  {language === 'bn' ? 'পণ্যের ড্যামেজ রেকর্ড এবং ইনভেন্টরি ট্র্যাকিং' : 'Track damaged goods and inventory adjustments'}
-                </p>
-              </div>
-            </div>
-          </div>
+      {/* SUB-TAB: Delivery Agents (deliveryMen) */}
+      {activeSubTab === 'deliveryMen' && (() => {
+        const getCompanyTheme = (compName) => {
+          if (!compName || compName === 'Unassigned') {
+            return {
+              headerBg: 'bg-slate-100/80',
+              headerText: 'text-slate-700',
+              borderColor: 'border-slate-200',
+              dotBg: 'bg-slate-400',
+              activeTabBg: 'bg-slate-800 text-white shadow-md ring-2 ring-slate-400/30',
+              badgeBg: 'bg-slate-200/90 text-slate-700 border-slate-300',
+              accentColor: 'text-slate-600'
+            };
+          }
+          const themes = [
+            {
+              headerBg: 'bg-gradient-to-r from-blue-50/90 via-indigo-50/40 to-white',
+              headerText: 'text-blue-950',
+              borderColor: 'border-blue-200/80',
+              dotBg: 'bg-blue-600',
+              activeTabBg: 'bg-blue-600 text-white shadow-md shadow-blue-500/20 ring-2 ring-blue-500/30',
+              badgeBg: 'bg-blue-100/90 text-blue-800 border-blue-200',
+              accentColor: 'text-blue-600'
+            },
+            {
+              headerBg: 'bg-gradient-to-r from-emerald-50/90 via-teal-50/40 to-white',
+              headerText: 'text-emerald-950',
+              borderColor: 'border-emerald-200/80',
+              dotBg: 'bg-emerald-600',
+              activeTabBg: 'bg-emerald-600 text-white shadow-md shadow-emerald-500/20 ring-2 ring-emerald-500/30',
+              badgeBg: 'bg-emerald-100/90 text-emerald-800 border-emerald-200',
+              accentColor: 'text-emerald-600'
+            },
+            {
+              headerBg: 'bg-gradient-to-r from-purple-50/90 via-violet-50/40 to-white',
+              headerText: 'text-purple-950',
+              borderColor: 'border-purple-200/80',
+              dotBg: 'bg-purple-600',
+              activeTabBg: 'bg-purple-600 text-white shadow-md shadow-purple-500/20 ring-2 ring-purple-500/30',
+              badgeBg: 'bg-purple-100/90 text-purple-800 border-purple-200',
+              accentColor: 'text-purple-600'
+            },
+            {
+              headerBg: 'bg-gradient-to-r from-amber-50/90 via-orange-50/40 to-white',
+              headerText: 'text-amber-950',
+              borderColor: 'border-amber-200/80',
+              dotBg: 'bg-amber-500',
+              activeTabBg: 'bg-amber-600 text-white shadow-md shadow-amber-500/20 ring-2 ring-amber-500/30',
+              badgeBg: 'bg-amber-100/90 text-amber-800 border-amber-200',
+              accentColor: 'text-amber-600'
+            },
+            {
+              headerBg: 'bg-gradient-to-r from-rose-50/90 via-pink-50/40 to-white',
+              headerText: 'text-rose-950',
+              borderColor: 'border-rose-200/80',
+              dotBg: 'bg-rose-600',
+              activeTabBg: 'bg-rose-600 text-white shadow-md shadow-rose-500/20 ring-2 ring-rose-500/30',
+              badgeBg: 'bg-rose-100/90 text-rose-800 border-rose-200',
+              accentColor: 'text-rose-600'
+            },
+            {
+              headerBg: 'bg-gradient-to-r from-cyan-50/90 via-sky-50/40 to-white',
+              headerText: 'text-cyan-950',
+              borderColor: 'border-cyan-200/80',
+              dotBg: 'bg-cyan-600',
+              activeTabBg: 'bg-cyan-600 text-white shadow-md shadow-cyan-500/20 ring-2 ring-cyan-500/30',
+              badgeBg: 'bg-cyan-100/90 text-cyan-800 border-cyan-200',
+              accentColor: 'text-cyan-600'
+            }
+          ];
 
-          {/* Summary Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-white border border-slate-200 rounded-lg p-4">
-              <div className="text-xs font-medium text-slate-600 uppercase tracking-wide mb-1">
-                {language === 'bn' ? 'মোট ড্যামেজ পণ্য' : 'Total Damaged Items'}
-              </div>
-              <div className="text-2xl font-bold text-red-600">
-                {products.filter(p => (p.damagedStock || 0) > 0).length}
-              </div>
-            </div>
-            <div className="bg-white border border-slate-200 rounded-lg p-4">
-              <div className="text-xs font-medium text-slate-600 uppercase tracking-wide mb-1">
-                {language === 'bn' ? 'ড্যামেজ ইউনিট' : 'Damaged Units'}
-              </div>
-              <div className="text-2xl font-bold text-red-600">
-                {products.reduce((sum, p) => sum + (p.damagedStock || 0), 0).toLocaleString()}
-              </div>
-            </div>
-            <div className="bg-white border border-slate-200 rounded-lg p-4">
-              <div className="text-xs font-medium text-slate-600 uppercase tracking-wide mb-1">
-                {language === 'bn' ? 'আনুমানিক মূল্য ক্ষতি' : 'Estimated Value Loss'}
-              </div>
-              <div className="text-2xl font-bold text-red-600">
-                ৳{products.reduce((sum, p) => sum + (p.damagedStock || 0) * p.defaultPP, 0).toLocaleString('en-BD')}
-              </div>
-            </div>
-          </div>
+          let hash = 0;
+          for (let i = 0; i < compName.length; i++) {
+            hash = compName.charCodeAt(i) + ((hash << 5) - hash);
+          }
+          return themes[Math.abs(hash) % themes.length];
+        };
 
-          {/* Damaged Products Table */}
-          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-            <div className="px-6 py-4 border-b border-slate-200 bg-slate-50">
-              <h4 className="font-semibold text-sm text-slate-900 uppercase tracking-wide">
-                {language === 'bn' ? 'ড্যামেজ পণ্য তালিকা' : 'Damaged Products List'}
-              </h4>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200">
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">#</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                      {language === 'bn' ? 'পণ্য' : 'Product'}
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                      {language === 'bn' ? 'কোম্পানি' : 'Company'}
-                    </th>
-                    <th className="px-6 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                      {language === 'bn' ? 'ড্যামেজ স্টক' : 'Damaged Stock'}
-                    </th>
-                    <th className="px-6 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                      {language === 'bn' ? 'ভাল স্টক' : 'Good Stock'}
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                      {language === 'bn' ? 'ক্ষতির মূল্য' : 'Loss Value'}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {products
-                    .filter(p => (p.damagedStock || 0) > 0)
-                    .sort((a, b) => (b.damagedStock || 0) - (a.damagedStock || 0))
-                    .map((product, idx) => {
-                      const damageValue = (product.damagedStock || 0) * product.defaultPP;
-                      return (
-                        <tr key={product.id} className="hover:bg-slate-50 transition-colors">
-                          <td className="px-6 py-4 text-sm text-slate-500 font-mono">
-                            {(idx + 1).toString().padStart(2, '0')}
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="font-semibold text-sm text-slate-900">{product.name}</div>
-                            <div className="text-xs text-slate-500 font-mono">{product.sku}</div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
-                              {product.company}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 text-center">
-                            <span className="inline-flex items-center px-3 py-1 rounded-lg text-sm font-bold bg-red-100 text-red-700 border border-red-200">
-                              {product.damagedStock} {product.primaryUnit === 'Carton' ? 'Ctn' : 'Pcs'}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 text-center">
-                            <span className="text-sm font-semibold text-emerald-700">
-                              {product.currentStock.toLocaleString()} {product.primaryUnit === 'Carton' ? 'Ctn' : 'Pcs'}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                            <span className="text-sm font-bold text-red-700 font-mono">
-                              ৳{damageValue.toLocaleString('en-BD')}
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                </tbody>
-              </table>
-              {products.filter(p => (p.damagedStock || 0) > 0).length === 0 && (
-                <div className="py-12 text-center">
-                  <AlertTriangle className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                  <h3 className="text-lg font-semibold text-slate-900 mb-1">
-                    {language === 'bn' ? 'কোনো ড্যামেজ পণ্য নেই' : 'No Damaged Products'}
+        const filteredCompanies = companies.filter(c => {
+          if (dmCompanyFilter === 'All') return true;
+          return c.name === dmCompanyFilter;
+        });
+        const showUnassigned = dmCompanyFilter === 'All' || dmCompanyFilter === 'Unassigned';
+
+        return (
+          <div className="space-y-6">
+            {/* Action Bar & Premium Company Filters */}
+            <div className="bg-white p-5 border border-slate-200 rounded-2xl shadow-sm space-y-4">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div className="space-y-0.5">
+                  <h3 className="text-sm font-extrabold text-[#0e1726] uppercase tracking-wide flex items-center gap-2">
+                    <Truck className="w-4 h-4 text-[#0e1726]" />
+                    {language === 'bn' ? 'ডেলিভারি ম্যান তালিকা' : 'Delivery Agents / Men'}
                   </h3>
-                  <p className="text-sm text-slate-600">
-                    {language === 'bn' ? 'বর্তমানে কোনো পণ্যে ড্যামেজ স্টক রেকর্ড করা হয়নি' : 'No products have damage records at this time'}
+                  <p className="text-[11px] text-slate-500 font-semibold">
+                    {language === 'bn' ? 'কোম্পানি অনুযায়ী অ্যাকর্ডিয়ন ফোল্ডারে দায়িত্বপ্রাপ্ত ডেলিভারি ব্যক্তিবর্গ' : 'Field logistics personnel organized by assigned company with accordion view'}
                   </p>
                 </div>
-              )}
-            </div>
-          </div>
 
-          {/* Info Card */}
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex gap-3 text-blue-900">
-            <AlertTriangle className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
-            <div className="text-xs space-y-1">
-              <p className="font-bold">
-                {language === 'bn' ? 'ড্যামেজ স্টক কীভাবে ম্যানেজ করবেন?' : 'How to Manage Damage Stock?'}
-              </p>
-              <p className="text-blue-800">
-                {language === 'bn' 
-                  ? 'স্টক অ্যাডজাস্টমেন্ট মডিউল থেকে পণ্যের ড্যামেজ এন্ট্রি করুন। ড্যামেজ স্টক সেলেবল ইনভেন্টরি থেকে আলাদাভাবে ট্র্যাক করা হয়।'
-                  : 'Log damage entries through the Stock Adjustment module. Damaged stock is tracked separately from sellable inventory.'}
-              </p>
+                <div className="flex items-center gap-3 w-full sm:w-auto shrink-0">
+                  <div className="relative w-full sm:w-56">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                    <input
+                      type="text"
+                      value={dmSearch}
+                      onChange={e => setDmSearch(e.target.value)}
+                      placeholder={language === 'bn' ? 'অনুসন্ধান...' : 'Search agent or vehicle...'}
+                      className="w-full h-10 pl-9 pr-3 rounded-xl border border-slate-200 bg-slate-50 text-xs font-semibold text-slate-700 outline-none focus:border-slate-800 focus:bg-white transition-all placeholder:text-slate-400 shadow-3xs"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingDm(null);
+                      setDmName('');
+                      setDmVehicle('');
+                      setDmPhone('');
+                      setDmAssignedCompanies([]);
+                      setShowDmModal(true);
+                    }}
+                    className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#0e1726] hover:bg-[#1e293b] px-4 text-xs font-bold text-white transition-all active:scale-95 shadow-sm shrink-0 border border-slate-950 cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" />
+                    {language === 'bn' ? 'ডেলিভারি ম্যান যুক্ত করুন' : 'Add Delivery Agent'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Premium ERP Tab Pills */}
+              <div className="flex flex-wrap items-center gap-2 bg-slate-100/90 p-2 rounded-2xl border border-slate-200 shadow-2xs overflow-x-auto">
+                <button
+                  type="button"
+                  onClick={() => setDmCompanyFilter('All')}
+                  className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-2 whitespace-nowrap ${
+                    dmCompanyFilter === 'All'
+                      ? 'bg-[#0e1726] text-white shadow-md ring-2 ring-slate-900/20'
+                      : 'text-slate-700 hover:bg-white hover:text-slate-950 hover:shadow-2xs'
+                  }`}
+                >
+                  <span>{language === 'bn' ? 'সকল কোম্পানি' : 'All Companies'}</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                    dmCompanyFilter === 'All' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+                  }`}>
+                    {deliveryMen.length}
+                  </span>
+                </button>
+
+                {companies.map(c => {
+                  const compDms = deliveryMen.filter(dm => {
+                    const matchSearch = !dmSearch || dm.name.toLowerCase().includes(dmSearch.toLowerCase()) || (dm.vehicle && dm.vehicle.toLowerCase().includes(dmSearch.toLowerCase()));
+                    const matchComp = dm.assignedCompanyIds?.includes(c.name);
+                    return matchSearch && matchComp;
+                  });
+                  const theme = getCompanyTheme(c.name);
+                  const isActive = dmCompanyFilter === c.name;
+
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => setDmCompanyFilter(c.name)}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 whitespace-nowrap ${
+                        isActive
+                          ? theme.activeTabBg
+                          : 'text-slate-700 hover:bg-white hover:text-slate-950 hover:shadow-2xs border border-transparent'
+                      }`}
+                    >
+                      <span className={`w-2 h-2 rounded-full ${isActive ? 'bg-white' : theme.dotBg}`} />
+                      <span>{c.name}</span>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        isActive ? 'bg-white/20 text-white' : 'bg-slate-200/80 text-slate-700'
+                      }`}>
+                        {compDms.length}
+                      </span>
+                    </button>
+                  );
+                })}
+
+                {(() => {
+                  const unassignedCount = deliveryMen.filter(dm => !dm.assignedCompanyIds || dm.assignedCompanyIds.length === 0).length;
+                  const isActive = dmCompanyFilter === 'Unassigned';
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => setDmCompanyFilter('Unassigned')}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 whitespace-nowrap ${
+                        isActive
+                          ? 'bg-slate-800 text-white shadow-md ring-2 ring-slate-400/30'
+                          : 'text-slate-600 hover:bg-white hover:text-slate-950 hover:shadow-2xs'
+                      }`}
+                    >
+                      <span className="w-2 h-2 rounded-full bg-slate-400" />
+                      <span>{language === 'bn' ? 'অ্যাসাইন করা হয়নি' : 'Unassigned'}</span>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        isActive ? 'bg-white/20 text-white' : 'bg-slate-200/80 text-slate-600'
+                      }`}>
+                        {unassignedCount}
+                      </span>
+                    </button>
+                  );
+                })()}
+              </div>
+            </div>
+
+            {/* FULL WIDTH Accordion Delivery Agent Cards */}
+            <div className="space-y-4 w-full">
+              {filteredCompanies.map((company) => {
+                const assignedDms = deliveryMen.filter(dm => {
+                  const matchSearch = !dmSearch || dm.name.toLowerCase().includes(dmSearch.toLowerCase()) || (dm.vehicle && dm.vehicle.toLowerCase().includes(dmSearch.toLowerCase()));
+                  const matchComp = dm.assignedCompanyIds?.includes(company.name);
+                  return matchSearch && matchComp;
+                });
+                if (assignedDms.length === 0) return null;
+                const theme = getCompanyTheme(company.name);
+                const isCollapsed = Boolean(collapsedDmCompanies[company.name]);
+
+                return (
+                  <div
+                    key={company.id}
+                    className={`bg-white rounded-2xl border ${theme.borderColor} shadow-xs overflow-hidden w-full flex flex-col transition-all hover:shadow-sm`}
+                  >
+                    {/* Accordion Company Banner Header */}
+                    <div
+                      onClick={() => toggleDmCompanyAccordion(company.name)}
+                      className={`px-6 py-4 border-b ${theme.borderColor} flex items-center justify-between ${theme.headerBg} cursor-pointer select-none hover:opacity-95 transition-all`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`w-3 h-3 rounded-full ${theme.dotBg} shadow-2xs`} />
+                        <h4 className={`font-black text-sm sm:text-base tracking-wide uppercase leading-tight ${theme.headerText}`}>
+                          {company.name}
+                        </h4>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-extrabold border shadow-3xs ${theme.badgeBg}`}>
+                          {assignedDms.length} {assignedDms.length === 1 ? 'Delivery Agent' : 'Delivery Agents'}
+                        </span>
+                        <div className="p-1.5 rounded-lg hover:bg-slate-200/60 text-slate-600 transition-colors">
+                          {isCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Accordion Content Table */}
+                    {!isCollapsed && (
+                      <div className="w-full overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                            <tr className="bg-slate-50/80 border-b border-slate-200/80 text-[11px] uppercase tracking-wider text-slate-500 font-extrabold">
+                              <th className="px-6 py-4 font-semibold w-16 text-center">#</th>
+                              <th className="px-6 py-4 font-semibold">{language === 'bn' ? 'ডেলিভারি ম্যান' : 'DELIVERY AGENT'}</th>
+                              <th className="px-6 py-4 font-semibold">{language === 'bn' ? 'যানবাহন বিবরণ' : 'VEHICLE DETAILS'}</th>
+                              <th className="px-6 py-4 font-semibold">{language === 'bn' ? 'ফোন নাম্বার' : 'CONTACT PHONE'}</th>
+                              <th className="px-6 py-4 font-semibold text-right pr-6 w-28">{language === 'bn' ? 'অ্যাকশন' : 'ACTIONS'}</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 text-sm">
+                            {assignedDms.map((dm, idx) => {
+                              const initials = dm.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+
+                              return (
+                                <tr key={dm.id} className="hover:bg-slate-50/60 transition-colors group">
+                                  <td className="px-6 py-4 text-center text-slate-400 font-mono font-bold text-xs">
+                                    {idx + 1}
+                                  </td>
+                                  <td className="px-6 py-4 font-bold text-slate-800">
+                                    <div className="flex items-center gap-3">
+                                      <div className={`w-9 h-9 rounded-xl ${theme.badgeBg} flex items-center justify-center text-xs font-black shadow-3xs shrink-0`}>
+                                        {initials}
+                                      </div>
+                                      <span className="text-slate-900 font-extrabold text-sm">{dm.name}</span>
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-4 font-semibold text-slate-700">
+                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 border border-slate-200 text-slate-700">
+                                      <Truck className="w-3.5 h-3.5 text-slate-500" />
+                                      {dm.vehicle || 'N/A'}
+                                    </span>
+                                  </td>
+                                  <td className="px-6 py-4 font-semibold text-slate-600 font-mono text-xs">
+                                    {dm.phone || 'N/A'}
+                                  </td>
+                                  <td className="px-6 py-4 text-right pr-6">
+                                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setEditingDm(dm);
+                                          setDmName(dm.name);
+                                          setDmVehicle(dm.vehicle || '');
+                                          setDmPhone(dm.phone || '');
+                                          setDmAssignedCompanies(dm.assignedCompanyIds || []);
+                                          setShowDmModal(true);
+                                        }}
+                                        className="p-1.5 text-slate-400 hover:text-[#0e1726] hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                                        title="Edit Agent"
+                                      >
+                                        <Edit3 className="w-4 h-4" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDeleteDm(dm.id)}
+                                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                                        title="Delete Agent"
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+              {/* Unassigned Delivery Agents Accordion */}
+              {showUnassigned && (() => {
+                const unassignedDms = deliveryMen.filter(dm => {
+                  const matchSearch = !dmSearch || dm.name.toLowerCase().includes(dmSearch.toLowerCase()) || (dm.vehicle && dm.vehicle.toLowerCase().includes(dmSearch.toLowerCase()));
+                  const isUnassigned = !dm.assignedCompanyIds || dm.assignedCompanyIds.length === 0;
+                  return matchSearch && isUnassigned;
+                });
+                if (unassignedDms.length === 0) return null;
+                const isCollapsed = Boolean(collapsedDmCompanies['Unassigned']);
+
+                return (
+                  <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden w-full flex flex-col transition-all">
+                    {/* Header */}
+                    <div
+                      onClick={() => toggleDmCompanyAccordion('Unassigned')}
+                      className="px-6 py-4 border-b border-slate-200/80 flex items-center justify-between bg-slate-100/70 cursor-pointer select-none hover:bg-slate-100 transition-all"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-3 h-3 rounded-full bg-slate-400 shadow-2xs" />
+                        <h4 className="font-extrabold text-sm sm:text-base tracking-wide uppercase leading-tight text-slate-600 italic">
+                          {language === 'bn' ? 'অ্যাসাইন করা হয়নি' : 'Unassigned Delivery Agents'}
+                        </h4>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-slate-200/80 text-slate-700 border border-slate-300">
+                          {unassignedDms.length} {unassignedDms.length === 1 ? 'Agent' : 'Agents'}
+                        </span>
+                        <div className="p-1.5 rounded-lg hover:bg-slate-200/80 text-slate-600 transition-colors">
+                          {isCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Table */}
+                    {!isCollapsed && (
+                      <div className="w-full overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                            <tr className="bg-slate-50/80 border-b border-slate-200 text-[11px] uppercase tracking-wider text-slate-500 font-extrabold">
+                              <th className="px-6 py-4 font-semibold w-16 text-center">#</th>
+                              <th className="px-6 py-4 font-semibold">{language === 'bn' ? 'ডেলিভারি ম্যান' : 'DELIVERY AGENT'}</th>
+                              <th className="px-6 py-4 font-semibold">{language === 'bn' ? 'যানবাহন বিবরণ' : 'VEHICLE DETAILS'}</th>
+                              <th className="px-6 py-4 font-semibold">{language === 'bn' ? 'ফোন নাম্বার' : 'CONTACT PHONE'}</th>
+                              <th className="px-6 py-4 font-semibold text-right pr-6 w-28">{language === 'bn' ? 'অ্যাকশন' : 'ACTIONS'}</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 text-sm">
+                            {unassignedDms.map((dm, idx) => {
+                              const initials = dm.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+
+                              return (
+                                <tr key={dm.id} className="hover:bg-slate-50/60 transition-colors group">
+                                  <td className="px-6 py-4 text-center text-slate-400 font-mono font-bold text-xs">
+                                    {idx + 1}
+                                  </td>
+                                  <td className="px-6 py-4 font-bold text-slate-500">
+                                    <div className="flex items-center gap-3">
+                                      <div className="w-9 h-9 rounded-xl bg-slate-200 text-slate-600 flex items-center justify-center text-xs font-black shadow-3xs shrink-0">
+                                        {initials}
+                                      </div>
+                                      <span className="text-slate-700 font-bold text-sm">{dm.name}</span>
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-4 font-semibold text-slate-600">
+                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 border border-slate-200 text-slate-600">
+                                      <Truck className="w-3.5 h-3.5 text-slate-400" />
+                                      {dm.vehicle || 'N/A'}
+                                    </span>
+                                  </td>
+                                  <td className="px-6 py-4 font-semibold text-slate-500 font-mono text-xs">
+                                    {dm.phone || 'N/A'}
+                                  </td>
+                                  <td className="px-6 py-4 text-right pr-6">
+                                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setEditingDm(dm);
+                                          setDmName(dm.name);
+                                          setDmVehicle(dm.vehicle || '');
+                                          setDmPhone(dm.phone || '');
+                                          setDmAssignedCompanies(dm.assignedCompanyIds || []);
+                                          setShowDmModal(true);
+                                        }}
+                                        className="p-1.5 text-slate-400 hover:text-[#0e1726] hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                                        title="Edit Agent"
+                                      >
+                                        <Edit3 className="w-4 h-4" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDeleteDm(dm.id)}
+                                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                                        title="Delete Agent"
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* MODAL: Product Setup */}
       {showProductModal && (
@@ -3249,26 +3767,29 @@ export default function DirectoryModule({
 
 
               <div>
-                <label className="mb-2 block text-xs font-semibold text-slate-705">
-                  {language === 'bn' ? 'কোম্পানি বরাদ্দ (শুধুমাত্র একটি)' : 'Assigned Company Brand (One Only)'}
-                </label>
-                <select
-                  required
-                  value={srAssignedCompanies[0] || ''}
-                  onChange={(e) => {
-                    // SR can only be assigned to ONE company
-                    setSrAssignedCompanies(e.target.value ? [e.target.value] : []);
-                  }}
-                  className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3.5 font-semibold outline-none focus:border-slate-800 focus:bg-white"
-                >
-                  <option value="">{language === 'bn' ? '-- একটি কোম্পানি নির্বাচন করুন --' : '-- Select One Company --'}</option>
-                  {companies.map(c => (
-                    <option key={c.id} value={c.name}>{c.name}</option>
-                  ))}
-                </select>
-                <p className="mt-1.5 text-[10px] text-slate-500 italic">
-                  ⚠️ {language === 'bn' ? 'প্রতিটি SR শুধুমাত্র একটি কোম্পানিতে নিযুক্ত থাকতে পারবে' : 'Each SR can only be assigned to ONE company'}
-                </p>
+                <label className="mb-2 block text-xs font-semibold text-slate-705">Assigned Company Brands</label>
+                <div className="grid grid-cols-2 gap-2 bg-slate-50 p-3 rounded-lg border border-slate-200 max-h-28 overflow-y-auto">
+                  {companies.map(c => {
+                    const isChecked = srAssignedCompanies.includes(c.name);
+                    return (
+                      <label key={c.id} className="flex items-center gap-2 text-[10px] font-semibold text-slate-700 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => {
+                            if (isChecked) {
+                              setSrAssignedCompanies(prev => prev.filter(x => x !== c.name));
+                            } else {
+                              setSrAssignedCompanies(prev => [...prev, c.name]);
+                            }
+                          }}
+                          className="rounded text-slate-900 focus:ring-slate-800"
+                        />
+                        {c.name}
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
 
               {/* Custom Login Credentials */}

@@ -52,6 +52,27 @@ export default function ClaimManagementModule({
   const [endDate, setEndDate] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Filter SRs based on selected company filter
+  const filteredSrsForFilter = useMemo(() => {
+    if (companyFilter === 'All') return srs;
+    const comp = companies.find(c => 
+      c.name.toLowerCase().includes(companyFilter.toLowerCase()) ||
+      companyFilter.toLowerCase().includes(c.name.toLowerCase())
+    );
+    if (!comp) return srs;
+    return srs.filter(sr => (sr.assignedCompanyIds || []).includes(comp.id));
+  }, [companyFilter, companies, srs]);
+
+  // Reset SR filter if selected SR is not in selected company's SR list
+  React.useEffect(() => {
+    if (companyFilter !== 'All' && srFilter !== 'All') {
+      const isSrInCompany = filteredSrsForFilter.some(sr => sr.id === srFilter);
+      if (!isSrInCompany) {
+        setSrFilter('All');
+      }
+    }
+  }, [companyFilter, filteredSrsForFilter, srFilter]);
+
   // Modal form state
   const [showFormModal, setShowFormModal] = useState(false);
   const [formType, setFormType] = useState<'Claim' | 'Display'>('Claim');
@@ -74,11 +95,18 @@ export default function ClaimManagementModule({
     }
   }, [selectedProductId, qty, formType, products]);
 
-  // Handle company change in form (auto-filters products)
+  // Handle company change in form (auto-filters products and SRs)
   const handleCompanyChangeInForm = (companyId: string) => {
     setSelectedCompanyId(companyId);
     setSelectedProductId(''); // Reset product when company changes
+    setSelectedSrId('');      // Reset SR when company changes
   };
+
+  // Filtered SRs for form based on selected company
+  const filteredSrsForForm = useMemo(() => {
+    if (!selectedCompanyId) return [];
+    return srs.filter(sr => (sr.assignedCompanyIds || []).includes(selectedCompanyId));
+  }, [selectedCompanyId, srs]);
 
   // Filtered products for form based on selected company
   const filteredProductsForForm = useMemo(() => {
@@ -393,7 +421,7 @@ export default function ClaimManagementModule({
               className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50/20 px-3 text-xs font-bold text-slate-700 outline-none focus:border-indigo-500 transition-all cursor-pointer"
             >
               <option value="All">{bn ? 'সকল এসআর' : 'All SRs'}</option>
-              {srs.map(sr => (
+              {filteredSrsForFilter.map(sr => (
                 <option key={sr.id} value={sr.id}>{sr.name}</option>
               ))}
             </select>
@@ -615,15 +643,19 @@ export default function ClaimManagementModule({
 
               {/* SR Selection */}
               <div>
-                <label className="mb-1.5 block text-xs font-semibold text-slate-700">{bn ? 'এসআর নির্বাচন *' : 'Select SR *'}</label>
+                <label className="mb-1.5 block text-xs font-semibold text-slate-700">
+                  {bn ? 'এসআর নির্বাচন *' : 'Select SR *'}
+                  {!selectedCompanyId && <span className="text-[10px] text-slate-400 font-normal ml-1">({bn ? 'প্রথমে কোম্পানি নির্বাচন করুন' : 'Select company first'})</span>}
+                </label>
                 <select
                   required
+                  disabled={!selectedCompanyId}
                   value={selectedSrId}
                   onChange={e => setSelectedSrId(e.target.value)}
-                  className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 font-semibold outline-none focus:border-slate-855 focus:bg-white cursor-pointer text-slate-800"
+                  className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 font-semibold outline-none focus:border-slate-855 focus:bg-white cursor-pointer text-slate-800 disabled:opacity-50"
                 >
                   <option value="">{bn ? 'এসআর সিলেক্ট করুন...' : 'Select an SR...'}</option>
-                  {srs.map(sr => (
+                  {filteredSrsForForm.map(sr => (
                     <option key={sr.id} value={sr.id}>{sr.name}</option>
                   ))}
                 </select>

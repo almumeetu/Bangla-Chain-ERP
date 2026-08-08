@@ -23,7 +23,7 @@ import {
   Pencil,
   Building
 } from 'lucide-react';
-import { ChallanItem, SR, Route, DeliveryMan, Product, ProductAttribute } from '../types';
+import { ChallanItem, SR, Route, DeliveryMan, Product, ProductAttribute, CompanyBrand } from '../types';
 import { translations, Language } from '../translations';
 import { printChallanInvoice, printChallanSheet } from '../lib/printUtils';
 import { Customer } from '../lib/localStore';
@@ -55,6 +55,7 @@ interface ChallanModuleProps {
   language: Language;
   customers: Customer[];
   setCustomers: React.Dispatch<React.SetStateAction<Customer[]>>;
+  companies?: CompanyBrand[];
 }
 
 export default function ChallanModule({
@@ -68,7 +69,8 @@ export default function ChallanModule({
   attributes,
   language,
   customers,
-  setCustomers
+  setCustomers,
+  companies = []
 }: ChallanModuleProps) {
   const tCommon = translations[language].common;
   const tChallan = translations[language].challan;
@@ -229,6 +231,30 @@ export default function ChallanModule({
   const [editDeliveryMan, setEditDeliveryMan] = useState('');
   const [editStatus, setEditStatus] = useState<'Pending' | 'Shipped' | 'Delivered'>('Pending');
   const [editModeEnabled, setEditModeEnabled] = useState(false);
+
+  // Filter SRs for the edit modal based on the company of the order's products
+  const filteredSrsForEdit = React.useMemo(() => {
+    const orderCompany = (editingOrder && editOrderItems.length > 0)
+      ? products.find(p => p.name === editOrderItems[0].productName)?.company 
+      : null;
+    if (!orderCompany) return srs;
+    const comp = companies.find(c => 
+      c.name.toLowerCase().includes(orderCompany.toLowerCase()) ||
+      orderCompany.toLowerCase().includes(c.name.toLowerCase())
+    );
+    if (!comp) return srs;
+    return srs.filter(sr => (sr.assignedCompanyIds || []).includes(comp.id));
+  }, [editingOrder, editOrderItems, srs, products, companies]);
+
+  // Auto-reset editSR if not in company's SR list
+  React.useEffect(() => {
+    if (editingOrder && filteredSrsForEdit.length > 0) {
+      const exists = filteredSrsForEdit.some(sr => sr.name === editSR);
+      if (!exists) {
+        setEditSR(filteredSrsForEdit[0].name);
+      }
+    }
+  }, [editingOrder, filteredSrsForEdit, editSR]);
 
   // Filter application
   const handleSearch = (e?: React.FormEvent) => {
@@ -1514,8 +1540,26 @@ export default function ChallanModule({
                       <span className="px-2.5 py-1 bg-slate-50 text-slate-600 rounded-xl text-[11px] font-bold border border-slate-200">{g.itemCount} items</span>
                     </td>
                     <td className="px-5 py-4 text-center font-bold text-slate-800 font-mono bg-slate-50/30 whitespace-nowrap">{g.totalQty}</td>
-                    <td className="px-5 py-4 text-right font-mono font-extrabold text-slate-900 whitespace-nowrap">
-                      ৳{g.totalAmount.toLocaleString('en-BD')}
+                    <td className="px-5 py-4 text-right whitespace-nowrap">
+                      <div className="font-mono font-extrabold text-slate-900">৳{g.totalAmount.toLocaleString('en-BD')}</div>
+                      {(() => {
+                        const profit = g.items.reduce((sum, item) => {
+                          const pp = products.find(p => p.name === item.productName)?.defaultPP ?? item.rate * 0.85;
+                          const cogs = Math.max(0, item.qty - (item.returnedQty || 0) - (item.damagedQty || 0)) * pp;
+                          return sum + (item.totalAmount - cogs);
+                        }, 0);
+                        const isPositive = profit >= 0;
+                        return (
+                          <div className={`inline-flex items-center gap-0.5 mt-1 px-2 py-0.5 rounded-lg text-[10px] font-bold border ${
+                            isPositive 
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-250' 
+                              : 'bg-rose-50 text-rose-700 border-rose-200'
+                          }`}>
+                            <span>{isPositive ? '▲' : '▼'}</span>
+                            <span>৳{Math.round(Math.abs(profit)).toLocaleString('en-BD')}</span>
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td className="px-5 py-4 font-bold text-slate-605 max-w-[120px] truncate whitespace-nowrap" title={g.srName}>
                       {g.srName}
@@ -2168,10 +2212,34 @@ export default function ChallanModule({
                     <span className="font-mono text-slate-600">৳{settlement?.totalCommission.toLocaleString('en-BD')}</span>
                   </div>
                 </div>
-                <div className="sm:w-52 bg-emerald-50 border border-emerald-200 rounded-xl p-3.5 flex flex-col justify-center">
+                <div className="sm:w-44 bg-emerald-50 border border-emerald-200 rounded-xl p-3.5 flex flex-col justify-center">
                   <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-600">{language === 'bn' ? 'মালিকের নিট পাওনা' : 'Owner Net Receivable'}</p>
                   <p className="text-2xl font-mono font-black text-emerald-700 mt-1">৳{settlement?.netToOwner.toLocaleString('en-BD')}</p>
                 </div>
+                {(() => {
+                  const orderProfitVal = viewingOrder.items.reduce((sum, item) => {
+                    const pp = products.find(p => p.name === item.productName)?.defaultPP ?? item.rate * 0.85;
+                    const cogs = Math.max(0, item.qty - (item.returnedQty || 0) - (item.damagedQty || 0)) * pp;
+                    return sum + (item.totalAmount - cogs);
+                  }, 0);
+                  const isPositive = orderProfitVal >= 0;
+                  return (
+                    <div className={`sm:w-44 border rounded-xl p-3.5 flex flex-col justify-center ${
+                      isPositive 
+                        ? 'bg-indigo-50 border-indigo-200 text-indigo-750' 
+                        : 'bg-rose-50 border-rose-200 text-rose-750'
+                    }`}>
+                      <p className={`text-[9px] font-bold uppercase tracking-wider ${
+                        isPositive ? 'text-indigo-600' : 'text-rose-600'
+                      }`}>
+                        {language === 'bn' ? 'চালানের নিট লাভ' : 'Challan Net Profit'}
+                      </p>
+                      <p className={`text-2xl font-mono font-black mt-1 ${isPositive ? 'text-indigo-700' : 'text-rose-750'}`}>
+                        ৳{Math.round(orderProfitVal).toLocaleString('en-BD')}
+                      </p>
+                    </div>
+                  );
+                })()}
               </div>
 
               <div className="space-y-2">
@@ -2674,7 +2742,7 @@ export default function ChallanModule({
                         onChange={(e) => setEditSR(e.target.value)}
                         className="h-10 w-full rounded-xl border border-blue-300 bg-white px-3 text-xs font-semibold outline-none focus:border-blue-500 transition-colors"
                       >
-                        {srs.map(sr => <option key={sr.id} value={sr.name}>{sr.name}</option>)}
+                        {filteredSrsForEdit.map(sr => <option key={sr.id} value={sr.name}>{sr.name}</option>)}
                       </select>
                     ) : (
                       <div className="h-10 w-full rounded-xl border border-slate-200 bg-slate-100 px-3 flex items-center text-xs font-semibold text-slate-700 select-none">{editSR}</div>
