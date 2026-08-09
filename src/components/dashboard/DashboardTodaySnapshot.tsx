@@ -26,10 +26,10 @@ export default function DashboardTodaySnapshot({
   const bn = language === 'bn';
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+    <div className="bg-white rounded-none border border-slate-200 shadow-sm overflow-hidden">
       <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
         <div className="flex items-center gap-2.5">
-          <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+          <div className="w-2 h-2 rounded-none bg-blue-500 animate-pulse" />
           <h3 className="font-bold text-slate-700 text-xs tracking-wide uppercase">
             {bn ? 'আজকের হিসাব' : "Today's Summary"}
           </h3>
@@ -43,7 +43,7 @@ export default function DashboardTodaySnapshot({
         <div className="p-5 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center border border-blue-100">
+              <div className="w-8 h-8 rounded-none bg-blue-50 flex items-center justify-center border border-blue-100">
                 <ShoppingBag className="w-4 h-4 text-blue-600" />
               </div>
               <span className="text-[11px] font-semibold text-slate-500">{bn ? 'আজকের বিক্রয়' : "Today's Sales"}</span>
@@ -60,7 +60,7 @@ export default function DashboardTodaySnapshot({
         {/* Expenses */}
         <div className="p-5 space-y-3">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-rose-50 flex items-center justify-center border border-rose-100">
+            <div className="w-8 h-8 rounded-none bg-rose-50 flex items-center justify-center border border-rose-100">
               <Wallet className="w-4 h-4 text-rose-600" />
             </div>
             <span className="text-[11px] font-semibold text-slate-500">{bn ? 'আজকের খরচ' : "Today's Expenses"}</span>
@@ -76,7 +76,7 @@ export default function DashboardTodaySnapshot({
         <div className="p-5 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center border ${todaysNetProfit >= 0 ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'}`}>
+              <div className={`w-8 h-8 rounded-none flex items-center justify-center border ${todaysNetProfit >= 0 ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'}`}>
                 <TrendingUp className={`w-4 h-4 ${todaysNetProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`} />
               </div>
               <span className="text-[11px] font-semibold text-slate-500">{bn ? 'আজকের লাভ' : "Today's Profit"}</span>

@@ -42,10 +42,10 @@ export default function AdjustmentAuditLog({
   return (
     <div className="space-y-4">
       {/* Audit Log Header */}
-      <div className="bg-gradient-to-r from-slate-900 via-violet-950 to-slate-900 rounded-2xl px-5 py-4 flex items-center justify-between border border-slate-800 shadow-md relative overflow-hidden">
-        <div className="absolute -right-16 -top-16 w-48 h-48 bg-violet-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="bg-gradient-to-r from-slate-900 via-violet-950 to-slate-900 rounded-none px-5 py-4 flex items-center justify-between border border-slate-800 shadow-md relative overflow-hidden">
+        <div className="absolute -right-16 -top-16 w-48 h-48 bg-violet-500/10 rounded-none blur-3xl pointer-events-none" />
         <div className="flex items-center gap-3 relative z-10">
-          <div className="w-8 h-8 rounded-xl bg-violet-500/20 border border-violet-400/30 flex items-center justify-center shrink-0">
+          <div className="w-8 h-8 rounded-none bg-violet-500/20 border border-violet-400/30 flex items-center justify-center shrink-0">
             <ClipboardList className="w-4 h-4 text-violet-300" />
           </div>
           <div>
@@ -59,7 +59,7 @@ export default function AdjustmentAuditLog({
         </div>
         <div className="flex items-center gap-2 relative z-10">
           {adjustments.length > 0 && (
-            <span className="text-[10px] bg-violet-500/20 border border-violet-400/30 text-violet-200 px-3 py-1 rounded-full font-mono font-bold">
+            <span className="text-[10px] bg-violet-500/20 border border-violet-400/30 text-violet-200 px-3 py-1 rounded-none font-mono font-bold">
               {adjustments.length} {bn ? 'রেকর্ড' : 'records'}
             </span>
           )}
@@ -67,7 +67,7 @@ export default function AdjustmentAuditLog({
             <button
               type="button"
               onClick={() => printStockAdjustmentLog(adjustments)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-white font-semibold transition-all text-xs cursor-pointer active:scale-95"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-none border border-white/10 bg-white/5 hover:bg-white/10 text-white font-semibold transition-all text-xs cursor-pointer active:scale-95"
             >
               <Printer className="w-3.5 h-3.5 text-violet-300" />
               {bn ? 'প্রিন্ট করুন' : 'Print Log'}
@@ -78,7 +78,7 @@ export default function AdjustmentAuditLog({
 
       {adjustments.length === 0
         ? (
-          <div className="bg-white rounded-xl border border-slate-200 border-dashed p-10 text-center">
+          <div className="bg-white rounded-none border border-slate-200 border-dashed p-10 text-center">
             <ClipboardList className="w-8 h-8 text-slate-300 mx-auto mb-3" />
             <p className="text-sm font-bold text-slate-400">
               {bn ? 'এখনো কোনো সমন্বয় নেই।' : 'No adjustments recorded yet.'}
@@ -90,10 +90,10 @@ export default function AdjustmentAuditLog({
         )
         : (
           <>
-            <div className="bg-violet-50/60 border border-violet-200 rounded-2xl p-4 shadow-sm space-y-3">
+            <div className="bg-violet-50/60 border border-violet-200 rounded-none p-4 shadow-sm space-y-3">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] bg-violet-100 text-violet-700 font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider font-mono">
+                  <span className="text-[10px] bg-violet-100 text-violet-700 font-extrabold px-2.5 py-0.5 rounded-none uppercase tracking-wider font-mono">
                     {bn ? 'তারিখ ফিল্টার' : 'Date Filter'}
                   </span>
                   <span className="text-[10px] text-slate-500 font-bold font-mono">
@@ -114,7 +114,7 @@ export default function AdjustmentAuditLog({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">{bn ? 'শুরুর তারিখ' : 'From Date'}</label>
-                  <div className="relative flex items-center rounded-xl border border-violet-200 bg-white hover:border-violet-400 transition-all duration-200 focus-within:border-violet-500 focus-within:ring-2 focus-within:ring-violet-100/85 overflow-hidden">
+                  <div className="relative flex items-center rounded-none border border-violet-200 bg-white hover:border-violet-400 transition-all duration-200 focus-within:border-violet-500 focus-within:ring-2 focus-within:ring-violet-100/85 overflow-hidden">
                     <div className="absolute left-0 top-0 bottom-0 px-2.5 bg-violet-50 border-r border-violet-200 flex items-center justify-center text-violet-600">
                       <Calendar className="w-3.5 h-3.5" />
                     </div>
@@ -129,7 +129,7 @@ export default function AdjustmentAuditLog({
 
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">{bn ? 'শেষের তারিখ' : 'To Date'}</label>
-                  <div className="relative flex items-center rounded-xl border border-violet-200 bg-white hover:border-violet-400 transition-all duration-200 focus-within:border-violet-500 focus-within:ring-2 focus-within:ring-violet-100/85 overflow-hidden">
+                  <div className="relative flex items-center rounded-none border border-violet-200 bg-white hover:border-violet-400 transition-all duration-200 focus-within:border-violet-500 focus-within:ring-2 focus-within:ring-violet-100/85 overflow-hidden">
                     <div className="absolute left-0 top-0 bottom-0 px-2.5 bg-violet-50 border-r border-violet-200 flex items-center justify-center text-violet-600">
                       <Calendar className="w-3.5 h-3.5" />
                     </div>
@@ -144,7 +144,7 @@ export default function AdjustmentAuditLog({
               </div>
             </div>
 
-            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+            <div className="bg-white rounded-none border border-slate-200 overflow-hidden shadow-sm">
               <table className="w-full text-xs">
                 <thead>
                   <tr className="bg-gradient-to-r from-slate-900 via-violet-950 to-slate-900 text-white border-b border-slate-800">
@@ -176,7 +176,7 @@ export default function AdjustmentAuditLog({
                           {adj.newQty.toLocaleString()}
                         </td>
                         <td className="px-4 py-3.5 text-center">
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold border ${changeClass}`}>
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-none text-[11px] font-bold border ${changeClass}`}>
                             {isIncrease
                               ? <TrendingUp className="w-3 h-3" />
                               : <TrendingDown className="w-3 h-3" />}
@@ -201,24 +201,24 @@ export default function AdjustmentAuditLog({
             </div>
 
             {totalPages > 1 && (
-              <div className="flex items-center justify-between text-xs bg-white border border-slate-200 rounded-xl px-4 py-3 shadow-sm">
+              <div className="flex items-center justify-between text-xs bg-white border border-slate-200 rounded-none px-4 py-3 shadow-sm">
                 <span className="text-slate-500 font-semibold">{rangeLabel}</span>
                 <div className="flex items-center gap-1.5">
                   <button type="button" onClick={handlePrev} disabled={currentPage === 1}
-                    className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40 cursor-pointer transition-all">
+                    className="p-1.5 rounded-none border border-slate-200 hover:bg-slate-50 disabled:opacity-40 cursor-pointer transition-all">
                     <ChevronLeft className="w-4 h-4" />
                   </button>
                   {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => {
                     function handlePageClick() { onPageChange(page); }
                     return (
                       <button key={page} type="button" onClick={handlePageClick}
-                        className={`px-3 py-1.5 rounded-lg border font-semibold cursor-pointer transition-all ${currentPage === page ? 'bg-violet-700 text-white border-violet-700' : 'border-slate-200 text-slate-600 hover:bg-slate-100'}`}>
+                        className={`px-3 py-1.5 rounded-none border font-semibold cursor-pointer transition-all ${currentPage === page ? 'bg-violet-700 text-white border-violet-700' : 'border-slate-200 text-slate-600 hover:bg-slate-100'}`}>
                         {page}
                       </button>
                     );
                   })}
                   <button type="button" onClick={handleNext} disabled={currentPage === totalPages}
-                    className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40 cursor-pointer transition-all">
+                    className="p-1.5 rounded-none border border-slate-200 hover:bg-slate-50 disabled:opacity-40 cursor-pointer transition-all">
                     <ChevronRight className="w-4 h-4" />
                   </button>
                 </div>

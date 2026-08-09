@@ -32,7 +32,7 @@ export default function DashboardRecentDeliveries({
   function handleViewAll() { onNavigate('delivery'); }
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+    <div className="bg-white rounded-none border border-slate-200 shadow-sm overflow-hidden">
       <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
         <div className="flex items-center gap-2">
           <ReceiptText className="w-4 h-4 text-slate-500" />
@@ -73,7 +73,7 @@ export default function DashboardRecentDeliveries({
                   <p className="font-semibold text-slate-600 text-xs">{ch.srName}</p>
                 </td>
                 <td className="px-4 py-3">
-                  <span className="text-[10px] bg-slate-50 text-slate-600 px-2 py-0.5 rounded border border-slate-200 font-medium">
+                  <span className="text-[10px] bg-slate-50 text-slate-600 px-2 py-0.5 rounded-none border border-slate-200 font-medium">
                     {ch.routeName || 'N/A'}
                   </span>
                 </td>
@@ -81,7 +81,7 @@ export default function DashboardRecentDeliveries({
                   {formatBDT(ch.totalAmount)}
                 </td>
                 <td className="px-5 py-3 text-center">
-                  <span className={`text-[9px] font-bold px-2.5 py-0.5 rounded-full border whitespace-nowrap ${getStatusClass(ch.status)}`}>
+                  <span className={`text-[9px] font-bold px-2.5 py-0.5 rounded-none border whitespace-nowrap ${getStatusClass(ch.status)}`}>
                     {getStatusLabel(ch.status, bn)}
                   </span>
                 </td>

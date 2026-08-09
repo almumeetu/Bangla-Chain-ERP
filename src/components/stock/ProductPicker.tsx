@@ -38,7 +38,7 @@ export default function ProductPicker({
   const uniqueCompanies = Array.from(new Set(products.map(p => p.company).filter(Boolean)));
 
   return (
-    <div className="lg:col-span-5 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+    <div className="lg:col-span-5 bg-white rounded-none border border-slate-200 shadow-sm overflow-hidden flex flex-col">
       <div className="px-4 py-3 border-b border-slate-100 bg-gradient-to-r from-slate-800 to-slate-900 flex items-center justify-between gap-3">
         <div className="flex items-center gap-1.5">
           <Package className="w-4 h-4 text-indigo-300" />
@@ -46,7 +46,7 @@ export default function ProductPicker({
             {bn ? 'পণ্য নির্বাচন করুন' : 'Select Product'}
           </span>
         </div>
-        <span className="text-[10px] bg-white/10 border border-white/20 text-white/80 px-2 py-0.5 rounded font-mono font-semibold">
+        <span className="text-[10px] bg-white/10 border border-white/20 text-white/80 px-2 py-0.5 rounded-none font-mono font-semibold">
           {filteredProducts.length} / {products.length} {bn ? 'টি' : 'items'}
         </span>
       </div>
@@ -59,7 +59,7 @@ export default function ProductPicker({
             value={searchQuery}
             onChange={e => handleSearchInput(e, onSearchChange)}
             placeholder={bn ? 'পণ্য বা কোড খুঁজুন...' : 'Search product or SKU...'}
-            className="w-full h-8.5 pl-8.5 pr-3 rounded-lg border border-indigo-200 bg-white text-xs font-semibold text-slate-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all placeholder:text-slate-400"
+            className="w-full h-8.5 pl-8.5 pr-3 rounded-none border border-indigo-200 bg-white text-xs font-semibold text-slate-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all placeholder:text-slate-400"
           />
         </div>
         <div className="grid grid-cols-1">
@@ -68,7 +68,7 @@ export default function ProductPicker({
             <select
               value={selectedCompany}
               onChange={e => onCompanyChange(e.target.value)}
-              className="w-full h-8.5 rounded-lg border border-orange-200 bg-orange-50/20 px-2.5 text-xs font-bold text-orange-800 outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 transition-all cursor-pointer"
+              className="w-full h-8.5 rounded-none border border-orange-200 bg-orange-50/20 px-2.5 text-xs font-bold text-orange-800 outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 transition-all cursor-pointer"
             >
               <option value="All">{bn ? 'সকল কোম্পানি' : 'All Companies'}</option>
               {uniqueCompanies.map(c => (
@@ -101,7 +101,7 @@ export default function ProductPicker({
               <div className="flex-shrink-0 text-right space-y-1">
                 <div className="flex items-center gap-1.5 justify-end">
                   {isLow && <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />}
-                  <span className={`text-[10px] font-bold font-mono px-1.5 py-0.5 rounded border ${isLow ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+                  <span className={`text-[10px] font-bold font-mono px-1.5 py-0.5 rounded-none border ${isLow ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
                     {p.currentStock.toLocaleString()} Pcs
                   </span>
                 </div>

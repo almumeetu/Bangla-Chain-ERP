@@ -59,9 +59,9 @@ export default function DashboardQuickActions({ language, onNavigate }: Dashboar
             id={action.id}
             type="button"
             onClick={handleClick}
-            className={`flex items-center gap-3 p-3.5 rounded-xl bg-white border border-slate-200 ${c.hoverBorder} ${c.hoverBg} hover:shadow-md active:scale-[0.97] transition-all text-left cursor-pointer group`}
+            className={`flex items-center gap-3 p-3.5 rounded-none bg-white border border-slate-200 ${c.hoverBorder} ${c.hoverBg} hover:shadow-md active:scale-[0.97] transition-all text-left cursor-pointer group`}
           >
-            <div className={`p-2.5 ${c.iconBg} text-white rounded-lg group-hover:scale-110 transition-transform shadow-sm ${c.shadow}`}>
+            <div className={`p-2.5 ${c.iconBg} text-white rounded-none group-hover:scale-110 transition-transform shadow-sm ${c.shadow}`}>
               <Icon className="w-4 h-4" />
             </div>
             <div className="min-w-0">

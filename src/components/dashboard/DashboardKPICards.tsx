@@ -98,11 +98,11 @@ export default function DashboardKPICards({
       {cards.map(card => (
         <div
           key={card.label}
-          className={`bg-white rounded-xl p-4 border border-slate-200 hover:shadow-md transition-all group relative overflow-hidden ${card.extraClass ?? ''}`}
+          className={`bg-white rounded-none p-4 border border-slate-200 hover:shadow-md transition-all group relative overflow-hidden ${card.extraClass ?? ''}`}
         >
           <div className={`absolute top-0 left-0 w-full h-0.5 ${card.gradient}`} />
           <div className="flex items-center gap-2 mb-3">
-            <div className={`w-7 h-7 rounded-lg ${card.iconBg} flex items-center justify-center border ${card.iconBorder}`}>
+            <div className={`w-7 h-7 rounded-none ${card.iconBg} flex items-center justify-center border ${card.iconBorder}`}>
               <card.Icon className={`w-3.5 h-3.5 ${card.iconClass}`} />
             </div>
             <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">{card.label}</span>

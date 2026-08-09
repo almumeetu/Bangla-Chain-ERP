@@ -143,12 +143,12 @@ function ProductCard({ product, onAddToCart, formatBDT, language, listView }: Pr
   // ── LIST ROW ──
   if (listView) {
     return (
-      <div className={`flex items-center gap-0 rounded-xl border border-slate-100 bg-white transition-all duration-200 hover:border-slate-300 hover:shadow-md hover:shadow-slate-100/50 ${isOut ? 'opacity-60' : ''}`}>
-        <div className={`w-1 self-stretch rounded-l-xl shrink-0 ${theme.bar}`} />
+      <div className={`flex items-center gap-0 rounded-none border border-slate-100 bg-white transition-all duration-200 hover:border-slate-300 hover:shadow-md hover:shadow-slate-100/50 ${isOut ? 'opacity-60' : ''}`}>
+        <div className={`w-1 self-stretch rounded-none-l-xl shrink-0 ${theme.bar}`} />
         <div className="flex flex-1 min-w-0 items-center gap-3 px-4 py-2.5">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 mb-0.5">
-              <span className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-lg border ${theme.badge}`}>{product.company}</span>
+              <span className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-none border ${theme.badge}`}>{product.company}</span>
               <span className="text-[8px] font-mono text-slate-400 tracking-wider">{product.sku}</span>
             </div>
             <p className="text-[11px] font-semibold text-slate-800 truncate leading-tight" title={product.name}>{product.name}</p>
@@ -175,7 +175,7 @@ function ProductCard({ product, onAddToCart, formatBDT, language, listView }: Pr
           type="button"
           onClick={handleAdd}
           disabled={isOut}
-          className={`shrink-0 mr-3 h-9 px-4 rounded-xl text-[11px] font-black flex items-center gap-1.5 transition-all duration-200 cursor-pointer ${isOut ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : `${theme.btn} text-white shadow-lg shadow-slate-200 hover:brightness-110 active:scale-[0.97]`
+          className={`shrink-0 mr-3 h-9 px-4 rounded-none text-[11px] font-black flex items-center gap-1.5 transition-all duration-200 cursor-pointer ${isOut ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : `${theme.btn} text-white shadow-lg shadow-slate-200 hover:brightness-110 active:scale-[0.97]`
             }`}>
           <Plus className="w-3.5 h-3.5" />
           {isOut ? (language === 'bn' ? 'নেই' : 'N/A') : (language === 'bn' ? 'যোগ' : 'Add')}
@@ -186,16 +186,16 @@ function ProductCard({ product, onAddToCart, formatBDT, language, listView }: Pr
 
   // ── GRID CARD ──
   return (
-    <div className={`group flex flex-col rounded-2xl border border-slate-100 bg-white transition-all duration-200 hover:border-slate-300 hover:shadow-xl hover:shadow-slate-100/60 overflow-hidden ${isOut ? 'opacity-60' : ''}`}>
+    <div className={`group flex flex-col rounded-none border border-slate-100 bg-white transition-all duration-200 hover:border-slate-300 hover:shadow-xl hover:shadow-slate-100/60 overflow-hidden ${isOut ? 'opacity-60' : ''}`}>
       <div className={`h-1.5 w-full ${theme.bar}`} />
       <div className="flex flex-col flex-1 gap-2 p-3">
         <div>
           <div className="flex items-start justify-between gap-1 mb-1">
-            <span className={`inline-block text-[7px] font-black uppercase tracking-widest px-2 py-0.5 rounded-lg border ${theme.badge}`}>
+            <span className={`inline-block text-[7px] font-black uppercase tracking-widest px-2 py-0.5 rounded-none border ${theme.badge}`}>
               {product.company}
             </span>
             {isOut && (
-              <span className="text-[7px] font-black text-rose-500 bg-rose-50 px-1.5 py-0.5 rounded-lg border border-rose-100 shrink-0">
+              <span className="text-[7px] font-black text-rose-500 bg-rose-50 px-1.5 py-0.5 rounded-none border border-rose-100 shrink-0">
                 Out
               </span>
             )}
@@ -207,11 +207,11 @@ function ProductCard({ product, onAddToCart, formatBDT, language, listView }: Pr
         </div>
 
         <div className="grid grid-cols-2 gap-2">
-          <div className="bg-indigo-50 rounded-xl px-2.5 py-1.5 border border-indigo-100/50">
+          <div className="bg-indigo-50 rounded-none px-2.5 py-1.5 border border-indigo-100/50">
             <p className="text-[7px] font-black text-indigo-500 uppercase tracking-wider mb-0.5">Ctn Price</p>
             <p className="text-[11px] font-black font-mono leading-none text-indigo-700">{formatBDT(product.pricePerCarton || (product.defaultWSP * (product.cartonSize || 24)))}</p>
           </div>
-          <div className="bg-emerald-50 rounded-xl px-2.5 py-1.5 border border-emerald-100/50">
+          <div className="bg-emerald-50 rounded-none px-2.5 py-1.5 border border-emerald-100/50">
             <p className="text-[7px] font-black text-emerald-500 uppercase tracking-wider mb-0.5">Pc Price</p>
             <p className="text-[11px] font-black font-mono leading-none text-emerald-700">{formatBDT(product.pricePerPiece || product.defaultWSP)}</p>
           </div>
@@ -227,8 +227,8 @@ function ProductCard({ product, onAddToCart, formatBDT, language, listView }: Pr
           <div className="space-y-0.5">
             {stockDisplay}
           </div>
-          <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden mt-0.5">
-            <div className={`h-full rounded-full transition-all duration-700 ${theme.bar}`} style={{ width: `${stockPct}%` }} />
+          <div className="h-1.5 w-full bg-slate-100 rounded-none overflow-hidden mt-0.5">
+            <div className={`h-full rounded-none transition-all duration-700 ${theme.bar}`} style={{ width: `${stockPct}%` }} />
           </div>
         </div>
       </div>
@@ -285,7 +285,7 @@ function CartItemRow({
   const lineTotal = cartonTotal + pieceTotal;
 
   return (
-    <div className="rounded-2xl border border-slate-100 bg-white overflow-hidden hover:border-slate-350 transition-all duration-200 hover:shadow-md">
+    <div className="rounded-none border border-slate-100 bg-white overflow-hidden hover:border-slate-350 transition-all duration-200 hover:shadow-md">
       <div className={`h-1.5 w-full ${theme.bar}`} />
       <div className="p-3.5 space-y-2.5">
         <div className="flex items-start justify-between gap-2">
@@ -303,7 +303,7 @@ function CartItemRow({
             </div>
           </div>
           <button type="button" onClick={handleRemove}
-            className="p-1.5 rounded-xl text-slate-350 hover:text-rose-500 hover:bg-rose-50 transition-all duration-200 cursor-pointer shrink-0">
+            className="p-1.5 rounded-none text-slate-350 hover:text-rose-500 hover:bg-rose-50 transition-all duration-200 cursor-pointer shrink-0">
             ✕
           </button>
         </div>
@@ -311,7 +311,7 @@ function CartItemRow({
         <div className={item.product.primaryUnit === 'Carton' ? "block" : "grid grid-cols-2 gap-2"}>
           <div>
             <label className="block text-[8px] font-medium text-slate-400 uppercase tracking-widest mb-1">Cartons</label>
-            <div className="flex h-8 items-center rounded-xl border border-slate-200 bg-slate-50 overflow-hidden">
+            <div className="flex h-8 items-center rounded-none border border-slate-200 bg-slate-50 overflow-hidden">
               <button type="button" onClick={() => onUpdateCartons(idx, Math.max(0, item.cartons - 1))}
                 className="w-8 h-full flex items-center justify-center text-slate-500 hover:bg-slate-200 font-black text-lg transition-all duration-200 cursor-pointer shrink-0">−</button>
               <input type="number" min="0"
@@ -325,7 +325,7 @@ function CartItemRow({
           {item.product.primaryUnit !== 'Carton' && (
             <div>
               <label className="block text-[8px] font-medium text-slate-400 uppercase tracking-widest mb-1">Pieces</label>
-              <div className="flex h-8 items-center rounded-xl border border-slate-200 bg-slate-50 overflow-hidden">
+              <div className="flex h-8 items-center rounded-none border border-slate-200 bg-slate-50 overflow-hidden">
                 <button type="button" onClick={() => onUpdatePcs(idx, Math.max(0, item.pcs - 1))}
                   className="w-8 h-full flex items-center justify-center text-slate-500 hover:bg-slate-200 font-black text-lg transition-all duration-200 cursor-pointer shrink-0">−</button>
                 <input type="number" min="0"
@@ -339,7 +339,7 @@ function CartItemRow({
           )}
         </div>
 
-        <div className="bg-slate-50 rounded-xl px-3 py-1.5 border border-slate-100/50 text-[10px] space-y-1">
+        <div className="bg-slate-50 rounded-none px-3 py-1.5 border border-slate-100/50 text-[10px] space-y-1">
           {item.product.primaryUnit === 'Carton' ? (
             <div className="flex justify-between text-slate-500 font-medium">
               <span>Carton amount:</span>
@@ -427,7 +427,7 @@ export default function SellModule({
       selectedCompany.toLowerCase().includes(c.name.toLowerCase())
     );
     if (!comp) return srs;
-    return srs.filter(sr => (sr.assignedCompanyIds || []).includes(comp.id));
+    return srs.filter(sr => (sr.assignedCompanyIds || []).some(cid => cid === comp.id || cid.toLowerCase() === comp.name.toLowerCase()));
   }, [selectedCompany, srs, companies]);
 
   const filteredRoutes = React.useMemo(() => {
@@ -532,8 +532,8 @@ export default function SellModule({
     const existingIdx = cart.findIndex(i => i.product.id === product.id && i.selectedSpec === defaultSpec);
 
     const isCarton = product.primaryUnit === 'Carton';
-    const cartonsToAdd = customCartons !== undefined ? customCartons : (customPcs === undefined ? (isCarton ? 1 : 0) : 0);
-    const pcsToAdd = customPcs !== undefined ? customPcs : (customCartons === undefined ? (isCarton ? 0 : 1) : 0);
+    const cartonsToAdd = customCartons !== undefined ? customCartons : 0;
+    const pcsToAdd = customPcs !== undefined ? customPcs : 0;
     const bonus = customBonus ?? 0;
 
     const addedQty = getCartItemQtyInPrimaryUnit(cartonsToAdd, pcsToAdd, product);
@@ -735,15 +735,15 @@ export default function SellModule({
     </div>
   );
 
-  const inputCls = "h-10 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-xs font-semibold text-slate-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all duration-200 shadow-sm";
+  const inputCls = "h-10 w-full rounded-none border border-slate-200 bg-white px-3.5 text-xs font-semibold text-slate-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all duration-200 shadow-sm";
   const selectCls = inputCls + " cursor-pointer pr-8 appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%252364748b%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')] bg-[length:14px] bg-[right_12px_center] bg-no-repeat";
 
   return (
     <div className="space-y-5">
       {/* Top Title Bar */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4.5 border border-slate-200 rounded-2xl shadow-sm">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4.5 border border-slate-200 rounded-none shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-indigo-600 to-indigo-800 flex items-center justify-center shadow-lg shadow-indigo-100 shrink-0">
+          <div className="w-11 h-11 rounded-none bg-gradient-to-br from-indigo-600 to-indigo-800 flex items-center justify-center shadow-lg shadow-indigo-100 shrink-0">
             <ShoppingBag className="w-5 h-5 text-white" />
           </div>
           <div>
@@ -752,13 +752,13 @@ export default function SellModule({
           </div>
         </div>
         <div className="flex items-center gap-2 w-full sm:w-auto">
-          <div className="flex items-center gap-1.5 bg-indigo-50/60 rounded-xl px-4 py-2 border border-indigo-100 text-indigo-700 text-xs font-black shadow-sm">
+          <div className="flex items-center gap-1.5 bg-indigo-50/60 rounded-none px-4 py-2 border border-indigo-100 text-indigo-700 text-xs font-black shadow-sm">
             <Zap className="w-4 h-4 text-amber-500 fill-amber-400" />
             <span>{cart.length} {language === 'bn' ? 'কার্টে' : 'in cart'}</span>
           </div>
           {lastOrder && (
             <button type="button" onClick={handlePrintLastOrder}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4.5 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 font-extrabold text-xs hover:border-slate-350 hover:bg-slate-50 cursor-pointer transition-all duration-200 shadow-sm">
+              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4.5 py-2 rounded-none bg-white border border-slate-200 text-slate-700 font-extrabold text-xs hover:border-slate-350 hover:bg-slate-50 cursor-pointer transition-all duration-200 shadow-sm">
               <Printer className="w-4 h-4 text-slate-500" />
               {language === 'bn' ? 'প্রিন্ট' : 'Print'}
             </button>
@@ -769,30 +769,30 @@ export default function SellModule({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         {/* Left Side: Product Browser */}
         <div className="lg:col-span-7 space-y-4">
-          <div className="bg-white border border-slate-200 rounded-3xl p-5 space-y-4 shadow-sm">
+          <div className="bg-white border border-slate-200 rounded-none p-5 space-y-4 shadow-sm">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-black text-slate-800 uppercase tracking-wider">
                   {language === 'bn' ? 'পণ্য তালিকা' : 'Products'}
                 </span>
-                <span className="bg-indigo-50 text-indigo-700 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border border-indigo-150 shadow-sm font-mono">
+                <span className="bg-indigo-50 text-indigo-700 text-[10px] font-extrabold px-2.5 py-0.5 rounded-none border border-indigo-150 shadow-sm font-mono">
                   {filteredProducts.length}/{products.length}
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="flex items-center bg-slate-100/80 rounded-xl p-0.5 border border-slate-200/50 shadow-sm">
+                <div className="flex items-center bg-slate-100/80 rounded-none p-0.5 border border-slate-200/50 shadow-sm">
                   <button type="button" onClick={() => setViewMode('grid')} title="Grid View"
-                    className={`p-1.5 rounded-lg transition-all duration-200 cursor-pointer ${viewMode === 'grid' ? 'bg-white shadow-sm text-indigo-600 font-extrabold' : 'text-slate-400 hover:text-slate-650'}`}>
+                    className={`p-1.5 rounded-none transition-all duration-200 cursor-pointer ${viewMode === 'grid' ? 'bg-white shadow-sm text-indigo-600 font-extrabold' : 'text-slate-400 hover:text-slate-650'}`}>
                     <LayoutGrid className="w-3.5 h-3.5" />
                   </button>
                   <button type="button" onClick={() => setViewMode('list')} title="List View"
-                    className={`p-1.5 rounded-lg transition-all duration-200 cursor-pointer ${viewMode === 'list' ? 'bg-white shadow-sm text-indigo-600 font-extrabold' : 'text-slate-400 hover:text-slate-650'}`}>
+                    className={`p-1.5 rounded-none transition-all duration-200 cursor-pointer ${viewMode === 'list' ? 'bg-white shadow-sm text-indigo-600 font-extrabold' : 'text-slate-400 hover:text-slate-650'}`}>
                     <List className="w-3.5 h-3.5" />
                   </button>
                 </div>
                 {hasFilters && (
                   <button type="button" onClick={resetFilters}
-                    className="flex items-center gap-1 text-[10px] font-black text-rose-600 bg-rose-50 border border-rose-100 hover:bg-rose-100 px-3 py-1.5 rounded-xl transition-all duration-200 cursor-pointer active:scale-95 shadow-sm">
+                    className="flex items-center gap-1 text-[10px] font-black text-rose-600 bg-rose-50 border border-rose-100 hover:bg-rose-100 px-3 py-1.5 rounded-none transition-all duration-200 cursor-pointer active:scale-95 shadow-sm">
                     <X className="w-3.5 h-3.5" /> Reset
                   </button>
                 )}
@@ -806,7 +806,7 @@ export default function SellModule({
                   <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                   <input type="text" value={searchQuery} onChange={handleSearchChange}
                     placeholder={language === 'bn' ? 'নাম / SKU' : 'Name / SKU'}
-                    className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-xs font-semibold text-slate-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all duration-200 placeholder:text-slate-400 shadow-sm" />
+                    className="h-10 w-full rounded-none border border-slate-200 bg-white pl-9 pr-3 text-xs font-semibold text-slate-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all duration-200 placeholder:text-slate-400 shadow-sm" />
                 </div>
               </LabelInput>
               <LabelInput label={language === 'bn' ? 'কোম্পানি' : 'Company'} icon={Building}>
@@ -852,8 +852,8 @@ export default function SellModule({
                 <ProductCard key={p.id} product={p} onAddToCart={handleAddToCart} formatBDT={formatBDT} language={language} listView={viewMode === 'list'} />
               ))
             ) : (
-              <div className="col-span-full flex flex-col items-center justify-center gap-3.5 py-20 text-slate-450 bg-white rounded-3xl border border-dashed border-slate-200 shadow-sm">
-                <div className="w-14 h-14 rounded-2xl bg-slate-50 flex items-center justify-center border border-slate-100 shadow-sm">
+              <div className="col-span-full flex flex-col items-center justify-center gap-3.5 py-20 text-slate-450 bg-white rounded-none border border-dashed border-slate-200 shadow-sm">
+                <div className="w-14 h-14 rounded-none bg-slate-50 flex items-center justify-center border border-slate-100 shadow-sm">
                   <Package className="w-7 h-7 text-slate-400" />
                 </div>
                 <div className="text-center">
@@ -870,11 +870,11 @@ export default function SellModule({
         {/* Right Side: Sales Cart Terminal */}
         <div className="lg:col-span-5 lg:sticky lg:top-20">
           <form onSubmit={handleCheckout} className="space-y-4">
-            <div className="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden flex flex-col lg:h-[calc(100vh-155px)] min-h-[500px]">
+            <div className="bg-white border border-slate-200 rounded-none shadow-sm overflow-hidden flex flex-col lg:h-[calc(100vh-155px)] min-h-[500px]">
               {/* Cart Header */}
               <div className="p-5 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center shrink-0">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-sm">
+                  <div className="w-8 h-8 rounded-none bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-sm">
                     <ShoppingBag className="w-4 h-4" />
                   </div>
                   <div>
@@ -882,7 +882,7 @@ export default function SellModule({
                     <p className="text-[10px] text-slate-400 font-medium">{language === 'bn' ? 'পণ্য যোগ করে চালান তৈরি করুন' : 'Add products then checkout'}</p>
                   </div>
                 </div>
-                <span className="bg-indigo-50 text-indigo-700 text-[10px] font-black px-3 py-1 rounded-full border border-indigo-150 shadow-sm font-mono">
+                <span className="bg-indigo-50 text-indigo-700 text-[10px] font-black px-3 py-1 rounded-none border border-indigo-150 shadow-sm font-mono">
                   {cart.length} {language === 'bn' ? 'আইটেম' : `item${cart.length !== 1 ? 's' : ''}`}
                 </span>
               </div>
@@ -926,8 +926,8 @@ export default function SellModule({
               {/* Cart List Items Scroll block */}
               <div className="flex-1 overflow-y-auto p-4 space-y-3 modal-body min-h-[220px]">
                 {cart.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center gap-3.5 py-12 text-slate-455 bg-gradient-to-b from-slate-50/50 to-white rounded-2xl border border-dashed border-slate-200">
-                    <div className="w-14 h-14 rounded-2xl bg-slate-100/85 flex items-center justify-center border border-slate-200/50 shadow-sm">
+                  <div className="flex flex-col items-center justify-center gap-3.5 py-12 text-slate-455 bg-gradient-to-b from-slate-50/50 to-white rounded-none border border-dashed border-slate-200">
+                    <div className="w-14 h-14 rounded-none bg-slate-100/85 flex items-center justify-center border border-slate-200/50 shadow-sm">
                       <ShoppingBag className="w-7 h-7 text-slate-350" />
                     </div>
                     <div className="text-center">
@@ -947,7 +947,7 @@ export default function SellModule({
 
               {/* Total calculations receipt overlay footer */}
               <div className="border-t border-slate-200 shrink-0">
-                <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 px-6 py-5 rounded-t-3xl text-white shadow-xl space-y-4">
+                <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 px-6 py-5 rounded-none-t-3xl text-white shadow-xl space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="text-right">
                       <p className="text-[9px] font-black text-indigo-300 uppercase tracking-widest mb-1">DP (Cost)</p>
@@ -980,7 +980,7 @@ export default function SellModule({
                     }, 0) === 0;
                     return (
                       <button id="pos-btn-checkout" type="submit" disabled={isCartQtyZero}
-                        className={`w-full py-4 text-[15px] font-black flex items-center justify-center gap-2 rounded-2xl transition-all duration-200 cursor-pointer shadow-xl ${!isCartQtyZero
+                        className={`w-full py-4 text-[15px] font-black flex items-center justify-center gap-2 rounded-none transition-all duration-200 cursor-pointer shadow-xl ${!isCartQtyZero
                           ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-emerald-200 active:scale-[0.97]'
                           : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
                           }`}>

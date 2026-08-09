@@ -277,7 +277,7 @@ export default function SettingsModule({
     <button
       type="button"
       onClick={() => setActiveSettingsTab(key)}
-      className={`px-4 py-2 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+      className={`px-4 py-2 text-xs font-semibold rounded-none transition-all flex items-center gap-1.5 cursor-pointer ${
         activeSettingsTab === key
           ? 'bg-white text-slate-900 shadow-sm font-bold border border-slate-200/50'
           : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
@@ -290,7 +290,7 @@ export default function SettingsModule({
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="bg-white rounded-2xl p-5 text-slate-800 border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="bg-white rounded-none p-5 text-slate-800 border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="space-y-1">
           <h2 className="text-base font-black tracking-tight text-slate-900 flex items-center gap-2">
             <Settings className="w-5 h-5 text-slate-700" />
@@ -301,7 +301,7 @@ export default function SettingsModule({
           </p>
         </div>
 
-        <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-sm shrink-0 flex-wrap gap-1">
+        <div className="flex bg-slate-100 p-1 rounded-none border border-slate-200 shadow-sm shrink-0 flex-wrap gap-1">
           {tabBtn('branding',  language === 'bn' ? 'ব্র্যান্ডিং'       : 'Branding')}
           {tabBtn('accounts',  language === 'bn' ? 'ইউজার অ্যাকাউন্ট' : 'User Accounts')}
           {tabBtn('godowns',   language === 'bn' ? 'গুদাম'             : 'Godowns')}
@@ -312,7 +312,7 @@ export default function SettingsModule({
       {/* ═══════════════════════════════════════════ BRANDING TAB */}
       {activeSettingsTab === 'branding' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <form onSubmit={handleSaveBranding} className="lg:col-span-8 bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-6">
+          <form onSubmit={handleSaveBranding} className="lg:col-span-8 bg-white rounded-none border border-slate-200 p-6 shadow-sm space-y-6">
             <div className="space-y-1 border-b border-slate-100 pb-3">
               <h3 className="text-sm font-bold text-slate-800">
                 {language === 'bn' ? 'ব্যবসার বিবরণী ও ব্র্যান্ডিং' : 'Distributor Branding Setup'}
@@ -332,7 +332,7 @@ export default function SettingsModule({
                   value={tempName}
                   onChange={(e) => setTempName(e.target.value)}
                   placeholder="e.g. Samir Enterprise"
-                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-xs font-semibold outline-none focus:border-slate-800 transition-all text-slate-800"
+                  className="h-11 w-full rounded-none border border-slate-200 bg-white px-4 text-xs font-semibold outline-none focus:border-slate-800 transition-all text-slate-800"
                 />
               </div>
               <div>
@@ -344,7 +344,7 @@ export default function SettingsModule({
                   value={tempSub}
                   onChange={(e) => setTempSub(e.target.value)}
                   placeholder="e.g. Dhaka Hub"
-                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-xs font-semibold outline-none focus:border-slate-800 transition-all text-slate-800"
+                  className="h-11 w-full rounded-none border border-slate-200 bg-white px-4 text-xs font-semibold outline-none focus:border-slate-800 transition-all text-slate-800"
                 />
               </div>
             </div>
@@ -353,8 +353,8 @@ export default function SettingsModule({
               <label className="block text-xs font-bold text-slate-700">
                 {language === 'bn' ? 'ব্র্যান্ড লোগো' : 'Brand Logo'}
               </label>
-              <div className="flex flex-col sm:flex-row items-center gap-5 p-4 bg-slate-50 rounded-xl border border-slate-200">
-                <div className="w-16 h-16 bg-white rounded-xl border border-slate-200 flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
+              <div className="flex flex-col sm:flex-row items-center gap-5 p-4 bg-slate-50 rounded-none border border-slate-200">
+                <div className="w-16 h-16 bg-white rounded-none border border-slate-200 flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
                   {tempLogo ? (
                     <img src={tempLogo} alt="Logo" className="w-full h-full object-cover" />
                   ) : (
@@ -366,12 +366,12 @@ export default function SettingsModule({
                     {language === 'bn' ? 'JPG, PNG ফরম্যাটে আপলোড করুন।' : 'Upload JPG or PNG file.'}
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    <label className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold cursor-pointer inline-block">
+                    <label className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-none text-xs font-bold cursor-pointer inline-block">
                       {language === 'bn' ? 'ফাইল বেছে নিন' : 'Choose Image'}
                       <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
                     </label>
                     {tempLogo && (
-                      <button type="button" onClick={() => setTempLogo('')} className="px-4 py-2 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-lg text-xs font-bold border border-rose-100 cursor-pointer">
+                      <button type="button" onClick={() => setTempLogo('')} className="px-4 py-2 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-none text-xs font-bold border border-rose-100 cursor-pointer">
                         {language === 'bn' ? 'সরান' : 'Remove'}
                       </button>
                     )}
@@ -381,21 +381,21 @@ export default function SettingsModule({
             </div>
 
             <div className="pt-3 border-t border-slate-100 flex justify-end">
-              <button type="submit" className="h-10 px-6 rounded-lg bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 cursor-pointer shadow-sm">
+              <button type="submit" className="h-10 px-6 rounded-none bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 cursor-pointer shadow-sm">
                 {language === 'bn' ? 'সংরক্ষণ করুন' : 'Save Settings'}
               </button>
             </div>
           </form>
 
           <div className="lg:col-span-4 space-y-4">
-            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
+            <div className="bg-white rounded-none border border-slate-200 p-5 shadow-sm space-y-4">
               <h3 className="text-sm font-bold text-slate-800">
                 {language === 'bn' ? 'সিস্টেম অ্যাকশন' : 'Database & Operations'}
               </h3>
               <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
                 {language === 'bn' ? 'সব ব্যবসায়িক ডেটা ক্লিয়ার করে শূন্য অবস্থায় ফিরে যান।' : 'Clear all business data and start from zero.'}
               </p>
-              <button type="button" onClick={handleResetDatabase} className="w-full h-10 rounded-lg border border-rose-100 bg-rose-50 text-rose-600 hover:bg-rose-100 text-xs font-bold cursor-pointer">
+              <button type="button" onClick={handleResetDatabase} className="w-full h-10 rounded-none border border-rose-100 bg-rose-50 text-rose-600 hover:bg-rose-100 text-xs font-bold cursor-pointer">
                 {language === 'bn' ? 'ক্লিয়ার অল' : 'Clear All'}
               </button>
 
@@ -403,13 +403,13 @@ export default function SettingsModule({
                 <p className="text-[11px] text-slate-500 font-medium mb-3 leading-relaxed">
                   {language === 'bn' ? 'সিস্টেমটি পরীক্ষা করার জন্য ডেমো ডেটা লোড করুন।' : 'Load demo data to test the system.'}
                 </p>
-                <button type="button" onClick={handleLoadDemoData} className="w-full h-10 rounded-lg border border-indigo-100 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 text-xs font-bold cursor-pointer">
+                <button type="button" onClick={handleLoadDemoData} className="w-full h-10 rounded-none border border-indigo-100 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 text-xs font-bold cursor-pointer">
                   {language === 'bn' ? 'ডেমো ডেটা লোড করুন' : 'Load Demo Data'}
                 </button>
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-3">
+            <div className="bg-white rounded-none border border-slate-200 p-5 shadow-sm space-y-3">
               <h3 className="text-sm font-bold text-slate-800">
                 {language === 'bn' ? 'সিস্টেম তথ্য' : 'System Info'}
               </h3>
@@ -441,9 +441,9 @@ export default function SettingsModule({
 
           {/* ─── Admin Password Change ─── */}
           <div className="lg:col-span-5">
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="bg-white rounded-none border border-slate-200 shadow-sm overflow-hidden">
               <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-none bg-slate-900 flex items-center justify-center">
                   <Shield className="w-4 h-4 text-white" />
                 </div>
                 <div>
@@ -467,7 +467,7 @@ export default function SettingsModule({
                       value={adminCurrentPassword}
                       onChange={e => { setAdminCurrentPassword(e.target.value); setAdminPwError(''); }}
                       placeholder="••••••••"
-                      className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3.5 pr-10 text-xs font-semibold outline-none focus:border-slate-900 focus:bg-white transition-all"
+                      className="h-10 w-full rounded-none border border-slate-200 bg-slate-50 px-3.5 pr-10 text-xs font-semibold outline-none focus:border-slate-900 focus:bg-white transition-all"
                     />
                     <button type="button" tabIndex={-1} onClick={() => setShowAdminCurrentPw(p => !p)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer">
                       {showAdminCurrentPw ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
@@ -485,7 +485,7 @@ export default function SettingsModule({
                       value={adminNewPassword}
                       onChange={e => { setAdminNewPassword(e.target.value); setAdminPwError(''); }}
                       placeholder="••••••••"
-                      className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3.5 pr-10 text-xs font-semibold outline-none focus:border-slate-900 focus:bg-white transition-all"
+                      className="h-10 w-full rounded-none border border-slate-200 bg-slate-50 px-3.5 pr-10 text-xs font-semibold outline-none focus:border-slate-900 focus:bg-white transition-all"
                     />
                     <button type="button" tabIndex={-1} onClick={() => setShowAdminNewPw(p => !p)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer">
                       {showAdminNewPw ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
@@ -502,18 +502,18 @@ export default function SettingsModule({
                     value={adminConfirmPassword}
                     onChange={e => { setAdminConfirmPassword(e.target.value); setAdminPwError(''); }}
                     placeholder="••••••••"
-                    className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3.5 text-xs font-semibold outline-none focus:border-slate-900 focus:bg-white transition-all"
+                    className="h-10 w-full rounded-none border border-slate-200 bg-slate-50 px-3.5 text-xs font-semibold outline-none focus:border-slate-900 focus:bg-white transition-all"
                   />
                 </div>
 
                 {adminPwError && (
-                  <div className="px-3 py-2 bg-red-50 border border-red-100 rounded-lg">
+                  <div className="px-3 py-2 bg-red-50 border border-red-100 rounded-none">
                     <p className="text-xs font-semibold text-red-600">{adminPwError}</p>
                   </div>
                 )}
 
                 {adminPwSuccess && (
-                  <div className="px-3 py-2 bg-emerald-50 border border-emerald-100 rounded-lg flex items-center gap-2">
+                  <div className="px-3 py-2 bg-emerald-50 border border-emerald-100 rounded-none flex items-center gap-2">
                     <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                     <p className="text-xs font-semibold text-emerald-700">
                       {language === 'bn' ? 'পাসওয়ার্ড সফলভাবে পরিবর্তন হয়েছে!' : 'Password changed successfully!'}
@@ -523,7 +523,7 @@ export default function SettingsModule({
 
                 <button
                   type="submit"
-                  className="w-full h-10 rounded-lg bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 cursor-pointer transition-all active:scale-[0.98] shadow-sm"
+                  className="w-full h-10 rounded-none bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 cursor-pointer transition-all active:scale-[0.98] shadow-sm"
                 >
                   {language === 'bn' ? 'পাসওয়ার্ড আপডেট করুন' : 'Update Password'}
                 </button>
@@ -539,10 +539,10 @@ export default function SettingsModule({
 
           {/* ─── SR Accounts Management ─── */}
           <div className="lg:col-span-7">
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="bg-white rounded-none border border-slate-200 shadow-sm overflow-hidden">
               <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-none bg-indigo-600 flex items-center justify-center">
                     <Users className="w-4 h-4 text-white" />
                   </div>
                   <div>
@@ -557,7 +557,7 @@ export default function SettingsModule({
                 <button
                   type="button"
                   onClick={() => { setShowNewSrForm(p => !p); setNewSrError(''); }}
-                  className="h-8 px-3 rounded-lg bg-indigo-600 text-white text-[11px] font-bold hover:bg-indigo-700 cursor-pointer flex items-center gap-1.5 transition-all"
+                  className="h-8 px-3 rounded-none bg-indigo-600 text-white text-[11px] font-bold hover:bg-indigo-700 cursor-pointer flex items-center gap-1.5 transition-all"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   {language === 'bn' ? 'নতুন SR' : 'Add SR'}
@@ -580,7 +580,7 @@ export default function SettingsModule({
                         value={newSrName}
                         onChange={e => { setNewSrName(e.target.value); setNewSrError(''); }}
                         placeholder={language === 'bn' ? 'যেমন: সেলিম আহমেদ' : 'e.g. Selim Ahmed'}
-                        className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold outline-none focus:border-indigo-400 transition-all"
+                        className="h-9 w-full rounded-none border border-slate-200 bg-white px-3 text-xs font-semibold outline-none focus:border-indigo-400 transition-all"
                       />
                     </div>
                     <div>
@@ -592,7 +592,7 @@ export default function SettingsModule({
                         value={newSrPhone}
                         onChange={e => { setNewSrPhone(e.target.value); setNewSrError(''); }}
                         placeholder="017XXXXXXXX"
-                        className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs font-mono font-semibold outline-none focus:border-indigo-400 transition-all"
+                        className="h-9 w-full rounded-none border border-slate-200 bg-white px-3 text-xs font-mono font-semibold outline-none focus:border-indigo-400 transition-all"
                       />
                     </div>
                     <div>
@@ -604,7 +604,7 @@ export default function SettingsModule({
                         value={newSrUsername}
                         onChange={e => { setNewSrUsername(e.target.value.toLowerCase().replace(/\s+/g, '')); setNewSrError(''); }}
                         placeholder="selim123"
-                        className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs font-mono font-semibold outline-none focus:border-indigo-400 transition-all"
+                        className="h-9 w-full rounded-none border border-slate-200 bg-white px-3 text-xs font-mono font-semibold outline-none focus:border-indigo-400 transition-all"
                       />
                     </div>
                     <div>
@@ -616,13 +616,13 @@ export default function SettingsModule({
                         value={newSrPassword}
                         onChange={e => { setNewSrPassword(e.target.value); setNewSrError(''); }}
                         placeholder={language === 'bn' ? 'কমপক্ষে ৩ অক্ষর' : 'min. 3 chars'}
-                        className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs font-mono font-semibold outline-none focus:border-indigo-400 transition-all"
+                        className="h-9 w-full rounded-none border border-slate-200 bg-white px-3 text-xs font-mono font-semibold outline-none focus:border-indigo-400 transition-all"
                       />
                     </div>
                   </div>
 
                   {newSrError && (
-                    <div className="px-3 py-2 bg-red-50 border border-red-100 rounded-lg">
+                    <div className="px-3 py-2 bg-red-50 border border-red-100 rounded-none">
                       <p className="text-xs font-semibold text-red-600">{newSrError}</p>
                     </div>
                   )}
@@ -631,13 +631,13 @@ export default function SettingsModule({
                     <button
                       type="button"
                       onClick={() => { setShowNewSrForm(false); setNewSrError(''); }}
-                      className="h-9 px-4 rounded-lg border border-slate-200 bg-white text-slate-600 text-xs font-bold hover:bg-slate-50 cursor-pointer"
+                      className="h-9 px-4 rounded-none border border-slate-200 bg-white text-slate-600 text-xs font-bold hover:bg-slate-50 cursor-pointer"
                     >
                       {language === 'bn' ? 'বাতিল' : 'Cancel'}
                     </button>
                     <button
                       type="submit"
-                      className="h-9 px-5 rounded-lg bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 cursor-pointer flex items-center gap-1.5"
+                      className="h-9 px-5 rounded-none bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 cursor-pointer flex items-center gap-1.5"
                     >
                       <Check className="w-3.5 h-3.5" />
                       {language === 'bn' ? 'SR তৈরি করুন' : 'Create SR'}
@@ -664,7 +664,7 @@ export default function SettingsModule({
                     <div key={sr.id} className={`p-4 transition-colors ${isEditing ? 'bg-blue-50/40' : 'hover:bg-slate-50/60'}`}>
                       <div className="flex items-center gap-3">
                         {/* Avatar */}
-                        <div className={`w-9 h-9 rounded-lg ${avatarColor} flex items-center justify-center text-white font-bold text-xs shrink-0`}>
+                        <div className={`w-9 h-9 rounded-none ${avatarColor} flex items-center justify-center text-white font-bold text-xs shrink-0`}>
                           {sr.name[0].toUpperCase()}
                         </div>
 
@@ -711,7 +711,7 @@ export default function SettingsModule({
                             <button
                               type="button"
                               onClick={() => handleStartSrEdit(sr)}
-                              className="h-7 w-7 rounded-lg border border-slate-200 bg-white flex items-center justify-center text-slate-500 hover:text-slate-900 hover:border-slate-400 cursor-pointer transition-all"
+                              className="h-7 w-7 rounded-none border border-slate-200 bg-white flex items-center justify-center text-slate-500 hover:text-slate-900 hover:border-slate-400 cursor-pointer transition-all"
                               title={language === 'bn' ? 'পাসওয়ার্ড পরিবর্তন' : 'Edit credentials'}
                             >
                               <KeyRound className="w-3 h-3" />
@@ -719,7 +719,7 @@ export default function SettingsModule({
                             <button
                               type="button"
                               onClick={() => handleDeleteSr(sr.id, sr.name)}
-                              className="h-7 w-7 rounded-lg border border-rose-100 bg-rose-50 flex items-center justify-center text-rose-500 hover:bg-rose-100 cursor-pointer transition-all"
+                              className="h-7 w-7 rounded-none border border-rose-100 bg-rose-50 flex items-center justify-center text-rose-500 hover:bg-rose-100 cursor-pointer transition-all"
                               title={language === 'bn' ? 'মুছুন' : 'Delete'}
                             >
                               <Trash2 className="w-3 h-3" />
@@ -744,7 +744,7 @@ export default function SettingsModule({
                                 value={editSrUsername}
                                 onChange={e => setEditSrUsername(e.target.value.toLowerCase().replace(/\s+/g, ''))}
                                 placeholder="username"
-                                className="h-9 w-full rounded-lg border border-blue-200 bg-white px-3 text-xs font-mono font-semibold outline-none focus:border-blue-500 transition-all"
+                                className="h-9 w-full rounded-none border border-blue-200 bg-white px-3 text-xs font-mono font-semibold outline-none focus:border-blue-500 transition-all"
                                 autoFocus
                               />
                             </div>
@@ -757,7 +757,7 @@ export default function SettingsModule({
                                 value={editSrPassword}
                                 onChange={e => setEditSrPassword(e.target.value)}
                                 placeholder={language === 'bn' ? 'পাসওয়ার্ড' : 'password'}
-                                className="h-9 w-full rounded-lg border border-blue-200 bg-white px-3 text-xs font-mono font-semibold outline-none focus:border-blue-500 transition-all"
+                                className="h-9 w-full rounded-none border border-blue-200 bg-white px-3 text-xs font-mono font-semibold outline-none focus:border-blue-500 transition-all"
                               />
                             </div>
                           </div>
@@ -765,14 +765,14 @@ export default function SettingsModule({
                             <button
                               type="button"
                               onClick={() => setEditingSrId(null)}
-                              className="h-8 px-3 rounded-lg border border-slate-200 bg-white text-slate-600 text-xs font-bold cursor-pointer hover:bg-slate-50"
+                              className="h-8 px-3 rounded-none border border-slate-200 bg-white text-slate-600 text-xs font-bold cursor-pointer hover:bg-slate-50"
                             >
                               {language === 'bn' ? 'বাতিল' : 'Cancel'}
                             </button>
                             <button
                               type="button"
                               onClick={() => handleSaveSrCredentials(sr.id)}
-                              className="h-8 px-4 rounded-lg bg-blue-600 text-white text-xs font-bold cursor-pointer hover:bg-blue-700 flex items-center gap-1.5"
+                              className="h-8 px-4 rounded-none bg-blue-600 text-white text-xs font-bold cursor-pointer hover:bg-blue-700 flex items-center gap-1.5"
                             >
                               <Check className="w-3.5 h-3.5" />
                               {language === 'bn' ? 'সংরক্ষণ করুন' : 'Save'}
@@ -815,9 +815,9 @@ export default function SettingsModule({
         <div className="max-w-3xl mx-auto space-y-6">
 
           {/* Header card */}
-          <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
+          <div className="bg-white rounded-none border border-slate-200 p-6 shadow-sm">
             <div className="flex items-center gap-3 mb-1">
-              <div className="w-11 h-11 rounded-2xl bg-slate-900 flex items-center justify-center shrink-0 shadow-md">
+              <div className="w-11 h-11 rounded-none bg-slate-900 flex items-center justify-center shrink-0 shadow-md">
                 <Database className="w-5 h-5 text-white" />
               </div>
               <div>
@@ -875,20 +875,20 @@ export default function SettingsModule({
 
           {/* Status Messages */}
           {importStatus === 'success' && (
-            <div className="flex items-center gap-3 px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-2xl shadow-sm animate-fade-in">
+            <div className="flex items-center gap-3 px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-none shadow-sm animate-fade-in">
               <Check className="w-5 h-5 text-emerald-600 shrink-0" />
               <p className="text-xs font-bold text-emerald-700">{importMsg}</p>
             </div>
           )}
           {importStatus === 'error' && (
-            <div className="flex items-center gap-3 px-4 py-3 bg-rose-50 border border-rose-200 rounded-2xl shadow-sm animate-fade-in">
+            <div className="flex items-center gap-3 px-4 py-3 bg-rose-50 border border-rose-200 rounded-none shadow-sm animate-fade-in">
               <span className="text-base leading-none shrink-0">❌</span>
               <p className="text-xs font-bold text-rose-700">{importMsg}</p>
             </div>
           )}
 
           {/* Warning banner */}
-          <div className="flex gap-3 px-5 py-4 bg-amber-50 border border-amber-200 rounded-2xl shadow-sm">
+          <div className="flex gap-3 px-5 py-4 bg-amber-50 border border-amber-200 rounded-none shadow-sm">
             <span className="text-lg leading-none shrink-0">⚠️</span>
             <div>
               <p className="text-xs font-black text-amber-800 leading-snug">
@@ -905,19 +905,19 @@ export default function SettingsModule({
           {/* Backup List Container */}
           <div className="space-y-4">
             {/* Featured Full Database Backup Card */}
-            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-6 shadow-xl border border-indigo-500/30 hover:border-indigo-500/50 transition-all duration-300 group">
-              <div className="absolute -top-24 -right-24 w-60 h-60 bg-indigo-500/20 rounded-full blur-3xl group-hover:bg-indigo-500/30 transition-all duration-500 pointer-events-none" />
-              <div className="absolute -bottom-20 -left-20 w-48 h-48 bg-purple-500/20 rounded-full blur-2xl pointer-events-none" />
+            <div className="relative overflow-hidden rounded-none bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-6 shadow-xl border border-indigo-500/30 hover:border-indigo-500/50 transition-all duration-300 group">
+              <div className="absolute -top-24 -right-24 w-60 h-60 bg-indigo-500/20 rounded-none blur-3xl group-hover:bg-indigo-500/30 transition-all duration-500 pointer-events-none" />
+              <div className="absolute -bottom-20 -left-20 w-48 h-48 bg-purple-500/20 rounded-none blur-2xl pointer-events-none" />
 
               <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
                 <div className="flex items-start gap-4.5">
-                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-500 to-purple-600 border border-white/20 flex items-center justify-center text-2xl shrink-0 shadow-lg shadow-indigo-500/25">
+                  <div className="w-14 h-14 rounded-none bg-gradient-to-tr from-indigo-500 to-purple-600 border border-white/20 flex items-center justify-center text-2xl shrink-0 shadow-lg shadow-indigo-500/25">
                     🗄️
                   </div>
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-none text-[9px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                        <span className="w-1.5 h-1.5 rounded-none bg-emerald-400 animate-pulse" />
                         {language === 'bn' ? 'সুপারিশকৃত / Recommended' : 'Full Backup'}
                       </span>
                     </div>
@@ -934,7 +934,7 @@ export default function SettingsModule({
                   <button
                     type="button"
                     onClick={() => exportBackup(shopName)}
-                    className="inline-flex h-10 items-center justify-center gap-2 px-5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white text-xs font-black cursor-pointer transition-all active:scale-95 shadow-lg shadow-emerald-500/25"
+                    className="inline-flex h-10 items-center justify-center gap-2 px-5 rounded-none bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white text-xs font-black cursor-pointer transition-all active:scale-95 shadow-lg shadow-emerald-500/25"
                   >
                     <Download className="w-4 h-4" />
                     {language === 'bn' ? 'ডাউনলোড করুন' : 'Download'}
@@ -947,7 +947,7 @@ export default function SettingsModule({
                       setImportMsg('');
                       fileInputRef.current?.click();
                     }}
-                    className="inline-flex h-10 items-center justify-center gap-2 px-5 rounded-xl bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/20 text-xs font-bold cursor-pointer transition-all active:scale-95 shadow-sm"
+                    className="inline-flex h-10 items-center justify-center gap-2 px-5 rounded-none bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/20 text-xs font-bold cursor-pointer transition-all active:scale-95 shadow-sm"
                   >
                     <Upload className="w-4 h-4" />
                     {language === 'bn' ? 'রিস্টোর করুন' : 'Restore'}
@@ -1013,9 +1013,9 @@ export default function SettingsModule({
                 action: () => exportPartialBackup(['godowns', 'routes'], 'godowns_logistics', shopName)
               }
             ].map(item => (
-              <div key={item.id} className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm hover:border-slate-350 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div key={item.id} className="bg-white rounded-none border border-slate-200 p-5 shadow-sm hover:border-slate-350 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center text-xl shrink-0 shadow-sm">
+                  <div className="w-12 h-12 rounded-none bg-slate-50 border border-slate-100 flex items-center justify-center text-xl shrink-0 shadow-sm">
                     {item.icon}
                   </div>
                   <div>
@@ -1029,7 +1029,7 @@ export default function SettingsModule({
                   <button
                     type="button"
                     onClick={item.action}
-                    className="inline-flex h-9 items-center justify-center gap-1.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-700 text-white text-[11px] font-black cursor-pointer transition-all active:scale-95 shadow-sm"
+                    className="inline-flex h-9 items-center justify-center gap-1.5 px-4 rounded-none bg-slate-900 hover:bg-slate-700 text-white text-[11px] font-black cursor-pointer transition-all active:scale-95 shadow-sm"
                   >
                     <Download className="w-3.5 h-3.5" />
                     {language === 'bn' ? 'ডাউনলোড' : 'Download'}
@@ -1042,7 +1042,7 @@ export default function SettingsModule({
                       setImportMsg('');
                       fileInputRef.current?.click();
                     }}
-                    className="inline-flex h-9 items-center justify-center gap-1.5 px-4 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-[11px] font-black cursor-pointer transition-all active:scale-95 shadow-sm"
+                    className="inline-flex h-9 items-center justify-center gap-1.5 px-4 rounded-none bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-[11px] font-black cursor-pointer transition-all active:scale-95 shadow-sm"
                   >
                     <Upload className="w-3.5 h-3.5" />
                     {language === 'bn' ? 'রিস্টোর' : 'Restore'}

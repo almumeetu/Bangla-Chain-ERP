@@ -29,7 +29,7 @@ export default function DashboardSRAndAlerts({
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
 
       {/* SR Leaderboard */}
-      <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="lg:col-span-5 bg-white rounded-none border border-slate-200 shadow-sm overflow-hidden">
         <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
           <div className="flex items-center gap-2">
             <Users className="w-4 h-4 text-indigo-500" />
@@ -37,7 +37,7 @@ export default function DashboardSRAndAlerts({
               {bn ? 'সেলস অফিসার (SR)' : 'Sales Officers'}
             </h4>
           </div>
-          <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2.5 py-0.5 rounded-md border border-indigo-100">
+          <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2.5 py-0.5 rounded-none border border-indigo-100">
             {bn ? 'মোট বিক্রয়' : 'Total Sales'}
           </span>
         </div>
@@ -47,10 +47,10 @@ export default function DashboardSRAndAlerts({
                 const data    = srSalesMap.get(sr.id) ?? { count: 0, total: 0 };
                 const gradient = SR_GRADIENTS[idx % SR_GRADIENTS.length];
                 return (
-                  <div key={sr.id} className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 bg-slate-50/30 hover:bg-white hover:border-slate-200 transition-all">
+                  <div key={sr.id} className="flex items-center gap-3 p-3 rounded-none border border-slate-100 bg-slate-50/30 hover:bg-white hover:border-slate-200 transition-all">
                     <div className="flex items-center gap-2 shrink-0">
                       <span className="text-[9px] font-black text-slate-300 w-4 text-center">#{idx + 1}</span>
-                      <span className={`w-8 h-8 rounded-lg bg-gradient-to-br ${gradient} flex items-center justify-center font-bold text-white text-[10px] shadow-sm`}>
+                      <span className={`w-8 h-8 rounded-none bg-gradient-to-br ${gradient} flex items-center justify-center font-bold text-white text-[10px] shadow-sm`}>
                         {sr.name[0].toUpperCase()}
                       </span>
                     </div>
@@ -67,7 +67,7 @@ export default function DashboardSRAndAlerts({
       </div>
 
       {/* Low Stock Alerts */}
-      <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="lg:col-span-7 bg-white rounded-none border border-slate-200 shadow-sm overflow-hidden">
         <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-rose-500" />
@@ -75,8 +75,8 @@ export default function DashboardSRAndAlerts({
               {bn ? 'স্টক সতর্কতা' : 'Low Stock Alerts'}
             </h4>
           </div>
-          <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-2.5 py-0.5 rounded-md border border-rose-100 flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+          <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-2.5 py-0.5 rounded-none border border-rose-100 flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-none bg-rose-500 animate-pulse" />
             {lowStockProducts.length} {bn ? 'টি সতর্কতা' : 'alerts'}
           </span>
         </div>
@@ -107,7 +107,7 @@ export default function DashboardSRAndAlerts({
                         </div>
                       </td>
                       <td className="px-4 py-2.5 text-center">
-                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${p.currentStock < 100 ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-amber-50 text-amber-600 border-amber-100'}`}>
+                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-none border ${p.currentStock < 100 ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-amber-50 text-amber-600 border-amber-100'}`}>
                           {p.currentStock < 100 ? (bn ? 'জরুরি' : 'Critical') : (bn ? 'কম' : 'Low')}
                         </span>
                       </td>
@@ -126,7 +126,7 @@ export default function DashboardSRAndAlerts({
           <button
             type="button"
             onClick={handleAdjustStock}
-            className="w-full py-2 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 hover:bg-slate-50 flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-[0.98]"
+            className="w-full py-2 rounded-none border border-slate-200 bg-white text-xs font-bold text-slate-600 hover:bg-slate-50 flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-[0.98]"
           >
             {bn ? 'স্টক সমন্বয় করুন' : 'Adjust Stock'}
             <ArrowRight className="w-3.5 h-3.5" />

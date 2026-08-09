@@ -262,7 +262,7 @@ export default function ReportsModule({
       selectedCompanyFilter.toLowerCase().includes(c.name.toLowerCase())
     );
     if (!comp) return srs;
-    return srs.filter(sr => (sr.assignedCompanyIds || []).includes(comp.id));
+    return srs.filter(sr => (sr.assignedCompanyIds || []).some(cid => cid === comp.id || cid.toLowerCase() === comp.name.toLowerCase()));
   }, [selectedCompanyFilter, companies, srs]);
 
   // Auto reset SR filter if selected SR is not in company's SR list
@@ -793,7 +793,7 @@ export default function ReportsModule({
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={handlePrint}
-            className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-300 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-50 transition-colors shadow-sm cursor-pointer active:scale-95"
+            className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-300 text-slate-700 rounded-none text-xs font-bold hover:bg-slate-50 transition-colors shadow-sm cursor-pointer active:scale-95"
             title="Print current report"
           >
             <Printer className="w-3.5 h-3.5" />
@@ -801,7 +801,7 @@ export default function ReportsModule({
           </button>
           <button
             onClick={handleExportExcel}
-            className="flex items-center gap-2 px-3 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition-colors shadow-sm cursor-pointer active:scale-95"
+            className="flex items-center gap-2 px-3 py-2 bg-emerald-600 text-white rounded-none text-xs font-bold hover:bg-emerald-700 transition-colors shadow-sm cursor-pointer active:scale-95"
             title="Export as CSV / Excel"
           >
             <FileSpreadsheet className="w-3.5 h-3.5" />
@@ -809,7 +809,7 @@ export default function ReportsModule({
           </button>
           <button
             onClick={handleDownloadPDF}
-            className="flex items-center gap-2 px-4 py-2 bg-slate-950 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-colors shadow-sm cursor-pointer active:scale-95"
+            className="flex items-center gap-2 px-4 py-2 bg-slate-950 text-white rounded-none text-xs font-bold hover:bg-slate-800 transition-colors shadow-sm cursor-pointer active:scale-95"
             title="Download professional PDF report"
           >
             <Download className="w-4 h-4" />
@@ -819,7 +819,7 @@ export default function ReportsModule({
       </div>
 
       {/* Date Range Selector Panel */}
-      <div className="bg-indigo-50/30 border border-indigo-200 rounded-3xl p-5 shadow-sm flex flex-col md:flex-row items-center gap-4 justify-between">
+      <div className="bg-indigo-50/30 border border-indigo-200 rounded-none p-5 shadow-sm flex flex-col md:flex-row items-center gap-4 justify-between">
         <div className="flex items-center gap-4.5 w-full md:w-auto">
           <div className="flex items-center gap-2 text-slate-850 font-bold text-xs shrink-0">
             <Calendar className="w-4 h-4 text-indigo-500 animate-pulse" />
@@ -828,7 +828,7 @@ export default function ReportsModule({
           <select
             value={preset}
             onChange={e => handlePresetChange(e.target.value)}
-            className="h-9 rounded-xl border border-indigo-200 bg-white px-3 text-xs font-bold text-indigo-850 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all cursor-pointer shadow-sm"
+            className="h-9 rounded-none border border-indigo-200 bg-white px-3 text-xs font-bold text-indigo-850 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all cursor-pointer shadow-sm"
           >
             <option value="today">{language === 'bn' ? 'আজকের' : 'Today'}</option>
             <option value="month">{language === 'bn' ? 'এই মাস' : 'This Month'}</option>
@@ -840,7 +840,7 @@ export default function ReportsModule({
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-bold text-slate-400 uppercase">{language === 'bn' ? 'শুরু:' : 'From:'}</span>
             <div className="relative flex items-center">
-              <div className="absolute left-2.5 w-6 h-6 rounded-md bg-indigo-50 border border-indigo-200/60 flex items-center justify-center pointer-events-none z-10">
+              <div className="absolute left-2.5 w-6 h-6 rounded-none bg-indigo-50 border border-indigo-200/60 flex items-center justify-center pointer-events-none z-10">
                 <Calendar className="w-3.5 h-3.5 text-indigo-500" />
               </div>
               <input
@@ -848,14 +848,14 @@ export default function ReportsModule({
                 disabled={preset !== 'custom'}
                 value={startDate}
                 onChange={e => setStartDate(e.target.value)}
-                className="h-9 pl-10 pr-2.5 rounded-xl border border-indigo-200 bg-white text-xs font-bold text-slate-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 disabled:bg-slate-50 disabled:text-slate-450 transition-all font-mono shadow-sm"
+                className="h-9 pl-10 pr-2.5 rounded-none border border-indigo-200 bg-white text-xs font-bold text-slate-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 disabled:bg-slate-50 disabled:text-slate-450 transition-all font-mono shadow-sm"
               />
             </div>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-bold text-slate-400 uppercase">{language === 'bn' ? 'শেষ:' : 'To:'}</span>
             <div className="relative flex items-center">
-              <div className="absolute left-2.5 w-6 h-6 rounded-md bg-rose-50 border border-rose-200/60 flex items-center justify-center pointer-events-none z-10">
+              <div className="absolute left-2.5 w-6 h-6 rounded-none bg-rose-50 border border-rose-200/60 flex items-center justify-center pointer-events-none z-10">
                 <Calendar className="w-3.5 h-3.5 text-rose-500" />
               </div>
               <input
@@ -863,7 +863,7 @@ export default function ReportsModule({
                 disabled={preset !== 'custom'}
                 value={endDate}
                 onChange={e => setEndDate(e.target.value)}
-                className="h-9 pl-10 pr-2.5 rounded-xl border border-indigo-200 bg-white text-xs font-bold text-slate-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 disabled:bg-slate-50 disabled:text-slate-450 transition-all font-mono shadow-sm"
+                className="h-9 pl-10 pr-2.5 rounded-none border border-indigo-200 bg-white text-xs font-bold text-slate-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 disabled:bg-slate-50 disabled:text-slate-450 transition-all font-mono shadow-sm"
               />
             </div>
           </div>
@@ -871,11 +871,11 @@ export default function ReportsModule({
       </div>
 
       {/* Global Filters Panel */}
-      <div className="bg-indigo-50/30 border border-indigo-200 rounded-3xl p-5 shadow-sm space-y-4">
+      <div className="bg-indigo-50/30 border border-indigo-200 rounded-none p-5 shadow-sm space-y-4">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-ping shrink-0" />
-            <span className="text-[10px] bg-indigo-100 text-indigo-700 font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider font-mono">
+            <span className="w-2.5 h-2.5 rounded-none bg-indigo-500 animate-ping shrink-0" />
+            <span className="text-[10px] bg-indigo-100 text-indigo-700 font-extrabold px-2.5 py-0.5 rounded-none uppercase tracking-wider font-mono">
               {language === 'bn' ? 'রিপোর্ট ফিল্টার কন্ট্রোল' : 'Report Filters Control'}
             </span>
           </div>
@@ -904,7 +904,7 @@ export default function ReportsModule({
             <select
               value={selectedCompanyFilter}
               onChange={e => setSelectedCompanyFilter(e.target.value)}
-              className="h-10 w-full rounded-xl border border-orange-200 bg-orange-50/10 px-3 text-xs font-bold text-orange-850 outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 transition-all cursor-pointer shadow-sm"
+              className="h-10 w-full rounded-none border border-orange-200 bg-orange-50/10 px-3 text-xs font-bold text-orange-850 outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 transition-all cursor-pointer shadow-sm"
             >
               <option value="All">{language === 'bn' ? 'সকল কোম্পানি' : 'All Companies'}</option>
               {companiesList.map(c => (
@@ -922,7 +922,7 @@ export default function ReportsModule({
               value={selectedSrFilter}
               onChange={e => setSelectedSrFilter(e.target.value)}
               disabled={userRole === 'sr'}
-              className="h-10 w-full rounded-xl border border-purple-200 bg-purple-50/10 px-3 text-xs font-bold text-purple-855 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100 transition-all cursor-pointer shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+              className="h-10 w-full rounded-none border border-purple-200 bg-purple-50/10 px-3 text-xs font-bold text-purple-855 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100 transition-all cursor-pointer shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {userRole === 'sr' && loggedInSrName ? (
                 <option value={loggedInSrName}>{loggedInSrName}</option>
@@ -945,7 +945,7 @@ export default function ReportsModule({
             <select
               value={selectedDeliveryManFilter}
               onChange={e => setSelectedDeliveryManFilter(e.target.value)}
-              className="h-10 w-full rounded-xl border border-rose-200 bg-rose-50/10 px-3 text-xs font-bold text-rose-855 outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100 transition-all cursor-pointer shadow-sm"
+              className="h-10 w-full rounded-none border border-rose-200 bg-rose-50/10 px-3 text-xs font-bold text-rose-855 outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100 transition-all cursor-pointer shadow-sm"
             >
               <option value="All">{language === 'bn' ? 'সকল ডেলিভারি ম্যান' : 'All Delivery Men'}</option>
               {deliveryMen.map(dm => (
@@ -960,10 +960,10 @@ export default function ReportsModule({
       {activeTab === 'stock' && (
         <div className="space-y-6">
           {/* Stock report sub-tabs */}
-          <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-2xl w-fit">
+          <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-none w-fit">
             <button
               onClick={() => setStockSubTab('company')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`px-4 py-2 rounded-none text-xs font-bold transition-all cursor-pointer ${
                 stockSubTab === 'company'
                   ? 'bg-white text-slate-900 shadow-sm border border-slate-200/50'
                   : 'text-slate-500 hover:text-slate-900'
@@ -973,7 +973,7 @@ export default function ReportsModule({
             </button>
             <button
               onClick={() => setStockSubTab('product')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`px-4 py-2 rounded-none text-xs font-bold transition-all cursor-pointer ${
                 stockSubTab === 'product'
                   ? 'bg-white text-slate-900 shadow-sm border border-slate-200/50'
                   : 'text-slate-500 hover:text-slate-900'
@@ -985,7 +985,7 @@ export default function ReportsModule({
 
           {/* Stock report sub-tab content */}
           {stockSubTab === 'company' && (
-            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
+            <div className="bg-white border border-slate-200 rounded-none p-6 shadow-sm space-y-6">
               <div className="border-b border-slate-100 pb-3">
                 <h3 className="font-bold text-slate-800 text-sm">{t.companyStockTitle}</h3>
               </div>
@@ -1023,7 +1023,7 @@ export default function ReportsModule({
           )}
 
           {stockSubTab === 'product' && (
-            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
+            <div className="bg-white border border-slate-200 rounded-none p-6 shadow-sm space-y-6">
               <div className="border-b border-slate-100 pb-3">
                 <h3 className="font-bold text-slate-800 text-sm">
                   {language === 'bn' ? 'পণ্যভিত্তিক স্টক বিস্তারিত' : 'Product-wise Stock Details'}
@@ -1069,29 +1069,29 @@ export default function ReportsModule({
       {activeTab === 'damage' && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="rounded-3xl border border-rose-200 bg-rose-50/70 p-4">
+            <div className="rounded-none border border-rose-200 bg-rose-50/70 p-4">
               <div className="text-[10px] font-bold uppercase tracking-wider text-rose-600">{language === 'bn' ? 'মোট ড্যামেজ ইউনিট' : 'Total Damage Units'}</div>
               <div className="mt-2 text-2xl font-black text-slate-900">{damageReportData.totalDamageUnits.toLocaleString()}</div>
               <div className="text-[10px] text-slate-500">{language === 'bn' ? 'পুরাতন + নতুন' : 'Old + New'}</div>
             </div>
-            <div className="rounded-3xl border border-amber-200 bg-amber-50/70 p-4">
+            <div className="rounded-none border border-amber-200 bg-amber-50/70 p-4">
               <div className="text-[10px] font-bold uppercase tracking-wider text-amber-600">{language === 'bn' ? 'পুরাতন ড্যামেজ' : 'Old Damage'}</div>
               <div className="mt-2 text-2xl font-black text-slate-900">{damageReportData.totalOldDamageUnits.toLocaleString()}</div>
               <div className="text-[10px] text-slate-500">{language === 'bn' ? 'আগে থাকা ড্যামেজ' : 'Existing damage'}</div>
             </div>
-            <div className="rounded-3xl border border-emerald-200 bg-emerald-50/70 p-4">
+            <div className="rounded-none border border-emerald-200 bg-emerald-50/70 p-4">
               <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">{language === 'bn' ? 'নতুন ড্যামেজ' : 'New Damage'}</div>
               <div className="mt-2 text-2xl font-black text-slate-900">{damageReportData.totalNewDamageUnits.toLocaleString()}</div>
               <div className="text-[10px] text-slate-500">{language === 'bn' ? 'এই রিসার্চে যোগ হওয়া' : 'Added in this cycle'}</div>
             </div>
-            <div className="rounded-3xl border border-slate-200 bg-white p-4">
+            <div className="rounded-none border border-slate-200 bg-white p-4">
               <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{language === 'bn' ? 'ড্যামেজ মান (TK)' : 'Damage Value (TK)'}</div>
               <div className="mt-2 text-2xl font-black text-slate-900">{formatBDT(damageReportData.totalDamageValue)}</div>
               <div className="text-[10px] text-slate-500">{language === 'bn' ? 'রেকর্ডেড বিক্রয় মূল্য: ' : 'Recorded sales value: '}{formatBDT(damageReportData.totalRecordedSalesValue)}</div>
             </div>
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
+          <div className="bg-white border border-slate-200 rounded-none p-6 shadow-sm space-y-6">
             <div className="border-b border-slate-100 pb-3">
               <h3 className="font-bold text-slate-800 text-sm">{t.damageTitle}</h3>
             </div>
@@ -1143,33 +1143,33 @@ export default function ReportsModule({
         <div className="space-y-6">
           {/* Sales Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+            <div className="bg-white border border-slate-200 rounded-none p-5 shadow-sm">
               <p className="text-[10px] font-bold uppercase text-slate-400 tracking-wider mb-2">{language === 'bn' ? 'মোট বিক্রয় (TP)' : 'Total Sales (TP)'}</p>
               <p className="text-2xl font-black text-slate-800 font-mono">
                 {formatBDT(salesReportData.companySales.reduce((sum, row) => sum + row.revenue, 0))}
               </p>
             </div>
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+            <div className="bg-white border border-slate-200 rounded-none p-5 shadow-sm">
               <p className="text-[10px] font-bold uppercase text-indigo-500 tracking-wider mb-2">{language === 'bn' ? 'মোট বিক্রয় (DP)' : 'Total Sales (DP)'}</p>
               <p className="text-2xl font-black text-indigo-700 font-mono">
                 {formatBDT(salesReportData.companySales.reduce((sum, row) => sum + row.dpTotal, 0))}
               </p>
             </div>
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+            <div className="bg-white border border-slate-200 rounded-none p-5 shadow-sm">
               <p className="text-[10px] font-bold uppercase text-slate-400 tracking-wider mb-2">{language === 'bn' ? 'মোট বিক্রিত ইউনিট' : 'Total Units Sold'}</p>
               <CartonPcsDisplay cartons={salesReportData.grandSoldQtyObj.cartons} pcs={salesReportData.grandSoldQtyObj.pcs} qty={salesReportData.grandSoldQtyObj.rawPcs} />
             </div>
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+            <div className="bg-white border border-slate-200 rounded-none p-5 shadow-sm">
               <p className="text-[10px] font-bold uppercase text-rose-500 tracking-wider mb-2">{language === 'bn' ? 'মোট রিটার্ন/ড্যামেজ' : 'Total Returns/Damages'}</p>
               <CartonPcsDisplay cartons={salesReportData.grandReturnsAndDamagesQtyObj.cartons} pcs={salesReportData.grandReturnsAndDamagesQtyObj.pcs} qty={salesReportData.grandReturnsAndDamagesQtyObj.rawPcs} />
             </div>
           </div>
 
           {/* Sales report sub-tabs */}
-          <div className="flex flex-wrap items-center gap-2 bg-slate-100 p-1 rounded-2xl w-fit">
+          <div className="flex flex-wrap items-center gap-2 bg-slate-100 p-1 rounded-none w-fit">
             <button
               onClick={() => setSalesSubTab('company')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`px-4 py-2 rounded-none text-xs font-bold transition-all cursor-pointer ${
                 salesSubTab === 'company'
                   ? 'bg-white text-slate-900 shadow-sm border border-slate-200/50'
                   : 'text-slate-500 hover:text-slate-900'
@@ -1179,7 +1179,7 @@ export default function ReportsModule({
             </button>
             <button
               onClick={() => setSalesSubTab('sr')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`px-4 py-2 rounded-none text-xs font-bold transition-all cursor-pointer ${
                 salesSubTab === 'sr'
                   ? 'bg-white text-slate-900 shadow-sm border border-slate-200/50'
                   : 'text-slate-500 hover:text-slate-900'
@@ -1189,7 +1189,7 @@ export default function ReportsModule({
             </button>
             <button
               onClick={() => setSalesSubTab('dm')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`px-4 py-2 rounded-none text-xs font-bold transition-all cursor-pointer ${
                 salesSubTab === 'dm'
                   ? 'bg-white text-slate-900 shadow-sm border border-slate-200/50'
                   : 'text-slate-500 hover:text-slate-900'
@@ -1199,7 +1199,7 @@ export default function ReportsModule({
             </button>
             <button
               onClick={() => setSalesSubTab('product')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`px-4 py-2 rounded-none text-xs font-bold transition-all cursor-pointer ${
                 salesSubTab === 'product'
                   ? 'bg-white text-slate-900 shadow-sm border border-slate-200/50'
                   : 'text-slate-500 hover:text-slate-900'
@@ -1209,7 +1209,7 @@ export default function ReportsModule({
             </button>
             <button
               onClick={() => setSalesSubTab('unit')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`px-4 py-2 rounded-none text-xs font-bold transition-all cursor-pointer ${
                 salesSubTab === 'unit'
                   ? 'bg-white text-slate-900 shadow-sm border border-slate-200/50'
                   : 'text-slate-500 hover:text-slate-900'
@@ -1221,7 +1221,7 @@ export default function ReportsModule({
 
           {/* Sales report sub-tab content */}
           {salesSubTab === 'company' && (
-            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
+            <div className="bg-white border border-slate-200 rounded-none p-6 shadow-sm space-y-6">
               <div className="border-b border-slate-100 pb-3">
                 <h3 className="font-bold text-slate-800 text-sm">{t.companySalesTitle}</h3>
               </div>
@@ -1261,7 +1261,7 @@ export default function ReportsModule({
           )}
 
           {salesSubTab === 'sr' && (
-            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
+            <div className="bg-white border border-slate-200 rounded-none p-6 shadow-sm space-y-6">
               <div className="border-b border-slate-100 pb-3">
                 <h3 className="font-bold text-slate-800 text-sm">{t.srSalesTitle}</h3>
               </div>
@@ -1304,7 +1304,7 @@ export default function ReportsModule({
           )}
 
           {salesSubTab === 'dm' && (
-            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
+            <div className="bg-white border border-slate-200 rounded-none p-6 shadow-sm space-y-6">
               <div className="border-b border-slate-100 pb-3">
                 <h3 className="font-bold text-slate-800 text-sm">
                   {language === 'bn' ? 'ডেলিভারি ম্যানভিত্তিক বিক্রয় বিবরণী' : 'Delivery Man-wise Sales Breakdown'}
@@ -1358,7 +1358,7 @@ export default function ReportsModule({
           )}
 
           {salesSubTab === 'product' && (
-            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
+            <div className="bg-white border border-slate-200 rounded-none p-6 shadow-sm space-y-6">
               <div className="border-b border-slate-100 pb-3">
                 <h3 className="font-bold text-slate-800 text-sm">
                   {language === 'bn' ? 'পণ্যভিত্তিক বিক্রয় বিবরণী' : 'Product-wise Sales Breakdown'}
@@ -1410,7 +1410,7 @@ export default function ReportsModule({
           )}
 
           {salesSubTab === 'unit' && (
-            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
+            <div className="bg-white border border-slate-200 rounded-none p-6 shadow-sm space-y-6">
               <div className="border-b border-slate-100 pb-3">
                 <h3 className="font-bold text-slate-800 text-sm">
                   {language === 'bn' ? 'ইউনিট ভিত্তিক বিক্রয় বিবরণী' : 'Unit-wise Sales Breakdown (UOM)'}
@@ -1432,7 +1432,7 @@ export default function ReportsModule({
                     {salesReportData.unitSales.map((row, idx) => (
                       <tr key={idx} className="hover:bg-slate-50/40 transition-colors">
                         <td className="px-4 py-3.5 font-bold text-slate-850">
-                          <span className="inline-block px-2.5 py-1 bg-indigo-50 border border-indigo-100 text-indigo-750 font-bold rounded-lg uppercase tracking-wide">
+                          <span className="inline-block px-2.5 py-1 bg-indigo-50 border border-indigo-100 text-indigo-750 font-bold rounded-none uppercase tracking-wide">
                             {row.unitName}
                           </span>
                         </td>
@@ -1462,7 +1462,7 @@ export default function ReportsModule({
 
       {/* TAB CONTENT: COMPANY-WISE PROFIT REPORT */}
       {activeTab === 'profit' && userRole === 'admin' && (
-        <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
+        <div className="bg-white border border-slate-200 rounded-none p-6 shadow-sm space-y-6">
           <div className="border-b border-slate-100 pb-3">
             <h3 className="font-bold text-slate-800 text-sm">{t.profitSummaryTitle}</h3>
           </div>
@@ -1485,7 +1485,7 @@ export default function ReportsModule({
                     <td className="px-4 py-3.5 text-right font-mono font-bold text-slate-700">{formatBDT(row.revenue)}</td>
                     <td className="px-4 py-3.5 text-right font-mono text-slate-500">{formatBDT(row.costOfGoods)}</td>
                     <td className="px-4 py-3.5 text-center font-bold">
-                      <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded text-[10px]">
+                      <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-none text-[10px]">
                         {row.margin.toFixed(2)}%
                       </span>
                     </td>
@@ -1498,7 +1498,7 @@ export default function ReportsModule({
                   <td className="px-4 py-4 text-right font-mono">{formatBDT(profitReportData.grandRevenue)}</td>
                   <td className="px-4 py-4 text-right font-mono text-slate-550">{formatBDT(profitReportData.grandCost)}</td>
                   <td className="px-4 py-4 text-center">
-                    <span className="bg-slate-900 text-white px-2.5 py-0.5 rounded text-[10px]">
+                    <span className="bg-slate-900 text-white px-2.5 py-0.5 rounded-none text-[10px]">
                       {(profitReportData.grandRevenue > 0 ? (profitReportData.grandProfit / profitReportData.grandRevenue) * 100 : 0).toFixed(2)}%
                     </span>
                   </td>
@@ -1545,11 +1545,11 @@ export default function ReportsModule({
               if (productRows.length === 0) return null;
 
               return (
-                <div key={companyRow.companyName} className={`border ${color.border} rounded-2xl overflow-hidden`}>
+                <div key={companyRow.companyName} className={`border ${color.border} rounded-none overflow-hidden`}>
                   {/* Company Header */}
                   <div className={`${color.light} px-5 py-3 flex items-center justify-between`}>
                     <div className="flex items-center gap-3">
-                      <div className={`w-2 h-8 rounded-full ${color.header}`} />
+                      <div className={`w-2 h-8 rounded-none ${color.header}`} />
                       <div>
                         <span className={`font-extrabold text-sm ${color.text}`}>{companyRow.companyName}</span>
                         <span className="ml-2 text-[10px] font-bold text-slate-400">
@@ -1564,7 +1564,7 @@ export default function ReportsModule({
                       <span className="text-slate-500 font-semibold">
                         {language === 'bn' ? 'লাভ:' : 'Profit:'} <span className={`font-extrabold ${companyRow.profit >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>{formatBDT(companyRow.profit)}</span>
                       </span>
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${color.badge}`}>
+                      <span className={`px-2.5 py-1 rounded-none text-[10px] font-bold ${color.badge}`}>
                         {companyRow.margin.toFixed(1)}% {language === 'bn' ? 'মার্জিন' : 'margin'}
                       </span>
                     </div>
@@ -1597,7 +1597,7 @@ export default function ReportsModule({
                               {formatBDT(row.profit)}
                             </td>
                             <td className="px-4 py-3 text-center">
-                              <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${row.margin >= 0 ? color.badge : 'bg-rose-100 text-rose-700'}`}>
+                              <span className={`inline-block px-2 py-0.5 rounded-none text-[10px] font-bold ${row.margin >= 0 ? color.badge : 'bg-rose-100 text-rose-700'}`}>
                                 {row.margin.toFixed(1)}%
                               </span>
                             </td>
@@ -1619,7 +1619,7 @@ export default function ReportsModule({
                             {formatBDT(companyRow.profit)}
                           </td>
                           <td className="px-4 py-3 text-center">
-                            <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold ${color.badge}`}>
+                            <span className={`inline-block px-2.5 py-0.5 rounded-none text-[10px] font-bold ${color.badge}`}>
                               {companyRow.margin.toFixed(1)}%
                             </span>
                           </td>
@@ -1638,13 +1638,13 @@ export default function ReportsModule({
 
       {/* TAB CONTENT: PROFIT MARGIN TOOL (DP/TP VARIANCE) */}
       {activeTab === 'margin' && userRole === 'admin' && (
-        <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
+        <div className="bg-white border border-slate-200 rounded-none p-6 shadow-sm space-y-6">
           <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
             <div>
               <h3 className="font-bold text-slate-800 text-sm">{t.profitMarginTitle}</h3>
               <p className="text-[10px] text-slate-400 font-semibold mt-0.5">Variance and profit percentages based on Dealer Price (DP) and Trade Price (TP) variance.</p>
             </div>
-            <div className="flex items-center gap-1 bg-indigo-50 border border-indigo-200 px-3 py-1.5 rounded-xl text-[10px] font-bold text-indigo-700 font-mono">
+            <div className="flex items-center gap-1 bg-indigo-50 border border-indigo-200 px-3 py-1.5 rounded-none text-[10px] font-bold text-indigo-700 font-mono">
               <Percent className="w-3.5 h-3.5" />
               <span>Profit Margin = ((TP - DP) / DP) * 100</span>
             </div>
@@ -1668,7 +1668,7 @@ export default function ReportsModule({
                   <tr key={idx} className="hover:bg-slate-50/40 transition-colors">
                     <td className="px-4 py-3.5 font-bold text-slate-850">{row.product.name}</td>
                     <td className="px-4 py-3.5">
-                      <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded border border-slate-200 font-bold text-[10px]">
+                      <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-none border border-slate-200 font-bold text-[10px]">
                         {row.product.company}
                       </span>
                     </td>
@@ -1677,7 +1677,7 @@ export default function ReportsModule({
                     <td className="px-4 py-3.5 text-right font-mono text-slate-450">{formatBDT(row.mrp)}</td>
                     <td className="px-4 py-3.5 text-right font-mono font-bold text-slate-800">+{formatBDT(row.variance)}</td>
                     <td className="px-4 py-3.5 text-center">
-                      <span className="bg-blue-50 text-blue-700 border border-blue-200 px-2.5 py-0.5 rounded-full font-bold font-mono text-[10px] animate-fade-in">
+                      <span className="bg-blue-50 text-blue-700 border border-blue-200 px-2.5 py-0.5 rounded-none font-bold font-mono text-[10px] animate-fade-in">
                         {row.marginPct.toFixed(1)}%
                       </span>
                     </td>
@@ -1695,7 +1695,7 @@ export default function ReportsModule({
       {activeTab === 'dp' && (
         <div className="space-y-4">
           {/* Header Card */}
-          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+          <div className="bg-white border border-slate-200 rounded-none p-6 shadow-sm">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
               <div>
                 <h3 className="font-bold text-slate-800 text-sm">
@@ -1708,9 +1708,9 @@ export default function ReportsModule({
                 </p>
               </div>
               <div className="flex items-center gap-3 text-[10px] font-bold">
-                <span className="px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">DP = Purchase Price</span>
-                <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">TP = Trade / Supply Price</span>
-                <span className="px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-100">MRP = Retail Price</span>
+                <span className="px-2.5 py-1 rounded-none bg-indigo-50 text-indigo-700 border border-indigo-100">DP = Purchase Price</span>
+                <span className="px-2.5 py-1 rounded-none bg-emerald-50 text-emerald-700 border border-emerald-100">TP = Trade / Supply Price</span>
+                <span className="px-2.5 py-1 rounded-none bg-amber-50 text-amber-700 border border-amber-100">MRP = Retail Price</span>
               </div>
             </div>
 
@@ -1732,11 +1732,11 @@ export default function ReportsModule({
                   const color = colors[compIdx % colors.length];
 
                   return (
-                    <div key={companyName} className={`border ${color.border} rounded-2xl overflow-hidden`}>
+                    <div key={companyName} className={`border ${color.border} rounded-none overflow-hidden`}>
                       {/* Company Header */}
                       <div className={`${color.light} ${color.border} border-b px-5 py-3 flex items-center justify-between`}>
                         <div className="flex items-center gap-3">
-                          <div className={`w-2 h-8 rounded-full ${color.bg}`} />
+                          <div className={`w-2 h-8 rounded-none ${color.bg}`} />
                           <div>
                             <span className={`font-extrabold text-sm ${color.text}`}>{companyName}</span>
                             <span className="ml-2 text-[10px] font-bold text-slate-400">
@@ -1773,7 +1773,7 @@ export default function ReportsModule({
                                   <td className="px-4 py-3 text-right font-mono font-bold text-emerald-700">৳{p.defaultWSP.toLocaleString('en-BD')}</td>
                                   <td className="px-4 py-3 text-right font-mono font-bold text-amber-700">৳{p.defaultMRP.toLocaleString('en-BD')}</td>
                                   <td className="px-4 py-3 text-right">
-                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${color.badge}`}>
+                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-none text-[10px] font-bold ${color.badge}`}>
                                       +৳{margin.toLocaleString('en-BD')}
                                       <span className="opacity-70">({marginPct.toFixed(1)}%)</span>
                                     </span>
@@ -1807,12 +1807,12 @@ export default function ReportsModule({
             const clr = headerColors[cIdx % headerColors.length];
 
             return (
-              <div key={company.companyName} className="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden">
+              <div key={company.companyName} className="bg-white border border-slate-200 rounded-none shadow-sm overflow-hidden">
 
                 {/* Company Header */}
                 <div className={`${clr.bg} px-6 py-4 flex items-center justify-between`}>
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-none bg-white/20 flex items-center justify-center">
                       <span className="text-white font-black text-sm">{company.companyName.charAt(0)}</span>
                     </div>
                     <div>
@@ -1890,7 +1890,7 @@ export default function ReportsModule({
                             </td>
                             <td className="px-3 py-2.5 text-center">
                               {row.salesQty > 0 ? (
-                                <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                <span className={`inline-block px-1.5 py-0.5 rounded-none text-[10px] font-bold ${
                                   row.profitPct >= 5 ? 'bg-emerald-100 text-emerald-700' :
                                   row.profitPct >= 0 ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'
                                 }`}>
@@ -1924,7 +1924,7 @@ export default function ReportsModule({
                             company.totalProfit >= 0 ? 'text-emerald-700' : 'text-rose-600'
                           }`}>{formatBDT(company.totalProfit)}</td>
                           <td className="px-3 py-3 text-center">
-                            <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-black ${
+                            <span className={`inline-block px-2 py-0.5 rounded-none text-[10px] font-black ${
                               company.totalProfit >= 0 ? clr.text + ' bg-white border ' + clr.border : 'text-rose-700 bg-rose-50'
                             }`}>
                               {company.totalSales > 0
@@ -1989,7 +1989,7 @@ export default function ReportsModule({
                                 </td>
                                 <td className="py-1.5 text-center font-mono font-bold text-rose-700">{r.damagedQty}</td>
                                 <td className="py-1.5 text-right">
-                                  <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                                  <span className={`px-1.5 py-0.5 rounded-none text-[9px] font-bold ${
                                     r.type === 'Return' ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'
                                   }`}>{r.type}</span>
                                 </td>
@@ -2006,7 +2006,7 @@ export default function ReportsModule({
           })}
 
           {dayEndSettlementData.length === 0 && (
-            <div className="bg-white border border-slate-200 rounded-3xl p-16 text-center text-slate-400 font-semibold">
+            <div className="bg-white border border-slate-200 rounded-none p-16 text-center text-slate-400 font-semibold">
               {language === 'bn' ? 'কোনো ডেটা পাওয়া যায়নি।' : 'No settlement data available for the selected period.'}
             </div>
           )}

@@ -5,7 +5,7 @@
  */
 export function inputClass(focused = false): string {
   const base =
-    'w-full h-11 px-4 rounded-lg border bg-white text-xs font-semibold text-slate-900 outline-none transition-all placeholder:text-slate-400';
+    'w-full h-11 px-4 rounded-none border bg-white text-xs font-semibold text-slate-900 outline-none transition-all placeholder:text-slate-400';
   const state = focused
     ? 'border-slate-900 ring-2 ring-slate-900/5'
     : 'border-slate-200 hover:border-slate-300';

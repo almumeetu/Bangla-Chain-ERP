@@ -67,6 +67,8 @@ export interface DamageLogEntry {
   recordedAt: string;
   note?: string;
   type: 'existing' | 'new';
+  damageType?: string;
+  claimStatus?: string;
 }
 
 export interface ProductUnit {
@@ -202,15 +204,15 @@ export interface ExpenseRecord {
 
 // Initial Mock Data matching the Diller Management drawing
 export const INITIAL_SRS: SR[] = [
-  { id: 'sr-1', name: 'Rakib', phone: '01711223344', commissionRate: 200, assignedCompanyIds: ['comp-1'], loginUsername: 'rakib', loginPassword: 'rakib123' },
-  { id: 'sr-2', name: 'Rahman', phone: '01811223344', commissionRate: 200, assignedCompanyIds: ['comp-2'], loginUsername: 'rahman', loginPassword: 'rahman123' },
-  { id: 'sr-3', name: 'Rahim', phone: '01911223344', commissionRate: 200, assignedCompanyIds: ['comp-3'], loginUsername: 'rahim', loginPassword: 'rahim123' },
+  { id: 'sr-1', name: 'Rakib', phone: '01711223344', commissionRate: 200, assignedCompanyIds: ['Pran', 'comp-1'], loginUsername: 'rakib', loginPassword: 'rakib123' },
+  { id: 'sr-2', name: 'Rahman', phone: '01811223344', commissionRate: 200, assignedCompanyIds: ['Olympic', 'comp-2'], loginUsername: 'rahman', loginPassword: 'rahman123' },
+  { id: 'sr-3', name: 'Rahim', phone: '01911223344', commissionRate: 200, assignedCompanyIds: ['Haque', 'comp-3'], loginUsername: 'rahim', loginPassword: 'rahim123' },
 ];
 
 export const INITIAL_DELIVERY_MEN: DeliveryMan[] = [
-  { id: 'dm-1', name: 'Abul Kalam', vehicle: 'PickUp Truck (Metro-Tha-11-2044)', phone: '01711998877', assignedCompanyIds: ['PRAN DAIRY MILKMAN GROUP', 'Pran'] },
-  { id: 'dm-2', name: 'Sujon Mia', vehicle: 'Covered Van (Metro-Cha-54-9988)', phone: '01811998877', assignedCompanyIds: ['COCOLA FOOD PRODUCTS LTD C GROUP', 'Olympic'] },
-  { id: 'dm-3', name: 'Khorshed Alam', vehicle: 'Three Wheeler Cargo (Dhaka-H-12-3456)', phone: '01911998877', assignedCompanyIds: ['ABUL KHAIR MILK PRODUCTS LTD SKY GROUP', 'Haque'] },
+  { id: 'dm-1', name: 'Abul Kalam', vehicle: 'PickUp Truck (Metro-Tha-11-2044)', phone: '01711998877', assignedCompanyIds: ['PRAN DAIRY MILKMAN GROUP', 'Pran', 'comp-1'] },
+  { id: 'dm-2', name: 'Sujon Mia', vehicle: 'Covered Van (Metro-Cha-54-9988)', phone: '01811998877', assignedCompanyIds: ['COCOLA FOOD PRODUCTS LTD C GROUP', 'Olympic', 'comp-2'] },
+  { id: 'dm-3', name: 'Khorshed Alam', vehicle: 'Three Wheeler Cargo (Dhaka-H-12-3456)', phone: '01911998877', assignedCompanyIds: ['ABUL KHAIR MILK PRODUCTS LTD SKY GROUP', 'Haque', 'comp-3'] },
 ];
 
 // Products categorized by Company: Pran, Olympic, Haque

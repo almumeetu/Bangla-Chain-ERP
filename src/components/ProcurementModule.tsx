@@ -530,8 +530,8 @@ export default function ProcurementModule({
     <div className="space-y-6 animate-fade-in">
       
       {/* Page Header - Consistent with Dashboard */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-2xl p-5 md:p-6 text-white border border-slate-800 shadow-md flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 relative overflow-hidden group">
-        <div className="absolute -right-20 -top-20 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-none p-5 md:p-6 text-white border border-slate-800 shadow-md flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 relative overflow-hidden group">
+        <div className="absolute -right-20 -top-20 w-64 h-64 bg-indigo-500/10 rounded-none blur-3xl pointer-events-none" />
         <div className="space-y-1 relative z-10">
           <h2 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
             <Box className="w-5.5 h-5.5 text-indigo-300" />
@@ -540,11 +540,11 @@ export default function ProcurementModule({
           <p className="text-slate-300 text-xs">{tProc.subtitle}</p>
         </div>
 
-        <div className="flex bg-white/5 p-1 rounded-xl border border-white/10 shadow-sm shrink-0 z-10 relative">
+        <div className="flex bg-white/5 p-1 rounded-none border border-white/10 shadow-sm shrink-0 z-10 relative">
           <button
             id="proc-tab-list"
             onClick={() => setActiveSubTab('list')}
-            className={`px-4 py-2.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+            className={`px-4 py-2.5 text-xs font-semibold rounded-none transition-all cursor-pointer ${
               activeSubTab === 'list' 
                 ? 'bg-white text-slate-950 shadow-md font-bold' 
                 : 'text-slate-300 hover:text-white hover:bg-white/5'
@@ -556,7 +556,7 @@ export default function ProcurementModule({
           <button
             id="proc-tab-create"
             onClick={() => setActiveSubTab('create')}
-            className={`px-4 py-2.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+            className={`px-4 py-2.5 text-xs font-semibold rounded-none transition-all flex items-center gap-1.5 cursor-pointer ${
               activeSubTab === 'create' 
                 ? 'bg-white text-slate-950 shadow-md font-bold' 
                 : 'text-slate-300 hover:text-white hover:bg-white/5'
@@ -572,7 +572,7 @@ export default function ProcurementModule({
       {activeSubTab === 'list' && (
         <div className="space-y-6">
           {/* Guide Card for Dealers in List View */}
-          <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 flex gap-3 text-indigo-900 leading-relaxed shadow-sm">
+          <div className="bg-indigo-50 border border-indigo-200 rounded-none p-4 flex gap-3 text-indigo-900 leading-relaxed shadow-sm">
             <Info className="w-5 h-5 text-indigo-500 shrink-0" />
             <div className="text-xs space-y-1">
               <p className="font-bold">
@@ -587,10 +587,10 @@ export default function ProcurementModule({
           </div>
 
           {/* History List Filters Panel */}
-          <div className="bg-indigo-50/30 border border-indigo-200 rounded-3xl p-5 shadow-sm space-y-4 animate-fade-in">
+          <div className="bg-indigo-50/30 border border-indigo-200 rounded-none p-5 shadow-sm space-y-4 animate-fade-in">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-[10px] bg-indigo-100 text-indigo-700 font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider font-mono">
+                <span className="text-[10px] bg-indigo-100 text-indigo-700 font-extrabold px-2.5 py-0.5 rounded-none uppercase tracking-wider font-mono">
                   {language === 'bn' ? 'চালান ফিল্টার প্যানেল' : 'Challan Filter Panel'}
                 </span>
                 <span className="text-[10px] text-slate-400 font-bold font-mono">
@@ -627,7 +627,7 @@ export default function ProcurementModule({
                     value={procListSearch}
                     onChange={e => setProcListSearch(e.target.value)}
                     placeholder={language === 'bn' ? 'চালান নম্বর বা কোম্পানি...' : 'Challan reference or company...'}
-                    className="w-full h-10 pl-9 pr-3 rounded-xl border border-indigo-200 bg-white text-xs font-semibold text-slate-750 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all placeholder:text-slate-450 shadow-sm"
+                    className="w-full h-10 pl-9 pr-3 rounded-none border border-indigo-200 bg-white text-xs font-semibold text-slate-750 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all placeholder:text-slate-450 shadow-sm"
                   />
                 </div>
               </div>
@@ -640,7 +640,7 @@ export default function ProcurementModule({
                 <select
                   value={procListCompany}
                   onChange={e => setProcListCompany(e.target.value)}
-                  className="h-10 w-full rounded-xl border border-orange-200 bg-white px-3 text-xs font-bold text-orange-855 outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 transition-all cursor-pointer shadow-sm"
+                  className="h-10 w-full rounded-none border border-orange-200 bg-white px-3 text-xs font-bold text-orange-855 outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 transition-all cursor-pointer shadow-sm"
                 >
                   <option value="All">{language === 'bn' ? 'সকল কোম্পানি' : 'All Companies'}</option>
                   {suppliers.map(s => (
@@ -657,7 +657,7 @@ export default function ProcurementModule({
                 <select
                   value={procListPayment}
                   onChange={e => setProcListPayment(e.target.value)}
-                  className="h-10 w-full rounded-xl border border-emerald-200 bg-white px-3 text-xs font-bold text-emerald-855 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 transition-all cursor-pointer shadow-sm"
+                  className="h-10 w-full rounded-none border border-emerald-200 bg-white px-3 text-xs font-bold text-emerald-855 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 transition-all cursor-pointer shadow-sm"
                 >
                   <option value="All">{language === 'bn' ? 'সকল অবস্থা' : 'All Status'}</option>
                   <option value="Paid">{language === 'bn' ? 'পরিশোধিত' : 'Paid'}</option>
@@ -675,7 +675,7 @@ export default function ProcurementModule({
                   type="date"
                   value={procListStartDate}
                   onChange={e => setProcListStartDate(e.target.value)}
-                  className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-750 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all shadow-sm"
+                  className="w-full h-10 px-3 rounded-none border border-slate-200 bg-white text-xs font-semibold text-slate-750 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all shadow-sm"
                 />
               </div>
 
@@ -688,13 +688,13 @@ export default function ProcurementModule({
                   type="date"
                   value={procListEndDate}
                   onChange={e => setProcListEndDate(e.target.value)}
-                  className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-750 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all shadow-sm"
+                  className="w-full h-10 px-3 rounded-none border border-slate-200 bg-white text-xs font-semibold text-slate-750 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all shadow-sm"
                 />
               </div>
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-white p-4.5 border border-slate-200 rounded-2xl shadow-sm gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-white p-4.5 border border-slate-200 rounded-none shadow-sm gap-4">
             <div className="space-y-0.5">
               <h3 className="text-sm font-bold text-slate-800">
                 {tProc.historicalInvoices}
@@ -707,12 +707,12 @@ export default function ProcurementModule({
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
               <button
                 onClick={() => onDownloadPDF('procurement')}
-                className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-sm cursor-pointer"
+                className="inline-flex h-11 items-center gap-2 rounded-none border border-slate-300 bg-white px-4 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-sm cursor-pointer"
               >
                 <FileText className="w-3.5 h-3.5 text-slate-400" />
                 {tProc.downloadLedger}
               </button>
-              <div className="flex items-center gap-1.5 text-[11px] text-slate-450 bg-slate-100/60 px-3 py-2 rounded-xl border border-slate-200">
+              <div className="flex items-center gap-1.5 text-[11px] text-slate-450 bg-slate-100/60 px-3 py-2 rounded-none border border-slate-200">
                 <Info className="w-3.5 h-3.5 text-blue-500 shrink-0" />
                 <span>{tProc.updateNotice}</span>
               </div>
@@ -721,7 +721,7 @@ export default function ProcurementModule({
 
           {/* Cards Grid */}
           {procurements.length === 0 ? (
-            <div className="bg-white rounded-3xl border border-slate-200 p-8 text-center text-slate-400 font-semibold shadow-sm">
+            <div className="bg-white rounded-none border border-slate-200 p-8 text-center text-slate-400 font-semibold shadow-sm">
               No procurements recorded yet.
             </div>
           ) : (
@@ -741,13 +741,13 @@ export default function ProcurementModule({
                 return (
                   <div 
                     key={p.id}
-                    className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm hover:shadow-md hover:border-slate-800 transition-all duration-300 flex flex-col justify-between space-y-4 group relative overflow-hidden"
+                    className="bg-white rounded-none border border-slate-200 p-5 shadow-sm hover:shadow-md hover:border-slate-800 transition-all duration-300 flex flex-col justify-between space-y-4 group relative overflow-hidden"
                   >
-                    <div className="absolute -right-20 -top-20 w-36 h-36 rounded-full bg-slate-50 group-hover:bg-slate-100/50 transition-all duration-500 pointer-events-none" />
+                    <div className="absolute -right-20 -top-20 w-36 h-36 rounded-none bg-slate-50 group-hover:bg-slate-100/50 transition-all duration-500 pointer-events-none" />
                     
                     <div className="space-y-3 relative z-10">
                       <div className="flex items-center justify-between">
-                        <span className={`w-8 h-8 rounded-xl bg-gradient-to-br ${supplierGradient} flex items-center justify-center font-bold text-white text-xs shadow-sm`}>
+                        <span className={`w-8 h-8 rounded-none bg-gradient-to-br ${supplierGradient} flex items-center justify-center font-bold text-white text-xs shadow-sm`}>
                           {p.supplierName[0].toUpperCase()}
                         </span>
                         <span className="font-mono text-[9px] font-bold text-slate-455 uppercase tracking-wide">
@@ -768,7 +768,7 @@ export default function ProcurementModule({
                     </div>
 
                     {/* Cost Summary grid */}
-                    <div className="bg-slate-50 rounded-2xl p-3 border border-slate-200 flex items-center justify-between relative z-10 text-center">
+                    <div className="bg-slate-50 rounded-none p-3 border border-slate-200 flex items-center justify-between relative z-10 text-center">
                       <div className="space-y-0.5">
                         <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider block">Lots Count</span>
                         <span className="font-mono text-xs font-bold text-slate-800">{p.items.length} Items</span>
@@ -784,7 +784,7 @@ export default function ProcurementModule({
                     </div>
 
                     <div className="pt-3 border-t border-slate-100 flex items-center justify-between relative z-10">
-                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider ${
+                      <span className={`px-2.5 py-0.5 rounded-none text-[10px] font-bold border uppercase tracking-wider ${
                         p.paymentStatus === 'Paid' ? 'bg-emerald-50 text-emerald-705 border-emerald-200' :
                         p.paymentStatus === 'Partial' ? 'bg-amber-50 text-amber-705 border-amber-200' :
                         'bg-rose-50 text-rose-700 border-rose-200'
@@ -795,7 +795,7 @@ export default function ProcurementModule({
                       <button
                         id={`proc-btn-view-${p.id}`}
                         onClick={() => setSelectedProcurement(p)}
-                        className="inline-flex h-9 items-center gap-2 rounded-xl border border-slate-350 bg-white px-3.5 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:border-slate-800 cursor-pointer transition-all active:scale-95 shadow-sm"
+                        className="inline-flex h-9 items-center gap-2 rounded-none border border-slate-350 bg-white px-3.5 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:border-slate-800 cursor-pointer transition-all active:scale-95 shadow-sm"
                       >
                         <Eye className="w-3.5 h-3.5 text-slate-500" />
                         {tProc.viewItems}
@@ -809,7 +809,7 @@ export default function ProcurementModule({
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="px-5 py-4 bg-white border border-slate-200 rounded-2xl flex items-center justify-between text-xs shadow-sm">
+            <div className="px-5 py-4 bg-white border border-slate-200 rounded-none flex items-center justify-between text-xs shadow-sm">
               <span className="text-slate-500 font-semibold">
                 {tProc.showingLabel
                   .replace('{start}', String(startIndex + 1))
@@ -821,7 +821,7 @@ export default function ProcurementModule({
                   id="proc-page-prev"
                   onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                   disabled={currentPage === 1}
-                  className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 transition-all cursor-pointer"
+                  className="p-1.5 rounded-none border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 transition-all cursor-pointer"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
@@ -830,7 +830,7 @@ export default function ProcurementModule({
                     id={`proc-page-num-${page}`}
                     key={page}
                     onClick={() => setCurrentPage(page)}
-                    className={`px-3 py-1.5 rounded-lg border font-semibold cursor-pointer ${
+                    className={`px-3 py-1.5 rounded-none border font-semibold cursor-pointer ${
                       currentPage === page 
                         ? 'bg-slate-900 text-white border-slate-900' 
                         : 'border-slate-200 text-slate-600 hover:bg-slate-50'
@@ -843,7 +843,7 @@ export default function ProcurementModule({
                   id="proc-page-next"
                   onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                   disabled={currentPage === totalPages}
-                  className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 transition-all cursor-pointer"
+                  className="p-1.5 rounded-none border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 transition-all cursor-pointer"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
@@ -914,15 +914,15 @@ export default function ProcurementModule({
           supplierName.toLowerCase().includes('haque') ? 'focus:ring-emerald-100 focus:border-emerald-500' :
           'focus:ring-indigo-100 focus:border-indigo-500';
 
-        const inputCls = `h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-xs font-semibold text-slate-700 outline-none hover:border-slate-350 focus:border-slate-900 transition-all duration-200 shadow-sm focus:ring-2 ${focusRing}`;
+        const inputCls = `h-11 w-full rounded-none border border-slate-200 bg-white px-3.5 text-xs font-semibold text-slate-700 outline-none hover:border-slate-350 focus:border-slate-900 transition-all duration-200 shadow-sm focus:ring-2 ${focusRing}`;
         const selectCls = inputCls + " cursor-pointer pr-8 appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%252364748b%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')] bg-[length:14px] bg-[right_12px_center] bg-no-repeat";
 
         return (
-          <form onSubmit={handleSubmitProcurement} className={`bg-white rounded-3xl border border-slate-200 border-t-4 ${theme.border} p-6 shadow-sm space-y-6 animate-fade-in`}>
+          <form onSubmit={handleSubmitProcurement} className={`bg-white rounded-none border border-slate-200 border-t-4 ${theme.border} p-6 shadow-sm space-y-6 animate-fade-in`}>
             {/* Header info */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-5 gap-4">
               <div className="flex items-center gap-3">
-                <div className={`w-11 h-11 rounded-2xl ${
+                <div className={`w-11 h-11 rounded-none ${
                   supplierName.toLowerCase().includes('pran') ? 'bg-orange-50 text-orange-600' :
                   supplierName.toLowerCase().includes('olympic') ? 'bg-blue-50 text-blue-600' :
                   supplierName.toLowerCase().includes('haque') ? 'bg-emerald-50 text-emerald-600' :
@@ -935,13 +935,13 @@ export default function ProcurementModule({
                   <p className="text-[10px] text-slate-455 font-medium mt-0.5">{tProc.formSub}</p>
                 </div>
               </div>
-              <span className={`px-4 py-1.5 rounded-full text-[10px] font-black border uppercase tracking-wider shadow-sm ${theme.badge}`}>
+              <span className={`px-4 py-1.5 rounded-none text-[10px] font-black border uppercase tracking-wider shadow-sm ${theme.badge}`}>
                 {language === 'bn' ? `${supplierName} ব্র্যান্ড এর ক্রয়` : `Sourced: ${supplierName}`}
               </span>
             </div>
 
             {/* Guide Card for Dealers */}
-            <div className="bg-indigo-50/60 border border-indigo-100 rounded-2xl p-4.5 flex gap-3 text-indigo-905 leading-relaxed shadow-sm">
+            <div className="bg-indigo-50/60 border border-indigo-100 rounded-none p-4.5 flex gap-3 text-indigo-905 leading-relaxed shadow-sm">
               <Info className="w-5 h-5 text-indigo-500 shrink-0 mt-0.5" />
               <div className="text-xs space-y-1">
                 <p className="font-black">
@@ -1012,7 +1012,7 @@ export default function ProcurementModule({
                       const randomNum = Math.floor(100 + Math.random() * 900);
                       setInvoiceRef(`INV-${datePart}-${randomNum}`);
                     }}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 px-2.5 py-1.5 rounded-lg font-black tracking-wider uppercase cursor-pointer transition-all active:scale-95 shadow-sm"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 px-2.5 py-1.5 rounded-none font-black tracking-wider uppercase cursor-pointer transition-all active:scale-95 shadow-sm"
                   >
                     {language === 'bn' ? 'অটো তৈরি' : 'Auto Gen'}
                   </button>
@@ -1059,7 +1059,7 @@ export default function ProcurementModule({
             <div className="space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3 gap-4">
                 <div className="flex items-center gap-2">
-                  <div className={`w-7 h-7 rounded-xl bg-indigo-50 text-indigo-650 flex items-center justify-center shadow-sm`}>
+                  <div className={`w-7 h-7 rounded-none bg-indigo-50 text-indigo-650 flex items-center justify-center shadow-sm`}>
                     <Layers className="w-4 h-4" />
                   </div>
                   <span className="text-xs font-black text-slate-800 uppercase tracking-wider">{tProc.subVoucherTitle}</span>
@@ -1069,7 +1069,7 @@ export default function ProcurementModule({
                     id="proc-btn-add-row"
                     type="button"
                     onClick={handleAddProductRow}
-                    className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer transition-all active:scale-95 shadow-sm"
+                    className="inline-flex h-9 items-center gap-1.5 rounded-none border border-slate-200 bg-white px-3.5 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer transition-all active:scale-95 shadow-sm"
                   >
                     <Plus className="w-4 h-4 text-slate-500" />
                     {tProc.addProductBtn}
@@ -1078,7 +1078,7 @@ export default function ProcurementModule({
                     id="proc-btn-load-all-brand"
                     type="button"
                     onClick={handleLoadAllBrandProducts}
-                    className={`inline-flex h-9 items-center gap-1.5 rounded-xl px-3.5 text-xs font-bold text-white cursor-pointer transition-all active:scale-95 shadow-sm ${theme.btn}`}
+                    className={`inline-flex h-9 items-center gap-1.5 rounded-none px-3.5 text-xs font-bold text-white cursor-pointer transition-all active:scale-95 shadow-sm ${theme.btn}`}
                     title={`Pre-fill all products registered under ${supplierName}`}
                   >
                     <Sparkles className="w-3.5 h-3.5 animate-spin" style={{ animationDuration: '4s' }} />
@@ -1087,7 +1087,7 @@ export default function ProcurementModule({
                 </div>
               </div>
 
-              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div className="overflow-hidden rounded-none border border-slate-200 bg-white shadow-sm">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs border-collapse min-w-[900px]">
                     <thead>
@@ -1116,7 +1116,7 @@ export default function ProcurementModule({
                                 id={`proc-row-${idx}-product`}
                                 value={item.productId}
                                 onChange={(e) => handleRowChange(idx, 'productId', e.target.value)}
-                                className="h-10 w-full rounded-xl border border-slate-200 bg-white px-2.5 text-xs font-semibold outline-none focus:border-slate-800 transition-all cursor-pointer pr-8 appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%252364748b%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')] bg-[length:12px] bg-[right_10px_center] bg-no-repeat shadow-sm"
+                                className="h-10 w-full rounded-none border border-slate-200 bg-white px-2.5 text-xs font-semibold outline-none focus:border-slate-800 transition-all cursor-pointer pr-8 appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%252364748b%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')] bg-[length:12px] bg-[right_10px_center] bg-no-repeat shadow-sm"
                               >
                                 {products.filter(p => p.company === supplierName).map(p => (
                                   <option key={p.id} value={p.id}>{p.name}</option>
@@ -1134,7 +1134,7 @@ export default function ProcurementModule({
                                   min="0"
                                   value={item.purchasePrice || ''}
                                   onChange={(e) => handleRowChange(idx, 'purchasePrice', Number(e.target.value))}
-                                  className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-6 pr-2 text-center text-xs font-bold text-slate-800 font-mono outline-none focus:border-slate-800 transition-all shadow-sm focus:ring-2 focus:ring-slate-100"
+                                  className="h-10 w-full rounded-none border border-slate-200 bg-white pl-6 pr-2 text-center text-xs font-bold text-slate-800 font-mono outline-none focus:border-slate-800 transition-all shadow-sm focus:ring-2 focus:ring-slate-100"
                                 />
                               </div>
                             </td>
@@ -1149,7 +1149,7 @@ export default function ProcurementModule({
                                   min="0"
                                   value={item.wsp || ''}
                                   onChange={(e) => handleRowChange(idx, 'wsp', Number(e.target.value))}
-                                  className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-6 pr-2 text-center text-xs font-semibold text-slate-700 font-mono outline-none focus:border-slate-800 transition-all shadow-sm focus:ring-2 focus:ring-slate-100"
+                                  className="h-10 w-full rounded-none border border-slate-200 bg-white pl-6 pr-2 text-center text-xs font-semibold text-slate-700 font-mono outline-none focus:border-slate-800 transition-all shadow-sm focus:ring-2 focus:ring-slate-100"
                                 />
                               </div>
                             </td>
@@ -1164,7 +1164,7 @@ export default function ProcurementModule({
                                   min="0"
                                   value={item.mrp || ''}
                                   onChange={(e) => handleRowChange(idx, 'mrp', Number(e.target.value))}
-                                  className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-6 pr-2 text-center text-xs font-semibold text-slate-700 font-mono outline-none focus:border-slate-800 transition-all shadow-sm focus:ring-2 focus:ring-slate-100"
+                                  className="h-10 w-full rounded-none border border-slate-200 bg-white pl-6 pr-2 text-center text-xs font-semibold text-slate-700 font-mono outline-none focus:border-slate-800 transition-all shadow-sm focus:ring-2 focus:ring-slate-100"
                                 />
                               </div>
                             </td>
@@ -1177,7 +1177,7 @@ export default function ProcurementModule({
                                 min="0"
                                 value={item.cartons ?? ''}
                                 onChange={(e) => handleRowChange(idx, 'cartons', Number(e.target.value))}
-                                className="h-10 w-full rounded-xl border border-indigo-200 bg-indigo-50/40 px-2 text-center text-xs font-bold text-indigo-800 font-mono outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all shadow-sm"
+                                className="h-10 w-full rounded-none border border-indigo-200 bg-indigo-50/40 px-2 text-center text-xs font-bold text-indigo-800 font-mono outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all shadow-sm"
                               />
                               <div className="text-[8px] text-center text-slate-450 font-bold mt-1">
                                 {prod?.primaryUnit === 'Carton' ? (language === 'bn' ? 'কার্টন একক' : 'Carton Unit') : `×${cs} Pcs`}
@@ -1193,7 +1193,7 @@ export default function ProcurementModule({
                                 disabled={prod?.primaryUnit === 'Carton'}
                                 value={prod?.primaryUnit === 'Carton' ? '' : (item.pcs ?? '')}
                                 onChange={(e) => handleRowChange(idx, 'pcs', Number(e.target.value))}
-                                className={`h-10 w-full rounded-xl border px-2 text-center text-xs font-bold font-mono outline-none transition-all shadow-sm focus:ring-2 ${
+                                className={`h-10 w-full rounded-none border px-2 text-center text-xs font-bold font-mono outline-none transition-all shadow-sm focus:ring-2 ${
                                   prod?.primaryUnit === 'Carton'
                                     ? 'border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed'
                                     : 'border-emerald-200 bg-emerald-50/40 text-emerald-800 focus:border-emerald-500 focus:ring-emerald-100'
@@ -1214,9 +1214,9 @@ export default function ProcurementModule({
                                 min="0"
                                 value={item.bonusQty || ''}
                                 onChange={(e) => handleRowChange(idx, 'bonusQty', Number(e.target.value))}
-                                className="h-10 w-full rounded-xl border border-slate-200 bg-white px-1.5 text-center text-xs font-semibold text-slate-455 font-mono outline-none focus:border-slate-800 transition-all shadow-sm focus:ring-2 focus:ring-slate-100"
+                                className="h-10 w-full rounded-none border border-slate-200 bg-white px-1.5 text-center text-xs font-semibold text-slate-455 font-mono outline-none focus:border-slate-800 transition-all shadow-sm focus:ring-2 focus:ring-slate-100"
                               />
-                              <span className="inline-block px-1.5 py-0.5 rounded-md text-[8px] font-black bg-slate-100 text-slate-500 font-mono">
+                              <span className="inline-block px-1.5 py-0.5 rounded-none text-[8px] font-black bg-slate-100 text-slate-500 font-mono">
                                 Lot: {totalQtyCalculated}
                               </span>
                             </td>
@@ -1232,7 +1232,7 @@ export default function ProcurementModule({
                                 id={`proc-row-delete-btn-${idx}`}
                                 type="button"
                                 onClick={() => handleDeleteRow(idx)}
-                                className="grid h-8 w-8 place-items-center rounded-xl border border-rose-100 text-rose-500 hover:bg-rose-50 hover:text-rose-700 transition-all cursor-pointer mx-auto active:scale-95 shadow-sm"
+                                className="grid h-8 w-8 place-items-center rounded-none border border-rose-100 text-rose-500 hover:bg-rose-50 hover:text-rose-700 transition-all cursor-pointer mx-auto active:scale-95 shadow-sm"
                               >
                                 <Trash2 className="w-4 h-4" />
                               </button>
@@ -1247,7 +1247,7 @@ export default function ProcurementModule({
             </div>
 
             {/* Invoice Totals Summary card */}
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-6 bg-slate-50 p-6 rounded-3xl border border-slate-200/80 shadow-inner items-start">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-6 bg-slate-50 p-6 rounded-none border border-slate-200/80 shadow-inner items-start">
               <div className="md:col-span-5 space-y-3">
                 <LabelInput label={tProc.localCarrying} icon={Truck}>
                   <div className="relative">
@@ -1259,7 +1259,7 @@ export default function ProcurementModule({
                       placeholder="e.g., 3500"
                       value={additionalCost || ''}
                       onChange={(e) => setAdditionalCost(Number(e.target.value))}
-                      className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-7 pr-3 text-sm font-black outline-none focus:border-slate-800 transition-all font-mono shadow-sm"
+                      className="h-11 w-full rounded-none border border-slate-200 bg-white pl-7 pr-3 text-sm font-black outline-none focus:border-slate-800 transition-all font-mono shadow-sm"
                     />
                   </div>
                 </LabelInput>
@@ -1291,14 +1291,14 @@ export default function ProcurementModule({
                 id="proc-create-cancel"
                 type="button"
                 onClick={() => setActiveSubTab('list')}
-                className="h-11 rounded-xl border border-slate-200 bg-white px-5 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all cursor-pointer active:scale-95"
+                className="h-11 rounded-none border border-slate-200 bg-white px-5 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all cursor-pointer active:scale-95"
               >
                 {tCommon.cancel}
               </button>
               <button
                 id="proc-create-submit"
                 type="submit"
-                className={`inline-flex h-11 items-center gap-2 rounded-xl px-5 text-xs font-bold text-white transition-all shrink-0 cursor-pointer active:scale-95 shadow-md ${theme.btn}`}
+                className={`inline-flex h-11 items-center gap-2 rounded-none px-5 text-xs font-bold text-white transition-all shrink-0 cursor-pointer active:scale-95 shadow-md ${theme.btn}`}
               >
                 {tProc.commitStoreBtn}
               </button>
@@ -1310,7 +1310,7 @@ export default function ProcurementModule({
       {/* Modal: View Procurement details */}
       {selectedProcurement && (
         <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl border border-slate-200 w-full max-w-3xl shadow-2xl flex flex-col justify-between animate-scale-up max-h-[90vh]">
+          <div className="bg-white rounded-none border border-slate-200 w-full max-w-3xl shadow-2xl flex flex-col justify-between animate-scale-up max-h-[90vh]">
             
             {/* Modal Header */}
             <div className="border-b border-slate-200 px-6 py-5 bg-gradient-to-r from-slate-50 to-white flex items-center justify-between shrink-0">
@@ -1321,7 +1321,7 @@ export default function ProcurementModule({
               <button
                 id="proc-modal-view-close"
                 onClick={() => setSelectedProcurement(null)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-650 hover:bg-slate-100 transition-colors cursor-pointer"
+                className="p-1.5 rounded-none text-slate-400 hover:text-slate-650 hover:bg-slate-100 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1329,7 +1329,7 @@ export default function ProcurementModule({
 
             <div className="modal-body p-6 space-y-5 text-xs">
               {/* Invoice Meta header */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-slate-50 p-4 rounded-lg border border-slate-200 shadow-sm">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-slate-50 p-4 rounded-none border border-slate-200 shadow-sm">
                 <div>
                   <span className="text-[10px] text-slate-450 uppercase font-semibold block tracking-wider">{tProc.supplierName}</span>
                   <span className="font-semibold text-slate-800">{selectedProcurement.supplierName}</span>
@@ -1344,7 +1344,7 @@ export default function ProcurementModule({
                 </div>
                 <div className="text-right">
                   <span className="text-[10px] text-slate-450 uppercase font-semibold block tracking-wider mb-1">{tProc.ledgerStatus}</span>
-                  <span className={`px-2.5 py-0.5 rounded text-[10px] font-semibold border inline-block ${
+                  <span className={`px-2.5 py-0.5 rounded-none text-[10px] font-semibold border inline-block ${
                     selectedProcurement.paymentStatus === 'Paid' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
                     selectedProcurement.paymentStatus === 'Partial' ? 'bg-amber-50 text-amber-705 border-amber-200' :
                     'bg-rose-50 text-rose-700 border-rose-200'
@@ -1357,7 +1357,7 @@ export default function ProcurementModule({
               {/* Line Items Table */}
               <div className="space-y-2">
                 <h4 className="font-semibold text-slate-800">{tProc.lineItemsList}</h4>
-                <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm p-1">
+                <div className="overflow-hidden rounded-none border border-slate-200 bg-white shadow-sm p-1">
                   <table className="w-full text-left">
                     <thead className="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200">
                       <tr>
@@ -1420,12 +1420,12 @@ export default function ProcurementModule({
             </div>
 
             {/* Modal Actions Footer */}
-            <div className="border-t border-slate-200 px-6 py-5 flex items-center gap-3 bg-slate-50 rounded-b-xl shrink-0">
+            <div className="border-t border-slate-200 px-6 py-5 flex items-center gap-3 bg-slate-50 rounded-none-b-xl shrink-0">
               <button
                 id="selected-proc-btn-print"
                 type="button"
                 onClick={() => triggerPrintProcurement(selectedProcurement)}
-                className="flex-1 py-3 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold rounded-lg text-sm transition-all active:scale-95 text-center shadow-sm cursor-pointer flex items-center justify-center gap-1.5"
+                className="flex-1 py-3 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold rounded-none text-sm transition-all active:scale-95 text-center shadow-sm cursor-pointer flex items-center justify-center gap-1.5"
               >
                 <Printer className="w-4 h-4" />
                 Print / Export PDF
@@ -1434,7 +1434,7 @@ export default function ProcurementModule({
                 id="selected-proc-btn-close"
                 type="button"
                 onClick={() => setSelectedProcurement(null)}
-                className="flex-1 py-3.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-lg text-sm transition-all active:scale-95 text-center shadow-md cursor-pointer"
+                className="flex-1 py-3.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-none text-sm transition-all active:scale-95 text-center shadow-md cursor-pointer"
               >
                 {tProc.closeDetails}
               </button>

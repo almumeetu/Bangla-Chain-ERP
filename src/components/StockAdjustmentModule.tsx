@@ -33,8 +33,8 @@ interface StockAdjustmentModuleProps {
 function EmptyConsole({ language }: { language: Language }) {
   const bn = language === 'bn';
   return (
-    <div className="h-full min-h-[300px] bg-white rounded-xl border border-slate-200 border-dashed flex flex-col items-center justify-center text-center p-8 gap-3">
-      <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center">
+    <div className="h-full min-h-[300px] bg-white rounded-none border border-slate-200 border-dashed flex flex-col items-center justify-center text-center p-8 gap-3">
+      <div className="w-12 h-12 rounded-none bg-slate-100 flex items-center justify-center">
         <ArrowRightLeft className="w-6 h-6 text-slate-400" />
       </div>
       <p className="text-sm font-bold text-slate-500">
@@ -52,7 +52,7 @@ function SuccessPanel({
 }: { language: Language; productName: string; onReset: () => void }) {
   const bn = language === 'bn';
   return (
-    <div className="h-full min-h-[300px] bg-white rounded-xl border border-emerald-200 flex flex-col items-center justify-center text-center p-8 gap-4">
+    <div className="h-full min-h-[300px] bg-white rounded-none border border-emerald-200 flex flex-col items-center justify-center text-center p-8 gap-4">
       <CheckCircle2 className="w-12 h-12 text-emerald-500" />
       <div>
         <p className="text-sm font-bold text-slate-800 mb-1">
@@ -63,7 +63,7 @@ function SuccessPanel({
       <button
         type="button"
         onClick={onReset}
-        className="px-5 py-2 rounded-lg bg-slate-900 hover:bg-slate-700 text-white text-xs font-bold cursor-pointer transition-all"
+        className="px-5 py-2 rounded-none bg-slate-900 hover:bg-slate-700 text-white text-xs font-bold cursor-pointer transition-all"
       >
         {bn ? 'আরেকটি পণ্য ঠিক করুন' : 'Adjust Another Product'}
       </button>
@@ -100,6 +100,11 @@ export default function StockAdjustmentModule({
   // History tab filter states
   const [historySearch, setHistorySearch] = React.useState('');
   const [historyCompanyFilter, setHistoryCompanyFilter] = React.useState('All');
+  const [historyPage, setHistoryPage] = React.useState(1);
+
+  React.useEffect(() => {
+    setHistoryPage(1);
+  }, [historySearch, historyCompanyFilter, stockHistoryDate]);
 
   const hook = useStockAdjustment(products, setProducts, adjustments, setAdjustments, language);
   const bn   = language === 'bn';
@@ -292,8 +297,8 @@ export default function StockAdjustmentModule({
     <div className="space-y-6">
 
       {/* Header */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-2xl p-5 text-white border border-slate-800 shadow-md relative overflow-hidden flex flex-col lg:flex-row lg:items-center justify-between gap-5">
-        <div className="absolute -right-20 -top-20 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-none p-5 text-white border border-slate-800 shadow-md relative overflow-hidden flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+        <div className="absolute -right-20 -top-20 w-64 h-64 bg-indigo-500/10 rounded-none blur-3xl pointer-events-none" />
         <div className="relative z-10">
           <h2 className="text-xl font-bold tracking-tight flex items-center gap-2">
             {activeTab === 'adjustments' ? (
@@ -328,7 +333,7 @@ export default function StockAdjustmentModule({
               <button
                 type="button"
                 onClick={() => setStockHistoryDate(todayStr)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                className={`px-3 py-1.5 rounded-none text-xs font-black transition-all cursor-pointer ${
                   stockHistoryDate === todayStr
                     ? 'bg-white text-indigo-950 shadow-md animate-scale-up'
                     : 'bg-white/10 hover:bg-white/20 text-white border border-white/10'
@@ -339,7 +344,7 @@ export default function StockAdjustmentModule({
               <button
                 type="button"
                 onClick={() => setStockHistoryDate(yesterdayStr)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                className={`px-3 py-1.5 rounded-none text-xs font-black transition-all cursor-pointer ${
                   stockHistoryDate === yesterdayStr
                     ? 'bg-white text-indigo-950 shadow-md animate-scale-up'
                     : 'bg-white/10 hover:bg-white/20 text-white border border-white/10'
@@ -350,7 +355,7 @@ export default function StockAdjustmentModule({
               <button
                 type="button"
                 onClick={() => setStockHistoryDate(sevenDaysAgoStr)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                className={`px-3 py-1.5 rounded-none text-xs font-black transition-all cursor-pointer ${
                   stockHistoryDate === sevenDaysAgoStr
                     ? 'bg-white text-indigo-950 shadow-md animate-scale-up'
                     : 'bg-white/10 hover:bg-white/20 text-white border border-white/10'
@@ -362,14 +367,14 @@ export default function StockAdjustmentModule({
 
             {/* Calendar Input */}
             <div className="relative flex items-center">
-              <div className="absolute left-3 w-6 h-6 rounded-md bg-indigo-500/25 border border-indigo-400/30 flex items-center justify-center pointer-events-none z-10">
+              <div className="absolute left-3 w-6 h-6 rounded-none bg-indigo-500/25 border border-indigo-400/30 flex items-center justify-center pointer-events-none z-10">
                 <Calendar className="w-3.5 h-3.5 text-indigo-300" />
               </div>
               <input
                 type="date"
                 value={stockHistoryDate}
                 onChange={e => setStockHistoryDate(e.target.value)}
-                className="w-full h-10 pl-11 pr-3 rounded-xl border border-white/20 bg-white/10 text-white text-xs font-bold outline-none focus:border-white focus:ring-2 focus:ring-white/20 transition-all cursor-pointer shadow-sm"
+                className="w-full h-10 pl-11 pr-3 rounded-none border border-white/20 bg-white/10 text-white text-xs font-bold outline-none focus:border-white focus:ring-2 focus:ring-white/20 transition-all cursor-pointer shadow-sm"
               />
             </div>
           </div>
@@ -384,7 +389,7 @@ export default function StockAdjustmentModule({
             {Object.entries(companyStats).map(([company, stats]) => {
               const styles = getCompanyStyles(company);
               return (
-                <div key={company} className={`p-4.5 rounded-2xl border shadow-sm flex flex-col justify-between relative overflow-hidden group transition-all duration-300 ${styles.border}`}>
+                <div key={company} className={`p-4.5 rounded-none border shadow-sm flex flex-col justify-between relative overflow-hidden group transition-all duration-300 ${styles.border}`}>
                   <div className="flex justify-between items-start">
                     <div>
                       <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider block">{company} {bn ? 'স্টক' : 'Stock'}</span>
@@ -392,7 +397,7 @@ export default function StockAdjustmentModule({
                         {stats.totalStock.toLocaleString()} <span className="text-xs font-bold text-slate-500">Pcs</span>
                       </span>
                     </div>
-                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border transition-colors duration-300 ${styles.iconBg}`}>
+                    <div className={`w-8 h-8 rounded-none flex items-center justify-center shrink-0 border transition-colors duration-300 ${styles.iconBg}`}>
                       <Sliders className="w-4 h-4" />
                     </div>
                   </div>
@@ -480,8 +485,8 @@ export default function StockAdjustmentModule({
 
           {/* KPI Analytics Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm flex items-center gap-4.5">
-              <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-700 flex items-center justify-center">
+            <div className="bg-white border border-slate-200 rounded-none p-5 shadow-sm flex items-center gap-4.5">
+              <div className="w-12 h-12 rounded-none bg-indigo-50 text-indigo-700 flex items-center justify-center">
                 <Sliders className="w-6 h-6" />
               </div>
               <div>
@@ -494,8 +499,8 @@ export default function StockAdjustmentModule({
               </div>
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm flex items-center gap-4.5">
-              <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center">
+            <div className="bg-white border border-slate-200 rounded-none p-5 shadow-sm flex items-center gap-4.5">
+              <div className="w-12 h-12 rounded-none bg-emerald-50 text-emerald-700 flex items-center justify-center">
                 <span className="text-2xl font-bold font-mono">৳</span>
               </div>
               <div>
@@ -508,8 +513,8 @@ export default function StockAdjustmentModule({
               </div>
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm flex items-center gap-4.5">
-              <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-700 flex items-center justify-center">
+            <div className="bg-white border border-slate-200 rounded-none p-5 shadow-sm flex items-center gap-4.5">
+              <div className="w-12 h-12 rounded-none bg-amber-50 text-amber-700 flex items-center justify-center">
                 <span className="text-2xl font-bold font-mono">৳</span>
               </div>
               <div>
@@ -524,7 +529,7 @@ export default function StockAdjustmentModule({
           </div>
 
           {/* Filtering & Action Bar */}
-          <div className="bg-white border border-slate-200 rounded-3xl p-4 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="bg-white border border-slate-200 rounded-none p-4 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:max-w-xl">
               <div className="relative flex-1">
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -533,14 +538,14 @@ export default function StockAdjustmentModule({
                   value={historySearch}
                   onChange={e => setHistorySearch(e.target.value)}
                   placeholder={bn ? 'পণ্য বা SKU খুঁজুন...' : 'Search product or SKU...'}
-                  className="w-full h-10 pl-9 pr-3.5 rounded-xl border border-slate-200 bg-slate-50/20 text-xs font-semibold text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all placeholder:text-slate-400"
+                  className="w-full h-10 pl-9 pr-3.5 rounded-none border border-slate-200 bg-slate-50/20 text-xs font-semibold text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all placeholder:text-slate-400"
                 />
               </div>
 
               <select
                 value={historyCompanyFilter}
                 onChange={e => setHistoryCompanyFilter(e.target.value)}
-                className="h-10 rounded-xl border border-slate-200 bg-slate-50/20 px-3.5 text-xs font-bold text-slate-700 outline-none focus:border-indigo-500 cursor-pointer shadow-sm"
+                className="h-10 rounded-none border border-slate-200 bg-slate-50/20 px-3.5 text-xs font-bold text-slate-700 outline-none focus:border-indigo-500 cursor-pointer shadow-sm"
               >
                 <option value="All">{bn ? 'সকল কোম্পানি' : 'All Companies'}</option>
                 {Array.from(new Set(products.map(p => p.company).filter(Boolean))).map(c => (
@@ -551,7 +556,7 @@ export default function StockAdjustmentModule({
 
             <button
               onClick={() => printInventoryValuation(targetDate, filteredHistoric, totalValuationDP, totalValuationTP)}
-              className="inline-flex h-10 items-center justify-center gap-2 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black cursor-pointer transition-all active:scale-95 shadow-md shrink-0 border border-indigo-700"
+              className="inline-flex h-10 items-center justify-center gap-2 px-5 rounded-none bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black cursor-pointer transition-all active:scale-95 shadow-md shrink-0 border border-indigo-700"
             >
               <Printer className="w-3.5 h-3.5" />
               {bn ? 'মূল্যমান রিপোর্ট প্রিন্ট করুন' : 'Print Valuation Report'}
@@ -559,7 +564,7 @@ export default function StockAdjustmentModule({
           </div>
 
           {/* Historical Table */}
-          <div className="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden">
+          <div className="bg-white border border-slate-200 rounded-none shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse min-w-[1000px]">
                 <thead>
@@ -575,25 +580,41 @@ export default function StockAdjustmentModule({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filteredHistoric.length > 0 ? (
-                    filteredHistoric.map((p, idx) => {
+                  {(() => {
+                    const itemsPerPage = 24;
+                    const totalPages = Math.ceil(filteredHistoric.length / itemsPerPage);
+                    const validPage = Math.max(1, Math.min(historyPage, totalPages));
+                    const paginatedHistoric = filteredHistoric.slice((validPage - 1) * itemsPerPage, validPage * itemsPerPage);
+
+                    if (paginatedHistoric.length === 0) {
+                      return (
+                        <tr>
+                          <td colSpan={8} className="px-5 py-8 text-center text-slate-500">
+                            {bn ? 'কোনো ডাটা পাওয়া যায়নি' : 'No data found'}
+                          </td>
+                        </tr>
+                      );
+                    }
+
+                    return paginatedHistoric.map((p, idx) => {
+                      const globalIdx = (validPage - 1) * itemsPerPage + idx + 1;
                       const tpPrice = p.primaryUnit === 'Carton'
                         ? (p.pricePerCarton || p.defaultWSP)
                         : (p.pricePerPiece || p.defaultWSP);
                       return (
                         <tr key={p.id} className="hover:bg-slate-50 transition-colors">
-                          <td className="px-5 py-3.5 text-center text-xs font-bold text-slate-400">{idx + 1}</td>
+                          <td className="px-5 py-3.5 text-center text-xs font-bold text-slate-400">{globalIdx}</td>
                           <td className="px-5 py-3.5">
                             <div className="font-bold text-slate-900 text-sm mb-0.5">{p.name}</div>
                             <div className="text-[10px] font-medium text-slate-400 uppercase tracking-wide">{p.sku}</div>
                           </td>
                           <td className="px-5 py-3.5 whitespace-nowrap">
-                            <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold whitespace-nowrap border shadow-2xs ${getCompanyBadgeStyle(p.company)}`}>
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-none text-xs font-bold whitespace-nowrap border shadow-2xs ${getCompanyBadgeStyle(p.company)}`}>
                               {p.company}
                             </span>
                           </td>
                           <td className="px-5 py-3.5 whitespace-nowrap">
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide border bg-slate-50 text-slate-750 border-slate-200">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-none text-[10px] font-bold uppercase tracking-wide border bg-slate-50 text-slate-750 border-slate-200">
                               {formatStock(p.historicStock, p.cartonSize || 24, p.primaryUnit)}
                             </span>
                             {p.primaryUnit !== 'Carton' && (
@@ -616,17 +637,98 @@ export default function StockAdjustmentModule({
                           </td>
                         </tr>
                       );
-                    })
-                  ) : (
-                    <tr>
-                      <td colSpan={8} className="px-5 py-8 text-center text-xs font-bold text-slate-400">
-                        {bn ? 'কোন পণ্য পাওয়া যায়নি।' : 'No products found.'}
-                      </td>
-                    </tr>
-                  )}
+                    });
+                  })()}
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination Controls */}
+            {(() => {
+              const itemsPerPage = 24;
+              const totalPages = Math.ceil(filteredHistoric.length / itemsPerPage);
+
+              if (totalPages <= 1) return null;
+
+              return (
+                <div className="flex items-center justify-between border-t border-slate-200 bg-white px-4 py-3 sm:px-6 rounded-none shadow-sm mt-4">
+                  <div className="flex flex-1 justify-between sm:hidden">
+                    <button
+                      onClick={() => setHistoryPage(prev => Math.max(prev - 1, 1))}
+                      disabled={historyPage === 1}
+                      className="relative inline-flex items-center rounded-none border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                    >
+                      {bn ? 'পূর্ববর্তী' : 'Previous'}
+                    </button>
+                    <button
+                      onClick={() => setHistoryPage(prev => Math.min(prev + 1, totalPages))}
+                      disabled={historyPage === totalPages}
+                      className="relative ml-3 inline-flex items-center rounded-none border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                    >
+                      {bn ? 'পরবর্তী' : 'Next'}
+                    </button>
+                  </div>
+                  <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-xs text-slate-700">
+                        {bn ? 'দেখানো হচ্ছে' : 'Showing'}{' '}
+                        <span className="font-medium font-mono">{(historyPage - 1) * itemsPerPage + 1}</span>{' '}
+                        {bn ? 'থেকে' : 'to'}{' '}
+                        <span className="font-medium font-mono">{Math.min(historyPage * itemsPerPage, filteredHistoric.length)}</span>{' '}
+                        {bn ? 'মোট' : 'of'}{' '}
+                        <span className="font-medium font-mono">{filteredHistoric.length}</span>{' '}
+                        {bn ? 'ফলাফল' : 'results'}
+                      </p>
+                    </div>
+                    <div>
+                      <nav className="isolate inline-flex -space-x-px rounded-none shadow-sm" aria-label="Pagination">
+                        <button
+                          onClick={() => setHistoryPage(prev => Math.max(prev - 1, 1))}
+                          disabled={historyPage === 1}
+                          className="relative inline-flex items-center rounded-none border border-slate-300 bg-white px-2 py-2 text-sm font-medium text-slate-500 hover:bg-slate-50 focus:z-20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                        >
+                          <span className="sr-only">Previous</span>
+                          <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                            <path fillRule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clipRule="evenodd" />
+                          </svg>
+                        </button>
+                        
+                        {Array.from({ length: totalPages }, (_, i) => i + 1)
+                          .filter(page => page === 1 || page === totalPages || Math.abs(page - historyPage) <= 1)
+                          .map((page, index, array) => {
+                            if (index > 0 && page - array[index - 1] > 1) {
+                              return (
+                                <React.Fragment key={`ellipsis-${page}`}>
+                                  <span className="relative inline-flex items-center border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700">...</span>
+                                  <button onClick={() => setHistoryPage(page)} className={`relative inline-flex items-center border px-4 py-2 text-sm font-bold cursor-pointer ${page === historyPage ? 'z-10 bg-indigo-50 border-indigo-500 text-indigo-600' : 'bg-white border-slate-300 text-slate-500 hover:bg-slate-50'}`}>
+                                    {page}
+                                  </button>
+                                </React.Fragment>
+                              );
+                            }
+                            return (
+                              <button key={page} onClick={() => setHistoryPage(page)} className={`relative inline-flex items-center border px-4 py-2 text-sm font-bold cursor-pointer ${page === historyPage ? 'z-10 bg-indigo-50 border-indigo-500 text-indigo-600' : 'bg-white border-slate-300 text-slate-500 hover:bg-slate-50'}`}>
+                                {page}
+                              </button>
+                            );
+                        })}
+                        
+                        <button
+                          onClick={() => setHistoryPage(prev => Math.min(prev + 1, totalPages))}
+                          disabled={historyPage === totalPages}
+                          className="relative inline-flex items-center rounded-none border border-slate-300 bg-white px-2 py-2 text-sm font-medium text-slate-500 hover:bg-slate-50 focus:z-20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                        >
+                          <span className="sr-only">Next</span>
+                          <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                            <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
+                          </svg>
+                        </button>
+                      </nav>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}

@@ -42,7 +42,7 @@ export default function ForgotPasswordModal({
 }: ForgotPasswordModalProps) {
   const bn = language === 'bn';
 
-  const inputCls = 'w-full h-11 px-4 rounded-lg border border-slate-200 hover:border-slate-300 focus:border-slate-900 focus:ring-2 focus:ring-slate-900/5 bg-white text-xs font-semibold text-slate-900 outline-none transition-all placeholder:text-slate-400';
+  const inputCls = 'w-full h-11 px-4 rounded-none border border-slate-200 hover:border-slate-300 focus:border-slate-900 focus:ring-2 focus:ring-slate-900/5 bg-white text-xs font-semibold text-slate-900 outline-none transition-all placeholder:text-slate-400';
 
   return (
     <div
@@ -50,12 +50,12 @@ export default function ForgotPasswordModal({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-sm bg-white rounded-xl border border-slate-200 shadow-2xl overflow-hidden"
+        className="w-full max-w-sm bg-white rounded-none border border-slate-200 shadow-2xl overflow-hidden"
         onClick={stopPropagation}
       >
         {/* Header */}
         <div className="px-6 py-5 border-b border-slate-100 flex items-center gap-3">
-          <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center shrink-0">
+          <div className="w-8 h-8 bg-slate-100 rounded-none flex items-center justify-center shrink-0">
             <KeyRound className="w-4 h-4 text-slate-700" />
           </div>
           <div>
@@ -68,7 +68,7 @@ export default function ForgotPasswordModal({
           </div>
           <div className="ml-auto flex items-center gap-1.5">
             {([1, 2, 3] as const).map(s => (
-              <div key={s} className={`w-2 h-2 rounded-full transition-all ${forgotStep >= s ? 'bg-slate-900' : 'bg-slate-200'}`} />
+              <div key={s} className={`w-2 h-2 rounded-none transition-all ${forgotStep >= s ? 'bg-slate-900' : 'bg-slate-200'}`} />
             ))}
           </div>
         </div>
@@ -87,7 +87,7 @@ export default function ForgotPasswordModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="w-full h-10 rounded-lg bg-slate-950 hover:bg-slate-800 text-white text-xs font-semibold cursor-pointer transition-all"
+                className="w-full h-10 rounded-none bg-slate-950 hover:bg-slate-800 text-white text-xs font-semibold cursor-pointer transition-all"
               >
                 {bn ? 'লগইন পেজে যান' : 'Back to Sign In'}
               </button>
@@ -111,11 +111,11 @@ export default function ForgotPasswordModal({
               </div>
               <div className="flex gap-2">
                 <button type="button" onClick={onClose}
-                  className="flex-1 h-10 rounded-lg border border-slate-200 text-slate-500 text-xs font-semibold cursor-pointer hover:bg-slate-50 transition-all">
+                  className="flex-1 h-10 rounded-none border border-slate-200 text-slate-500 text-xs font-semibold cursor-pointer hover:bg-slate-50 transition-all">
                   {bn ? 'বাতিল' : 'Cancel'}
                 </button>
                 <button type="button" onClick={onStep1}
-                  className="flex-1 h-10 rounded-lg bg-slate-950 hover:bg-slate-800 text-white text-xs font-semibold cursor-pointer transition-all flex items-center justify-center gap-1.5">
+                  className="flex-1 h-10 rounded-none bg-slate-950 hover:bg-slate-800 text-white text-xs font-semibold cursor-pointer transition-all flex items-center justify-center gap-1.5">
                   {bn ? 'পরবর্তী' : 'Next'}
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
@@ -124,7 +124,7 @@ export default function ForgotPasswordModal({
           ) : (
             /* Step 2 — set new password */
             <form onSubmit={onStep2} className="space-y-4">
-              <div className="px-3 py-2 bg-slate-50 border border-slate-100 rounded-lg text-xs font-semibold text-slate-600">
+              <div className="px-3 py-2 bg-slate-50 border border-slate-100 rounded-none text-xs font-semibold text-slate-600">
                 {forgotEmail}
               </div>
               <div>
@@ -154,13 +154,13 @@ export default function ForgotPasswordModal({
               </div>
               <div className="flex gap-2">
                 <button type="button" onClick={onClose}
-                  className="flex-1 h-10 rounded-lg border border-slate-200 text-slate-500 text-xs font-semibold cursor-pointer hover:bg-slate-50 transition-all">
+                  className="flex-1 h-10 rounded-none border border-slate-200 text-slate-500 text-xs font-semibold cursor-pointer hover:bg-slate-50 transition-all">
                   {bn ? 'বাতিল' : 'Cancel'}
                 </button>
                 <button type="submit" disabled={forgotLoading}
-                  className="flex-1 h-10 rounded-lg bg-slate-950 hover:bg-slate-800 text-white text-xs font-semibold cursor-pointer transition-all disabled:bg-slate-400 flex items-center justify-center gap-1.5">
+                  className="flex-1 h-10 rounded-none bg-slate-950 hover:bg-slate-800 text-white text-xs font-semibold cursor-pointer transition-all disabled:bg-slate-400 flex items-center justify-center gap-1.5">
                   {forgotLoading
-                    ? <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ? <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-none animate-spin" />
                     : null}
                   {bn ? 'পাসওয়ার্ড সেট করুন' : 'Set Password'}
                 </button>

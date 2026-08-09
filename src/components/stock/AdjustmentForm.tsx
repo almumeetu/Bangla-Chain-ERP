@@ -48,11 +48,11 @@ export default function AdjustmentForm({
   const variantText = variance > 0 ? 'text-emerald-700' : variance < 0 ? 'text-rose-700' : 'text-slate-400';
 
   return (
-    <form onSubmit={onSubmit} className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-5">
+    <form onSubmit={onSubmit} className="bg-white rounded-none border border-slate-200 shadow-sm p-5 space-y-5">
 
       {/* Product info */}
-      <div className="flex items-center gap-3 p-3 bg-indigo-50 rounded-xl border border-indigo-100">
-        <div className="w-9 h-9 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0">
+      <div className="flex items-center gap-3 p-3 bg-indigo-50 rounded-none border border-indigo-100">
+        <div className="w-9 h-9 rounded-none bg-indigo-100 flex items-center justify-center flex-shrink-0">
           <Package className="w-4 h-4 text-indigo-600" />
         </div>
         <div className="min-w-0">
@@ -63,17 +63,17 @@ export default function AdjustmentForm({
 
       {/* Stats row */}
       <div className="grid grid-cols-3 gap-3">
-        <div className="bg-slate-50 rounded-xl border border-slate-200 p-3 text-center">
+        <div className="bg-slate-50 rounded-none border border-slate-200 p-3 text-center">
           <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">{bn ? 'বর্তমান স্টক' : 'Current Stock'}</p>
           <p className="text-lg font-extrabold text-slate-700 font-mono">{product.currentStock.toLocaleString()}</p>
           <p className="text-[9px] text-slate-400 font-semibold">{product.primaryUnit === 'Carton' ? 'Ctn' : 'Pcs'}</p>
         </div>
-        <div className="bg-slate-50 rounded-xl border border-slate-200 p-3 text-center">
+        <div className="bg-slate-50 rounded-none border border-slate-200 p-3 text-center">
           <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">{bn ? 'নতুন স্টক' : 'New Stock'}</p>
           <p className="text-lg font-extrabold text-indigo-700 font-mono">{newStockQty.toLocaleString()}</p>
           <p className="text-[9px] text-slate-400 font-semibold">{product.primaryUnit === 'Carton' ? 'Ctn' : 'Pcs'}</p>
         </div>
-        <div className={`rounded-xl border p-3 text-center ${variantBg}`}>
+        <div className={`rounded-none border p-3 text-center ${variantBg}`}>
           <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">{bn ? 'পার্থক্য' : 'Variance'}</p>
           <p className={`text-lg font-extrabold font-mono ${variantText}`}>{variance > 0 ? `+${variance}` : variance}</p>
           <div className="flex justify-center mt-0.5">
@@ -89,22 +89,22 @@ export default function AdjustmentForm({
         </label>
         <div className="flex items-center gap-2">
           <button type="button" onClick={() => onStepQty(-1)}
-            className="w-10 h-10 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 flex items-center justify-center text-slate-600 transition-all cursor-pointer flex-shrink-0">
+            className="w-10 h-10 rounded-none border border-slate-200 bg-slate-50 hover:bg-slate-100 flex items-center justify-center text-slate-600 transition-all cursor-pointer flex-shrink-0">
             <Minus className="w-4 h-4" />
           </button>
           <input type="number" min="0" required value={newStockQty}
             onChange={e => handleQtyInputChange(e, onSetQty)}
-            className="flex-1 h-10 rounded-lg border-2 border-slate-200 bg-white px-4 text-base font-bold text-slate-900 font-mono outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all text-center"
+            className="flex-1 h-10 rounded-none border-2 border-slate-200 bg-white px-4 text-base font-bold text-slate-900 font-mono outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all text-center"
           />
           <button type="button" onClick={() => onStepQty(+1)}
-            className="w-10 h-10 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 flex items-center justify-center text-slate-600 transition-all cursor-pointer flex-shrink-0">
+            className="w-10 h-10 rounded-none border border-slate-200 bg-slate-50 hover:bg-slate-100 flex items-center justify-center text-slate-600 transition-all cursor-pointer flex-shrink-0">
             <Plus className="w-4 h-4" />
           </button>
         </div>
         <div className="flex gap-1.5 mt-2">
           {STEPS.map(step => (
             <button key={step} type="button" onClick={() => onStepQty(step)}
-              className={`flex-1 py-1 rounded text-[10px] font-bold border transition-all cursor-pointer ${step < 0 ? 'border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100' : 'border-emerald-200 bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}>
+              className={`flex-1 py-1 rounded-none text-[10px] font-bold border transition-all cursor-pointer ${step < 0 ? 'border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100' : 'border-emerald-200 bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}>
               {step > 0 ? `+${step}` : step}
             </button>
           ))}
@@ -116,7 +116,7 @@ export default function AdjustmentForm({
         <label className="block text-xs font-bold text-slate-600 uppercase tracking-wide mb-2">
           {bn ? 'সমন্বয়ের তারিখ *' : 'Adjustment Date *'}
         </label>
-        <div className="relative flex items-center rounded-xl border-2 border-slate-200 bg-slate-50/50 hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 focus-within:border-indigo-600 focus-within:ring-4 focus-within:ring-indigo-100/80 overflow-hidden bg-white">
+        <div className="relative flex items-center rounded-none border-2 border-slate-200 bg-slate-50/50 hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 focus-within:border-indigo-600 focus-within:ring-4 focus-within:ring-indigo-100/80 overflow-hidden bg-white">
           <div className="absolute left-0 top-0 bottom-0 px-3 bg-indigo-50 border-r-2 border-slate-200 flex items-center justify-center text-indigo-600">
             <Calendar className="w-4 h-4" />
           </div>
@@ -138,7 +138,7 @@ export default function AdjustmentForm({
         <div className="flex flex-wrap gap-1.5 mb-2">
           {quickReasons.map(r => (
             <button key={r} type="button" onClick={() => onSetReason(r)}
-              className={`px-2.5 py-1 rounded-full text-[10px] font-semibold border transition-all cursor-pointer ${adjustReason === r ? 'bg-slate-900 text-white border-slate-900' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-slate-400'}`}>
+              className={`px-2.5 py-1 rounded-none text-[10px] font-semibold border transition-all cursor-pointer ${adjustReason === r ? 'bg-slate-900 text-white border-slate-900' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-slate-400'}`}>
               {r}
             </button>
           ))}
@@ -146,12 +146,12 @@ export default function AdjustmentForm({
         <input type="text" required value={adjustReason}
           onChange={e => handleReasonInputChange(e, onSetReason)}
           placeholder={bn ? 'বা নিজে লিখুন...' : 'Or type a custom reason...'}
-          className="w-full h-10 rounded-lg border-2 border-slate-200 bg-white px-4 text-xs font-semibold text-slate-800 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all placeholder:text-slate-400"
+          className="w-full h-10 rounded-none border-2 border-slate-200 bg-white px-4 text-xs font-semibold text-slate-800 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all placeholder:text-slate-400"
         />
       </div>
 
       <button type="submit"
-        className={`w-full py-3 rounded-xl text-sm font-bold transition-all cursor-pointer flex items-center justify-center gap-2 ${isSubmittable ? 'bg-slate-900 hover:bg-slate-700 text-white shadow-sm active:scale-[0.98]' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}>
+        className={`w-full py-3 rounded-none text-sm font-bold transition-all cursor-pointer flex items-center justify-center gap-2 ${isSubmittable ? 'bg-slate-900 hover:bg-slate-700 text-white shadow-sm active:scale-[0.98]' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}>
         <CheckCircle2 className="w-4 h-4" />
         {bn ? 'স্টক আপডেট নিশ্চিত করুন' : 'Confirm Stock Correction'}
       </button>

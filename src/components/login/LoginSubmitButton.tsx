@@ -18,10 +18,10 @@ export default function LoginSubmitButton({ isLoading, loadingLabel, label }: Lo
     <button
       type="submit"
       disabled={isLoading}
-      className={`w-full h-11 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer transition-all ${cls}`}
+      className={`w-full h-11 rounded-none text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer transition-all ${cls}`}
     >
       {isLoading
-        ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />{loadingLabel}</>
+        ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-none animate-spin" />{loadingLabel}</>
         : <>{label}<ArrowRight className="w-4 h-4" /></>}
     </button>
   );

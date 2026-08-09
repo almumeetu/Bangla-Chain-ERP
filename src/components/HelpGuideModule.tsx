@@ -566,12 +566,12 @@ export default function HelpGuideModule({ language }: HelpGuideModuleProps) {
     <div className="space-y-6 pb-8">
 
       {/* ── HEADER ── */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6 md:p-8 shadow-xl">
+      <div className="relative overflow-hidden rounded-none bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6 md:p-8 shadow-xl">
         <div className="absolute inset-0 bg-gradient-to-br from-violet-900/30 via-transparent to-indigo-900/30 pointer-events-none" />
-        <div className="absolute -top-16 -right-16 w-64 h-64 bg-violet-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-16 -left-16 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -top-16 -right-16 w-64 h-64 bg-violet-500/10 rounded-none blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-16 -left-16 w-64 h-64 bg-indigo-500/10 rounded-none blur-3xl pointer-events-none" />
         <div className="relative z-10 flex flex-col sm:flex-row sm:items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center shrink-0 backdrop-blur-sm">
+          <div className="w-14 h-14 rounded-none bg-white/10 border border-white/20 flex items-center justify-center shrink-0 backdrop-blur-sm">
             <BookOpen className="w-7 h-7 text-white" />
           </div>
           <div>
@@ -579,7 +579,7 @@ export default function HelpGuideModule({ language }: HelpGuideModuleProps) {
               <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight leading-tight">
                 {t('Help Guide & User Manual', 'সাহায্য গাইড ও ব্যবহারকারী ম্যানুয়াল')}
               </h1>
-              <span className="px-2.5 py-1 rounded-full bg-violet-500/30 border border-violet-400/30 text-violet-200 text-[11px] font-bold tracking-wider">
+              <span className="px-2.5 py-1 rounded-none bg-violet-500/30 border border-violet-400/30 text-violet-200 text-[11px] font-bold tracking-wider">
                 v3.1
               </span>
             </div>
@@ -593,7 +593,7 @@ export default function HelpGuideModule({ language }: HelpGuideModuleProps) {
         </div>
         <div className="relative z-10 mt-5 flex flex-wrap gap-2">
           {['Dashboard', 'Companies', 'Products', 'Purchase', 'Sales', 'Delivery', 'Reports', 'Settings'].map(m => (
-            <span key={m} className="px-2.5 py-1 rounded-full bg-white/10 border border-white/10 text-white/60 text-[10px] font-semibold tracking-wide">
+            <span key={m} className="px-2.5 py-1 rounded-none bg-white/10 border border-white/10 text-white/60 text-[10px] font-semibold tracking-wide">
               {m}
             </span>
           ))}
@@ -601,9 +601,9 @@ export default function HelpGuideModule({ language }: HelpGuideModuleProps) {
       </div>
 
       {/* ── QUICK START ── */}
-      <div className="bg-gradient-to-br from-violet-50 to-indigo-50 border border-violet-200 rounded-3xl p-5 md:p-6">
+      <div className="bg-gradient-to-br from-violet-50 to-indigo-50 border border-violet-200 rounded-none p-5 md:p-6">
         <div className="flex items-center gap-2.5 mb-4">
-          <div className="w-8 h-8 rounded-xl bg-violet-100 border border-violet-200 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-none bg-violet-100 border border-violet-200 flex items-center justify-center">
             <Star className="w-4 h-4 text-violet-600" />
           </div>
           <h2 className="text-base font-black text-violet-900">
@@ -628,7 +628,7 @@ export default function HelpGuideModule({ language }: HelpGuideModuleProps) {
             const Icon = step.icon;
             return (
               <div key={step.num} className="relative flex flex-col items-center text-center">
-                <div className={`w-full rounded-2xl border p-3 flex flex-col items-center gap-1.5 ${step.color}`}>
+                <div className={`w-full rounded-none border p-3 flex flex-col items-center gap-1.5 ${step.color}`}>
                   <span className="text-[10px] font-black opacity-60">STEP {step.num}</span>
                   <Icon className="w-5 h-5" />
                   <span className="text-[11px] font-bold leading-tight">
@@ -645,9 +645,9 @@ export default function HelpGuideModule({ language }: HelpGuideModuleProps) {
       </div>
 
       {/* ── LOGIN CREDENTIALS ── */}
-      <div className="bg-white border border-slate-200 rounded-3xl p-5 md:p-6 shadow-sm">
+      <div className="bg-white border border-slate-200 rounded-none p-5 md:p-6 shadow-sm">
         <div className="flex items-center gap-2.5 mb-4">
-          <div className="w-8 h-8 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-none bg-slate-100 border border-slate-200 flex items-center justify-center">
             <Lock className="w-4 h-4 text-slate-600" />
           </div>
           <div>
@@ -659,7 +659,7 @@ export default function HelpGuideModule({ language }: HelpGuideModuleProps) {
             </p>
           </div>
         </div>
-        <div className="overflow-x-auto rounded-2xl border border-slate-100">
+        <div className="overflow-x-auto rounded-none border border-slate-100">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100">
@@ -679,18 +679,18 @@ export default function HelpGuideModule({ language }: HelpGuideModuleProps) {
               ].map((row, i) => (
                 <tr key={i} className="hover:bg-slate-50/50 transition-colors">
                   <td className="px-4 py-3">
-                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${row.badge}`}>{row.role}</span>
+                    <span className={`px-2.5 py-1 rounded-none text-[10px] font-bold ${row.badge}`}>{row.role}</span>
                   </td>
                   <td className="px-4 py-3 text-xs font-semibold text-slate-800">{row.name}</td>
-                  <td className="px-4 py-3"><code className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-lg text-xs font-mono font-bold">{row.user}</code></td>
-                  <td className="px-4 py-3"><code className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-lg text-xs font-mono font-bold">{row.pass}</code></td>
+                  <td className="px-4 py-3"><code className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-none text-xs font-mono font-bold">{row.user}</code></td>
+                  <td className="px-4 py-3"><code className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-none text-xs font-mono font-bold">{row.pass}</code></td>
                   <td className="px-4 py-3 text-[11px] text-slate-500 font-medium">{row.access}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        <div className="mt-3 flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3">
+        <div className="mt-3 flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-none px-4 py-3">
           <Lightbulb className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
           <p className="text-xs text-amber-800 font-semibold">
             {t(
@@ -722,7 +722,7 @@ export default function HelpGuideModule({ language }: HelpGuideModuleProps) {
             return (
               <div
                 key={section.id}
-                className={`bg-white rounded-3xl border shadow-sm overflow-hidden transition-all duration-200 ${
+                className={`bg-white rounded-none border shadow-sm overflow-hidden transition-all duration-200 ${
                   isOpen ? `${c.border} border-2` : 'border-slate-200 hover:border-slate-300'
                 }`}
               >
@@ -733,7 +733,7 @@ export default function HelpGuideModule({ language }: HelpGuideModuleProps) {
                   className="w-full flex items-center justify-between p-4 md:p-5 text-left hover:bg-slate-50/50 transition-colors"
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className={`w-10 h-10 rounded-xl ${c.bg} border ${c.border} flex items-center justify-center shrink-0`}>
+                    <div className={`w-10 h-10 rounded-none ${c.bg} border ${c.border} flex items-center justify-center shrink-0`}>
                       <Icon className={`w-5 h-5 ${c.text}`} />
                     </div>
                     <div className="min-w-0">
@@ -741,7 +741,7 @@ export default function HelpGuideModule({ language }: HelpGuideModuleProps) {
                         <h3 className="text-sm font-black text-slate-900">
                           {t(section.titleEn, section.titleBn)}
                         </h3>
-                        <span className={`hidden sm:inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold ${c.badge}`}>
+                        <span className={`hidden sm:inline-flex px-2 py-0.5 rounded-none text-[10px] font-bold ${c.badge}`}>
                           {t(section.subtitleEn, section.subtitleBn)}
                         </span>
                       </div>
@@ -750,7 +750,7 @@ export default function HelpGuideModule({ language }: HelpGuideModuleProps) {
                       </p>
                     </div>
                   </div>
-                  <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ml-3 transition-colors ${isOpen ? c.bg : 'bg-slate-100'}`}>
+                  <div className={`w-7 h-7 rounded-none flex items-center justify-center shrink-0 ml-3 transition-colors ${isOpen ? c.bg : 'bg-slate-100'}`}>
                     {isOpen
                       ? <ChevronDown className={`w-4 h-4 ${c.text}`} />
                       : <ChevronRight className="w-4 h-4 text-slate-400" />
@@ -775,7 +775,7 @@ export default function HelpGuideModule({ language }: HelpGuideModuleProps) {
                       <ol className="space-y-2">
                         {actualSteps.map((step, idx) => (
                           <li key={idx} className="flex items-start gap-3">
-                            <span className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 mt-0.5 ${c.step}`}>
+                            <span className={`w-5 h-5 rounded-none border flex items-center justify-center shrink-0 mt-0.5 ${c.step}`}>
                               <span className="text-[9px] font-black">{idx + 1}</span>
                             </span>
                             <span className="text-xs text-slate-700 leading-relaxed font-medium">{step}</span>
@@ -786,7 +786,7 @@ export default function HelpGuideModule({ language }: HelpGuideModuleProps) {
 
                     {/* Tip */}
                     {(section.content.tipsEn || section.content.tipsBn) && (
-                      <div className={`${c.bg} border ${c.border} rounded-2xl p-3.5 flex items-start gap-2.5`}>
+                      <div className={`${c.bg} border ${c.border} rounded-none p-3.5 flex items-start gap-2.5`}>
                         <CheckCircle2 className={`w-4 h-4 ${c.text} mt-0.5 shrink-0`} />
                         <p className="text-[11px] text-slate-700 font-semibold leading-relaxed">
                           <span className="font-black">{t('Tip: ', 'টিপস: ')}</span>
@@ -797,7 +797,7 @@ export default function HelpGuideModule({ language }: HelpGuideModuleProps) {
 
                     {/* Warning */}
                     {(section.content.warningEn || section.content.warningBn) && (
-                      <div className="bg-red-50 border border-red-200 rounded-2xl p-3.5 flex items-start gap-2.5">
+                      <div className="bg-red-50 border border-red-200 rounded-none p-3.5 flex items-start gap-2.5">
                         <AlertTriangle className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
                         <p className="text-[11px] text-red-700 font-semibold leading-relaxed">
                           <span className="font-black">{t('Warning: ', 'সতর্কতা: ')}</span>
@@ -827,7 +827,7 @@ export default function HelpGuideModule({ language }: HelpGuideModuleProps) {
             return (
               <div
                 key={idx}
-                className={`bg-white rounded-2xl border shadow-sm overflow-hidden transition-all duration-200 ${
+                className={`bg-white rounded-none border shadow-sm overflow-hidden transition-all duration-200 ${
                   isOpen ? 'border-violet-200 border-2' : 'border-slate-200 hover:border-slate-300'
                 }`}
               >
@@ -837,7 +837,7 @@ export default function HelpGuideModule({ language }: HelpGuideModuleProps) {
                   className="w-full flex items-center justify-between p-4 text-left hover:bg-slate-50/50 transition-colors gap-3"
                 >
                   <div className="flex items-start gap-2.5">
-                    <span className="w-5 h-5 rounded-full bg-violet-100 border border-violet-200 flex items-center justify-center shrink-0 mt-0.5">
+                    <span className="w-5 h-5 rounded-none bg-violet-100 border border-violet-200 flex items-center justify-center shrink-0 mt-0.5">
                       <HelpCircle className="w-3 h-3 text-violet-600" />
                     </span>
                     <span className="text-xs font-bold text-slate-800 leading-relaxed">
@@ -852,7 +852,7 @@ export default function HelpGuideModule({ language }: HelpGuideModuleProps) {
                 <div className={`transition-all duration-300 ease-in-out overflow-hidden ${isOpen ? 'max-h-96' : 'max-h-0'}`}>
                   <div className="px-4 pb-4 border-t border-slate-100 pt-3">
                     <div className="flex items-start gap-2.5">
-                      <span className="w-5 h-5 rounded-full bg-emerald-100 border border-emerald-200 flex items-center justify-center shrink-0 mt-0.5">
+                      <span className="w-5 h-5 rounded-none bg-emerald-100 border border-emerald-200 flex items-center justify-center shrink-0 mt-0.5">
                         <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                       </span>
                       <p className="text-xs text-slate-600 leading-relaxed font-medium">
@@ -868,8 +868,8 @@ export default function HelpGuideModule({ language }: HelpGuideModuleProps) {
       </div>
 
       {/* ── DATA STORAGE NOTE ── */}
-      <div className="bg-blue-50 border border-blue-200 rounded-3xl p-5 flex items-start gap-3">
-        <div className="w-9 h-9 rounded-xl bg-blue-100 border border-blue-200 flex items-center justify-center shrink-0">
+      <div className="bg-blue-50 border border-blue-200 rounded-none p-5 flex items-start gap-3">
+        <div className="w-9 h-9 rounded-none bg-blue-100 border border-blue-200 flex items-center justify-center shrink-0">
           <FileText className="w-5 h-5 text-blue-600" />
         </div>
         <div>
@@ -886,7 +886,7 @@ export default function HelpGuideModule({ language }: HelpGuideModuleProps) {
       </div>
 
       {/* ── QUICK REFERENCE ── */}
-      <div className="bg-white border border-slate-200 rounded-3xl p-5 md:p-6 shadow-sm">
+      <div className="bg-white border border-slate-200 rounded-none p-5 md:p-6 shadow-sm">
         <div className="flex items-center gap-2 mb-4">
           <TrendingUp className="w-4 h-4 text-slate-400" />
           <h2 className="text-sm font-black text-slate-700 uppercase tracking-wider">
@@ -910,8 +910,8 @@ export default function HelpGuideModule({ language }: HelpGuideModuleProps) {
             const Icon = item.icon;
             const c = colorMap[item.color] ?? colorMap.slate;
             return (
-              <div key={item.labelEn} className={`${c.bg} border ${c.border} rounded-2xl p-3.5 flex items-start gap-3`}>
-                <div className={`w-8 h-8 rounded-xl bg-white/60 border ${c.border} flex items-center justify-center shrink-0`}>
+              <div key={item.labelEn} className={`${c.bg} border ${c.border} rounded-none p-3.5 flex items-start gap-3`}>
+                <div className={`w-8 h-8 rounded-none bg-white/60 border ${c.border} flex items-center justify-center shrink-0`}>
                   <Icon className={`w-4 h-4 ${c.text}`} />
                 </div>
                 <div>
@@ -925,13 +925,13 @@ export default function HelpGuideModule({ language }: HelpGuideModuleProps) {
       </div>
 
       {/* ── FOOTER ── */}
-      <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-3xl p-6 text-center relative overflow-hidden">
+      <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-none p-6 text-center relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-violet-900/20 via-transparent to-indigo-900/20 pointer-events-none" />
         <div className="relative z-10 space-y-2">
           <div className="flex items-center justify-center gap-2 mb-3">
             <BookOpen className="w-5 h-5 text-violet-400" />
             <span className="text-white font-black text-base">Bangla-Chain ERP</span>
-            <span className="px-2 py-0.5 rounded-full bg-violet-500/30 border border-violet-400/30 text-violet-300 text-[10px] font-bold">v3.1</span>
+            <span className="px-2 py-0.5 rounded-none bg-violet-500/30 border border-violet-400/30 text-violet-300 text-[10px] font-bold">v3.1</span>
           </div>
           <p className="text-slate-400 text-xs font-semibold">
             {t(

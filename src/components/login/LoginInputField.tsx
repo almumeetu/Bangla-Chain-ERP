@@ -4,7 +4,7 @@ import React from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 
 const BASE_INPUT =
-  'w-full h-11 px-4 rounded-lg border bg-white text-xs font-semibold text-slate-900 outline-none transition-all placeholder:text-slate-400 border-slate-200 hover:border-slate-300';
+  'w-full h-11 px-4 rounded-none border bg-white text-xs font-semibold text-slate-900 outline-none transition-all placeholder:text-slate-400 border-slate-200 hover:border-slate-300';
 
 interface LoginInputFieldProps {
   id?:          string;

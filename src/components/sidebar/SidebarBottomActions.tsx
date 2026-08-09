@@ -64,11 +64,11 @@ export default function SidebarBottomActions({
             )}
 
             {isActive && (
-              <div className={`absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r ${styles.bar}`} />
+              <div className={`absolute left-0 top-2.5 bottom-2.5 w-1 rounded-none-r ${styles.bar}`} />
             )}
 
             {collapsed && (
-              <div className="absolute left-full ml-4 px-2.5 py-1.5 bg-slate-950 text-white text-xs rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150 z-50 shadow-xl border border-slate-800 font-medium font-sans">
+              <div className="absolute left-full ml-4 px-2.5 py-1.5 bg-slate-950 text-white text-xs rounded-none whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150 z-50 shadow-xl border border-slate-800 font-medium font-sans">
                 {label}
               </div>
             )}
