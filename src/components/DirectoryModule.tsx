@@ -43,6 +43,7 @@ import { translations as dict, Language } from '../translations';
 import { getLocalDateString } from './dashboard/dashboardUtils';
 import { getStockValueDP, getStockValueTP, formatProductStock } from '../lib/productUtils';
 import PersonnelManagement from './PersonnelManagement';
+import { useToast } from './ui/Toast';
 
 interface DirectoryModuleProps {
   products: Product[];
@@ -521,6 +522,7 @@ export default function DirectoryModule({
   challans = [],
   adjustments = []
 }: DirectoryModuleProps) {
+  const { success, error, warning } = useToast();
   const tCommon = dict[language].common;
   const tDir = dict[language].directory;
 
@@ -591,6 +593,7 @@ export default function DirectoryModule({
   const [selectedClaimStatus, setSelectedClaimStatus] = useState('pending');
   const [isNewDamageLog, setIsNewDamageLog] = useState(false);
   const [damageActiveSubTab, setDamageActiveSubTab] = useState<'inventory' | 'logs' | 'reasons'>('inventory');
+  const [newReasonInput, setNewReasonInput] = useState('');
 
   // Dynamic Damage Reasons
   const [damageReasons, setDamageReasons] = useState<{ id: string; name: string }[]>(() => {
@@ -816,11 +819,12 @@ export default function DirectoryModule({
       const dp = Number(inlineEditForm.defaultPP || 0);
       const tp = Number(inlineEditForm.defaultWSP || 0);
       if (dp >= tp) {
-        alert(language === 'bn' 
-          ? 'ত্রুটি: DP (Purchase Price) মূল্য অবশ্যই TP (WSP) মূল্য থেকে কম হতে হবে!' 
-          : 'Error: DP Price (Purchase Price) must ALWAYS be LOWER than TP Price (WSP)!'
+        error(
+          language === 'bn' ? 'মূল্য ত্রুটি' : 'Pricing Error',
+          language === 'bn'
+            ? 'DP মূল্য অবশ্যই TP (WSP) মূল্য থেকে কম হতে হবে!'
+            : 'DP Price (Purchase Price) must be LOWER than TP Price (WSP).'
         );
-        return;
       }
       setProducts(prev => prev.map(p =>
         p.id === inlineEditingProductId ? { ...p, ...inlineEditForm } as Product : p
@@ -828,7 +832,7 @@ export default function DirectoryModule({
       setInlineEditingProductId(null);
       setInlineEditForm({});
     } else {
-      alert('Please fill out Product Name, SKU, and Company.');
+      error('Incomplete Form', 'Please fill out Product Name, SKU, and Company.');
     }
   }, [inlineEditingProductId, inlineEditForm, setProducts, language]);
 
@@ -841,7 +845,7 @@ export default function DirectoryModule({
   const handleProductSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     if (!prodName || !prodSku || !prodCompany) {
-      alert('Please fill out product Name, SKU, and Company.');
+      error('Incomplete Form', 'Please fill out Product Name, SKU, and Company.');
       return;
     }
 
@@ -852,11 +856,12 @@ export default function DirectoryModule({
     const tp = isCtn ? Number(prodPricePerCarton) : Number(prodPricePerPiece);
 
     if (dp >= tp) {
-      alert(language === 'bn' 
-        ? 'ত্রুটি: DP (Purchase Price) মূল্য অবশ্যই TP (WSP) মূল্য থেকে কম হতে হবে!' 
-        : 'Error: DP Price (Purchase Price) must ALWAYS be LOWER than TP Price (WSP)!'
+      error(
+        language === 'bn' ? 'মূল্য ত্রুটি' : 'Pricing Error',
+        language === 'bn'
+          ? 'DP মূল্য অবশ্যই TP (WSP) মূল্য থেকে কম হতে হবে!'
+          : 'DP Price (Purchase Price) must be LOWER than TP Price (WSP).'
       );
-      return;
     }
 
     let ctnPrice = 0;
@@ -915,13 +920,13 @@ export default function DirectoryModule({
   const handleSrSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     if (!srName || !srPhone) {
-      alert('Representative Name and Phone Contact are required.');
+      error('Incomplete Form', 'Representative Name and Phone Contact are required.');
       return;
     }
 
     const isDuplicate = srs.some(s => s.phone === srPhone && (!editingSr || s.id !== editingSr.id));
     if (isDuplicate) {
-      alert(language === 'bn' ? 'এই ফোন নম্বর দিয়ে ইতিমধ্যে একজন এসআর নিবন্ধিত আছে।' : 'An SR with this phone number is already registered.');
+      error(language === 'bn' ? 'ডুপ্লিকেট' : 'Duplicate', language === 'bn' ? 'এই ফোন নম্বর দিয়ে ইতিমধ্যে একজন এসআর নিবন্ধিত আছে।' : 'An SR with this phone number is already registered.');
       return;
     }
 
@@ -938,13 +943,13 @@ export default function DirectoryModule({
   const handleDmSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     if (!dmName || !dmVehicle) {
-      alert('Delivery Man Name and Vehicle details are required.');
+      error('Incomplete Form', 'Delivery Man Name and Vehicle details are required.');
       return;
     }
 
     const isDuplicate = deliveryMen.some(d => d.phone === dmPhone && (!editingDm || d.id !== editingDm.id));
     if (isDuplicate) {
-      alert(language === 'bn' ? 'এই ফোন নম্বর দিয়ে ইতিমধ্যে একজন ডেলিভারি ম্যান নিবন্ধিত আছে।' : 'A delivery driver with this phone number is already registered.');
+      error(language === 'bn' ? 'ডুপ্লিকেট' : 'Duplicate', language === 'bn' ? 'এই ফোন নম্বর দিয়ে ইতিমধ্যে একজন ডেলিভারি ম্যান নিবন্ধিত আছে।' : 'A delivery driver with this phone number is already registered.');
       return;
     }
 
@@ -961,7 +966,7 @@ export default function DirectoryModule({
   const handleShopSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     if (!shopName) {
-      alert('Shop Name is required.');
+      error('Required', 'Shop Name is required.');
       return;
     }
 
@@ -999,7 +1004,7 @@ export default function DirectoryModule({
     e.preventDefault();
     if (!selectedDamageProduct) return;
     if (!selectedDamageProduct.id) {
-      alert(language === 'bn' ? 'দয়া করে একটি পণ্য নির্বাচন করুন।' : 'Please select a product.');
+      error(language === 'bn' ? 'পণ্য নির্বাচন করুন' : 'Select a Product', language === 'bn' ? 'দয়া করে একটি পণ্য নির্বাচন করুন।' : 'Please select a product.');
       return;
     }
 
@@ -1057,25 +1062,109 @@ export default function DirectoryModule({
   const handleUpdateClaimStatus = useCallback((productId: string, logId: string, nextStatus: string) => {
     setProducts(prevProducts => prevProducts.map(p => {
       if (p.id === productId) {
+        const isCtn = p.primaryUnit === 'Carton';
+        const size = p.cartonSize || 24;
+        let damagedStock = p.damagedStock || 0;
+
+        const newHistory = (p.damageHistory || []).map(log => {
+          if (log.id === logId) {
+            const oldStatus = log.claimStatus || 'pending';
+            const logQtyPcs = Math.abs(Number(log.qty) || 0);
+            const logQtyStorage = isCtn ? (logQtyPcs / size) : logQtyPcs;
+
+            const hadStockReserved = oldStatus === 'pending';
+            const willHaveStockReserved = nextStatus === 'pending';
+
+            if (hadStockReserved && !willHaveStockReserved) {
+              damagedStock = Math.max(0, damagedStock - logQtyStorage);
+            } else if (!hadStockReserved && willHaveStockReserved) {
+              damagedStock = damagedStock + logQtyStorage;
+            }
+
+            return { ...log, claimStatus: nextStatus };
+          }
+          return log;
+        });
+
         return {
           ...p,
-          damageHistory: (p.damageHistory || []).map(log => {
-            if (log.id === logId) {
-              return { ...log, claimStatus: nextStatus };
-            }
-            return log;
-          })
+          damagedStock: Number(damagedStock.toFixed(4)),
+          damageHistory: newHistory
         };
       }
       return p;
     }));
   }, [setProducts]);
 
+  const handleDeleteDamageLog = useCallback((productId: string, logId: string) => {
+    if (!confirm(language === 'bn'
+      ? 'এই ড্যামেজ লগটি মুছে ফেলবেন? স্টক অটো অ্যাডজাস্ট হবে।'
+      : 'Delete this damage log? Stock will auto-adjust.'
+    )) return;
+
+    setProducts(prevProducts => prevProducts.map(p => {
+      if (p.id === productId) {
+        const isCtn = p.primaryUnit === 'Carton';
+        const size = p.cartonSize || 24;
+        let damagedStock = p.damagedStock || 0;
+
+        const history = p.damageHistory || [];
+        const log = history.find(l => l.id === logId);
+        if (log) {
+          const status = log.claimStatus || 'pending';
+          const logQtyPcs = Math.abs(Number(log.qty) || 0);
+          const logQtyStorage = isCtn ? (logQtyPcs / size) : logQtyPcs;
+          if (status === 'pending') {
+            damagedStock = Math.max(0, damagedStock - logQtyStorage);
+          }
+        }
+
+        return {
+          ...p,
+          damagedStock: Number(damagedStock.toFixed(4)),
+          damageHistory: history.filter(l => l.id !== logId)
+        };
+      }
+      return p;
+    }));
+  }, [setProducts, language]);
+
+  const handleSettleDamage = useCallback((productId: string) => {
+    if (!confirm(language === 'bn'
+      ? 'কোম্পানি থেকে ক্লেম সেটল হয়েছে? সম্পূর্ণ ড্যামেজ স্টক শূন্য হবে।'
+      : 'Claim settled with company? This will ZERO all damaged stock for this product.'
+    )) return;
+    setProducts(prevProducts => prevProducts.map(p => {
+      if (p.id === productId) {
+        return { ...p, damagedStock: 0 };
+      }
+      return p;
+    }));
+  }, [setProducts, language]);
+
+  const handleMoveDamageToSalable = useCallback((productId: string) => {
+    if (!confirm(language === 'bn'
+      ? 'সব ড্যামেজ পণ্য ভাল/বিক্রয়যোগ্য স্টকে ফেরত যাবে।'
+      : 'Move ALL damaged quantity back to GOOD / salable stock?'
+    )) return;
+    setProducts(prevProducts => prevProducts.map(p => {
+      if (p.id === productId) {
+        const dm = p.damagedStock || 0;
+        return {
+          ...p,
+          currentStock: Number((p.currentStock + dm).toFixed(4)),
+          damagedStock: 0
+        };
+      }
+      return p;
+    }));
+  }, [setProducts, language]);
+
   // --- SUBMIT: Company ---
   const handleCompanySubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     if (!compName) {
-      alert('Company/Brand Name is required.');
+      error('Required', 'Company/Brand Name is required.');
       return;
     }
 
@@ -1099,7 +1188,7 @@ export default function DirectoryModule({
   const handleCategorySubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     if (!catName) {
-      alert('Category Name is required.');
+      error('Required', 'Category Name is required.');
       return;
     }
 
@@ -1116,7 +1205,7 @@ export default function DirectoryModule({
   const handleUnitSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     if (!unitName.trim()) {
-      alert('Unit Name is required.');
+      error('Required', 'Unit Name is required.');
       return;
     }
 
@@ -1139,7 +1228,7 @@ export default function DirectoryModule({
   const handleGodownSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     if (!godownName) {
-      alert('Warehouse/Godown Name is required.');
+      error('Required', 'Warehouse/Godown Name is required.');
       return;
     }
 
@@ -1162,7 +1251,7 @@ export default function DirectoryModule({
   const handleRouteSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     if (!routeName || !routeArea || !routeTerritory) {
-      alert('Route name, Area, and Territory details are required.');
+      error('Required', 'Route name, Area, and Territory are required.');
       return;
     }
 
@@ -3598,6 +3687,22 @@ export default function DirectoryModule({
                                   >
                                     {language === 'bn' ? 'সমন্বয় করুন' : 'Reconcile'}
                                   </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleMoveDamageToSalable(product.id)}
+                                    className="mt-1 px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-[10px] font-bold rounded-none cursor-pointer"
+                                    title={language === 'bn' ? 'ড্যামেজ-কে ভাল/বিক্রয়যোগ্য স্টকে ফেরত' : 'Re-add damage to good / salable stock'}
+                                  >
+                                    {language === 'bn' ? '↩ স্টকে ফেরত' : '↩ Re-Use'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSettleDamage(product.id)}
+                                    className="mt-1 px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-[10px] font-bold rounded-none cursor-pointer"
+                                    title={language === 'bn' ? 'কোম্পানি ক্লেম সেটল হয়েছে: ড্যামেজ শূন্য করুন' : 'Company claim settled: zero out damage'}
+                                  >
+                                    {language === 'bn' ? '✓ সেটল/বন্ধ' : '✓ Settle'}
+                                  </button>
                                 </td>
                               </tr>
                             );
@@ -3628,12 +3733,13 @@ export default function DirectoryModule({
                         <th className="px-5 py-3">{language === 'bn' ? 'ক্লেম স্ট্যাটাস' : 'DMS Claim Status'}</th>
                         <th className="px-5 py-3">{language === 'bn' ? 'মন্তব্য' : 'Note'}</th>
                         <th className="px-5 py-3 text-right">{language === 'bn' ? 'মূল্য' : 'Est. Value'}</th>
+                        <th className="px-5 py-3 text-right">{language === 'bn' ? 'অ্যাকশন' : 'Action'}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {allDamageLogs.length === 0 ? (
                         <tr>
-                          <td colSpan={7} className="px-5 py-12 text-center text-slate-500">
+                          <td colSpan={8} className="px-5 py-12 text-center text-slate-500">
                             <AlertTriangle className="w-8 h-8 mx-auto mb-2 text-slate-300" />
                             <p className="text-sm font-semibold">{language === 'bn' ? 'কোনো ড্যামেজ লগ রেকর্ড করা হয়নি' : 'No damage logs found'}</p>
                           </td>
@@ -3699,6 +3805,16 @@ export default function DirectoryModule({
                               <td className="px-5 py-3.5 text-right font-bold text-slate-900 font-mono">
                                 ৳{logValue.toLocaleString('en-BD', { minimumFractionDigits: 2 })}
                               </td>
+                              <td className="px-5 py-3.5 text-right">
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteDamageLog(log.productId, log.id)}
+                                  className="px-2 py-0.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 text-[10px] font-bold rounded-none cursor-pointer"
+                                  title={language === 'bn' ? 'ড্যামেজ লগ মুছুন (স্টক অ্যাডজাস্ট হবে)' : 'Delete damage log (stock will auto-adjust)'}
+                                >
+                                  {language === 'bn' ? 'ডিলিট' : 'Delete'}
+                                </button>
+                              </td>
                             </tr>
                           );
                         })
@@ -3709,13 +3825,12 @@ export default function DirectoryModule({
               </div>
             )}
             {damageActiveSubTab === 'reasons' && (() => {
-              const [newReasonInput, setNewReasonInput] = React.useState('');
               const handleAddReason = () => {
                 const trimmed = newReasonInput.trim();
                 if (!trimmed) return;
                 const duplicate = damageReasons.some(r => r.name.toLowerCase() === trimmed.toLowerCase());
                 if (duplicate) {
-                  alert(language === 'bn' ? 'এই কারণটি ইতিমধ্যে বিদ্যমান।' : 'This reason already exists.');
+                  error(language === 'bn' ? 'বিদ্যমান' : 'Already Exists', language === 'bn' ? 'এই কারণটি ইতিমধ্যে বিদ্যমান।' : 'This reason already exists.');
                   return;
                 }
                 saveDamageReasons([...damageReasons, { id: `reason-${Date.now()}`, name: trimmed }]);

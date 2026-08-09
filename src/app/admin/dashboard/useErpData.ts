@@ -9,7 +9,7 @@ import { useState } from 'react';
 import type {
   Product, ProductAttribute, ChallanItem, Procurement,
   StockAdjustment, ExpenseCategory, ExpenseRecord, SR,
-  CompanyBrand, Category, UnitOfMeasure, Godown, Route, DeliveryMan, Claim,
+  CompanyBrand, Category, UnitOfMeasure, Godown, Route, DeliveryMan, Claim, ClaimSettlement,
 } from '../../../types';
 import {
   upsertProduct,    deleteProduct,
@@ -29,8 +29,11 @@ import {
   upsertCustomer,   deleteCustomer,
   upsertSettings,
   upsertClaim,      deleteClaim,
+  upsertClaimReason, deleteClaimReason,
+  upsertClaimSettlement, deleteClaimSettlement,
   type AppSettings,
   type Customer,
+  type ClaimReason,
 } from '../../../lib/db';
 import type { Language } from '../../../translations';
 
@@ -78,6 +81,8 @@ export interface ErpDataStore {
   shopSubBrand:      string;
   shopLogo:          string;
   claims:            Claim[];
+  claimReasons:      ClaimReason[];
+  claimSettlements:  ClaimSettlement[];
 
   syncProducts:          (u: Product[]          | ((prev: Product[])          => Product[]))          => void;
   syncSrs:               (u: SR[]               | ((prev: SR[])               => SR[]))               => void;
@@ -95,6 +100,8 @@ export interface ErpDataStore {
   syncGodowns:           (u: Godown[]           | ((prev: Godown[])           => Godown[]))           => void;
   syncRoutes:            (u: Route[]            | ((prev: Route[])            => Route[]))            => void;
   syncClaims:            (u: Claim[]            | ((prev: Claim[])            => Claim[]))            => void;
+  syncClaimReasons:      (u: ClaimReason[]      | ((prev: ClaimReason[])      => ClaimReason[]))      => void;
+  syncClaimSettlements:  (u: ClaimSettlement[]  | ((prev: ClaimSettlement[])  => ClaimSettlement[]))  => void;
   syncShopName:     (val: string | ((p: string) => string)) => void;
   syncShopSubBrand: (val: string | ((p: string) => string)) => void;
   syncShopLogo:     (val: string | ((p: string) => string)) => void;
@@ -115,6 +122,8 @@ export interface ErpDataStore {
   setGodowns:           React.Dispatch<React.SetStateAction<Godown[]>>;
   setRoutes:            React.Dispatch<React.SetStateAction<Route[]>>;
   setClaims:            React.Dispatch<React.SetStateAction<Claim[]>>;
+  setClaimReasons:      React.Dispatch<React.SetStateAction<ClaimReason[]>>;
+  setClaimSettlements:  React.Dispatch<React.SetStateAction<ClaimSettlement[]>>;
   setShopName:          React.Dispatch<React.SetStateAction<string>>;
   setShopSubBrand:      React.Dispatch<React.SetStateAction<string>>;
   setShopLogo:          React.Dispatch<React.SetStateAction<string>>;
@@ -144,6 +153,8 @@ export function useErpData(
   const [godowns,           setGodowns]           = useState<Godown[]>([]);
   const [routes,            setRoutes]            = useState<Route[]>([]);
   const [claims,            setClaims]            = useState<Claim[]>([]);
+  const [claimReasons,      setClaimReasons]      = useState<ClaimReason[]>([]);
+  const [claimSettlements,  setClaimSettlements]  = useState<ClaimSettlement[]>([]);
   const [_shopName,         setShopName]          = useState(shopName);
   const [_shopSubBrand,     setShopSubBrand]      = useState(shopSubBrand);
   const [_shopLogo,         setShopLogo]          = useState(shopLogo);
@@ -163,6 +174,8 @@ export function useErpData(
   const syncGodowns           = makeSyncer(setGodowns,           upsertGodown,           deleteGodown);
   const syncRoutes            = makeSyncer(setRoutes,            upsertRoute,            deleteRoute);
   const syncClaims            = makeSyncer(setClaims,            upsertClaim,            deleteClaim);
+  const syncClaimReasons      = makeSyncer(setClaimReasons,      upsertClaimReason,      deleteClaimReason);
+  const syncClaimSettlements  = makeSyncer(setClaimSettlements,  upsertClaimSettlement,  deleteClaimSettlement);
 
   function syncAdjustments(updaterOrValue: StockAdjustment[] | ((prev: StockAdjustment[]) => StockAdjustment[])) {
     setAdjustments(prev => {
@@ -209,15 +222,17 @@ export function useErpData(
   return {
     products, srs, deliveryMen, customers, attributes, challans,
     procurements, adjustments, categories, expenses, companies,
-    productCategories, units, godowns, routes, claims,
+    productCategories, units, godowns, routes, claims, claimReasons, claimSettlements,
     shopName: _shopName, shopSubBrand: _shopSubBrand, shopLogo: _shopLogo,
     syncProducts, syncSrs, syncDeliveryMen, syncCustomers, syncAttributes,
     syncChallans, syncProcurements, syncAdjustments, syncExpenseCategories,
     syncExpenses, syncCompanies, syncProductCategories, syncUnits,
-    syncGodowns, syncRoutes, syncClaims, syncShopName, syncShopSubBrand, syncShopLogo,
+    syncGodowns, syncRoutes, syncClaims, syncClaimReasons, syncClaimSettlements,
+    syncShopName, syncShopSubBrand, syncShopLogo,
     setProducts, setSrs, setDeliveryMen, setCustomers, setAttributes,
     setChallans, setProcurements, setAdjustments, setCategories, setExpenses,
-    setCompanies, setProductCategories, setUnits, setGodowns, setRoutes, setClaims,
+    setCompanies, setProductCategories, setUnits, setGodowns, setRoutes,
+    setClaims, setClaimReasons, setClaimSettlements,
     setShopName, setShopSubBrand, setShopLogo,
   };
 }

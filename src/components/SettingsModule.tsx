@@ -6,6 +6,7 @@ import { exportBackup, exportPartialBackup, importBackup } from '../lib/backupRe
 import { clearAllData } from '../lib/localStore';
 import DirectoryModule from './DirectoryModule';
 import { SR } from '../types';
+import { useToast } from './ui/Toast';
 
 interface SettingsModuleProps {
   shopName: string;
@@ -32,6 +33,7 @@ export default function SettingsModule({
   srs,
   setSrs
 }: SettingsModuleProps) {
+  const { success, error, warning } = useToast();
   const [tempName, setTempName] = useState(shopName);
   const [tempSub, setTempSub] = useState(shopSubBrand);
   const [tempLogo, setTempLogo] = useState(shopLogo);
@@ -74,7 +76,7 @@ export default function SettingsModule({
     localStorage.setItem('erp_settings_shop_name', tempName);
     localStorage.setItem('erp_settings_shop_subbrand', tempSub);
     localStorage.setItem('erp_settings_shop_logo', tempLogo);
-    alert(language === 'bn' ? 'ব্র্যান্ডিং তথ্য সফলভাবে আপডেট করা হয়েছে!' : 'Branding settings updated successfully!');
+    success(language === 'bn' ? 'সেটিংস আপডেট' : 'Settings Updated', language === 'bn' ? 'ব্র্যান্ডিং তথ্য সফলভাবে আপডেট করা হয়েছে!' : 'Branding settings updated successfully.');
   };
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -197,7 +199,7 @@ export default function SettingsModule({
   // ─── SR: save credentials ─────────────────────────────────────
   const handleSaveSrCredentials = useCallback((srId: string) => {
     if (!editSrUsername.trim()) {
-      alert(language === 'bn' ? 'ইউজারনেম দিন।' : 'Please enter a username.');
+      error(language === 'bn' ? 'তথ্য দিন' : 'Required', language === 'bn' ? 'ইউজারনেম দিন।' : 'Please enter a username.');
       return;
     }
     setSrs(prev => {

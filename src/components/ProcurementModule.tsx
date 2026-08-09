@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { Procurement, ProcurementItem, Product, CompanyBrand } from '../types';
 import { translations, Language } from '../translations';
+import { useToast } from './ui/Toast';
 
 interface ProcurementModuleProps {
   procurements: Procurement[];
@@ -44,6 +45,7 @@ export default function ProcurementModule({
   onDownloadPDF,
   language
 }: ProcurementModuleProps) {
+  const { success, error, warning } = useToast();
   const tCommon = translations[language].common;
   const tProc = translations[language].procurement;
 
@@ -334,7 +336,7 @@ export default function ProcurementModule({
   // Delete Row handler
   const handleDeleteRow = (index: number) => {
     if (formItems.length === 1) {
-      alert('You must include at least one product row in a procurement voucher.');
+      warning('Cannot Remove', 'You must include at least one product row in a procurement voucher.');
       return;
     }
     setFormItems(prev => prev.filter((_, i) => i !== index));
@@ -398,7 +400,7 @@ export default function ProcurementModule({
     e.preventDefault();
 
     if (!invoiceRef.trim()) {
-      alert('Please fill out all required fields.');
+      error('Incomplete Form', 'Please fill out all required fields.');
       return;
     }
 
@@ -428,9 +430,11 @@ export default function ProcurementModule({
 
     for (const item of finalizedItems) {
       if (item.purchasePrice >= item.wsp) {
-        alert(language === 'bn' 
-          ? `ত্রুটি: "${item.productName}"-এর DP মূল্য অবশ্যই TP (WSP) মূল্য থেকে কম হতে হবে!` 
-          : `Error: DP Price (Purchase Price) for "${item.productName}" must ALWAYS be LOWER than TP Price (WSP)!`
+        error(
+          language === 'bn' ? 'মূল্য ত্রুটি' : 'Pricing Error',
+          language === 'bn'
+            ? `ত্রুটি: "${item.productName}"-এর DP মূল্য অবশ্যই TP (WSP) মূল্য থেকে কম হতে হবে!`
+            : `DP Price for "${item.productName}" must be LOWER than TP Price (WSP).`
         );
         return;
       }
@@ -499,7 +503,7 @@ export default function ProcurementModule({
     ]);
 
     setActiveSubTab('list');
-    alert('Procurement invoice created successfully! Stocks and default product pricing have been dynamically updated.');
+    success('Invoice Created', 'Procurement invoice saved. Stocks and pricing updated.');
   };
 
   // Procurement search & filter logic

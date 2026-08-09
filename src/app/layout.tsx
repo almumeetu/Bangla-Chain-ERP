@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import '../index.css';
+import { ToastProvider } from '../components/ui/Toast';
 
 export const metadata: Metadata = {
   title: 'Samir Enterprise — Distribution Management System',
@@ -23,7 +24,9 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       </head>
       <body className="antialiased">
-        {children}
+        <ToastProvider>
+          {children}
+        </ToastProvider>
       </body>
     </html>
   );

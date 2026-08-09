@@ -14,7 +14,7 @@ export type { AppSettings, Customer } from './localStore';
 import type {
   Product, ProductAttribute, ChallanItem, Procurement,
   StockAdjustment, ExpenseCategory, ExpenseRecord, SR, DeliveryMan,
-  CompanyBrand, Category, UnitOfMeasure, Godown, Route, Claim,
+  CompanyBrand, Category, UnitOfMeasure, Godown, Route, Claim, ClaimSettlement,
 } from '../types';
 
 import {
@@ -35,13 +35,18 @@ import {
   getRoutes,       saveRoutes,
   getSettings,     saveSettings,
   getClaims,       saveClaims,
+  getClaimReasons, saveClaimReasons,
+  getClaimSettlements, saveClaimSettlements,
   srLogin,
   loadAllData      as _loadAllData,
   seedInitialData  as _seedInitialData,
   type AppSettings,
   type Customer,
   type AllErpData,
+  type ClaimReason,
 } from './localStore';
+
+export type { ClaimReason };
 
 // ── Generic upsert/delete helpers ─────────────────────────────────────────────
 
@@ -220,6 +225,22 @@ export async function deleteClaim(id: string): Promise<void> {
   return deleteItem(getClaims, saveClaims, id);
 }
 
+// ── Claim Reasons ─────────────────────────────────────────────────────────────
+
+export async function upsertClaimReason(r: ClaimReason): Promise<void> {
+  return upsertItem(getClaimReasons, saveClaimReasons, r);
+}
+export async function deleteClaimReason(id: string): Promise<void> {
+  return deleteItem(getClaimReasons, saveClaimReasons, id);
+}
+// ── Claim Settlements ─────────────────────────────────────────────────────────
+
+export async function upsertClaimSettlement(cs: ClaimSettlement): Promise<void> {
+  return upsertItem(getClaimSettlements, saveClaimSettlements, cs);
+}
+export async function deleteClaimSettlement(id: string): Promise<void> {
+  return deleteItem(getClaimSettlements, saveClaimSettlements, id);
+}
 // ── Load all / seed ───────────────────────────────────────────────────────────
 
 export function loadAllData(): AllErpData {

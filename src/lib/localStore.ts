@@ -7,7 +7,7 @@
 import type {
   Product, ProductAttribute, ChallanItem, Procurement,
   StockAdjustment, ExpenseCategory, ExpenseRecord, SR, DeliveryMan,
-  CompanyBrand, Category, UnitOfMeasure, Godown, Route, Claim,
+  CompanyBrand, Category, UnitOfMeasure, Godown, Route, Claim, ClaimSettlement,
 } from '../types';
 import {
   INITIAL_SRS, INITIAL_DELIVERY_MEN, INITIAL_PRODUCTS,
@@ -66,6 +66,8 @@ const KEYS = {
   admins:            'erp_admins',
   seeded:            'erp_seeded',
   claims:            'erp_claims',
+  claimReasons:      'erp_claim_reasons',
+  claimSettlements:  'erp_claim_settlements',
 } as const;
 
 // ── Generic localStorage helpers ──────────────────────────────────────────────
@@ -315,6 +317,27 @@ export function saveClaims(items: Claim[]): void {
   write(KEYS.claims, items);
 }
 
+// ── Claim Reasons ─────────────────────────────────────────────────────────────
+
+export interface ClaimReason {
+  id: string;
+  label: string;
+}
+
+export function getClaimReasons(): ClaimReason[] {
+  return read<ClaimReason[]>(KEYS.claimReasons, []);
+}
+export function saveClaimReasons(items: ClaimReason[]): void {
+  write(KEYS.claimReasons, items);
+}
+// ── Claim Settlements (Amount received from company for claim) ────────────────
+
+export function getClaimSettlements(): ClaimSettlement[] {
+  return read<ClaimSettlement[]>(KEYS.claimSettlements, []);
+}
+export function saveClaimSettlements(items: ClaimSettlement[]): void {
+  write(KEYS.claimSettlements, items);
+}
 // ── Load all ──────────────────────────────────────────────────────────────────
 
 export interface AllErpData {
@@ -335,6 +358,8 @@ export interface AllErpData {
   routes:            Route[];
   settings:          AppSettings;
   claims:            Claim[];
+  claimReasons:      ClaimReason[];
+  claimSettlements:  ClaimSettlement[];
 }
 
 export function loadAllData(): AllErpData {
@@ -356,6 +381,8 @@ export function loadAllData(): AllErpData {
     routes:            getRoutes(),
     settings:          getSettings(),
     claims:            getClaims(),
+    claimReasons:      getClaimReasons(),
+    claimSettlements:  getClaimSettlements(),
   };
 }
 
@@ -425,6 +452,7 @@ export function seedInitialData(): void {
   saveGodowns(INITIAL_GODOWNS);
   saveRoutes(INITIAL_ROUTES);
   saveClaims(INITIAL_CLAIMS);
+  saveClaimSettlements([]);
 
   localStorage.setItem(KEYS.seeded, 'true');
 }
@@ -450,6 +478,7 @@ export function clearAllData(): void {
     KEYS.routes,
     KEYS.seeded,
     KEYS.claims,
+    KEYS.claimSettlements,
   ];
   businessKeys.forEach(k => localStorage.removeItem(k));
   // Write empty arrays so the app gets [] instead of re-seeding
@@ -469,6 +498,7 @@ export function clearAllData(): void {
   saveGodowns([]);
   saveRoutes([]);
   saveClaims([]);
+  saveClaimSettlements([]);
   // Mark seeded = 'cleared' so demo data is NOT re-injected on next load
   localStorage.setItem(KEYS.seeded, 'cleared');
 }
@@ -493,6 +523,7 @@ export function restoreAllData(data: Partial<AllErpData>): void {
   if (data.routes)            saveRoutes(data.routes);
   if (data.settings)          saveSettings(data.settings);
   if (data.claims)            saveClaims(data.claims);
+  if (data.claimSettlements)  saveClaimSettlements(data.claimSettlements);
   // Mark as seeded so demo data is not re-applied on top
   localStorage.setItem(KEYS.seeded, 'true');
 }

@@ -359,6 +359,9 @@ export default function ChallanModule({
     let totalDispatchedValue = 0;
     let totalDispatchedQty = 0;
     
+    // SPEC COMPLIANT: totalSold = Net Market Collection basis = dispatched − returned   (damage NOT subtracted)
+    // Damage is tracked separately via the Damage card (Claim from Company) and never
+    // reduces the sales-register figures.
     let totalSoldQty = 0;
     let totalSoldValue = 0;
     
@@ -389,12 +392,14 @@ export default function ChallanModule({
       totalDamagedQty += damaged;
       totalDamagedValue += damagedVal;
       
-      const sold = Math.max(0, dispatchedQty - returned - damaged);
+      // SPEC: Net Market Collection / Sales Value = Dispatched − Returned  (damage NOT subtracted)
+      const sold = Math.max(0, dispatchedQty - returned);
       const soldVal = sold * rate;
       totalSoldQty += sold;
       totalSoldValue += soldVal;
       
       totalCommission += item.commissionAmount || 0;
+      // item.totalAmount is already stored on (qty − returned) basis per spec
       totalNetValue += item.totalAmount || 0;
     });
 
@@ -464,14 +469,19 @@ export default function ChallanModule({
       totalDamagedQty += damaged;
       totalDamagedValue += damagedVal;
       
-      const sold = Math.max(0, dispatchedQty - returned - damaged);
+      // SPEC COMPLIANT — Net Market Collection / Sales Value:
+      //   Sold / Billable = Dispatched Qty − Returned Qty   (Damage NOT subtracted)
+      // SR remains accountable for the full (qty − ret) amount; the damage portion
+      // will be recovered separately via the company claim settlement pipeline.
+      const sold = Math.max(0, dispatchedQty - returned);
       const soldVal = sold * rate;
       totalSoldQty += sold;
       totalSoldValue += soldVal;
       
       totalCommission += item.commissionAmount || 0;
       
-      // Calculate net amount for this item
+      // Owner Net Receivable = Net Market Collection after commissions
+      // Damage never zeros out this figure — it stays on the SR's accountability sheet
       const itemNet = soldVal - (item.commissionAmount || 0);
       totalNetValue += itemNet;
     });
@@ -786,11 +796,12 @@ export default function ChallanModule({
 
     try {
       executeTransaction(() => {
+        // SPEC COMPLIANT: Pro-rata allocation uses Billable = qty - ret  (damage NOT subtracted)
         let totalUpdatedNetValue = 0;
         const itemsToUpdate = settlementOrder.items.map(item => {
           const updates = settlementQuantities[item.id] || { returned: 0, damaged: 0 };
-          const netQty = item.qty - (Number(updates.returned) || 0) - (Number(updates.damaged) || 0);
-          const soldVal = Math.max(0, netQty) * item.rate;
+          const billableQty = item.qty - (Number(updates.returned) || 0);
+          const soldVal = Math.max(0, billableQty) * item.rate;
           return {
             id: item.id,
             netValue: soldVal - (item.commissionAmount || 0),
@@ -802,6 +813,9 @@ export default function ChallanModule({
         const calculatedTotalSRComm = settlementSRCommValue;
         let oldDeliveredTotal = 0;
         let newDeliveredTotal = 0;
+        // Customer (market) due diverges from SR accountability by the damage value
+        let oldCustomerDue = 0;
+        let newCustomerDue = 0;
 
         const targetCustomerName = settlementOrder.items[0]?.customerName;
         const customer = tempCustomers.find(cust => cust.name === targetCustomerName);
@@ -812,8 +826,15 @@ export default function ChallanModule({
           const newReturned = Number(updates.returned) || 0;
           const newDamaged = Number(updates.damaged) || 0;
 
-          const netQty = ch.qty - newReturned - newDamaged;
-          const baseAmount = Math.max(0, netQty) * ch.rate;
+          // SPEC COMPLIANT: Billable Qty = Billing Qty − Returned Qty   (Damage NOT subtracted)
+          // Line Item Amount = Billable Qty × TP
+          // This becomes the stored totalAmount (SR accountability / Owner receivable)
+          const billableQty = Math.max(0, ch.qty - newReturned);
+          const baseAmount = billableQty * ch.rate;
+
+          // What market shopkeeper actually accepted (for customer.due) = qty - ret - dmg
+          const acceptedQty = Math.max(0, ch.qty - newReturned - newDamaged);
+          const acceptedBaseAmount = acceptedQty * ch.rate;
 
           const itemSRCommAmount = totalUpdatedNetValue > 0
             ? calculatedTotalSRComm * (itemUpdate.netValue / totalUpdatedNetValue)
@@ -822,16 +843,23 @@ export default function ChallanModule({
             ? settlementExtraCommValue * (itemUpdate.netValue / totalUpdatedNetValue)
             : 0;
 
+          // finalItemAmount = stored totalAmount = SR accountable (qty - ret) basis
           const finalItemAmount = baseAmount - itemSRCommAmount - itemExtraCommAmount;
+          // customerItemDue = what market shopkeeper owes = (qty - ret - dmg) basis
+          const customerItemDue = acceptedBaseAmount - itemSRCommAmount - itemExtraCommAmount;
 
           const wasDelivered = ch.status === 'Delivered';
           const isDelivered = settlementStatus === 'Delivered';
 
           if (wasDelivered) {
             oldDeliveredTotal += ch.totalAmount;
+            // Reverse old customer due on (qty - old ret - old dmg) basis
+            const oldAccQty = Math.max(0, ch.qty - (ch.returnedQty || 0) - (ch.damagedQty || 0));
+            oldCustomerDue += oldAccQty * ch.rate - (ch.commissionAmount || 0) - (ch.extraProfitAmount || 0);
           }
           if (isDelivered) {
             newDeliveredTotal += finalItemAmount;
+            newCustomerDue += customerItemDue;
           }
 
           tempProducts = tempProducts.map(p => {
@@ -889,8 +917,10 @@ export default function ChallanModule({
         });
 
         if (customer) {
-          const diff = newDeliveredTotal - oldDeliveredTotal;
-          customer.due = (customer.due || 0) + diff;
+          // Customer due uses market-accepted basis (qty - ret - dmg), NOT SR accountability basis
+          // The gap = damage value, which the SR recovers from the company via Claim settlement
+          const dueDiff = newCustomerDue - oldCustomerDue;
+          customer.due = (customer.due || 0) + dueDiff;
         }
 
         return { products: tempProducts, customers: tempCustomers, challans: tempChallans };
@@ -1029,8 +1059,12 @@ export default function ChallanModule({
           damagedQty: newDam,
           totalQty: maxAllowed
         };
-        const netQty = Math.max(0, newQty - newRet - newDam);
-        updated.totalAmount = netQty * updated.rate - (updated.commissionAmount || 0);
+        // SPEC COMPLIANT: Billable Qty = Billing Qty − Returned Qty  (Damage NOT subtracted)
+        // Damage is tracked separately via Damage Module + Claim register and is handled
+        // outside the sales register (company-side claim). It never reduces sales amount
+        // or Owner Net Receivable — SR remains accountable and company compensates later.
+        const billableQty = Math.max(0, newQty - newRet);
+        updated.totalAmount = billableQty * updated.rate - (updated.commissionAmount || 0);
         return updated;
       }
       return item;
@@ -1116,14 +1150,23 @@ export default function ChallanModule({
           const targetCustomerName = editingOrder.items[0]?.customerName;
           const customer = tempCustomers.find(cust => cust.name === targetCustomerName);
           if (customer) {
-            const oldTotal = editingOrder.items.reduce((sum, item) => sum + item.totalAmount, 0);
-            customer.due = Math.max(0, (customer.due || 0) - oldTotal);
+            // Customer (market) due = what the shopkeeper actually accepted = qty - ret - dmg
+            // totalAmount (SR accountability) uses qty - ret (damage NOT subtracted), so we
+            // compute customer due independently here (they diverge by damage value)
+            const oldCustomerDue = editingOrder.items.reduce((sum, item) => {
+              const accQty = Math.max(0, item.qty - (item.returnedQty || 0) - (item.damagedQty || 0));
+              return sum + accQty * item.rate - (item.commissionAmount || 0) + (item.extraProfitAmount || 0);
+            }, 0);
+            customer.due = Math.max(0, (customer.due || 0) - oldCustomerDue);
           }
         }
 
         const finalChallanItems = editOrderItems.map(item => {
-          const netQty = Math.max(0, item.qty - (item.returnedQty || 0) - (item.damagedQty || 0));
-          const totalAmount = netQty * item.rate - (item.commissionAmount || 0);
+          // SPEC COMPLIANT: Line Item Amount = Billable Qty × TP
+          // Billable Qty = Billing Qty − Returned Qty   (Damage NOT subtracted)
+          // SR remains accountable for damage value; company claim handles it separately.
+          const billableQty = Math.max(0, item.qty - (item.returnedQty || 0));
+          const totalAmount = billableQty * item.rate - (item.commissionAmount || 0);
           return {
             ...item,
             srName: editSR,
@@ -1161,8 +1204,14 @@ export default function ChallanModule({
           const targetCustomerName = finalChallanItems[0]?.customerName || editingOrder.items[0]?.customerName;
           const customer = tempCustomers.find(cust => cust.name === targetCustomerName);
           if (customer) {
-            const newTotal = finalChallanItems.reduce((sum, item) => sum + item.totalAmount, 0);
-            customer.due = (customer.due || 0) + newTotal;
+            // Customer (market) due = qty - ret - dmg   (shopkeeper only pays for accepted goods)
+            // totalAmount (SR/Owner receivable) = qty - ret   (SR remains accountable for damage)
+            // Gap = damage value → reconciled when company compensates via Claim settlement
+            const newCustomerDue = finalChallanItems.reduce((sum, item) => {
+              const accQty = Math.max(0, item.qty - (item.returnedQty || 0) - (item.damagedQty || 0));
+              return sum + accQty * item.rate - (item.commissionAmount || 0) + (item.extraProfitAmount || 0);
+            }, 0);
+            customer.due = (customer.due || 0) + newCustomerDue;
           }
         }
 
@@ -2208,9 +2257,10 @@ export default function ChallanModule({
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {[
                   { label: language === 'bn' ? 'চালানি সরবরাহ' : 'Dispatched', value: `৳${settlement?.totalDispatchedValue.toLocaleString('en-BD')}`, sub: `${settlement?.totalDispatchedQty} units`, color: 'text-slate-800', bg: 'bg-slate-50 border-slate-200' },
-                  { label: language === 'bn' ? 'মোট বিক্রয়' : 'Sold', value: `৳${settlement?.totalSoldValue.toLocaleString('en-BD')}`, sub: `${settlement?.totalSoldQty} sold`, color: 'text-blue-700', bg: 'bg-blue-50/60 border-blue-100' },
+                  // SPEC: Net Market Collection = Dispatched − Returned   (Damage NOT subtracted)
+                  { label: language === 'bn' ? 'নিট মার্কেট কালেকশন' : 'Net Market Collection', value: `৳${settlement?.totalSoldValue.toLocaleString('en-BD')}`, sub: `${settlement?.totalSoldQty} billable (Q−R)`, color: 'text-blue-700', bg: 'bg-blue-50/60 border-blue-100' },
                   { label: language === 'bn' ? 'মোট ফেরত' : 'Returned', value: `৳${settlement?.totalReturnedValue.toLocaleString('en-BD')}`, sub: `${settlement?.totalReturnedQty} returned`, color: 'text-amber-700', bg: 'bg-amber-50/60 border-amber-100' },
-                  { label: language === 'bn' ? 'মোট ড্যামেজ' : 'Damaged', value: `৳${settlement?.totalDamagedValue.toLocaleString('en-BD')}`, sub: `${settlement?.totalDamagedQty} damaged`, color: 'text-rose-700', bg: 'bg-rose-50/60 border-rose-100' },
+                  { label: language === 'bn' ? 'ড্যামেজ (কোম্পানি কাছে দাবি)' : 'Damage (Claim from Co.)', value: `৳${settlement?.totalDamagedValue.toLocaleString('en-BD')}`, sub: `${settlement?.totalDamagedQty} damaged`, color: 'text-rose-700', bg: 'bg-rose-50/60 border-rose-100' },
                 ].map((m, i) => (
                   <div key={i} className={`rounded-none border p-3 ${m.bg}`}>
                     <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">{m.label}</p>
@@ -2611,7 +2661,7 @@ export default function ChallanModule({
                     <span className="font-mono font-bold text-slate-800 text-sm">৳{transitionSettlement?.totalDispatchedValue.toLocaleString('en-BD')}</span>
                   </div>
                   <div className="bg-blue-50 border border-blue-100 rounded-none p-3">
-                    <span className="text-blue-600 font-bold block">{language === 'bn' ? 'বিক্রয় মূল্য' : 'Sold Value'}</span>
+                    <span className="text-blue-600 font-bold block">{language === 'bn' ? 'গ্রাহক গ্রহণ করেছে' : 'Customer Accepted'}</span>
                     <span className="font-mono font-extrabold text-blue-900 text-sm">৳{transitionSettlement?.totalSoldValue.toLocaleString('en-BD')}</span>
                   </div>
                   <div className="bg-amber-50 border border-amber-100 rounded-none p-3">
@@ -2619,14 +2669,14 @@ export default function ChallanModule({
                     <span className="font-mono font-bold text-amber-900 text-sm">৳{transitionSettlement?.totalReturnedValue.toLocaleString('en-BD')}</span>
                   </div>
                   <div className="bg-rose-50 border border-rose-100 rounded-none p-3">
-                    <span className="text-rose-600 font-bold block">{language === 'bn' ? 'ড্যামেজ মূল্য' : 'Damaged Value'}</span>
+                    <span className="text-rose-600 font-bold block">{language === 'bn' ? 'ড্যামেজ (কোম্পানি কাছে দাবি)' : 'Damage (Claim from Co.)'}</span>
                     <span className="font-mono font-bold text-rose-900 text-sm">৳{transitionSettlement?.totalDamagedValue.toLocaleString('en-BD')}</span>
                   </div>
                 </div>
 
                 <div className="pt-3 border-t border-slate-200 text-xs">
                   <div className="flex flex-col justify-center">
-                    <span className="text-slate-550 block font-bold mb-1">{language === 'bn' ? 'আদায়যোগ্য বাজার মূল্য' : 'Net Market Collection'}:</span>
+                    <span className="text-slate-550 block font-bold mb-1">{language === 'bn' ? 'মালিক পাবেন (কমিশন কমিয়ে)' : 'Owner Receivable (After Commissions)'}:</span>
                     <span className="font-mono font-black text-slate-800 text-base">৳{transitionSettlement?.totalNetValue.toLocaleString('en-BD')}</span>
                   </div>
                 </div>
@@ -3026,9 +3076,11 @@ export default function ChallanModule({
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 border-t border-slate-200 pt-4">
                 {[
                   { label: language === 'bn' ? 'চালানি সরবরাহ' : 'Dispatched', value: `৳${Number(editOrderItems.reduce((acc, curr) => acc + (curr.qty * curr.rate), 0).toFixed(2)).toLocaleString('en-BD')}`, bg: 'bg-slate-50' },
-                  { label: language === 'bn' ? 'মোট বিক্রয়' : 'Sales Value', value: `৳${Number(editOrderItems.reduce((acc, curr) => acc + (Math.max(0, curr.qty - (curr.returnedQty || 0) - (curr.damagedQty || 0)) * curr.rate), 0).toFixed(2)).toLocaleString('en-BD')}`, bg: 'bg-blue-50/50', text: 'text-blue-700' },
+                  // SPEC: Net Market Collection / Sales Value = Dispatched − Returned Value
+                  // Damage does NOT reduce this — it's handled by separate company claim
+                  { label: language === 'bn' ? 'নিট মার্কেট কালেকশন' : 'Net Market Collection', value: `৳${Number(editOrderItems.reduce((acc, curr) => acc + (Math.max(0, curr.qty - (curr.returnedQty || 0)) * curr.rate), 0).toFixed(2)).toLocaleString('en-BD')}`, bg: 'bg-blue-50/50', text: 'text-blue-700' },
                   { label: language === 'bn' ? 'মোট ফেরত' : 'Returned Value', value: `৳${Number(editOrderItems.reduce((acc, curr) => acc + ((curr.returnedQty || 0) * curr.rate), 0).toFixed(2)).toLocaleString('en-BD')}`, bg: 'bg-amber-50/50', text: 'text-amber-700' },
-                  { label: language === 'bn' ? 'মোট ড্যামেজ' : 'Damaged Value', value: `৳${Number(editOrderItems.reduce((acc, curr) => acc + ((curr.damagedQty || 0) * curr.rate), 0).toFixed(2)).toLocaleString('en-BD')}`, bg: 'bg-rose-50/50', text: 'text-rose-700' },
+                  { label: language === 'bn' ? 'ড্যামেজ (কোম্পানি কাছে দাবি)' : 'Damage (Claim from Co.)', value: `৳${Number(editOrderItems.reduce((acc, curr) => acc + ((curr.damagedQty || 0) * curr.rate), 0).toFixed(2)).toLocaleString('en-BD')}`, bg: 'bg-rose-50/50', text: 'text-rose-700' },
                 ].map((m, i) => (
                   <div key={i} className={`rounded-none border border-slate-200 p-2.5 ${m.bg}`}>
                     <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block">{m.label}</span>

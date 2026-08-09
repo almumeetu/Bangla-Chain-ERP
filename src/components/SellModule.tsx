@@ -11,6 +11,7 @@ import { Product, ProductAttribute, SR, Route, ChallanItem, DeliveryMan, Categor
 import { translations, Language } from '../translations';
 import { printSalesOrder, type SalesOrderData } from '../lib/printUtils';
 import { Customer } from '../lib/localStore';
+import { useToast } from './ui/Toast';
 
 interface SellModuleProps {
   products: Product[];
@@ -378,6 +379,7 @@ export default function SellModule({
   setChallans, categories, units, onNavigate, language,
   customers, setCustomers, companies = []
 }: SellModuleProps) {
+  const { success, error, warning } = useToast();
   const loggedInSrId = typeof window !== 'undefined' ? sessionStorage.getItem('erp_sr_id') : null;
   const loggedInSr = React.useMemo(() => {
     return srs.find(sr => sr.id === loggedInSrId);
@@ -542,10 +544,12 @@ export default function SellModule({
       : 0;
 
     if (existingQty + addedQty > product.currentStock) {
-      alert(language === 'bn'
-        ? `স্টক পর্যাপ্ত নয়! এই পণ্যের সর্বোচ্চ উপলব্ধ স্টক: ${product.currentStock} ${isCarton ? 'কার্টন' : 'পিস'}`
-        : `Insufficient stock! Maximum available: ${product.currentStock} ${isCarton ? 'Ctn' : 'Pcs'}`);
-      return;
+      error(
+        language === 'bn' ? 'স্টক অপ্রতুল' : 'Insufficient Stock',
+        language === 'bn'
+          ? `সর্বোচ্চ উপলব্ধ স্টক: ${product.currentStock} ${isCarton ? 'কার্টন' : 'পিস'}` 
+          : `Maximum available: ${product.currentStock} ${isCarton ? 'Ctn' : 'Pcs'}` 
+      );
     }
 
     if (existingIdx > -1) {
@@ -576,10 +580,12 @@ export default function SellModule({
       const item = u[i];
       const newQty = getCartItemQtyInPrimaryUnit(cartons, item.pcs, item.product);
       if (newQty > item.product.currentStock) {
-        alert(language === 'bn'
-          ? `স্টক পর্যাপ্ত নয়! এই পণ্যের সর্বোচ্চ উপলব্ধ স্টক: ${item.product.currentStock} ${item.product.primaryUnit === 'Carton' ? 'কার্টন' : 'পিস'}`
-          : `Insufficient stock! Maximum available: ${item.product.currentStock} ${item.product.primaryUnit === 'Carton' ? 'Ctn' : 'Pcs'}`);
-        return p;
+        error(
+          language === 'bn' ? 'স্টক অপ্রতুল' : 'Insufficient Stock',
+          language === 'bn'
+            ? `সর্বোচ্চ উপলব্ধ স্টক: ${item.product.currentStock} ${item.product.primaryUnit === 'Carton' ? 'কার্টন' : 'পিস'}` 
+            : `Maximum available: ${item.product.currentStock} ${item.product.primaryUnit === 'Carton' ? 'Ctn' : 'Pcs'}` 
+        );
       }
       u[i].cartons = cartons;
       return u;
@@ -593,10 +599,12 @@ export default function SellModule({
       const item = u[i];
       const newQty = getCartItemQtyInPrimaryUnit(item.cartons, pcs, item.product);
       if (newQty > item.product.currentStock) {
-        alert(language === 'bn'
-          ? `স্টক পর্যাপ্ত নয়! এই পণ্যের সর্বোচ্চ উপলব্ধ স্টক: ${item.product.currentStock} ${item.product.primaryUnit === 'Carton' ? 'কার্টন' : 'পিস'}`
-          : `Insufficient stock! Maximum available: ${item.product.currentStock} ${item.product.primaryUnit === 'Carton' ? 'Ctn' : 'Pcs'}`);
-        return p;
+        error(
+          language === 'bn' ? 'স্টক অপ্রতুল' : 'Insufficient Stock',
+          language === 'bn'
+            ? `সর্বোচ্চ উপলব্ধ স্টক: ${item.product.currentStock} ${item.product.primaryUnit === 'Carton' ? 'কার্টন' : 'পিস'}` 
+            : `Maximum available: ${item.product.currentStock} ${item.product.primaryUnit === 'Carton' ? 'Ctn' : 'Pcs'}` 
+        );
       }
       u[i].pcs = pcs;
       return u;
@@ -641,7 +649,7 @@ export default function SellModule({
 
   const handleCheckout = useCallback((e: React.FormEvent) => {
     e.preventDefault();
-    if (cart.length === 0) { alert('Cart is empty!'); return; }
+    if (cart.length === 0) { error('Empty Cart', 'Cart is empty.'); return; }
 
     const activeCartItems = cart.filter(item => {
       const isCarton = item.product.primaryUnit === 'Carton';
@@ -651,10 +659,12 @@ export default function SellModule({
     });
 
     if (activeCartItems.length === 0) {
-      alert(language === 'bn' 
-        ? 'সব পণ্যের পরিমাণ ০! অনুগ্রহ করে অন্তত একটি পণ্যের পরিমাণ ১ বা তার বেশি দিন।' 
-        : 'All items have 0 quantity! Please increase quantity for at least one item.');
-      return;
+      error(
+        language === 'bn' ? 'পরিমাণ ০' : 'Zero Quantity',
+        language === 'bn'
+          ? 'সব পণ্যের পরিমাণ ০। অন্তত একটি পণ্যের পরিমাণ ১ বা তার বেশি দিন।'
+          : 'All items have 0 quantity. Please set at least one item quantity to 1 or more.'
+      );
     }
 
     const currentTimeStr = new Date().toISOString().slice(11, 24);
@@ -721,7 +731,7 @@ export default function SellModule({
     setLastOrder(orderData);
     setCart([]);
     setOrderStatus('Pending');
-    alert('Checkout successful! Challans generated.');
+    success('Checkout Successful', 'Challans generated and order saved.');
     onNavigate('delivery');
   }, [cart, cartSubtotalTP, netTotal, selectedSR, selectedRoute, selectedDeliveryMan, orderDate, setChallans, onNavigate, customers, language]);
 

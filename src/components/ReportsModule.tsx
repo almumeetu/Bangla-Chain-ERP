@@ -16,7 +16,7 @@ import {
   FileSpreadsheet,
   Printer,
 } from 'lucide-react';
-import { Product, ChallanItem, SR, CompanyBrand, ExpenseRecord, DeliveryMan, UnitOfMeasure, ProductUnit } from '../types';
+import { Product, ChallanItem, SR, CompanyBrand, ExpenseRecord, DeliveryMan, UnitOfMeasure, ProductUnit, Claim, ClaimSettlement } from '../types';
 import { translations, Language } from '../translations';
 import { getStockValueDP } from '../lib/productUtils';
 import { exportReportPDF, exportReportExcel, printReport, type ReportType } from '../lib/reportEngine';
@@ -159,11 +159,13 @@ interface ReportsModuleProps {
   shopSubBrand?:string;
   shopLogo?:    string;
   loggedInSrName?: string;
+  claims?:      Claim[];
+  claimSettlements?: ClaimSettlement[];
   defaultTab?: ReportTab;
   onTabChange?: (tab: ReportTab) => void;
 }
 
-type ReportTab = 'stock' | 'sales' | 'profit' | 'margin' | 'damage' | 'dp' | 'dayend';
+type ReportTab = 'stock' | 'sales' | 'profit' | 'margin' | 'damage' | 'dp' | 'dayend' | 'claims';
 
 export default function ReportsModule({
   products: propProducts,
@@ -179,6 +181,8 @@ export default function ReportsModule({
   shopSubBrand = 'Distribution Management System',
   shopLogo,
   loggedInSrName,
+  claims = [],
+  claimSettlements = [],
   defaultTab = 'stock',
   onTabChange
 }: ReportsModuleProps) {
@@ -734,7 +738,8 @@ export default function ReportsModule({
   /** Build the common options object for the report engine */
   const buildReportOpts = useCallback(() => {
     // 'dp' tab in ReportsModule maps to 'pricelist' in the engine
-    const typeMap: Record<ReportTab, ReportType> = {
+    // 'claims' tab has no report engine handler yet — export falls back to 'profit'
+    const typeMap: Record<Exclude<ReportTab, 'claims'>, ReportType> = {
       stock:   'stock',
       sales:   'sales',
       damage:  'damage',
@@ -743,8 +748,9 @@ export default function ReportsModule({
       dp:      'pricelist',
       dayend:  'dayend',
     };
+    const mappedType: ReportType = activeTab === 'claims' ? 'profit' : typeMap[activeTab];
     return {
-      type:          typeMap[activeTab],
+      type:          mappedType,
       shopName:      shopName     || 'Bangla-Chain ERP',
       shopSubBrand:  shopSubBrand || 'Distribution Management System',
       shopLogo:      shopLogo,
@@ -2010,6 +2016,255 @@ export default function ReportsModule({
               {language === 'bn' ? 'কোনো ডেটা পাওয়া যায়নি।' : 'No settlement data available for the selected period.'}
             </div>
           )}
+        </div>
+      )}
+
+      {/* TAB CONTENT: CLAIM & SETTLEMENT REPORT */}
+      {activeTab === 'claims' && userRole === 'admin' && (
+        <div className="space-y-6">
+          {(() => {
+            const bn = language === 'bn';
+            // Filter claims: only real Claim (not Display) and apply company filter
+            const claimOnly = claims.filter(c => c.type !== 'Display');
+            const filteredClaimOnly = claimOnly.filter(c =>
+              selectedCompanyFilter === 'All' || c.companyName === selectedCompanyFilter
+            );
+            const filteredSettlements = claimSettlements.filter(s =>
+              selectedCompanyFilter === 'All' || s.companyName === selectedCompanyFilter
+            );
+
+            const totalClaimedQty = filteredClaimOnly.reduce((s, c) => s + c.qty, 0);
+            const totalClaimedValue = filteredClaimOnly.reduce((s, c) => {
+              if (c.claimValue !== undefined) return s + c.claimValue;
+              const prod = products.find(p => p.id === c.productId);
+              return s + c.qty * (prod ? prod.defaultPP : 0);
+            }, 0);
+            const totalSettledValue = filteredSettlements.reduce((s, c) => s + c.amount, 0);
+            const pendingBalance = Math.max(0, totalClaimedValue - totalSettledValue);
+
+            // Company-wise Claim vs Settlement
+            const compMap: Record<string, { name: string; claims: number; qty: number; settled: number; pending: number; }> = {};
+            companies.forEach(c => { compMap[c.id] = { name: c.name, claims: 0, qty: 0, settled: 0, pending: 0 }; });
+            filteredClaimOnly.forEach(c => {
+              const key = c.companyId || c.companyName;
+              if (!compMap[key]) compMap[key] = { name: c.companyName, claims: 0, qty: 0, settled: 0, pending: 0 };
+              compMap[key].qty += c.qty;
+              const prod = products.find(p => p.id === c.productId);
+              const val = c.claimValue !== undefined ? c.claimValue : c.qty * (prod ? prod.defaultPP : 0);
+              compMap[key].claims += val;
+            });
+            filteredSettlements.forEach(s => {
+              const key = s.companyId || s.companyName;
+              if (!compMap[key]) compMap[key] = { name: s.companyName, claims: 0, qty: 0, settled: 0, pending: 0 };
+              compMap[key].settled += s.amount;
+            });
+            Object.values(compMap).forEach(m => { m.pending = Math.max(0, m.claims - m.settled); });
+            const compRows = Object.values(compMap).filter(m => m.claims > 0 || m.settled > 0);
+
+            return (
+              <>
+                {/* Disclaimer Banner */}
+                <div className="bg-amber-50/70 border border-amber-200 rounded-none p-4 flex items-start gap-3">
+                  <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                  <div className="text-[11px] leading-relaxed">
+                    <div className="font-bold text-amber-800 mb-0.5">
+                      {bn ? '⚠️ দাবি (Claim) & সেটলমেন্ট — স্বাধীন রেজিস্টার' : '⚠️ Claims & Settlements — Standalone Register'}
+                    </div>
+                    <div className="text-amber-700">
+                      {bn
+                        ? 'এই তথ্যগুলো মূল প্রফিট/অ্যাকাউন্টিং ক্যালকুলেশনের সাথে সম্পর্কিত নয়। Damage Stock বা COGS-এর সাথে কোনো cross-sync নেই। এটি শুধুমাত্র কোম্পানি-ভিত্তিক দাবি ও প্রাপ্তি ট্র্যাকিংয়ের জন্য।'
+                        : 'This section is NOT linked with main Profit / Accounting calculations. No cross-sync with Damaged Stock or COGS. This is purely for company-wise claim tracking and money received.'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* KPI Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="rounded-none border border-slate-200 bg-white p-5 shadow-sm">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{bn ? 'মোট ক্লেম এন্ট্রি' : 'Total Claim Entries'}</div>
+                    <div className="mt-2 text-2xl font-black text-slate-900 font-mono">{filteredClaimOnly.length}</div>
+                    <div className="text-[10px] text-slate-400">{bn ? 'কোম্পানি কাছে দাবি' : 'Filed claims'}</div>
+                  </div>
+                  <div className="rounded-none border border-amber-200 bg-amber-50/60 p-5 shadow-sm">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-amber-600">{bn ? 'মোট ক্লেম পরিমাণ' : 'Total Claimed Qty'}</div>
+                    <div className="mt-2 text-2xl font-black text-slate-900 font-mono">{totalClaimedQty.toLocaleString()}</div>
+                    <div className="text-[10px] text-amber-500">{bn ? 'পিস (pcs)' : 'Pieces'}</div>
+                  </div>
+                  <div className="rounded-none border border-indigo-200 bg-indigo-50/60 p-5 shadow-sm">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-indigo-600">{bn ? 'মোট দাবির মূল্য' : 'Total Claimed Value'}</div>
+                    <div className="mt-2 text-2xl font-black text-indigo-900 font-mono">{formatBDT(totalClaimedValue)}</div>
+                    <div className="text-[10px] text-indigo-400">{bn ? 'কোম্পানি কাছে দাবি' : 'Amount claimed'}</div>
+                  </div>
+                  <div className="rounded-none border border-emerald-200 bg-emerald-50/60 p-5 shadow-sm">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">{bn ? 'মোট সেটলড মূল্য' : 'Total Settled Value'}</div>
+                    <div className="mt-2 text-2xl font-black text-emerald-900 font-mono">{formatBDT(totalSettledValue)}</div>
+                    <div className="text-[10px] text-emerald-400">{bn ? 'প্রাপ্ত টাকা / বাকি: ' : 'Received / Pending: '}
+                      <span className={pendingBalance > 0 ? 'text-rose-600 font-bold' : 'text-emerald-600 font-bold'}>
+                        {pendingBalance > 0 ? formatBDT(pendingBalance) : (bn ? 'সম্পূর্ণ' : 'Fully Settled')}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Company-wise Claim vs Settlement Matrix */}
+                <div className="bg-white border border-slate-200 rounded-none shadow-sm overflow-hidden">
+                  <div className="border-b border-slate-200 px-6 py-4 bg-slate-50/60 flex items-center justify-between">
+                    <span className="text-[10px] bg-indigo-50 text-indigo-700 font-extrabold px-2.5 py-0.5 rounded-none uppercase tracking-wider font-mono">
+                      {bn ? 'কোম্পানি-ভিত্তিক দাবি বনাম প্রাপ্তি' : 'Company-wise Claim vs Settlement'}
+                    </span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse min-w-[750px]">
+                      <thead>
+                        <tr className="bg-slate-100/70 border-b border-slate-200 text-slate-600 text-[10px] uppercase font-extrabold tracking-wider">
+                          <th className="px-5 py-3 whitespace-nowrap">{bn ? 'কোম্পানি' : 'Company'}</th>
+                          <th className="px-5 py-3 text-right whitespace-nowrap">{bn ? 'দাবির পরিমাণ (pcs)' : 'Claimed Qty'}</th>
+                          <th className="px-5 py-3 text-right whitespace-nowrap">{bn ? 'দাবির মূল্য' : 'Claimed Amount'}</th>
+                          <th className="px-5 py-3 text-right whitespace-nowrap">{bn ? 'সেটলড মূল্য' : 'Settled Amount'}</th>
+                          <th className="px-5 py-3 text-right whitespace-nowrap">{bn ? 'পেন্ডিং' : 'Pending'}</th>
+                          <th className="px-5 py-3 text-center whitespace-nowrap">{bn ? 'সেটলমেন্ট %' : 'Settlement %'}</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {compRows.length === 0 ? (
+                          <tr><td colSpan={6} className="px-5 py-10 text-center text-slate-400 font-semibold">
+                            {bn ? 'কোনো ক্লেম বা সেটলমেন্ট ডেটা নেই।' : 'No claim or settlement data available.'}
+                          </td></tr>
+                        ) : compRows.map(row => {
+                          const pct = row.claims > 0 ? Math.min(100, (row.settled / row.claims) * 100) : (row.settled > 0 ? 100 : 0);
+                          return (
+                            <tr key={row.name} className="hover:bg-slate-50 transition-colors">
+                              <td className="px-5 py-3 text-xs font-bold text-slate-800 whitespace-nowrap">{row.name}</td>
+                              <td className="px-5 py-3 text-right text-xs font-bold text-slate-700 font-mono whitespace-nowrap">{row.qty.toLocaleString()}</td>
+                              <td className="px-5 py-3 text-right text-xs font-bold text-indigo-700 font-mono whitespace-nowrap">{formatBDT(row.claims)}</td>
+                              <td className="px-5 py-3 text-right text-xs font-black text-emerald-700 font-mono whitespace-nowrap">{formatBDT(row.settled)}</td>
+                              <td className="px-5 py-3 text-right text-xs font-mono whitespace-nowrap">
+                                {row.pending > 0
+                                  ? <span className="font-black text-rose-600">{formatBDT(row.pending)}</span>
+                                  : <span className="font-bold text-emerald-600">✓ {bn ? 'সম্পূর্ণ' : 'Done'}</span>}
+                              </td>
+                              <td className="px-5 py-3 text-center whitespace-nowrap">
+                                <div className="flex flex-col items-center gap-1">
+                                  <div className="w-20 h-1.5 bg-slate-100 rounded-none overflow-hidden">
+                                    <div
+                                      className={`h-full rounded-none ${pct >= 100 ? 'bg-emerald-500' : pct >= 60 ? 'bg-amber-500' : 'bg-rose-400'}`}
+                                      style={{ width: `${pct}%` }}
+                                    />
+                                  </div>
+                                  <span className="text-[9px] font-bold text-slate-500 font-mono">{pct.toFixed(0)}%</span>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Two Column Layout: Claim History + Settlement History */}
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                  {/* Left: Claim History */}
+                  <div className="bg-white border border-slate-200 rounded-none shadow-sm overflow-hidden">
+                    <div className="border-b border-slate-200 px-6 py-3.5 bg-slate-50/60 flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-slate-700">
+                        {bn ? 'ক্লেম ইতিহাস (দাখিলকৃত দাবি)' : 'Claim Register (Filed Objections)'}
+                        <span className="ml-2 text-[9px] font-normal text-slate-400 font-mono">({filteredClaimOnly.length})</span>
+                      </span>
+                    </div>
+                    <div className="overflow-x-auto max-h-[450px] overflow-y-auto">
+                      <table className="w-full text-left border-collapse min-w-[550px]">
+                        <thead className="sticky top-0 bg-slate-50">
+                          <tr className="border-b border-slate-200 text-slate-600 text-[9px] uppercase font-extrabold tracking-wider">
+                            <th className="px-4 py-2.5 whitespace-nowrap">{bn ? 'তারিখ' : 'Date'}</th>
+                            <th className="px-4 py-2.5 whitespace-nowrap">{bn ? 'কোম্পানি' : 'Company'}</th>
+                            <th className="px-4 py-2.5 whitespace-nowrap">{bn ? 'পণ্য' : 'Product'}</th>
+                            <th className="px-4 py-2.5 text-center whitespace-nowrap">{bn ? 'পরিমাণ' : 'Qty'}</th>
+                            <th className="px-4 py-2.5 text-right whitespace-nowrap">{bn ? 'দাবি মূল্য' : 'Value'}</th>
+                            <th className="px-4 py-2.5 whitespace-nowrap">{bn ? 'স্ট্যাটাস' : 'Status'}</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {filteredClaimOnly.length === 0 ? (
+                            <tr><td colSpan={6} className="px-4 py-10 text-center text-slate-400 text-xs font-semibold">
+                              {bn ? 'কোনো ক্লেম নেই।' : 'No claims recorded.'}
+                            </td></tr>
+                          ) : filteredClaimOnly.slice(0, 100).map(c => {
+                            const prod = products.find(p => p.id === c.productId);
+                            const val = c.claimValue !== undefined ? c.claimValue : c.qty * (prod ? prod.defaultPP : 0);
+                            const statusCls =
+                              c.status === 'Approved' ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : c.status === 'Rejected' ? 'bg-rose-50 text-rose-700 border-rose-200'
+                              : 'bg-amber-50 text-amber-700 border-amber-200';
+                            return (
+                              <tr key={c.id} className="hover:bg-slate-50 transition-colors">
+                                <td className="px-4 py-2.5 text-[10px] font-semibold text-slate-500 font-mono whitespace-nowrap">{c.claimDate}</td>
+                                <td className="px-4 py-2.5 text-[10px] font-bold text-slate-700 whitespace-nowrap">{c.companyName}</td>
+                                <td className="px-4 py-2.5 text-[10px] font-semibold text-slate-800 whitespace-nowrap" style={{maxWidth:'140px'}}>
+                                  <div className="truncate" title={c.productName}>{c.productName}</div>
+                                </td>
+                                <td className="px-4 py-2.5 text-center text-[10px] font-bold text-slate-700 font-mono whitespace-nowrap">{c.qty.toLocaleString()}</td>
+                                <td className="px-4 py-2.5 text-right text-[10px] font-bold text-indigo-700 font-mono whitespace-nowrap">{formatBDT(val)}</td>
+                                <td className="px-4 py-2.5 whitespace-nowrap">
+                                  <span className={`px-2 py-0.5 rounded-none text-[9px] font-bold border ${statusCls}`}>
+                                    {c.status === 'Approved' ? (bn ? 'অনুমোদিত' : 'Approved')
+                                     : c.status === 'Rejected' ? (bn ? 'প্রত্যাখ্যাত' : 'Rejected')
+                                     : (bn ? 'অপেক্ষমাণ' : 'Pending')}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Right: Settlement History */}
+                  <div className="bg-white border border-slate-200 rounded-none shadow-sm overflow-hidden">
+                    <div className="border-b border-slate-200 px-6 py-3.5 bg-slate-50/60 flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-emerald-800">
+                        {bn ? 'সেটলমেন্ট ইতিহাস (প্রাপ্ত টাকা)' : 'Settlement Register (Amount Received)'}
+                        <span className="ml-2 text-[9px] font-normal text-slate-400 font-mono">({filteredSettlements.length})</span>
+                      </span>
+                    </div>
+                    <div className="overflow-x-auto max-h-[450px] overflow-y-auto">
+                      <table className="w-full text-left border-collapse min-w-[550px]">
+                        <thead className="sticky top-0 bg-slate-50">
+                          <tr className="border-b border-slate-200 text-slate-600 text-[9px] uppercase font-extrabold tracking-wider">
+                            <th className="px-4 py-2.5 whitespace-nowrap">{bn ? 'তারিখ' : 'Date'}</th>
+                            <th className="px-4 py-2.5 whitespace-nowrap">{bn ? 'কোম্পানি' : 'Company'}</th>
+                            <th className="px-4 py-2.5 whitespace-nowrap">{bn ? 'মাস' : 'Month'}</th>
+                            <th className="px-4 py-2.5 text-right whitespace-nowrap">{bn ? 'প্রাপ্ত টাকা' : 'Received'}</th>
+                            <th className="px-4 py-2.5 whitespace-nowrap">{bn ? 'মাধ্যম' : 'Mode'}</th>
+                            <th className="px-4 py-2.5 whitespace-nowrap">{bn ? 'রেফারেন্স' : 'Ref'}</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {filteredSettlements.length === 0 ? (
+                            <tr><td colSpan={6} className="px-4 py-10 text-center text-slate-400 text-xs font-semibold">
+                              {bn ? 'কোনো সেটলমেন্ট নেই।' : 'No settlements recorded yet.'}
+                            </td></tr>
+                          ) : filteredSettlements.slice(0, 100).map(s => (
+                            <tr key={s.id} className="hover:bg-slate-50 transition-colors">
+                              <td className="px-4 py-2.5 text-[10px] font-semibold text-slate-500 font-mono whitespace-nowrap">{s.settlementDate}</td>
+                              <td className="px-4 py-2.5 text-[10px] font-bold text-slate-700 whitespace-nowrap">{s.companyName}</td>
+                              <td className="px-4 py-2.5 text-[10px] font-bold text-slate-500 font-mono whitespace-nowrap">{s.monthKey}</td>
+                              <td className="px-4 py-2.5 text-right text-[10px] font-black text-emerald-700 font-mono whitespace-nowrap">{formatBDT(s.amount)}</td>
+                              <td className="px-4 py-2.5 text-[10px] font-semibold text-slate-600 whitespace-nowrap">{s.paymentMode || '—'}</td>
+                              <td className="px-4 py-2.5 text-[10px] font-mono text-slate-500 whitespace-nowrap" style={{maxWidth:'80px'}}>
+                                <span className="truncate block" title={s.referenceNo}>{s.referenceNo || '—'}</span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </>
+            );
+          })()}
         </div>
       )}
     </div>

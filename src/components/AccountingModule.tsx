@@ -22,6 +22,7 @@ import {
 import { ExpenseCategory, ExpenseRecord, ChallanItem, Procurement } from '../types';
 import { translations, Language } from '../translations';
 import { printExpenseReceipt } from '../lib/printUtils';
+import { useToast } from './ui/Toast';
 
 interface AccountingModuleProps {
   categories: ExpenseCategory[];
@@ -50,6 +51,7 @@ export default function AccountingModule({
 }: AccountingModuleProps) {
   const tCommon = translations[language].common;
   const tAcc = translations[language].accounting;
+  const { success, error, warning } = useToast();
 
   // Sub-tabs: 'expenses' or 'profit-report'
   const [activeTab, setActiveTab] = useState<'expenses' | 'profit-report'>(defaultTab);
@@ -177,7 +179,7 @@ export default function AccountingModule({
   const handleAddCategory = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCatName.trim()) {
-      alert('Category name is required');
+      error('Validation Error', 'Category name is required.');
       return;
     }
 
@@ -192,7 +194,7 @@ export default function AccountingModule({
     setNewCatName('');
     setNewCatDesc('');
     setExpenseCategory(newCat.id);
-    alert(`Category "${newCat.name}" registered successfully!`);
+    success('Category Created', `"${newCat.name}" registered successfully.`);
   };
 
   // Save edited category
@@ -202,20 +204,20 @@ export default function AccountingModule({
 
     setCategories(prev => prev.map(c => c.id === editingCat.id ? editingCat : c));
     setEditingCat(null);
-    alert('Category changes saved!');
+    success('Category Updated', 'Category changes saved successfully.');
   };
 
   // Add Expense Record
   const handleAddExpense = (e: React.FormEvent) => {
     e.preventDefault();
     if (expenseAmount <= 0) {
-      alert('Amount must be positive');
+      error('Validation Error', 'Amount must be positive.');
       return;
     }
 
     const catObj = categories.find(c => c.id === expenseCategory);
     if (!catObj) {
-      alert('Please select a valid expense category');
+      error('Validation Error', 'Please select a valid expense category.');
       return;
     }
 
@@ -234,7 +236,7 @@ export default function AccountingModule({
     setExpenseNotes('');
     setExpensePaidTo('');
     setShowAddExpenseModal(false);
-    alert('Expense logged successfully! Profit engine recalculated.');
+    success('Expense Logged', 'Expense recorded successfully. Profit engine recalculated.');
 
     // Auto refresh report
     setTimeout(() => handleCalculateReport(), 100);

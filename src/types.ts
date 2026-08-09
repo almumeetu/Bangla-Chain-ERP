@@ -447,3 +447,16 @@ export interface Claim {
   claimValue?: number;
 }
 
+export interface ClaimSettlement {
+  id: string;
+  settlementDate: string;
+  monthKey: string;
+  companyId: string;
+  companyName: string;
+  amount: number;
+  paymentMode: string;
+  referenceNo: string;
+  notes: string;
+  recordedAt: string;
+}
+

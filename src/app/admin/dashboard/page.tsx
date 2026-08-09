@@ -72,6 +72,9 @@ export default function App() {
     db.setCategories(data.categories);
     db.setExpenses(data.expenses);
     db.setCustomers(data.customers as any);
+    db.setClaims(data.claims);
+    db.setClaimReasons(data.claimReasons);
+    db.setClaimSettlements(data.claimSettlements);
     if (data.settings.shopName)     db.setShopName(data.settings.shopName);
     if (data.settings.shopSubBrand) db.setShopSubBrand(data.settings.shopSubBrand);
     if (data.settings.shopLogo)     db.setShopLogo(data.settings.shopLogo);
@@ -327,12 +330,15 @@ export default function App() {
         if (activeSubTab === 'reports-sales') repTab = 'sales';
         if (activeSubTab === 'reports-damage') repTab = 'damage';
         if (activeSubTab === 'reports-profit') repTab = 'profit';
+        if (activeSubTab === 'reports-claims') repTab = 'claims';
         return (
           <ReportsModule products={db.products} challans={db.challans} srs={db.srs}
             companies={db.companies} expenses={db.expenses} deliveryMen={db.deliveryMen}
             units={db.units} language={language} userRole={userRole}
             shopName={db.shopName} shopSubBrand={db.shopSubBrand} shopLogo={db.shopLogo}
             loggedInSrName={srName}
+            claims={db.claims}
+            claimSettlements={db.claimSettlements}
             defaultTab={repTab}
             onTabChange={(tab) => {
               const sub = `reports-${tab}`;
@@ -353,14 +359,18 @@ export default function App() {
         <ClaimManagementModule
           claims={db.claims}
           setClaims={db.syncClaims}
+          claimSettlements={db.claimSettlements}
+          setClaimSettlements={db.syncClaimSettlements}
           products={db.products}
           setProducts={db.syncProducts}
           srs={db.srs}
           companies={db.companies}
+          claimReasons={db.claimReasons}
+          setClaimReasons={db.syncClaimReasons}
           language={language}
-          defaultTab={activeSubTab === 'claims-display' ? 'displays' : 'claims'}
+          defaultTab={activeSubTab === 'claims-display' ? 'displays' : activeSubTab === 'claims-settlement' ? 'settlements' : 'claims'}
           onTabChange={(tab) => {
-            const sub = tab === 'displays' ? 'claims-display' : 'claims-list';
+            const sub = tab === 'displays' ? 'claims-display' : tab === 'settlements' ? 'claims-settlement' : 'claims-list';
             setActiveSubTab(sub);
             lsSet('erp_active_sub_tab', sub);
           }}
