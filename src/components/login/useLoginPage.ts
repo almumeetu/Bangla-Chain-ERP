@@ -1,7 +1,15 @@
 'use client';
 
+/**
+ * Bangla-Chain ERP — useLoginPage hook (Supabase version)
+ *
+ * Admin login/register/forgot → Supabase Auth
+ * SR login                   → supabase-db.srLogin (srs table)
+ */
+
 import { useState, useEffect, useCallback } from 'react';
-import { adminLogin, adminRegister, adminChangePassword, adminExists, srLogin } from '../../lib/localStore';
+import { signIn, signUp, resetPassword } from '../../lib/auth';
+import { srLogin }                        from '../../lib/supabase-db';
 import { loginDict, type LoginLang, type LoginDict } from './dict';
 
 export type LoginTab = 'admin' | 'sr';
@@ -83,16 +91,17 @@ export function useLoginPage(onLogin: (role: 'admin' | 'sr') => void): UseLoginP
   const [showRegPass,    setShowRegPass]    = useState(false);
   const [showRegConfirm, setShowRegConfirm] = useState(false);
 
-  const [showForgot,      setShowForgot]      = useState(false);
-  const [forgotEmail,     setForgotEmail]     = useState('');
-  const [forgotStep,      setForgotStep]      = useState<1 | 2 | 3>(1);
-  const [forgotNewPass,   setForgotNewPass]   = useState('');
+  const [showForgot,       setShowForgot]       = useState(false);
+  const [forgotEmail,      setForgotEmail]      = useState('');
+  const [forgotStep,       setForgotStep]       = useState<1 | 2 | 3>(1);
+  const [forgotNewPass,    setForgotNewPass]    = useState('');
   const [forgotConfirmPass,setForgotConfirmPass]= useState('');
-  const [forgotSent,      setForgotSent]      = useState(false);
-  const [forgotLoading,   setForgotLoading]   = useState(false);
+  const [forgotSent,       setForgotSent]       = useState(false);
+  const [forgotLoading,    setForgotLoading]    = useState(false);
 
   const t = loginDict[language];
 
+  // Persist language choice in localStorage (UI preference only — not auth data)
   useEffect(() => {
     const saved = localStorage.getItem('erp_language');
     if (saved === 'en' || saved === 'bn') setLanguage(saved);
@@ -141,90 +150,98 @@ export function useLoginPage(onLogin: (role: 'admin' | 'sr') => void): UseLoginP
     setError('');
   }, []);
 
-  // ── Admin Login (localStorage) ─────────────────────────────────────────────
+  // ── Admin Login → Supabase Auth ────────────────────────────────────────────
   const handleAdminLogin = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim() || !password.trim()) { setError(t.errorRequired); return; }
     setIsLoading(true);
     setError('');
-    const ok = adminLogin(email.trim(), password);
-    setIsLoading(false);
-    if (!ok) { setError(t.errorInvalid); return; }
-    onLogin('admin');
+
+    signIn(email.trim(), password).then(({ error: authError }) => {
+      setIsLoading(false);
+      if (authError) {
+        // Translate common Supabase error messages to user-friendly text
+        if (
+          authError.message.includes('Invalid login') ||
+          authError.message.includes('invalid_credentials') ||
+          authError.message.includes('Email not confirmed')
+        ) {
+          setError(t.errorInvalid);
+        } else {
+          setError(authError.message);
+        }
+        return;
+      }
+      onLogin('admin');
+    });
   }, [email, password, t, onLogin]);
 
-  // ── SR Login (localStorage) ────────────────────────────────────────────────
+  // ── SR Login → Supabase (srs table, username/password) ────────────────────
   const handleSRLogin = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     if (!srUsername.trim() || !srPassword.trim()) { setError(t.errorRequired); return; }
     setIsLoading(true);
     setError('');
-    const sr = srLogin(srUsername.trim(), srPassword);
-    setIsLoading(false);
-    if (!sr) { setError(t.errorInvalid); return; }
-    sessionStorage.setItem('erp_sr_id',   sr.id);
-    sessionStorage.setItem('erp_sr_name', sr.name);
-    onLogin('sr');
+
+    srLogin(srUsername.trim(), srPassword).then((sr) => {
+      setIsLoading(false);
+      if (!sr) { setError(t.errorInvalid); return; }
+      // Store SR session info (non-auth, just for UI routing)
+      sessionStorage.setItem('erp_sr_id',   sr.id);
+      sessionStorage.setItem('erp_sr_name', sr.name);
+      onLogin('sr');
+    });
   }, [srUsername, srPassword, t, onLogin]);
 
-  // ── Admin Register (localStorage) ─────────────────────────────────────────
+  // ── Admin Register → Supabase Auth ────────────────────────────────────────
   const handleRegister = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     if (!regEmail.trim() || !regPassword.trim() || !regConfirm.trim()) { setError(t.errorRequired); return; }
-    if (regPassword.length < 6)    { setError(t.errorMinPassword);  return; }
-    if (regPassword !== regConfirm){ setError(t.errorPasswordMatch); return; }
+    if (regPassword.length < 6)     { setError(t.errorMinPassword);  return; }
+    if (regPassword !== regConfirm) { setError(t.errorPasswordMatch); return; }
     setIsLoading(true);
     setError('');
-    const result = adminRegister(regEmail.trim(), regPassword);
-    setIsLoading(false);
-    if (!result.ok) {
-      setError(result.error ?? t.errorInvalid);
-      return;
-    }
-    // Auto login after registration
-    onLogin('admin');
-  }, [regEmail, regPassword, regConfirm, t, onLogin]);
 
-  // ── Forgot Password — Step 1: verify email exists ─────────────────────────
+    signUp(regEmail.trim(), regPassword).then(({ error: authError }) => {
+      setIsLoading(false);
+      if (authError) {
+        setError(authError.message);
+        return;
+      }
+      // Supabase sends a confirmation email — show success message
+      setError(
+        language === 'bn'
+          ? '✅ রেজিস্ট্রেশন সফল! আপনার ইমেইল চেক করুন এবং confirm করুন।'
+          : '✅ Registered! Please check your email and confirm your account.'
+      );
+    });
+  }, [regEmail, regPassword, regConfirm, t, language]);
+
+  // ── Forgot Password — Step 1: Send reset email via Supabase ───────────────
   const handleForgotStep1 = useCallback(() => {
     setError('');
     if (!forgotEmail.trim()) {
-      setError(language === 'bn' ? 'ইমেইল/ইউজারনেম লিখুন।' : 'Enter your email or username.');
-      return;
-    }
-    if (!adminExists(forgotEmail.trim())) {
-      setError(language === 'bn' ? 'এই অ্যাকাউন্ট পাওয়া যায়নি।' : 'No account found with this email.');
-      return;
-    }
-    setForgotStep(2);
-  }, [forgotEmail, language]);
-
-  // ── Forgot Password — Step 2: set new password ────────────────────────────
-  const handleForgotStep2 = useCallback((e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    if (!forgotNewPass.trim() || !forgotConfirmPass.trim()) {
-      setError(language === 'bn' ? 'দুটি ফিল্ডই পূরণ করুন।' : 'Please fill both fields.');
-      return;
-    }
-    if (forgotNewPass.length < 6) {
-      setError(language === 'bn' ? 'পাসওয়ার্ড কমপক্ষে ৬ অক্ষর হতে হবে।' : 'Password must be at least 6 characters.');
-      return;
-    }
-    if (forgotNewPass !== forgotConfirmPass) {
-      setError(language === 'bn' ? 'পাসওয়ার্ড দুটি মিলছে না।' : 'Passwords do not match.');
+      setError(language === 'bn' ? 'ইমেইল লিখুন।' : 'Enter your email.');
       return;
     }
     setForgotLoading(true);
-    const ok = adminChangePassword(forgotEmail.trim(), forgotNewPass);
-    setForgotLoading(false);
-    if (!ok) {
-      setError(language === 'bn' ? 'পাসওয়ার্ড আপডেট করা যায়নি।' : 'Could not update password.');
-      return;
-    }
-    setForgotSent(true);
-    setForgotStep(3);
-  }, [forgotEmail, forgotNewPass, forgotConfirmPass, language]);
+    resetPassword(forgotEmail.trim()).then(({ error: authError }) => {
+      setForgotLoading(false);
+      if (authError) {
+        setError(authError.message);
+        return;
+      }
+      setForgotSent(true);
+      setForgotStep(3); // Jump to "check your email" confirmation step
+    });
+  }, [forgotEmail, language]);
+
+  // ── Forgot Password — Step 2 (no longer needed — Supabase handles via email)
+  // Kept for interface compatibility; same as step 1 now
+  const handleForgotStep2 = useCallback((e: React.FormEvent) => {
+    e.preventDefault();
+    handleForgotStep1();
+  }, [handleForgotStep1]);
 
   return {
     language, langOpen, t,

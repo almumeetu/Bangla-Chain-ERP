@@ -67,6 +67,7 @@ export default function Dashboard({
         language={language}
         netProfit={m.netProfit}
         totalSales={m.totalSales}
+        totalCOGS={m.totalCOGS}
         totalExpensesCost={m.totalExpensesCost}
         totalStockValue={m.totalStockValue}
         totalStockValueTP={m.totalStockValueTP}

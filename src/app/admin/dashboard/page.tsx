@@ -21,6 +21,8 @@ import ClaimManagementModule from '../../../components/ClaimManagementModule';
 import { loadAllData, seedInitialData } from '../../../lib/db';
 import { generatePDF, type PDFView }    from '../../../lib/generatePDF';
 import { useErpData }                   from './useErpData';
+import { supabase }                     from '../../../lib/supabase';
+import { signOut }                      from '../../../lib/auth';
 
 // ── App ────────────────────────────────────────────────────────────────────────
 
@@ -56,31 +58,35 @@ export default function App() {
   }
 
   // ── Apply all data to React state ──────────────────────────────────────────────
-  function applyData(data: ReturnType<typeof loadAllData>) {
-    db.setProducts(data.products);
-    db.setSrs(data.srs);
-    db.setDeliveryMen(data.deliveryMen);
-    db.setCompanies(data.companies);
-    db.setProductCategories(data.productCategories);
-    db.setUnits(data.units);
-    db.setGodowns(data.godowns);
-    db.setRoutes(data.routes);
-    db.setAttributes(data.attributes);
-    db.setChallans(data.challans);
-    db.setProcurements(data.procurements);
-    db.setAdjustments(data.adjustments);
-    db.setCategories(data.categories);
-    db.setExpenses(data.expenses);
-    db.setCustomers(data.customers as any);
-    db.setClaims(data.claims);
-    db.setClaimReasons(data.claimReasons);
-    db.setClaimSettlements(data.claimSettlements);
-    if (data.settings.shopName)     db.setShopName(data.settings.shopName);
-    if (data.settings.shopSubBrand) db.setShopSubBrand(data.settings.shopSubBrand);
-    if (data.settings.shopLogo)     db.setShopLogo(data.settings.shopLogo);
-    if (data.settings.language === 'en' || data.settings.language === 'bn') {
-      setLanguage(data.settings.language);
-    }
+  function applyData(dataPromise: ReturnType<typeof loadAllData>) {
+    dataPromise.then((data) => {
+      db.setProducts(data.products);
+      db.setSrs(data.srs);
+      db.setDeliveryMen(data.deliveryMen);
+      db.setCompanies(data.companies);
+      db.setProductCategories(data.productCategories);
+      db.setUnits(data.units);
+      db.setGodowns(data.godowns);
+      db.setRoutes(data.routes);
+      db.setAttributes(data.attributes);
+      db.setChallans(data.challans);
+      db.setProcurements(data.procurements);
+      db.setAdjustments(data.adjustments);
+      db.setCategories(data.categories);
+      db.setExpenses(data.expenses);
+      db.setCustomers(data.customers as any);
+      db.setClaims(data.claims);
+      db.setClaimReasons(data.claimReasons);
+      db.setClaimSettlements(data.claimSettlements);
+      if (data.settings.shopName)     db.setShopName(data.settings.shopName);
+      if (data.settings.shopSubBrand) db.setShopSubBrand(data.settings.shopSubBrand);
+      if (data.settings.shopLogo)     db.setShopLogo(data.settings.shopLogo);
+      if (data.settings.language === 'en' || data.settings.language === 'bn') {
+        setLanguage(data.settings.language);
+      }
+    }).catch((err) => {
+      console.error('[dashboard] loadAllData error:', err);
+    });
   }
 
   useEffect(() => {
@@ -104,11 +110,11 @@ export default function App() {
     }
   }, []);
 
-  // ── Boot — synchronous localStorage read, instant ──────────────────────────────
+  // ── Boot — check Supabase session, then load data ─────────────────────────────
   useEffect(() => {
     restorePrefs();
 
-    // SR session check
+    // SR session check (SR login is sessionStorage-based, not Supabase Auth)
     const srId = typeof window !== 'undefined' ? sessionStorage.getItem('erp_sr_id') : null;
     if (srId) {
       setIsAuthenticated(true);
@@ -118,16 +124,15 @@ export default function App() {
       return;
     }
 
-    // Admin session check — stored in localStorage after login
-    const authRole = lsGet('erp_auth_role') as 'admin' | 'sr' | null;
-    if (authRole === 'admin') {
-      setIsAuthenticated(true);
-      setUserRole('admin');
-      seedInitialData();
-      applyData(loadAllData());
-    }
-
-    setReady(true);
+    // Admin session check — use Supabase Auth
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setIsAuthenticated(true);
+        setUserRole('admin');
+        applyData(loadAllData());
+      }
+      setReady(true);
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -151,13 +156,11 @@ export default function App() {
 
   // ── Handlers ──────────────────────────────────────────────────────────────────
   const handleLogin = useCallback((role: 'admin' | 'sr') => {
-    lsSet('erp_auth_role', role);
     setIsAuthenticated(true);
     setUserRole(role);
     if (role === 'sr') { setActiveTab('sales'); return; }
     const tab = lsGet('erp_active_tab');
     setActiveTab((tab as TabID) || 'dashboard');
-    seedInitialData();
     applyData(loadAllData());
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -169,10 +172,12 @@ export default function App() {
     lsDel('erp_auth_role');
     lsDel('erp_active_tab');
     lsDel('erp_active_sub_tab');
-    setIsAuthenticated(false);
-    setUserRole('admin');
-    setActiveTab('dashboard');
-    setActiveSubTab('');
+    signOut().finally(() => {
+      setIsAuthenticated(false);
+      setUserRole('admin');
+      setActiveTab('dashboard');
+      setActiveSubTab('');
+    });
   }, [language]);
 
   function handleNavigate(tab: TabID, subTab?: string) {

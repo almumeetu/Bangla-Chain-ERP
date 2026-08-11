@@ -85,12 +85,13 @@ export interface DashboardMetrics {
   yesterdaysSales:      number;
   yesterdaysExpensesTotal: number;
   yesterdaysNetProfit:  number;
-  salesChangePercent:   number;
-  profitChangePercent:  number;
+  salesChangePercent:   number | null;  // null = no yesterday data (show "New")
+  profitChangePercent:  number | null;
   totalSales:           number;
-  totalProcurementCost: number;
+  totalCOGS:            number;         // Challan-based Cost of Goods Sold
+  totalProcurementCost: number;         // Sum of all procurement invoices (for reference)
   totalExpensesCost:    number;
-  netProfit:            number;
+  netProfit:            number;         // totalSales - totalCOGS - totalExpensesCost
   totalStockUnits:      number;
   totalStockValue:      number;
   totalStockValueTP:    number;
@@ -121,39 +122,78 @@ export function useDashboardMetrics(
     return { today, yesterday };
   }, [challans, todayStr, yesterdayStr]);
 
-  function sumSales(list: ChallanItem[]) {
-    return list.reduce((s, ch) => s + ch.totalAmount, 0);
+  /**
+   * Total revenue from a list of challans.
+   */
+  function sumSales(list: ChallanItem[]): number {
+    return list.reduce((s, ch) => s + (ch.totalAmount ?? 0), 0);
   }
-  function sumCOGS(list: ChallanItem[]) {
+
+  /**
+   * Cost of Goods Sold (COGS) from a list of challans.
+   *
+   * Priority order for unit purchase price:
+   *   1. Product defaultPP matched by product name (most accurate)
+   *   2. ch.rate × 0.80 (reasonable DP ≈ 80% of selling rate when no product found)
+   *
+   * Net qty = qty sold - returned - damaged (to exclude never-sold units).
+   */
+  function sumCOGS(list: ChallanItem[]): number {
     return list.reduce((s, ch) => {
-      const pp = products.find(p => p.name === ch.productName)?.defaultPP ?? ch.rate * 0.65;
-      return s + Math.max(0, ch.qty - (ch.returnedQty ?? 0) - (ch.damagedQty ?? 0)) * pp;
+      const prod = products.find(p =>
+        p.name.toLowerCase().trim() === (ch.productName ?? '').toLowerCase().trim()
+      );
+      const pp     = prod?.defaultPP ?? (ch.rate * 0.80);
+      const netQty = Math.max(0, (ch.qty ?? 0) - (ch.returnedQty ?? 0) - (ch.damagedQty ?? 0));
+      return s + netQty * pp;
     }, 0);
   }
 
-  const todaysSales          = sumSales(challansByDate.today);
-  const todaysCOGS           = sumCOGS(challansByDate.today);
-  const todaysExpensesTotal  = expenses.filter(e => e.expenseDate === todayStr).reduce((s, e) => s + e.amount, 0);
-  const todaysNetProfit      = todaysSales - todaysCOGS - todaysExpensesTotal;
+  // ── Today's metrics ──────────────────────────────────────────────────────────
+  const todaysSales         = sumSales(challansByDate.today);
+  const todaysCOGS          = sumCOGS(challansByDate.today);
+  const todaysExpensesTotal = expenses
+    .filter(e => e.expenseDate === todayStr)
+    .reduce((s, e) => s + (e.amount ?? 0), 0);
+  const todaysNetProfit     = todaysSales - todaysCOGS - todaysExpensesTotal;
 
+  // ── Yesterday's metrics ──────────────────────────────────────────────────────
   const yesterdaysSales         = sumSales(challansByDate.yesterday);
   const yesterdaysCOGS          = sumCOGS(challansByDate.yesterday);
-  const yesterdaysExpensesTotal = expenses.filter(e => e.expenseDate === yesterdayStr).reduce((s, e) => s + e.amount, 0);
+  const yesterdaysExpensesTotal = expenses
+    .filter(e => e.expenseDate === yesterdayStr)
+    .reduce((s, e) => s + (e.amount ?? 0), 0);
   const yesterdaysNetProfit     = yesterdaysSales - yesterdaysCOGS - yesterdaysExpensesTotal;
 
-  const salesChangePercent  = yesterdaysSales > 0 ? ((todaysSales - yesterdaysSales) / yesterdaysSales) * 100 : todaysSales > 0 ? 100 : 0;
-  const profitChangePercent = yesterdaysNetProfit !== 0 ? ((todaysNetProfit - yesterdaysNetProfit) / Math.abs(yesterdaysNetProfit)) * 100 : todaysNetProfit > 0 ? 100 : 0;
+  // ── Trend percentages ────────────────────────────────────────────────────────
+  // Return null when yesterday had no data → UI shows "New" badge instead of misleading %
+  const salesChangePercent: number | null =
+    yesterdaysSales > 0
+      ? ((todaysSales - yesterdaysSales) / yesterdaysSales) * 100
+      : null;
 
-  const totalSales          = sumSales(challans);
-  const totalProcurementCost= procurements.reduce((s, p) => s + p.globalTotal, 0);
-  const totalExpensesCost   = expenses.reduce((s, e) => s + e.amount, 0);
-  const netProfit           = totalSales - totalProcurementCost - totalExpensesCost;
-  const totalStockUnits     = products.reduce((s, p) => s + p.currentStock, 0);
-  const totalStockValue     = products.reduce((s, p) => s + getStockValueDP(p), 0);
-  const totalStockValueTP   = products.reduce((s, p) => s + getStockValueTP(p), 0);
-  const totalDamagedQty     = products.reduce((s, p) => s + (p.damagedStock ?? 0), 0);
-  const totalDamagedVal     = products.reduce((s, p) => s + getStockValueDP(p, p.damagedStock ?? 0), 0);
-  const totalDamagedValTP   = products.reduce((s, p) => s + getStockValueTP(p, p.damagedStock ?? 0), 0);
+  const profitChangePercent: number | null =
+    yesterdaysNetProfit !== 0
+      ? ((todaysNetProfit - yesterdaysNetProfit) / Math.abs(yesterdaysNetProfit)) * 100
+      : null;
+
+  // ── All-time totals ──────────────────────────────────────────────────────────
+  const totalSales           = sumSales(challans);
+  const totalCOGS            = sumCOGS(challans);          // Actual cost of sold goods
+  const totalProcurementCost = procurements.reduce((s, p) => s + (p.globalTotal ?? 0), 0);
+  const totalExpensesCost    = expenses.reduce((s, e) => s + (e.amount ?? 0), 0);
+
+  // ✅ Correct profit: Revenue - COGS (what was actually sold) - Expenses
+  // (Not procurement total, which includes unsold stock)
+  const netProfit = totalSales - totalCOGS - totalExpensesCost;
+
+  // ── Stock metrics ─────────────────────────────────────────────────────────────
+  const totalStockUnits   = products.reduce((s, p) => s + p.currentStock, 0);
+  const totalStockValue   = products.reduce((s, p) => s + getStockValueDP(p), 0);
+  const totalStockValueTP = products.reduce((s, p) => s + getStockValueTP(p), 0);
+  const totalDamagedQty   = products.reduce((s, p) => s + (p.damagedStock ?? 0), 0);
+  const totalDamagedVal   = products.reduce((s, p) => s + getStockValueDP(p, p.damagedStock ?? 0), 0);
+  const totalDamagedValTP = products.reduce((s, p) => s + getStockValueTP(p, p.damagedStock ?? 0), 0);
 
   const lowStockProducts  = products.filter(p => p.currentStock < 600);
   const recentChallans    = [...challans].reverse().slice(0, 5);
@@ -163,9 +203,9 @@ export function useDashboardMetrics(
   const srSalesMap = useMemo(() => {
     const map = new Map<string, { count: number; total: number }>();
     srs.forEach(sr => {
-      const srChallans = challans.filter(ch => ch.srName === sr.name);
+      const srChallans          = challans.filter(ch => ch.srName === sr.name);
       const srDeliveredChallans = srChallans.filter(ch => ch.status === 'Delivered');
-      const total      = sumSales(srChallans);
+      const total               = sumSales(srChallans);
       map.set(sr.id, { count: srDeliveredChallans.length, total });
     });
     return map;
@@ -175,7 +215,7 @@ export function useDashboardMetrics(
     todayStr, todaysSales, todaysExpensesTotal, todaysNetProfit,
     yesterdaysSales, yesterdaysExpensesTotal, yesterdaysNetProfit,
     salesChangePercent, profitChangePercent,
-    totalSales, totalProcurementCost, totalExpensesCost, netProfit,
+    totalSales, totalCOGS, totalProcurementCost, totalExpensesCost, netProfit,
     totalStockUnits, totalStockValue, totalStockValueTP, totalDamagedQty, totalDamagedVal, totalDamagedValTP,
     lowStockProducts, recentChallans, companyStockData, maxCompanyVal, srSalesMap,
   };

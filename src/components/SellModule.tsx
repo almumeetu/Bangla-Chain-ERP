@@ -576,40 +576,42 @@ export default function SellModule({
   const handleUpdateCartons = useCallback((i: number, cartons: number) => {
     if (cartons < 0) return;
     setCart(p => {
-      const u = [...p];
-      const item = u[i];
+      const item = p[i];
       const newQty = getCartItemQtyInPrimaryUnit(cartons, item.pcs, item.product);
       if (newQty > item.product.currentStock) {
-        error(
+        // Schedule the toast outside the updater to avoid setState-in-render
+        setTimeout(() => error(
           language === 'bn' ? 'স্টক অপ্রতুল' : 'Insufficient Stock',
           language === 'bn'
-            ? `সর্বোচ্চ উপলব্ধ স্টক: ${item.product.currentStock} ${item.product.primaryUnit === 'Carton' ? 'কার্টন' : 'পিস'}` 
-            : `Maximum available: ${item.product.currentStock} ${item.product.primaryUnit === 'Carton' ? 'Ctn' : 'Pcs'}` 
-        );
+            ? `সর্বোচ্চ উপলব্ধ স্টক: ${item.product.currentStock} ${item.product.primaryUnit === 'Carton' ? 'কার্টন' : 'পিস'}`
+            : `Maximum available: ${item.product.currentStock} ${item.product.primaryUnit === 'Carton' ? 'Ctn' : 'Pcs'}`
+        ), 0);
       }
-      u[i].cartons = cartons;
+      const u = [...p];
+      u[i] = { ...u[i], cartons };
       return u;
     });
-  }, [getCartItemQtyInPrimaryUnit, language]);
+  }, [getCartItemQtyInPrimaryUnit, language, error]);
 
   const handleUpdatePcs = useCallback((i: number, pcs: number) => {
     if (pcs < 0) return;
     setCart(p => {
-      const u = [...p];
-      const item = u[i];
+      const item = p[i];
       const newQty = getCartItemQtyInPrimaryUnit(item.cartons, pcs, item.product);
       if (newQty > item.product.currentStock) {
-        error(
+        // Schedule the toast outside the updater to avoid setState-in-render
+        setTimeout(() => error(
           language === 'bn' ? 'স্টক অপ্রতুল' : 'Insufficient Stock',
           language === 'bn'
-            ? `সর্বোচ্চ উপলব্ধ স্টক: ${item.product.currentStock} ${item.product.primaryUnit === 'Carton' ? 'কার্টন' : 'পিস'}` 
-            : `Maximum available: ${item.product.currentStock} ${item.product.primaryUnit === 'Carton' ? 'Ctn' : 'Pcs'}` 
-        );
+            ? `সর্বোচ্চ উপলব্ধ স্টক: ${item.product.currentStock} ${item.product.primaryUnit === 'Carton' ? 'কার্টন' : 'পিস'}`
+            : `Maximum available: ${item.product.currentStock} ${item.product.primaryUnit === 'Carton' ? 'Ctn' : 'Pcs'}`
+        ), 0);
       }
-      u[i].pcs = pcs;
+      const u = [...p];
+      u[i] = { ...u[i], pcs };
       return u;
     });
-  }, [getCartItemQtyInPrimaryUnit, language]);
+  }, [getCartItemQtyInPrimaryUnit, language, error]);
 
   const handleUpdateSpec = useCallback((i: number, v: string) => {
     setCart(p => { const u = [...p]; u[i].selectedSpec = v; return u; });

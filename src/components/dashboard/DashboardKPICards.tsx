@@ -1,5 +1,5 @@
 import React from 'react';
-import { TrendingUp, ShoppingBag, DollarSign, Layers, AlertTriangle } from 'lucide-react';
+import { TrendingUp, ShoppingBag, DollarSign, Layers, AlertTriangle, Package } from 'lucide-react';
 import type { Language } from '../../translations';
 import { formatBDT } from './dashboardUtils';
 
@@ -7,6 +7,7 @@ interface DashboardKPICardsProps {
   language:             Language;
   netProfit:            number;
   totalSales:           number;
+  totalCOGS:            number;
   totalExpensesCost:    number;
   totalStockValue:      number;
   totalStockValueTP:    number;
@@ -32,7 +33,7 @@ interface KPIConfig {
 }
 
 export default function DashboardKPICards({
-  language, netProfit, totalSales, totalExpensesCost,
+  language, netProfit, totalSales, totalCOGS, totalExpensesCost,
   totalStockValue, totalStockValueTP, totalStockUnits, totalDamagedVal, totalDamagedValTP, totalDamagedQty,
   challanCount, expenseCount,
 }: DashboardKPICardsProps) {
@@ -47,7 +48,10 @@ export default function DashboardKPICards({
       iconClass:  'text-emerald-600',
       label:      bn ? 'মোট লাভ'    : 'Net Profit',
       value:      formatBDT(netProfit),
-      sub:        bn ? 'বিক্রয় − ক্রয় − খরচ' : 'Sales − Purchase − Expenses',
+      // Show: Sales - COGS - Expenses breakdown for transparency
+      sub:        bn
+        ? `বিক্রয় ${formatBDT(totalSales)} − পণ্যখরচ ${formatBDT(totalCOGS)} − ব্যয় ${formatBDT(totalExpensesCost)}`
+        : `Sales ${formatBDT(totalSales)} − COGS ${formatBDT(totalCOGS)} − Expenses ${formatBDT(totalExpensesCost)}`,
       valueClass: netProfit >= 0 ? 'text-emerald-700' : 'text-rose-600',
     },
     {
@@ -71,6 +75,16 @@ export default function DashboardKPICards({
       sub:        bn ? `${expenseCount}টি এন্ট্রি` : `${expenseCount} entries`,
     },
     {
+      gradient:   'bg-gradient-to-r from-violet-400 to-violet-600',
+      iconBg:     'bg-violet-50',
+      iconBorder: 'border-violet-100',
+      Icon:       Package,
+      iconClass:  'text-violet-600',
+      label:      bn ? 'পণ্যের ক্রয়খরচ' : 'Cost of Goods Sold',
+      value:      formatBDT(totalCOGS),
+      sub:        bn ? 'বিক্রীত পণ্যের মোট ক্রয়মূল্য' : 'Purchase cost of sold goods',
+    },
+    {
       gradient:   'bg-gradient-to-r from-indigo-400 to-indigo-600',
       iconBg:     'bg-indigo-50',
       iconBorder: 'border-indigo-100',
@@ -89,12 +103,11 @@ export default function DashboardKPICards({
       label:       bn ? 'মোট ড্যামেজ' : 'Damages',
       value:       formatBDT(totalDamagedVal),
       sub:         bn ? `DP: ${formatBDT(totalDamagedVal)} | TP: ${formatBDT(totalDamagedValTP)} (${totalDamagedQty}টি পণ্য)` : `DP: ${formatBDT(totalDamagedVal)} | TP: ${formatBDT(totalDamagedValTP)} (${totalDamagedQty} items)`,
-      extraClass:  'col-span-2 lg:col-span-1',
     },
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+    <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
       {cards.map(card => (
         <div
           key={card.label}
@@ -110,7 +123,7 @@ export default function DashboardKPICards({
           <p className={`text-lg font-black font-mono tracking-tight ${card.valueClass ?? 'text-slate-900'}`}>
             {card.value}
           </p>
-          <p className="text-[9px] text-slate-400 font-medium mt-1">{card.sub}</p>
+          <p className="text-[9px] text-slate-400 font-medium mt-1 leading-relaxed">{card.sub}</p>
         </div>
       ))}
     </div>

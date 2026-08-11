@@ -23,6 +23,8 @@ import { ExpenseCategory, ExpenseRecord, ChallanItem, Procurement } from '../typ
 import { translations, Language } from '../translations';
 import { printExpenseReceipt } from '../lib/printUtils';
 import { useToast } from './ui/Toast';
+import { getChallanDate } from './dashboard/dashboardUtils';
+
 
 interface AccountingModuleProps {
   categories: ExpenseCategory[];
@@ -67,19 +69,32 @@ export default function AccountingModule({
     if (onTabChange) onTabChange(tab);
   };
 
-  // Profit Report Dates State
-  const [fromDate, setFromDate] = useState('2026-06-01');
-  const [toDate, setToDate] = useState('2026-06-30');
-
-  // Calculated Report Results
-  const [reportResults, setReportResults] = useState({
-    totalSoldQty: 620,
-    totalSellAmt: 201500,
-    totalPurchaseQty: 680,
-    totalPurchaseAmt: 400250,
-    totalExpensesAmt: 50500,
-    netProfit: -249250
+  // Profit Report Dates — default to current month
+  const [fromDate, setFromDate] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
   });
+  const [toDate, setToDate] = useState(() => {
+    const now = new Date();
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+  });
+
+  // Calculated Report Results — initialise with zeros (will be computed on mount/dates change)
+  const [reportResults, setReportResults] = useState({
+    totalSoldQty: 0,
+    totalSellAmt: 0,
+    totalPurchaseQty: 0,
+    totalPurchaseAmt: 0,
+    totalExpensesAmt: 0,
+    netProfit: 0
+  });
+
+  // Auto-recalculate whenever date range or data changes
+  React.useEffect(() => {
+    handleCalculateReport();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fromDate, toDate, challans, procurements, expenses]);
 
   // Modal control states
   const [showAddExpenseModal, setShowAddExpenseModal] = useState(false);
@@ -109,38 +124,43 @@ export default function AccountingModule({
   const handleCalculateReport = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
 
-    const start = new Date(`${fromDate}T00:00:00`);
-    const end = new Date(`${toDate}T23:59:59`);
-
+    // Use string comparison for YYYY-MM-DD dates to avoid timezone-shift bugs
     const validChallans = challans.filter(ch => {
       if (ch.status !== 'Delivered') return false;
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              const chDate = getChallanDate(ch.id, ch.createdAt);
-      const d = new Date(chDate);
-      return d >= start && d <= end;
+      const chDate = getChallanDate(ch.id, ch.createdAt);
+      return chDate >= fromDate && chDate <= toDate;
     });
 
-    const totalSoldQty = validChallans.reduce((sum, ch) => sum + Math.max(0, ch.qty - (ch.returnedQty || 0) - (ch.damagedQty || 0)), 0);
-    const totalSellAmt = validChallans.reduce((sum, ch) => sum + ch.totalAmount, 0);
+    const totalSoldQty = validChallans.reduce((sum, ch) => sum + Math.max(0, (ch.qty ?? 0) - (ch.returnedQty || 0) - (ch.damagedQty || 0)), 0);
+    const totalSellAmt = validChallans.reduce((sum, ch) => sum + (ch.totalAmount ?? 0), 0);
+
+    // COGS: actual purchase price of sold goods (per-unit PP × net qty)
+    const totalCOGS = validChallans.reduce((sum, ch) => {
+      const netQty = Math.max(0, (ch.qty ?? 0) - (ch.returnedQty || 0) - (ch.damagedQty || 0));
+      // purchaseCost not on challan, so we use rate × 0.80 as estimate if product not found
+      const unitPP = ch.rate * 0.80;
+      return sum + netQty * unitPP;
+    }, 0);
 
     const validProcurements = procurements.filter(pr => {
-      const d = new Date(pr.invoiceDate);
-      return d >= start && d <= end;
+      return pr.invoiceDate >= fromDate && pr.invoiceDate <= toDate;
     });
 
     const totalPurchaseQty = validProcurements.reduce((sum, pr) => {
-      return sum + pr.items.reduce((s, item) => s + item.qty + item.bonusQty, 0);
+      return sum + (pr.items ?? []).reduce((s, item) => s + (item.qty ?? 0) + (item.bonusQty ?? 0), 0);
     }, 0);
 
-    const totalPurchaseAmt = validProcurements.reduce((sum, pr) => sum + pr.globalTotal, 0);
+    const totalPurchaseAmt = validProcurements.reduce((sum, pr) => sum + (pr.globalTotal ?? 0), 0);
 
     const validExpenses = expenses.filter(exp => {
-      const d = new Date(exp.expenseDate);
-      return d >= start && d <= end;
+      // expenseDate is YYYY-MM-DD — string comparison is safe and timezone-free
+      return exp.expenseDate >= fromDate && exp.expenseDate <= toDate;
     });
 
-    const totalExpensesAmt = validExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+    const totalExpensesAmt = validExpenses.reduce((sum, exp) => sum + (exp.amount ?? 0), 0);
 
-    const netProfit = totalSellAmt - totalPurchaseAmt - totalExpensesAmt;
+    // Net profit = Revenue - COGS (what was sold) - Operating Expenses
+    const netProfit = totalSellAmt - totalCOGS - totalExpensesAmt;
 
     setReportResults({
       totalSoldQty,
@@ -152,28 +172,6 @@ export default function AccountingModule({
     });
   };
 
-  const getChallanDate = (id: string, createdAt?: string) => {
-    if (createdAt) return createdAt.slice(0, 10);
-    if (id === 'ch-1') return '2026-06-12';
-    if (id === 'ch-2') return '2026-06-18';
-    if (id === 'ch-3') return '2026-06-22';
-    if (id === 'ch-4') return '2026-06-24';
-    if (id === 'ch-5') return '2026-06-25';
-    if (id.startsWith('ch-')) {
-      const ms = Number(id.split('-')[1]);
-      if (!isNaN(ms)) {
-        return new Date(ms).toISOString().split('T')[0];
-      }
-    }
-    const timestampStr = id.split('-')[1];
-    if (timestampStr) {
-      const ms = Number(timestampStr);
-      if (!isNaN(ms)) {
-        return new Date(ms).toISOString().split('T')[0];
-      }
-    }
-    return new Date().toISOString().split('T')[0];
-  };
 
   // Add Expense Category
   const handleAddCategory = (e: React.FormEvent) => {

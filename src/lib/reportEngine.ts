@@ -723,46 +723,69 @@ function genDamage(ctx: DocContext, opts: ReportOptions): void {
 
 function genProfit(ctx: DocContext, opts: ReportOptions): void {
   const TITLE    = 'PROFIT REPORT';
-  const SUBTITLE = 'Company-wise Profit Margin Analysis';
+  const SUBTITLE = 'Company-wise Profit & Net Margin Analysis';
   drawPageHeader(ctx, TITLE, SUBTITLE);
 
   const fch = getFilteredChallans(opts);
   const companies = Array.from(new Set(opts.products.map(p => p.company).filter(Boolean))).sort();
 
-  let grandRev = 0, grandCost = 0, grandProfit = 0;
+  // Total operating expenses for the selected period
+  const totalExpenses = opts.expenses
+    .filter(e => e.expenseDate >= opts.startDate && e.expenseDate <= opts.endDate)
+    .reduce((s, e) => s + (e.amount ?? 0), 0);
+
+  let grandRev = 0, grandCost = 0, grandGrossProfit = 0;
 
   const rows = companies
     .filter(co => !opts.filterCompany || opts.filterCompany === 'All' || co === opts.filterCompany)
     .map(co => {
       const cc   = fch.filter(ch => ch.company === co);
-      const rev  = cc.reduce((s, ch) => s + ch.totalAmount, 0);
+      const rev  = cc.reduce((s, ch) => s + (ch.totalAmount ?? 0), 0);
       const cost = cc.reduce((s, ch) => {
         const prod = opts.products.find(p => p.name === ch.productName);
-        const netQty = ch.qty - (ch.returnedQty || 0) - (ch.damagedQty || 0);
-        return s + (netQty * (prod?.defaultPP ?? ch.rate * 0.85));
+        const netQty = Math.max(0, (ch.qty ?? 0) - (ch.returnedQty || 0) - (ch.damagedQty || 0));
+        // Use actual purchase price from product; fallback to 80% of selling rate
+        return s + (netQty * (prod?.defaultPP ?? ch.rate * 0.80));
       }, 0);
-      const profit = rev - cost;
-      const margin = rev > 0 ? (profit / rev) * 100 : 0;
-      grandRev += rev; grandCost += cost; grandProfit += profit;
-      return { co, rev, cost, profit, margin };
+      const grossProfit = rev - cost;
+      const margin = rev > 0 ? (grossProfit / rev) * 100 : 0;
+      grandRev += rev; grandCost += cost; grandGrossProfit += grossProfit;
+      return { co, rev, cost, grossProfit, margin };
     });
 
+  // Net profit = Gross Profit − Operating Expenses
+  const grandNetProfit = grandGrossProfit - totalExpenses;
+
   drawKpiRow(ctx, [
-    { label: 'Total Revenue',    value: fmtTK(grandRev),    r: 99,  g: 102, b: 241 },
-    { label: 'Total Cost (DP)',  value: fmtTK(grandCost),   r: 245, g: 158, b: 11  },
-    { label: 'Net Profit',       value: fmtTK(grandProfit), r: 16,  g: 185, b: 129 },
-    { label: 'Avg Margin',       value: grandRev > 0 ? `${((grandProfit / grandRev) * 100).toFixed(1)}%` : '0%', r: 168, g: 85, b: 247 },
+    { label: 'Total Revenue',    value: fmtTK(grandRev),        r: 99,  g: 102, b: 241 },
+    { label: 'Total COGS',       value: fmtTK(grandCost),       r: 245, g: 158, b: 11  },
+    { label: 'Gross Profit',     value: fmtTK(grandGrossProfit),r: 16,  g: 185, b: 129 },
+    { label: 'Expenses',         value: fmtTK(totalExpenses),   r: 239, g: 68,  b: 68  },
+    { label: 'Net Profit',       value: fmtTK(grandNetProfit),  r: 168, g: 85,  b: 247 },
   ]);
+
+  // ── Expenses summary ────────────────────────────────────────────────────────
+  if (totalExpenses > 0) {
+    ctx.y += 4;
+    maybePageBreak(ctx, 20, TITLE, SUBTITLE);
+    drawSummaryBox(ctx, [
+      { label: 'Total Revenue (Sales)',    value: fmtTK(grandRev) },
+      { label: 'Total COGS (Sold Goods)',  value: fmtTK(grandCost) },
+      { label: 'Gross Profit',             value: fmtTK(grandGrossProfit), accent: true },
+      { label: 'Operating Expenses',       value: `- ${fmtTK(totalExpenses)}` },
+      { label: 'NET PROFIT',               value: fmtTK(grandNetProfit), accent: grandNetProfit >= 0 },
+    ]);
+  }
 
   // ── Summary table ──────────────────────────────────────────────────────────
   drawSectionHeading(ctx, 'Company Profit Summary');
   const sumCols: ColDef[] = [
-    { label: '#',          x: 15 },
-    { label: 'Company',    x: 22 },
-    { label: 'Revenue',    x: 100 },
-    { label: 'Cost (DP)',  x: 130 },
-    { label: 'Net Profit', x: 160 },
-    { label: 'Margin %',   x: 185 },
+    { label: '#',              x: 15 },
+    { label: 'Company',        x: 22 },
+    { label: 'Revenue',        x: 98 },
+    { label: 'Cost (COGS)',    x: 128 },
+    { label: 'Gross Profit',   x: 155 },
+    { label: 'Margin %',       x: 185 },
   ];
   drawTableHeader(ctx, sumCols);
 
@@ -773,14 +796,14 @@ function genProfit(ctx: DocContext, opts: ReportOptions): void {
       clamp(row.co, 32),
       fmtTK(row.rev),
       fmtTK(row.cost),
-      fmtTK(row.profit),
+      fmtTK(row.grossProfit),
       `${row.margin.toFixed(2)}%`,
     ], i % 2 === 0);
   });
   drawTotalRow(ctx, sumCols, [
     '', 'GRAND TOTAL',
-    fmtTK(grandRev), fmtTK(grandCost), fmtTK(grandProfit),
-    grandRev > 0 ? `${((grandProfit / grandRev) * 100).toFixed(2)}%` : '0%',
+    fmtTK(grandRev), fmtTK(grandCost), fmtTK(grandGrossProfit),
+    grandRev > 0 ? `${((grandGrossProfit / grandRev) * 100).toFixed(2)}%` : '0%',
   ]);
 
   // ── Per-company product breakdown ──────────────────────────────────────────
@@ -805,8 +828,8 @@ function genProfit(ctx: DocContext, opts: ReportOptions): void {
     pNames.forEach((pname, i) => {
       maybePageBreak(ctx, 8, TITLE, SUBTITLE);
       const pc    = coChallans.filter(ch => ch.productName === pname);
-      const rev   = pc.reduce((s, ch) => s + ch.totalAmount, 0);
-      const units = pc.reduce((s, ch) => s + ch.qty - (ch.returnedQty || 0) - (ch.damagedQty || 0), 0);
+      const rev   = pc.reduce((s, ch) => s + (ch.totalAmount ?? 0), 0);
+      const units = pc.reduce((s, ch) => s + Math.max(0, (ch.qty ?? 0) - (ch.returnedQty || 0) - (ch.damagedQty || 0)), 0);
       const prod  = opts.products.find(p => p.name === pname);
       const cost  = units * (prod?.defaultPP ?? 0);
       const pft   = rev - cost;
@@ -821,6 +844,7 @@ function genProfit(ctx: DocContext, opts: ReportOptions): void {
     ctx.y += 3;
   });
 }
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Generator: PRICE LIST  (was producing blank PDF — tab 'dp' was not handled)
