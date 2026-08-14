@@ -3,7 +3,8 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { Settings, ClipboardList, Users, Eye, EyeOff, Plus, Trash2, Check, Shield, KeyRound, UserCheck, Download, Upload, Database } from 'lucide-react';
 import { exportBackup, exportPartialBackup, importBackup } from '../lib/backupRestore';
-import { clearAllData } from '../lib/localStore';
+import { clearAllUserData } from '../lib/db';
+import { updatePassword } from '../lib/auth';
 import DirectoryModule from './DirectoryModule';
 import { SR } from '../types';
 import { useToast } from './ui/Toast';
@@ -73,9 +74,6 @@ export default function SettingsModule({
     setShopName(tempName);
     setShopSubBrand(tempSub);
     setShopLogo(tempLogo);
-    localStorage.setItem('erp_settings_shop_name', tempName);
-    localStorage.setItem('erp_settings_shop_subbrand', tempSub);
-    localStorage.setItem('erp_settings_shop_logo', tempLogo);
     success(language === 'bn' ? 'সেটিংস আপডেট' : 'Settings Updated', language === 'bn' ? 'ব্র্যান্ডিং তথ্য সফলভাবে আপডেট করা হয়েছে!' : 'Branding settings updated successfully.');
   };
 
@@ -90,14 +88,14 @@ export default function SettingsModule({
     }
   };
 
-  const handleResetDatabase = () => {
+  const handleResetDatabase = async () => {
     const message = language === 'bn'
       ? 'এই কাজটি সব পণ্য, কোম্পানি, এসআর, বিক্রয়, স্টক, খরচ এবং অন্যান্য ব্যবসায়িক ডেটা মুছে দিবে। আপনি কি সত্যি নতুনভাবে শুরু করতে চান?'
       : 'This will remove all products, companies, SRs, sales, stock, expenses, and other business data. Do you want to start fresh?';
 
     if (!confirm(message)) return;
 
-    clearAllData();
+    await clearAllUserData();
     sessionStorage.removeItem('erp_sr_id');
     sessionStorage.removeItem('erp_sr_name');
     localStorage.removeItem('erp_auth_role');
@@ -122,18 +120,16 @@ export default function SettingsModule({
     setAdminPwError('');
     setAdminPwSuccess(false);
 
-    // Verify current password
-    const currentPw = adminCurrentPassword.trim();
     const newPw = adminNewPassword.trim();
     const confirmPw = adminConfirmPassword.trim();
 
-    if (!currentPw || !newPw || !confirmPw) {
+    if (!newPw || !confirmPw) {
       setAdminPwError(language === 'bn' ? 'সব ফিল্ড পূরণ করুন।' : 'Please fill all fields.');
       return;
     }
 
-    if (newPw.length < 3) {
-      setAdminPwError(language === 'bn' ? 'নতুন পাসওয়ার্ড কমপক্ষে ৩ অক্ষর হতে হবে।' : 'New password must be at least 3 characters.');
+    if (newPw.length < 6) {
+      setAdminPwError(language === 'bn' ? 'নতুন পাসওয়ার্ড কমপক্ষে ৬ অক্ষর হতে হবে।' : 'New password must be at least 6 characters.');
       return;
     }
 
@@ -142,52 +138,18 @@ export default function SettingsModule({
       return;
     }
 
-    // Get current admin credentials
-    const loggedEmail = localStorage.getItem('erp_user_email') || 'admin';
-    const isDefault = (loggedEmail === 'admin' || loggedEmail === 'admin@samir.com');
-
-    let verified = false;
-
-    if (isDefault && (currentPw === 'admin')) {
-      verified = true;
-    }
-
-    if (!verified) {
-      try {
-        const saved = localStorage.getItem('erp_admins');
-        if (saved) {
-          const admins = JSON.parse(saved);
-          const found = admins.find((a: any) =>
-            a.email?.toLowerCase() === loggedEmail.toLowerCase() && a.password === currentPw
-          );
-          if (found) verified = true;
-        }
-      } catch (e) {}
-    }
-
-    if (!verified) {
-      setAdminPwError(language === 'bn' ? 'বর্তমান পাসওয়ার্ড সঠিক নয়।' : 'Current password is incorrect.');
-      return;
-    }
-
-    // Save new password
-    try {
-      const saved = localStorage.getItem('erp_admins');
-      const admins = saved ? JSON.parse(saved) : [];
-      // Remove old entry for this email and add/update with new password
-      const filtered = admins.filter((a: any) => a.email?.toLowerCase() !== loggedEmail.toLowerCase());
-      filtered.push({ email: loggedEmail, password: newPw });
-      localStorage.setItem('erp_admins', JSON.stringify(filtered));
-
+    updatePassword(newPw).then(({ error: pwError }) => {
+      if (pwError) {
+        setAdminPwError(pwError.message);
+        return;
+      }
       setAdminCurrentPassword('');
       setAdminNewPassword('');
       setAdminConfirmPassword('');
       setAdminPwSuccess(true);
       setTimeout(() => setAdminPwSuccess(false), 3000);
-    } catch (e) {
-      setAdminPwError(language === 'bn' ? 'সংরক্ষণে সমস্যা হয়েছে।' : 'Failed to save. Please try again.');
-    }
-  }, [adminCurrentPassword, adminNewPassword, adminConfirmPassword, language]);
+    });
+  }, [adminNewPassword, adminConfirmPassword, language]);
 
   // ─── SR: start inline edit ────────────────────────────────────
   const handleStartSrEdit = (sr: SR) => {

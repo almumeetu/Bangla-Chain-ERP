@@ -184,6 +184,21 @@ export const db = {
 
   /** Customers */
   customers: makeTable<Tables['customers']['Row'], Tables['customers']['Insert']>('customers'),
+
+  /** Claims */
+  claims: makeTable<Tables['claims']['Row'], Tables['claims']['Insert']>('claims'),
+
+  /** Claim Settlements */
+  claimSettlements: makeTable<
+    Tables['claim_settlements']['Row'],
+    Tables['claim_settlements']['Insert']
+  >('claim_settlements'),
+
+  /** Claim Reasons */
+  claimReasons: makeTable<
+    Tables['claim_reasons']['Row'],
+    Tables['claim_reasons']['Insert']
+  >('claim_reasons'),
 };
 
 // ── SR Login (username/password — not Supabase Auth) ──────────────────────────

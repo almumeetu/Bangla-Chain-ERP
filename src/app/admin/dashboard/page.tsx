@@ -23,6 +23,7 @@ import { generatePDF, type PDFView }    from '../../../lib/generatePDF';
 import { useErpData }                   from './useErpData';
 import { supabase }                     from '../../../lib/supabase';
 import { signOut }                      from '../../../lib/auth';
+import DataSyncBanner                  from '../../../components/DataSyncBanner';
 
 // ── App ────────────────────────────────────────────────────────────────────────
 
@@ -557,6 +558,7 @@ export default function App() {
 
         <main className="flex-1 overflow-y-auto overflow-x-hidden">
           <div className="p-3 sm:p-4 md:p-6 lg:p-8 max-w-7xl mx-auto w-full space-y-4 sm:space-y-6">
+            <DataSyncBanner language={language} />
             {renderModule()}
           </div>
         </main>

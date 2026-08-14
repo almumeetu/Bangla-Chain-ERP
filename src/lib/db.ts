@@ -49,7 +49,13 @@ function mapSR(row: Awaited<ReturnType<typeof db.srs.getAll>>[number]): SR {
 }
 
 function mapDeliveryMan(row: Awaited<ReturnType<typeof db.deliveryMen.getAll>>[number]): DeliveryMan {
-  return { id: row.id, name: row.name, vehicle: row.vehicle } as DeliveryMan;
+  return {
+    id: row.id,
+    name: row.name,
+    vehicle: row.vehicle,
+    phone: row.phone ?? '',
+    assignedCompanyIds: row.assigned_company_ids ?? [],
+  } as DeliveryMan;
 }
 
 function mapCompany(row: Awaited<ReturnType<typeof db.companies.getAll>>[number]): CompanyBrand {
@@ -67,7 +73,12 @@ function mapCategory(row: Awaited<ReturnType<typeof db.productCategories.getAll>
 }
 
 function mapUnit(row: Awaited<ReturnType<typeof db.units.getAll>>[number]): UnitOfMeasure {
-  return { id: row.id, name: row.name, multiplier: Number(row.multiplier) } as UnitOfMeasure;
+  return {
+    id: row.id,
+    name: row.name,
+    symbol: row.symbol ?? 'PCS',
+    multiplier: Number(row.multiplier),
+  } as UnitOfMeasure;
 }
 
 function mapGodown(row: Awaited<ReturnType<typeof db.godowns.getAll>>[number]): Godown {
@@ -81,11 +92,12 @@ function mapGodown(row: Awaited<ReturnType<typeof db.godowns.getAll>>[number]): 
 
 function mapRoute(row: Awaited<ReturnType<typeof db.routes.getAll>>[number]): Route {
   return {
-    id:           row.id,
-    name:         row.name,
-    area:         row.area,
-    territory:    row.territory,
-    assignedSRId: row.assigned_sr_id ?? '',
+    id:                    row.id,
+    name:                  row.name,
+    area:                  row.area,
+    territory:             row.territory,
+    assignedSRId:          row.assigned_sr_id ?? '',
+    assignedDeliveryManId: row.assigned_delivery_man_id ?? '',
   } as Route;
 }
 
@@ -100,46 +112,59 @@ function mapAttribute(row: Awaited<ReturnType<typeof db.productAttributes.getAll
 }
 
 function mapProduct(row: Awaited<ReturnType<typeof db.products.getAll>>[number]): Product {
-  // Product has extra required fields (cartonSize, pricePerCarton, etc.)
-  // that are not in Supabase schema — set safe defaults.
   return {
-    id:              row.id,
-    name:            row.name,
-    sku:             row.sku,
-    company:         row.company,
-    createdAt:       row.created_at ?? new Date().toISOString(),
-    categoryId:      row.category_id ?? '',
-    defaultGodownId: row.default_godown_id ?? '',
-    defaultPP:       Number(row.default_pp),
-    defaultMRP:      Number(row.default_mrp),
-    defaultWSP:      Number(row.default_wsp),
-    currentStock:    Number(row.current_stock),
-    damagedStock:    Number(row.damaged_stock),
-    cartonSize:      0,
-    pricePerCarton:  0,
-    pricePerPiece:   0,
+    id:                  row.id,
+    name:                row.name,
+    sku:                 row.sku,
+    company:             row.company,
+    createdAt:           row.created_at ?? new Date().toISOString(),
+    categoryId:          row.category_id ?? '',
+    defaultGodownId:     row.default_godown_id ?? '',
+    defaultPP:           Number(row.default_pp),
+    defaultMRP:          Number(row.default_mrp),
+    defaultWSP:          Number(row.default_wsp),
+    currentStock:        Number(row.current_stock),
+    damagedStock:        Number(row.damaged_stock),
+    cartonSize:          Number(row.carton_size),
+    pricePerCarton:      Number(row.price_per_carton),
+    pricePerPiece:       Number(row.price_per_piece),
+    primaryUnit:         (row.primary_unit || 'Piece') as 'Piece' | 'Carton',
+    stockAlertThreshold: Number(row.stock_alert_threshold),
+    customUnits:         (row.custom_units as any) ?? [],
+    damageHistory:       (row.damage_history as any) ?? [],
   } as unknown as Product;
 }
 
 function mapChallan(row: Awaited<ReturnType<typeof db.challans.getAll>>[number]): ChallanItem {
   return {
-    id:               row.id,
-    productName:      row.product_name,
-    company:          row.company,
-    attribute:        row.attribute,
-    qty:              Number(row.qty),
-    bonusQty:         Number(row.bonus_qty),
-    totalQty:         Number(row.total_qty),
-    rate:             Number(row.rate),
-    totalAmount:      Number(row.total_amount),
-    srName:           row.sr_name,
-    routeName:        row.route_name,
-    deliveryManName:  row.delivery_man_name,
-    status:           row.status,
-    returnedQty:      Number(row.returned_qty),
-    damagedQty:       Number(row.damaged_qty),
-    commissionAmount: Number(row.commission_amount),
-    createdAt:        row.created_at ?? '',
+    id:                 row.id,
+    productName:        row.product_name,
+    company:            row.company,
+    attribute:          row.attribute,
+    qty:                Number(row.qty),
+    bonusQty:           Number(row.bonus_qty),
+    totalQty:           Number(row.total_qty),
+    rate:               Number(row.rate),
+    totalAmount:        Number(row.total_amount),
+    srName:             row.sr_name,
+    routeName:          row.route_name,
+    deliveryManName:    row.delivery_man_name,
+    status:             row.status as 'Pending' | 'Shipped' | 'Delivered',
+    returnedQty:        Number(row.returned_qty),
+    damagedQty:         Number(row.damaged_qty),
+    commissionAmount:   Number(row.commission_amount),
+    createdAt:          row.created_at ?? '',
+    customerId:         row.customer_id ?? '',
+    customerName:       row.customer_name ?? '',
+    returnedCartons:    Number(row.returned_cartons ?? 0),
+    returnedPcs:        Number(row.returned_pcs ?? 0),
+    damagedCartons:     Number(row.damaged_cartons ?? 0),
+    damagedPcs:         Number(row.damaged_pcs ?? 0),
+    extraProfitAmount:  Number(row.extra_profit_amount ?? 0),
+    selectedUnitName:   row.selected_unit_name ?? 'Piece',
+    srCommissionType:   (row.sr_commission_type || 'Percentage') as 'Percentage' | 'Fixed',
+    srCommissionValue:  Number(row.sr_commission_value ?? 0),
+    srCommissionAmount: Number(row.sr_commission_amount ?? 0),
   } as ChallanItem;
 }
 
@@ -193,10 +218,16 @@ function mapExpense(row: Awaited<ReturnType<typeof db.expenses.getAll>>[number])
 
 function mapCustomer(row: Awaited<ReturnType<typeof db.customers.getAll>>[number]): Customer {
   return {
-    id:      row.id,
-    name:    row.name,
-    phone:   row.phone ?? '',
-    address: row.address ?? '',
+    id:          row.id,
+    name:        row.name,
+    phone:       row.phone ?? '',
+    address:     row.address ?? '',
+    market:      row.market ?? '',
+    assignedSR:  row.assigned_sr ?? '',
+    routeId:     row.route_id ?? '',
+    creditLimit: Number(row.credit_limit ?? 0),
+    creditDays:  Number(row.credit_days ?? 30),
+    due:         Number(row.due ?? 0),
   } as Customer;
 }
 
@@ -241,10 +272,12 @@ export async function findSRByCredentials(username: string, password: string): P
 export async function upsertDeliveryMan(dm: DeliveryMan): Promise<void> {
   const ownerId = await getOwnerId();
   await db.deliveryMen.upsert({
-    id:       dm.id,
-    owner_id: ownerId,
-    name:     dm.name,
-    vehicle:  dm.vehicle ?? '',
+    id:                   dm.id,
+    owner_id:             ownerId,
+    name:                 dm.name,
+    vehicle:              dm.vehicle ?? '',
+    phone:                dm.phone ?? '',
+    assigned_company_ids: dm.assignedCompanyIds ?? [],
   });
 }
 export async function deleteDeliveryMan(id: string): Promise<void> {
@@ -291,6 +324,7 @@ export async function upsertUnit(u: UnitOfMeasure): Promise<void> {
     id:         u.id,
     owner_id:   ownerId,
     name:       u.name,
+    symbol:     u.symbol ?? 'PCS',
     multiplier: u.multiplier ?? 1,
   });
 }
@@ -319,12 +353,13 @@ export async function deleteGodown(id: string): Promise<void> {
 export async function upsertRoute(r: Route): Promise<void> {
   const ownerId = await getOwnerId();
   await db.routes.upsert({
-    id:             r.id,
-    owner_id:       ownerId,
-    name:           r.name,
-    area:           r.area ?? '',
-    territory:      r.territory ?? '',
-    assigned_sr_id: r.assignedSRId ?? null,
+    id:                       r.id,
+    owner_id:                 ownerId,
+    name:                     r.name,
+    area:                     r.area ?? '',
+    territory:                r.territory ?? '',
+    assigned_sr_id:           r.assignedSRId ?? null,
+    assigned_delivery_man_id: r.assignedDeliveryManId ?? null,
   });
 }
 export async function deleteRoute(id: string): Promise<void> {
@@ -353,19 +388,26 @@ export async function deleteAttribute(id: string): Promise<void> {
 export async function upsertProduct(p: Product): Promise<void> {
   const ownerId = await getOwnerId();
   await db.products.upsert({
-    id:                p.id,
-    owner_id:          ownerId,
-    name:              p.name,
-    sku:               p.sku ?? '',
-    company:           p.company ?? '',
-    category_id:       p.categoryId ?? null,
-    uom_id:            null,
-    default_godown_id: p.defaultGodownId ?? null,
-    default_pp:        p.defaultPP ?? 0,
-    default_mrp:       p.defaultMRP ?? 0,
-    default_wsp:       p.defaultWSP ?? 0,
-    current_stock:     p.currentStock ?? 0,
-    damaged_stock:     p.damagedStock ?? 0,
+    id:                    p.id,
+    owner_id:              ownerId,
+    name:                  p.name,
+    sku:                   p.sku ?? '',
+    company:               p.company ?? '',
+    category_id:           p.categoryId ?? null,
+    uom_id:                null,
+    default_godown_id:     p.defaultGodownId ?? null,
+    default_pp:            p.defaultPP ?? 0,
+    default_mrp:           p.defaultMRP ?? 0,
+    default_wsp:           p.defaultWSP ?? 0,
+    current_stock:         p.currentStock ?? 0,
+    damaged_stock:         p.damagedStock ?? 0,
+    carton_size:           p.cartonSize ?? 1,
+    price_per_carton:      p.pricePerCarton ?? 0,
+    price_per_piece:       p.pricePerPiece ?? 0,
+    primary_unit:          p.primaryUnit ?? 'Piece',
+    stock_alert_threshold: p.stockAlertThreshold ?? 10,
+    custom_units:          (p.customUnits as any) ?? [],
+    damage_history:        (p.damageHistory as any) ?? [],
   });
 }
 export async function deleteProduct(id: string): Promise<void> {
@@ -377,23 +419,34 @@ export async function deleteProduct(id: string): Promise<void> {
 export async function upsertChallan(c: ChallanItem): Promise<void> {
   const ownerId = await getOwnerId();
   await db.challans.upsert({
-    id:                c.id,
-    owner_id:          ownerId,
-    product_name:      c.productName ?? '',
-    company:           c.company ?? '',
-    attribute:         c.attribute ?? '',
-    qty:               c.qty ?? 0,
-    bonus_qty:         c.bonusQty ?? 0,
-    total_qty:         c.totalQty ?? 0,
-    rate:              c.rate ?? 0,
-    total_amount:      c.totalAmount ?? 0,
-    sr_name:           c.srName ?? '',
-    route_name:        c.routeName ?? '',
-    delivery_man_name: c.deliveryManName ?? '',
-    status:            c.status ?? 'Pending',
-    returned_qty:      c.returnedQty ?? 0,
-    damaged_qty:       c.damagedQty ?? 0,
-    commission_amount: c.commissionAmount ?? 0,
+    id:                    c.id,
+    owner_id:              ownerId,
+    product_name:          c.productName ?? '',
+    company:               c.company ?? '',
+    attribute:             c.attribute ?? '',
+    qty:                   c.qty ?? 0,
+    bonus_qty:             c.bonusQty ?? 0,
+    total_qty:             c.totalQty ?? 0,
+    rate:                  c.rate ?? 0,
+    total_amount:          c.totalAmount ?? 0,
+    sr_name:               c.srName ?? '',
+    route_name:            c.routeName ?? '',
+    delivery_man_name:     c.deliveryManName ?? '',
+    status:                c.status ?? 'Pending',
+    returned_qty:          c.returnedQty ?? 0,
+    damaged_qty:           c.damagedQty ?? 0,
+    commission_amount:     c.commissionAmount ?? 0,
+    customer_id:           c.customerId ?? null,
+    customer_name:         c.customerName ?? null,
+    returned_cartons:      c.returnedCartons ?? 0,
+    returned_pcs:          c.returnedPcs ?? 0,
+    damaged_cartons:       c.damagedCartons ?? 0,
+    damaged_pcs:           c.damagedPcs ?? 0,
+    extra_profit_amount:   c.extraProfitAmount ?? 0,
+    selected_unit_name:    c.selectedUnitName ?? 'Piece',
+    sr_commission_type:    c.srCommissionType ?? 'Percentage',
+    sr_commission_value:   c.srCommissionValue ?? 0,
+    sr_commission_amount:  c.srCommissionAmount ?? 0,
   });
 }
 export async function deleteChallan(id: string): Promise<void> {
@@ -478,11 +531,17 @@ export async function deleteExpense(id: string): Promise<void> {
 export async function upsertCustomer(c: Customer): Promise<void> {
   const ownerId = await getOwnerId();
   await db.customers.upsert({
-    id:       c.id,
-    owner_id: ownerId,
-    name:     c.name ?? '',
-    phone:    c.phone ?? '',
-    address:  c.address ?? '',
+    id:            c.id,
+    owner_id:      ownerId,
+    name:          c.name ?? '',
+    phone:         c.phone ?? '',
+    address:       c.address ?? '',
+    market:        c.market ?? '',
+    assigned_sr:   c.assignedSR ?? '',
+    route_id:      c.routeId ?? null,
+    credit_limit:  c.creditLimit ?? 0,
+    credit_days:   c.creditDays ?? 30,
+    due:           c.due ?? 0,
   });
 }
 export async function deleteCustomer(id: string): Promise<void> {
@@ -490,47 +549,105 @@ export async function deleteCustomer(id: string): Promise<void> {
 }
 
 // ── Claims ────────────────────────────────────────────────────────────────────
-// Claims/ClaimReasons/ClaimSettlements are not yet in the Supabase schema.
-// They continue to use localStorage for now and can be migrated later.
 
-import {
-  getClaims,       saveClaims,
-  getClaimReasons, saveClaimReasons,
-  getClaimSettlements, saveClaimSettlements,
-} from './localStore';
-
-function upsertLocalItem<T extends { id: string }>(
-  getAll: () => T[], saveAll: (items: T[]) => void, item: T
-): Promise<void> {
-  const current = getAll();
-  const idx     = current.findIndex(i => i.id === item.id);
-  saveAll(idx >= 0 ? current.map(i => i.id === item.id ? item : i) : [...current, item]);
-  return Promise.resolve();
+function mapClaim(row: any): Claim {
+  return {
+    id:          row.id,
+    claimDate:   row.claim_date,
+    companyId:   row.company_id,
+    companyName: row.company_name,
+    srId:        row.sr_id,
+    srName:      row.sr_name,
+    productId:   row.product_id,
+    productName: row.product_name,
+    qty:         Number(row.qty),
+    reason:      row.reason,
+    notes:       row.notes ?? '',
+    status:      row.status,
+    type:        row.type as 'Claim' | 'Display',
+    claimValue:  Number(row.claim_value),
+  } as Claim;
 }
-function deleteLocalItem<T extends { id: string }>(
-  getAll: () => T[], saveAll: (items: T[]) => void, id: string
-): Promise<void> {
-  saveAll(getAll().filter(i => i.id !== id));
-  return Promise.resolve();
+
+function mapClaimSettlement(row: any): ClaimSettlement {
+  return {
+    id:             row.id,
+    settlementDate: row.settlement_date,
+    monthKey:       row.month_key,
+    companyId:      row.company_id,
+    companyName:    row.company_name,
+    amount:         Number(row.amount),
+    paymentMode:    row.payment_mode,
+    referenceNo:    row.reference_no,
+    notes:          row.notes ?? '',
+    recordedAt:     row.recorded_at,
+  } as ClaimSettlement;
+}
+
+function mapClaimReason(row: any): ClaimReason {
+  return {
+    id:    row.id,
+    label: row.label,
+  } as ClaimReason;
 }
 
 export async function upsertClaim(c: Claim): Promise<void> {
-  return upsertLocalItem(getClaims, saveClaims, c);
+  const ownerId = await getOwnerId();
+  await db.claims.upsert({
+    id:           c.id,
+    owner_id:     ownerId,
+    claim_date:   c.claimDate,
+    company_id:   c.companyId,
+    company_name: c.companyName,
+    sr_id:        c.srId,
+    sr_name:      c.srName,
+    product_id:   c.productId,
+    product_name: c.productName,
+    qty:          c.qty,
+    reason:       c.reason,
+    notes:        c.notes || '',
+    status:       c.status,
+    type:         c.type || 'Claim',
+    claim_value:  c.claimValue || 0,
+  });
 }
+
 export async function deleteClaim(id: string): Promise<void> {
-  return deleteLocalItem(getClaims, saveClaims, id);
+  await db.claims.delete(id);
 }
+
 export async function upsertClaimReason(r: ClaimReason): Promise<void> {
-  return upsertLocalItem(getClaimReasons, saveClaimReasons, r);
+  const ownerId = await getOwnerId();
+  await db.claimReasons.upsert({
+    id:       r.id,
+    owner_id: ownerId,
+    label:    r.label,
+  });
 }
+
 export async function deleteClaimReason(id: string): Promise<void> {
-  return deleteLocalItem(getClaimReasons, saveClaimReasons, id);
+  await db.claimReasons.delete(id);
 }
+
 export async function upsertClaimSettlement(cs: ClaimSettlement): Promise<void> {
-  return upsertLocalItem(getClaimSettlements, saveClaimSettlements, cs);
+  const ownerId = await getOwnerId();
+  await db.claimSettlements.upsert({
+    id:              cs.id,
+    owner_id:        ownerId,
+    settlement_date: cs.settlementDate,
+    month_key:       cs.monthKey,
+    company_id:      cs.companyId,
+    company_name:    cs.companyName,
+    amount:          cs.amount,
+    payment_mode:    cs.paymentMode,
+    reference_no:    cs.referenceNo || '',
+    notes:           cs.notes || '',
+    recorded_at:     cs.recordedAt,
+  });
 }
+
 export async function deleteClaimSettlement(id: string): Promise<void> {
-  return deleteLocalItem(getClaimSettlements, saveClaimSettlements, id);
+  await db.claimSettlements.delete(id);
 }
 
 // ── Load all data ─────────────────────────────────────────────────────────────
@@ -541,6 +658,7 @@ export async function loadAllData(): Promise<AllErpData> {
     sbProducts, sbSRs, sbDeliveryMen, sbCustomers, sbAttributes,
     sbChallans, sbProcurements, sbAdjustments, sbExpCats, sbExpenses,
     sbCompanies, sbProdCats, sbUnits, sbGodowns, sbRoutes,
+    sbClaims, sbClaimSettlements, sbClaimReasons,
   ] = await Promise.all([
     db.products.getAll(),
     db.srs.getAll(),
@@ -557,6 +675,9 @@ export async function loadAllData(): Promise<AllErpData> {
     db.units.getAll(),
     db.godowns.getAll(),
     db.routes.getAll(),
+    db.claims.getAll(),
+    db.claimSettlements.getAll(),
+    db.claimReasons.getAll(),
   ]);
 
   // Fetch settings (single row)
@@ -585,10 +706,10 @@ export async function loadAllData(): Promise<AllErpData> {
           shopLogo:     sbSettings.shop_logo ?? '',
           language:     sbSettings.language,
         }
-      : { shopName: 'Samir Enterprise', shopSubBrand: 'Dhaka & Chittagong Regional Hub', shopLogo: '', language: 'en' },
-    claims:           getClaims(),
-    claimReasons:     getClaimReasons(),
-    claimSettlements: getClaimSettlements(),
+      : { shopName: 'Samir Enterprise', shopSubBrand: 'Dhaka & Chittagong Regional Hub', shopLogo: '', language: 'bn' },
+    claims:           sbClaims.map(mapClaim),
+    claimSettlements: sbClaimSettlements.map(mapClaimSettlement),
+    claimReasons:     sbClaimReasons.map(mapClaimReason),
   };
 }
 
@@ -600,4 +721,24 @@ export function seedInitialData(): void {
   // No-op: data lives in Supabase, not localStorage.
   // Run /supabase/schema.sql in the Supabase SQL Editor to initialize tables.
   console.info('[db] seedInitialData: skipped (Supabase mode — data managed server-side)');
+}
+
+export async function clearAllUserData(): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+  const ownerId = user.id;
+
+  const tables = [
+    'challans', 'procurements', 'stock_adjustments', 'expenses', 
+    'products', 'routes', 'srs', 'delivery_men', 'companies', 
+    'product_categories', 'units', 'godowns', 'product_attributes', 
+    'expense_categories', 'customers', 'settings',
+    'claims', 'claim_settlements', 'claim_reasons'
+  ];
+
+  await Promise.all(
+    tables.map(table => 
+      supabase.from(table).delete().eq('owner_id', ownerId)
+    )
+  );
 }

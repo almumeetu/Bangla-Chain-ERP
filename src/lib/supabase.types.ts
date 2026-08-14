@@ -73,6 +73,8 @@ export interface Database {
           owner_id: string;
           name: string;
           vehicle: string;
+          phone: string | null;
+          assigned_company_ids: string[] | null;
           created_at: string | null;
         };
         Insert: {
@@ -80,6 +82,8 @@ export interface Database {
           owner_id: string;
           name: string;
           vehicle?: string;
+          phone?: string | null;
+          assigned_company_ids?: string[] | null;
           created_at?: string | null;
         };
         Update: Partial<Database['public']['Tables']['delivery_men']['Insert']>;
@@ -130,6 +134,7 @@ export interface Database {
           id: string;
           owner_id: string;
           name: string;
+          symbol: string | null;
           multiplier: number;
           created_at: string | null;
         };
@@ -137,6 +142,7 @@ export interface Database {
           id: string;
           owner_id: string;
           name: string;
+          symbol?: string | null;
           multiplier?: number;
           created_at?: string | null;
         };
@@ -171,6 +177,7 @@ export interface Database {
           area: string;
           territory: string;
           assigned_sr_id: string | null;
+          assigned_delivery_man_id: string | null;
           created_at: string | null;
         };
         Insert: {
@@ -180,6 +187,7 @@ export interface Database {
           area?: string;
           territory?: string;
           assigned_sr_id?: string | null;
+          assigned_delivery_man_id?: string | null;
           created_at?: string | null;
         };
         Update: Partial<Database['public']['Tables']['routes']['Insert']>;
@@ -222,6 +230,13 @@ export interface Database {
           default_wsp: number;
           current_stock: number;
           damaged_stock: number;
+          custom_units: Json | null;
+          damage_history: Json | null;
+          carton_size: number;
+          price_per_carton: number;
+          price_per_piece: number;
+          primary_unit: string;
+          stock_alert_threshold: number;
           created_at: string | null;
         };
         Insert: {
@@ -238,6 +253,13 @@ export interface Database {
           default_wsp?: number;
           current_stock?: number;
           damaged_stock?: number;
+          custom_units?: Json | null;
+          damage_history?: Json | null;
+          carton_size?: number;
+          price_per_carton?: number;
+          price_per_piece?: number;
+          primary_unit?: string;
+          stock_alert_threshold?: number;
           created_at?: string | null;
         };
         Update: Partial<Database['public']['Tables']['products']['Insert']>;
@@ -262,6 +284,17 @@ export interface Database {
           returned_qty: number;
           damaged_qty: number;
           commission_amount: number;
+          customer_id: string | null;
+          customer_name: string | null;
+          returned_cartons: number | null;
+          returned_pcs: number | null;
+          damaged_cartons: number | null;
+          damaged_pcs: number | null;
+          extra_profit_amount: number | null;
+          selected_unit_name: string | null;
+          sr_commission_type: string | null;
+          sr_commission_value: number | null;
+          sr_commission_amount: number | null;
           created_at: string | null;
         };
         Insert: {
@@ -282,6 +315,17 @@ export interface Database {
           returned_qty?: number;
           damaged_qty?: number;
           commission_amount?: number;
+          customer_id?: string | null;
+          customer_name?: string | null;
+          returned_cartons?: number | null;
+          returned_pcs?: number | null;
+          damaged_cartons?: number | null;
+          damaged_pcs?: number | null;
+          extra_profit_amount?: number | null;
+          selected_unit_name?: string | null;
+          sr_commission_type?: string | null;
+          sr_commission_value?: number | null;
+          sr_commission_amount?: number | null;
           created_at?: string | null;
         };
         Update: Partial<Database['public']['Tables']['challans']['Insert']>;
@@ -432,6 +476,12 @@ export interface Database {
           name: string;
           phone: string | null;
           address: string | null;
+          market: string | null;
+          assigned_sr: string | null;
+          route_id: string | null;
+          credit_limit: number | null;
+          credit_days: number | null;
+          due: number | null;
           created_at: string | null;
         };
         Insert: {
@@ -440,9 +490,103 @@ export interface Database {
           name?: string;
           phone?: string | null;
           address?: string | null;
+          market?: string | null;
+          assigned_sr?: string | null;
+          route_id?: string | null;
+          credit_limit?: number | null;
+          credit_days?: number | null;
+          due?: number | null;
           created_at?: string | null;
         };
         Update: Partial<Database['public']['Tables']['customers']['Insert']>;
+      };
+
+      claims: {
+        Row: {
+          id: string;
+          owner_id: string;
+          claim_date: string;
+          company_id: string;
+          company_name: string;
+          sr_id: string;
+          sr_name: string;
+          product_id: string;
+          product_name: string;
+          qty: number;
+          reason: string;
+          notes: string | null;
+          status: string;
+          type: string;
+          claim_value: number;
+          created_at: string | null;
+        };
+        Insert: {
+          id: string;
+          owner_id: string;
+          claim_date: string;
+          company_id: string;
+          company_name: string;
+          sr_id: string;
+          sr_name: string;
+          product_id: string;
+          product_name: string;
+          qty?: number;
+          reason?: string;
+          notes?: string | null;
+          status?: string;
+          type?: string;
+          claim_value?: number;
+          created_at?: string | null;
+        };
+        Update: Partial<Database['public']['Tables']['claims']['Insert']>;
+      };
+
+      claim_settlements: {
+        Row: {
+          id: string;
+          owner_id: string;
+          settlement_date: string;
+          month_key: string;
+          company_id: string;
+          company_name: string;
+          amount: number;
+          payment_mode: string;
+          reference_no: string;
+          notes: string | null;
+          recorded_at: string;
+          created_at: string | null;
+        };
+        Insert: {
+          id: string;
+          owner_id: string;
+          settlement_date: string;
+          month_key: string;
+          company_id: string;
+          company_name: string;
+          amount?: number;
+          payment_mode: string;
+          reference_no?: string;
+          notes?: string | null;
+          recorded_at: string;
+          created_at?: string | null;
+        };
+        Update: Partial<Database['public']['Tables']['claim_settlements']['Insert']>;
+      };
+
+      claim_reasons: {
+        Row: {
+          id: string;
+          owner_id: string;
+          label: string;
+          created_at: string | null;
+        };
+        Insert: {
+          id: string;
+          owner_id: string;
+          label: string;
+          created_at?: string | null;
+        };
+        Update: Partial<Database['public']['Tables']['claim_reasons']['Insert']>;
       };
     };
 
