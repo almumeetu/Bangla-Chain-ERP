@@ -693,6 +693,7 @@ export default function DirectoryModule({
   const [shopName, setShopName] = useState('');
   const [shopMarket, setShopMarket] = useState('');
   const [shopPhone, setShopPhone] = useState('');
+  const [shopEmail, setShopEmail] = useState('');
   const [shopAssignedSR, setShopAssignedSR] = useState('');
   const [shopRouteId, setShopRouteId] = useState('');
   const [shopCreditLimit, setShopCreditLimit] = useState<number>(0);
@@ -974,6 +975,7 @@ export default function DirectoryModule({
       name: shopName,
       market: shopMarket || 'General Market',
       phone: shopPhone || 'N/A',
+      email: shopEmail || '',
       assignedSR: shopAssignedSR || 'Unassigned',
       routeId: shopRouteId || undefined,
       creditLimit: Number(shopCreditLimit),
@@ -988,7 +990,7 @@ export default function DirectoryModule({
       setCustomers(prev => [...prev, { id: `cust-${Date.now()}`, ...payload }]);
     }
     setShowShopModal(false);
-  }, [shopName, shopMarket, shopPhone, shopAssignedSR, shopRouteId, shopCreditLimit, shopCreditDays, shopDue, editingShop, setCustomers]);
+  }, [shopName, shopMarket, shopPhone, shopEmail, shopAssignedSR, shopRouteId, shopCreditLimit, shopCreditDays, shopDue, editingShop, setCustomers]);
 
   // --- SUBMIT & EDIT: Damage ---
   const handleOpenDamageModal = useCallback((product: Product) => {
@@ -1298,6 +1300,7 @@ export default function DirectoryModule({
     setShopName('');
     setShopMarket('');
     setShopPhone('');
+    setShopEmail('');
     setShopRouteId(routes[0]?.id || '');
     setShopAssignedSR(srs[0]?.name || '');
     setShopCreditLimit(0);
@@ -1378,6 +1381,7 @@ export default function DirectoryModule({
     setShopName(c.name);
     setShopMarket(c.market);
     setShopPhone(c.phone);
+    setShopEmail(c.email || '');
     setShopAssignedSR(c.assignedSR);
     setShopRouteId(c.routeId || '');
     setShopCreditLimit(c.creditLimit || 0);
@@ -2486,6 +2490,12 @@ export default function DirectoryModule({
                             <span className="text-slate-400 font-semibold font-sans">Phone:</span>
                             {c.phone}
                           </div>
+                          {c.email && (
+                            <div className="text-[11px] font-mono text-slate-505 font-bold flex items-center gap-1">
+                              <span className="text-slate-400 font-semibold font-sans">Email:</span>
+                              {c.email}
+                            </div>
+                          )}
                         </div>
 
 
@@ -2552,7 +2562,10 @@ export default function DirectoryModule({
                           <tr key={c.id} className="hover:bg-slate-50 transition-colors group">
                             <td className="px-5 py-3.5 font-bold text-slate-900 text-sm">{c.name}</td>
                             <td className="px-5 py-3.5 text-xs font-semibold text-slate-600">{c.market}</td>
-                            <td className="px-5 py-3.5 text-xs font-medium text-slate-500">{c.phone}</td>
+                            <td className="px-5 py-3.5 text-xs font-medium text-slate-500">
+                              <div>{c.phone}</div>
+                              {c.email && <div className="text-[10px] text-slate-400 font-normal">{c.email}</div>}
+                            </td>
                             <td className="px-5 py-3.5">
                               <span className="px-2.5 py-1 bg-slate-100 text-slate-700 rounded-none text-[10px] font-semibold uppercase tracking-wider">
                                 {routeName}
@@ -4512,6 +4525,17 @@ export default function DirectoryModule({
                   placeholder="e.g. Chowk Bazar Alley, Dhaka"
                   value={shopMarket}
                   onChange={e => setShopMarket(e.target.value)}
+                  className="h-10 w-full rounded-none border border-slate-200 bg-slate-50 px-3.5 font-semibold outline-none focus:border-slate-800 focus:bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-xs font-semibold text-slate-705">{language === 'bn' ? 'ইমেইল এড্রেস' : 'Email Address'}</label>
+                <input
+                  type="email"
+                  placeholder="e.g. customer@example.com"
+                  value={shopEmail}
+                  onChange={e => setShopEmail(e.target.value)}
                   className="h-10 w-full rounded-none border border-slate-200 bg-slate-50 px-3.5 font-semibold outline-none focus:border-slate-800 focus:bg-white"
                 />
               </div>

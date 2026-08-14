@@ -475,6 +475,7 @@ export interface Database {
           owner_id: string;
           name: string;
           phone: string | null;
+          email: string | null;
           address: string | null;
           market: string | null;
           assigned_sr: string | null;
@@ -489,6 +490,7 @@ export interface Database {
           owner_id: string;
           name?: string;
           phone?: string | null;
+          email?: string | null;
           address?: string | null;
           market?: string | null;
           assigned_sr?: string | null;

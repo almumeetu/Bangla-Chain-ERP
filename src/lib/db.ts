@@ -221,6 +221,7 @@ function mapCustomer(row: Awaited<ReturnType<typeof db.customers.getAll>>[number
     id:          row.id,
     name:        row.name,
     phone:       row.phone ?? '',
+    email:       row.email ?? '',
     address:     row.address ?? '',
     market:      row.market ?? '',
     assignedSR:  row.assigned_sr ?? '',
@@ -418,6 +419,23 @@ export async function deleteProduct(id: string): Promise<void> {
 
 export async function upsertChallan(c: ChallanItem): Promise<void> {
   const ownerId = await getOwnerId();
+
+  // 1. Fetch existing status to check transition to Delivered
+  let wasDelivered = false;
+  try {
+    const { data: existing } = await (supabase
+      .from('challans')
+      .select('status')
+      .eq('id', c.id)
+      .single() as any);
+    if (existing && existing.status === 'Delivered') {
+      wasDelivered = true;
+    }
+  } catch (e) {
+    // If not found, wasDelivered remains false
+  }
+
+  // 2. Perform the database update
   await db.challans.upsert({
     id:                    c.id,
     owner_id:              ownerId,
@@ -448,6 +466,77 @@ export async function upsertChallan(c: ChallanItem): Promise<void> {
     sr_commission_value:   c.srCommissionValue ?? 0,
     sr_commission_amount:  c.srCommissionAmount ?? 0,
   });
+
+  // 3. Trigger invoice email if status is transition to Delivered
+  if (c.status === 'Delivered' && !wasDelivered) {
+    try {
+      let customerEmail = '';
+      if (c.customerId) {
+        const { data: cust } = await (supabase
+          .from('customers')
+          .select('email')
+          .eq('id', c.customerId)
+          .single() as any);
+        if (cust && cust.email) {
+          customerEmail = cust.email;
+        }
+      }
+
+      if (customerEmail) {
+        let sName = 'Samir Enterprise';
+        let sSub = 'Dhaka & Chittagong Regional Hub';
+        try {
+          const { data: settings } = await (supabase
+            .from('settings')
+            .select('shop_name, shop_subbrand')
+            .eq('owner_id', ownerId)
+            .single() as any);
+          if (settings) {
+            sName = settings.shop_name || sName;
+            sSub = settings.shop_subbrand || sSub;
+          }
+        } catch (err) {}
+
+        // Non-blocking asynchronous invoice delivery dispatch
+        fetch('/api/send-invoice', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            challanId: c.id,
+            customerName: c.customerName || 'Valued Customer',
+            customerEmail,
+            productName: c.productName || '',
+            qty: c.qty || 0,
+            bonusQty: c.bonusQty || 0,
+            totalQty: c.totalQty || 0,
+            rate: c.rate || 0,
+            totalAmount: c.totalAmount || 0,
+            deliveryDate: new Date().toISOString(),
+            shopName: sName,
+            shopSubBrand: sSub,
+            selectedUnitName: c.selectedUnitName || 'Piece',
+            returnedQty: c.returnedQty || 0,
+            damagedQty: c.damagedQty || 0,
+          }),
+        }).then(async (res) => {
+          const data = await res.json();
+          if (!res.ok) {
+            console.error('[Email Trigger] Error response from /api/send-invoice:', data.error);
+          } else {
+            console.info('[Email Trigger] Invoice email sent successfully:', data.id);
+          }
+        }).catch((err) => {
+          console.error('[Email Trigger] Failed to post to send-invoice API:', err);
+        });
+      } else {
+        console.info(`[Email Trigger] Customer email address not configured for customer ID ${c.customerId}. Skipping email invoice.`);
+      }
+    } catch (err) {
+      console.error('[Email Trigger] Failed to process email notification trigger:', err);
+    }
+  }
 }
 export async function deleteChallan(id: string): Promise<void> {
   await db.challans.delete(id);
@@ -535,6 +624,7 @@ export async function upsertCustomer(c: Customer): Promise<void> {
     owner_id:      ownerId,
     name:          c.name ?? '',
     phone:         c.phone ?? '',
+    email:         c.email ?? '',
     address:       c.address ?? '',
     market:        c.market ?? '',
     assigned_sr:   c.assignedSR ?? '',

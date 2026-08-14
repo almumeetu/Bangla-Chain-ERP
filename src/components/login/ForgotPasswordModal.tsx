@@ -77,19 +77,21 @@ export default function ForgotPasswordModal({
           {/* Step 3 / Success */}
           {forgotSent ? (
             <div className="text-center py-3">
-              <CheckCircle2 className="w-10 h-10 text-green-500 mx-auto mb-3" />
+              <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto mb-3 animate-bounce" />
               <p className="text-sm font-bold text-slate-900 mb-1">
-                {bn ? 'পাসওয়ার্ড আপডেট হয়েছে!' : 'Password Updated!'}
+                {bn ? 'রিসেট লিংক পাঠানো হয়েছে!' : 'Reset Link Sent!'}
               </p>
               <p className="text-xs text-slate-500 font-semibold mb-5">
-                {bn ? 'নতুন পাসওয়ার্ড দিয়ে লগইন করুন।' : 'You can now sign in with your new password.'}
+                {bn 
+                  ? 'পাসওয়ার্ড রিসেট লিংকটি আপনার ইমেইলে পাঠানো হয়েছে। অনুগ্রহ করে ইনবক্স চেক করুন।' 
+                  : 'A password reset link has been emailed to you. Please check your inbox.'}
               </p>
               <button
                 type="button"
                 onClick={onClose}
                 className="w-full h-10 rounded-none bg-slate-950 hover:bg-slate-800 text-white text-xs font-semibold cursor-pointer transition-all"
               >
-                {bn ? 'লগইন পেজে যান' : 'Back to Sign In'}
+                {bn ? 'বন্ধ করুন' : 'Close'}
               </button>
             </div>
           ) : forgotStep === 1 ? (
@@ -97,10 +99,10 @@ export default function ForgotPasswordModal({
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-2">
-                  {bn ? 'ইমেইল / ইউজারনেম' : 'Email / Username'}
+                  {bn ? 'ইমেইল এড্রেস' : 'Email Address'}
                 </label>
                 <input
-                  type="text"
+                  type="email"
                   value={forgotEmail}
                   onChange={e => handleEmailInput(e, onEmailChange)}
                   onKeyDown={e => e.key === 'Enter' && onStep1()}
