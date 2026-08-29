@@ -543,7 +543,7 @@ export default function SellModule({
       ? getCartItemQtyInPrimaryUnit(cart[existingIdx].cartons, cart[existingIdx].pcs, product)
       : 0;
 
-    if (existingQty + addedQty > product.currentStock) {
+    if (addedQty > 0 && existingQty + addedQty > product.currentStock) {
       error(
         language === 'bn' ? 'স্টক অপ্রতুল' : 'Insufficient Stock',
         language === 'bn'
@@ -578,7 +578,7 @@ export default function SellModule({
     setCart(p => {
       const item = p[i];
       const newQty = getCartItemQtyInPrimaryUnit(cartons, item.pcs, item.product);
-      if (newQty > item.product.currentStock) {
+      if (newQty > 0 && newQty > item.product.currentStock) {
         // Schedule the toast outside the updater to avoid setState-in-render
         setTimeout(() => error(
           language === 'bn' ? 'স্টক অপ্রতুল' : 'Insufficient Stock',
@@ -598,7 +598,7 @@ export default function SellModule({
     setCart(p => {
       const item = p[i];
       const newQty = getCartItemQtyInPrimaryUnit(item.cartons, pcs, item.product);
-      if (newQty > item.product.currentStock) {
+      if (newQty > 0 && newQty > item.product.currentStock) {
         // Schedule the toast outside the updater to avoid setState-in-render
         setTimeout(() => error(
           language === 'bn' ? 'স্টক অপ্রতুল' : 'Insufficient Stock',
@@ -653,21 +653,7 @@ export default function SellModule({
     e.preventDefault();
     if (cart.length === 0) { error('Empty Cart', 'Cart is empty.'); return; }
 
-    const activeCartItems = cart.filter(item => {
-      const isCarton = item.product.primaryUnit === 'Carton';
-      const cartonSize = item.product.cartonSize || 24;
-      const totalQty = isCarton ? item.cartons : (item.cartons * cartonSize + item.pcs);
-      return totalQty > 0;
-    });
-
-    if (activeCartItems.length === 0) {
-      error(
-        language === 'bn' ? 'পরিমাণ ০' : 'Zero Quantity',
-        language === 'bn'
-          ? 'সব পণ্যের পরিমাণ ০। অন্তত একটি পণ্যের পরিমাণ ১ বা তার বেশি দিন।'
-          : 'All items have 0 quantity. Please set at least one item quantity to 1 or more.'
-      );
-    }
+    const activeCartItems = cart;
 
     const currentTimeStr = new Date().toISOString().slice(11, 24);
     const orderTimestamp = new Date(`${orderDate}T${currentTimeStr}`).toISOString();

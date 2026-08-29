@@ -25,9 +25,10 @@
 
 ### Derived Net Quantity (used in Sales & COGS)
 ```
-Net Delivered / Sold Qty = MAX(0, qty − returnedQty)
+Market Cash Collection Qty = MAX(0, qty − returnedQty − damagedQty)
+Net Delivered / Recognized Sales Qty = MAX(0, qty − returnedQty)
 ```
-> **Note on Damage:** `damagedQty` is tracked strictly as a separate physical stock register (in `damaged_stock` godown and company claim tracking). It does NOT reduce sales revenue or alter the COGS / profit of delivered sales.
+> **Note on Damage:** `damagedQty` is deducted from Market Cash Collection (`Owner Net Receivable` in Challan Settlement) because SR does not collect cash for damaged goods. However, because damage is claimed back 100% from the FMCG Company, total recognized revenue includes the Company Claim, so **distributor profit does NOT decrease** on damaged goods.
 
 ---
 

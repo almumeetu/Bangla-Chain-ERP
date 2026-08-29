@@ -506,6 +506,10 @@ export async function upsertChallan(c: ChallanItem): Promise<void> {
         },
         body: JSON.stringify({
           challanId: c.id,
+          companyName: c.company || '',
+          srName: c.srName || '',
+          deliveryManName: c.deliveryManName || '',
+          routeName: c.routeName || '',
           customerName: c.customerName || 'Valued Customer',
           customerEmail: customerEmail || undefined,
           productName: c.productName || '',
@@ -514,12 +518,25 @@ export async function upsertChallan(c: ChallanItem): Promise<void> {
           totalQty: c.totalQty || 0,
           rate: c.rate || 0,
           totalAmount: c.totalAmount || 0,
-          deliveryDate: new Date().toISOString(),
+          deliveryDate: c.createdAt || new Date().toISOString(),
           shopName: sName,
           shopSubBrand: sSub,
           selectedUnitName: c.selectedUnitName || 'Piece',
           returnedQty: c.returnedQty || 0,
           damagedQty: c.damagedQty || 0,
+          items: [{
+            productName: c.productName || '',
+            company: c.company || '',
+            attribute: c.attribute || '',
+            qty: c.qty || 0,
+            bonusQty: c.bonusQty || 0,
+            totalQty: c.totalQty || 0,
+            rate: c.rate || 0,
+            totalAmount: c.totalAmount || 0,
+            returnedQty: c.returnedQty || 0,
+            damagedQty: c.damagedQty || 0,
+            selectedUnitName: c.selectedUnitName || 'Piece',
+          }],
         }),
       }).then(async (res) => {
         const data = await res.json();
@@ -539,16 +556,37 @@ export async function upsertChallan(c: ChallanItem): Promise<void> {
 
 /**
  * Explicit helper to send invoice email on demand
+ * Supports both a single ChallanItem and a full GroupedOrder
  */
-export async function sendInvoiceEmail(c: ChallanItem, sName = 'Samir Enterprise', sSub = 'Dhaka & Chittagong Regional Hub'): Promise<{ success: boolean; message?: string }> {
+export async function sendInvoiceEmail(
+  target: ChallanItem | {
+    id: string;
+    items: ChallanItem[];
+    createdAt?: string;
+    srName?: string;
+    routeName?: string;
+    deliveryManName?: string;
+    customerName?: string;
+    status?: string;
+    totalAmount?: number;
+  },
+  sName = 'Samir Enterprise',
+  sSub = 'Dhaka & Chittagong Regional Hub'
+): Promise<{ success: boolean; message?: string }> {
   try {
+    const isGrouped = 'items' in target && Array.isArray((target as any).items);
+    const grouped = isGrouped ? (target as { id: string; items: ChallanItem[]; createdAt?: string; srName?: string; routeName?: string; deliveryManName?: string; customerName?: string; status?: string; totalAmount?: number; }) : null;
+    const single = !isGrouped ? (target as ChallanItem) : null;
+    const firstItem = isGrouped ? grouped!.items[0] : single!;
+    const customerId = firstItem?.customerId;
+
     let customerEmail = '';
-    if (c.customerId) {
+    if (customerId) {
       try {
         const { data: cust } = await (supabase
           .from('customers')
           .select('email')
-          .eq('id', c.customerId)
+          .eq('id', customerId)
           .maybeSingle() as any);
         if (cust && cust.email) {
           customerEmail = cust.email;
@@ -556,27 +594,89 @@ export async function sendInvoiceEmail(c: ChallanItem, sName = 'Samir Enterprise
       } catch {}
     }
 
+    const itemsList = isGrouped
+      ? grouped!.items.map(it => ({
+          productName: it.productName || '',
+          company: it.company || '',
+          attribute: it.attribute || '',
+          qty: it.qty || 0,
+          bonusQty: it.bonusQty || 0,
+          totalQty: it.totalQty || 0,
+          rate: it.rate || 0,
+          totalAmount: it.totalAmount || 0,
+          returnedQty: it.returnedQty || 0,
+          damagedQty: it.damagedQty || 0,
+          selectedUnitName: it.selectedUnitName || 'Piece',
+        }))
+      : [{
+          productName: single!.productName || '',
+          company: single!.company || '',
+          attribute: single!.attribute || '',
+          qty: single!.qty || 0,
+          bonusQty: single!.bonusQty || 0,
+          totalQty: single!.totalQty || 0,
+          rate: single!.rate || 0,
+          totalAmount: single!.totalAmount || 0,
+          returnedQty: single!.returnedQty || 0,
+          damagedQty: single!.damagedQty || 0,
+          selectedUnitName: single!.selectedUnitName || 'Piece',
+        }];
+
+    const challanId = isGrouped
+      ? (grouped!.id?.startsWith('ORD-') ? grouped!.id : `ORD-${new Date(grouped!.createdAt || Date.now()).getTime().toString().slice(-6)}`)
+      : single!.id;
+
+    const companyName = isGrouped
+      ? (grouped!.items.find(i => i.company)?.company || '')
+      : (single!.company || '');
+
+    const totalAmount = isGrouped
+      ? (grouped!.totalAmount ?? grouped!.items.reduce((s, it) => s + it.totalAmount, 0))
+      : single!.totalAmount;
+
+    const grossAmount = isGrouped
+      ? grouped!.items.reduce((s, it) => s + (it.qty * it.rate), 0)
+      : (single!.qty * single!.rate);
+
+    const commissionAmount = isGrouped
+      ? grouped!.items.reduce((s, it) => s + (it.commissionAmount || 0), 0)
+      : (single!.commissionAmount || 0);
+
+    const extraProfitAmount = isGrouped
+      ? grouped!.items.reduce((s, it) => s + (it.extraProfitAmount || 0), 0)
+      : (single!.extraProfitAmount || 0);
+
     const res = await fetch('/api/send-invoice', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        challanId: c.id,
-        customerName: c.customerName || 'Valued Customer',
+        challanId,
+        companyName,
+        srName: isGrouped ? (grouped!.srName || firstItem?.srName || '') : (single!.srName || ''),
+        deliveryManName: isGrouped ? (grouped!.deliveryManName || firstItem?.deliveryManName || '') : (single!.deliveryManName || ''),
+        routeName: isGrouped ? (grouped!.routeName || firstItem?.routeName || '') : (single!.routeName || ''),
+        customerName: isGrouped ? (grouped!.customerName || firstItem?.customerName || 'Valued Customer') : (single!.customerName || 'Valued Customer'),
         customerEmail: customerEmail || undefined,
-        productName: c.productName || '',
-        qty: c.qty || 0,
-        bonusQty: c.bonusQty || 0,
-        totalQty: c.totalQty || 0,
-        rate: c.rate || 0,
-        totalAmount: c.totalAmount || 0,
-        deliveryDate: new Date().toISOString(),
+        deliveryDate: isGrouped ? (grouped!.createdAt || new Date().toISOString()) : (single!.createdAt || new Date().toISOString()),
+        status: isGrouped ? (grouped!.status || 'Delivered') : (single!.status || 'Delivered'),
         shopName: sName,
         shopSubBrand: sSub,
-        selectedUnitName: c.selectedUnitName || 'Piece',
-        returnedQty: c.returnedQty || 0,
-        damagedQty: c.damagedQty || 0,
+        totalAmount,
+        grossAmount,
+        commissionAmount,
+        extraProfitAmount,
+        items: itemsList,
+        // Legacy fallback fields
+        productName: firstItem?.productName || '',
+        qty: firstItem?.qty || 0,
+        bonusQty: firstItem?.bonusQty || 0,
+        totalQty: firstItem?.totalQty || 0,
+        rate: firstItem?.rate || 0,
+        selectedUnitName: firstItem?.selectedUnitName || 'Piece',
+        returnedQty: firstItem?.returnedQty || 0,
+        damagedQty: firstItem?.damagedQty || 0,
       }),
     });
 
@@ -584,7 +684,7 @@ export async function sendInvoiceEmail(c: ChallanItem, sName = 'Samir Enterprise
     if (!res.ok) {
       return { success: false, message: data.message || data.error || 'Failed to send email' };
     }
-    return { success: true, message: 'ইমেইল সফলভাবে পাঠানো হয়েছে!' };
+    return { success: true, message: 'চালানের ইনভয়েস ইমেইল সফলভাবে পাঠানো হয়েছে!' };
   } catch (err: any) {
     return { success: false, message: err?.message || 'Network error sending invoice email' };
   }

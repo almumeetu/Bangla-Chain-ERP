@@ -79,6 +79,7 @@ export default function ChallanModule({
   const tDash = translations[language].dashboard;
 
   // Search & Filters State
+  const [filterCompany, setFilterCompany] = useState('');
   const [filterSR, setFilterSR] = useState('');
   const [filterRoute, setFilterRoute] = useState('');
   const [filterDeliveryMan, setFilterDeliveryMan] = useState('');
@@ -89,12 +90,22 @@ export default function ChallanModule({
 
   // Active searched filters
   const [appliedSearch, setAppliedSearch] = useState('');
+  const [appliedCompany, setAppliedCompany] = useState('');
   const [appliedSR, setAppliedSR] = useState('');
   const [appliedRoute, setAppliedRoute] = useState('');
   const [appliedDeliveryMan, setAppliedDeliveryMan] = useState('');
   const [appliedStatus, setAppliedStatus] = useState('');
   const [appliedStartDate, setAppliedStartDate] = useState('');
   const [appliedEndDate, setAppliedEndDate] = useState('');
+
+  // All available companies extracted from prop, products, and challans
+  const availableCompanies = React.useMemo(() => {
+    const coSet = new Set<string>();
+    (companies || []).forEach(c => { if (c.name) coSet.add(c.name); });
+    (products || []).forEach(p => { if (p.company) coSet.add(p.company); });
+    (challans || []).forEach(c => { if (c.company) coSet.add(c.company); });
+    return Array.from(coSet).filter(Boolean).sort();
+  }, [companies, products, challans]);
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -262,6 +273,7 @@ export default function ChallanModule({
   const handleSearch = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setAppliedSearch(searchQuery);
+    setAppliedCompany(filterCompany);
     setAppliedSR(filterSR);
     setAppliedRoute(filterRoute);
     setAppliedDeliveryMan(filterDeliveryMan);
@@ -273,6 +285,7 @@ export default function ChallanModule({
 
   const handleReset = () => {
     setSearchQuery('');
+    setFilterCompany('');
     setFilterSR('');
     setFilterRoute('');
     setFilterDeliveryMan('');
@@ -280,6 +293,7 @@ export default function ChallanModule({
     setFilterStartDate('');
     setFilterEndDate('');
     setAppliedSearch('');
+    setAppliedCompany('');
     setAppliedSR('');
     setAppliedRoute('');
     setAppliedDeliveryMan('');
@@ -324,9 +338,16 @@ export default function ChallanModule({
 
   // Filtered dataset on Groups
   const filteredOrders = groupedData.filter((group) => {
-    const matchesSearch = searchQuery 
+    const matchesSearch = appliedSearch 
       ? group.items.some(i => i.productName.toLowerCase().includes(appliedSearch.toLowerCase())) ||
         group.items.some(i => i.attribute.toLowerCase().includes(appliedSearch.toLowerCase()))
+      : true;
+
+    const matchesCompany = appliedCompany
+      ? group.items.some(i => {
+          const itemCo = i.company || products.find(p => p.name === i.productName)?.company || '';
+          return itemCo.toLowerCase() === appliedCompany.toLowerCase();
+        })
       : true;
 
     const matchesSR = appliedSR ? group.srName === appliedSR : true;
@@ -340,7 +361,7 @@ export default function ChallanModule({
     const matchesStartDate = appliedStartDate ? groupDateStr >= appliedStartDate : true;
     const matchesEndDate = appliedEndDate ? groupDateStr <= appliedEndDate : true;
 
-    return matchesSearch && matchesSR && matchesRoute && matchesDeliveryMan && matchesStatus && matchesStartDate && matchesEndDate;
+    return matchesSearch && matchesCompany && matchesSR && matchesRoute && matchesDeliveryMan && matchesStatus && matchesStartDate && matchesEndDate;
   });
 
   // Native Sliced Pagination
@@ -374,7 +395,6 @@ export default function ChallanModule({
     let totalDamagedValue = 0;
     
     let totalCommission = 0;
-    let totalNetValue = 0;
     
     viewingOrder.items.forEach(item => {
       const rate = item.rate || 0;
@@ -394,15 +414,13 @@ export default function ChallanModule({
       totalDamagedQty += damaged;
       totalDamagedValue += damagedVal;
       
-      // SPEC: Net Market Collection / Sales Value = Dispatched − Returned  (damage NOT subtracted)
+      // Sold Qty = Dispatched − Returned (Dispatched stock sold in full; damage from market is tracked separately)
       const sold = Math.max(0, dispatchedQty - returned);
       const soldVal = sold * rate;
       totalSoldQty += sold;
       totalSoldValue += soldVal;
       
       totalCommission += item.commissionAmount || 0;
-      // item.totalAmount is already stored on (qty − returned) basis per spec
-      totalNetValue += item.totalAmount || 0;
     });
 
     const srCommRateDisplay = language === 'bn' ? 'নির্ধারিত মূল্য' : 'Fixed Price';
@@ -412,6 +430,7 @@ export default function ChallanModule({
     const dmCommRate = 0;
     const deliveryManPay = 0;
 
+    const totalNetValue = totalSoldValue - totalDamagedValue - totalCommission;
     const netToOwner = totalNetValue;
 
     return {
@@ -471,10 +490,7 @@ export default function ChallanModule({
       totalDamagedQty += damaged;
       totalDamagedValue += damagedVal;
       
-      // SPEC COMPLIANT — Net Market Collection / Sales Value:
-      //   Sold / Billable = Dispatched Qty − Returned Qty   (Damage NOT subtracted)
-      // SR remains accountable for the full (qty − ret) amount; the damage portion
-      // will be recovered separately via the company claim settlement pipeline.
+      // Sold Qty = Dispatched Qty − Returned Qty (Dispatched goods are delivered/sold; damage from market does NOT decrease sold quantity)
       const sold = Math.max(0, dispatchedQty - returned);
       const soldVal = sold * rate;
       totalSoldQty += sold;
@@ -482,9 +498,9 @@ export default function ChallanModule({
       
       totalCommission += item.commissionAmount || 0;
       
-      // Owner Net Receivable = Net Market Collection after commissions
-      // Damage never zeros out this figure — it stays on the SR's accountability sheet
-      const itemNet = soldVal - (item.commissionAmount || 0);
+      // Market Cash Receivable = (Dispatched Qty − Returned Qty − Damaged Qty) × Rate − Commission
+      // (SR collects cash for delivered units minus damage value from market)
+      const itemNet = ((dispatchedQty - returned - damaged) * rate) - (item.commissionAmount || 0);
       totalNetValue += itemNet;
     });
 
@@ -798,11 +814,11 @@ export default function ChallanModule({
 
     try {
       executeTransaction(() => {
-        // SPEC COMPLIANT: Pro-rata allocation uses Billable = qty - ret  (damage NOT subtracted)
+        // Pro-rata allocation uses Billable = qty - ret - dmg (damage subtracted)
         let totalUpdatedNetValue = 0;
         const itemsToUpdate = settlementOrder.items.map(item => {
           const updates = settlementQuantities[item.id] || { returned: 0, damaged: 0 };
-          const billableQty = item.qty - (Number(updates.returned) || 0);
+          const billableQty = item.qty - (Number(updates.returned) || 0) - (Number(updates.damaged) || 0);
           const soldVal = Math.max(0, billableQty) * item.rate;
           return {
             id: item.id,
@@ -815,7 +831,6 @@ export default function ChallanModule({
         const calculatedTotalSRComm = settlementSRCommValue;
         let oldDeliveredTotal = 0;
         let newDeliveredTotal = 0;
-        // Customer (market) due diverges from SR accountability by the damage value
         let oldCustomerDue = 0;
         let newCustomerDue = 0;
 
@@ -828,15 +843,10 @@ export default function ChallanModule({
           const newReturned = Number(updates.returned) || 0;
           const newDamaged = Number(updates.damaged) || 0;
 
-          // SPEC COMPLIANT: Billable Qty = Billing Qty − Returned Qty   (Damage NOT subtracted)
-          // Line Item Amount = Billable Qty × TP
-          // This becomes the stored totalAmount (SR accountability / Owner receivable)
-          const billableQty = Math.max(0, ch.qty - newReturned);
+          // Billable Qty = Billing Qty − Returned Qty − Damaged Qty
+          // Line Item Amount = Billable Qty × TP - Commission + Extra Profit
+          const billableQty = Math.max(0, ch.qty - newReturned - newDamaged);
           const baseAmount = billableQty * ch.rate;
-
-          // What market shopkeeper actually accepted (for customer.due) = qty - ret - dmg
-          const acceptedQty = Math.max(0, ch.qty - newReturned - newDamaged);
-          const acceptedBaseAmount = acceptedQty * ch.rate;
 
           const itemSRCommAmount = totalUpdatedNetValue > 0
             ? calculatedTotalSRComm * (itemUpdate.netValue / totalUpdatedNetValue)
@@ -845,10 +855,9 @@ export default function ChallanModule({
             ? settlementExtraCommValue * (itemUpdate.netValue / totalUpdatedNetValue)
             : 0;
 
-          // finalItemAmount = stored totalAmount = SR accountable (qty - ret) basis
-          const finalItemAmount = baseAmount - itemSRCommAmount - itemExtraCommAmount;
-          // customerItemDue = what market shopkeeper owes = (qty - ret - dmg) basis
-          const customerItemDue = acceptedBaseAmount - itemSRCommAmount - itemExtraCommAmount;
+          // finalItemAmount = stored totalAmount (deducting returned & damaged)
+          const finalItemAmount = baseAmount - itemSRCommAmount + itemExtraCommAmount;
+          const customerItemDue = finalItemAmount;
 
           const wasDelivered = ch.status === 'Delivered';
           const isDelivered = settlementStatus === 'Delivered';
@@ -909,6 +918,7 @@ export default function ChallanModule({
                 damagedQty: newDamaged,
                 totalAmount: finalItemAmount,
                 commissionAmount: itemSRCommAmount,
+                extraProfitAmount: itemExtraCommAmount,
                 extraCommissionAmount: itemExtraCommAmount,
                 srCommissionValue: settlementSRCommValue,
                 srCommissionAmount: itemSRCommAmount
@@ -1025,7 +1035,7 @@ export default function ChallanModule({
     const safeVal = Math.max(0, val);
     if (field === 'qty') {
       const item = editOrderItems.find(i => i.id === itemId);
-      if (item) {
+      if (item && safeVal > 0) {
         const prod = products.find(p => p.name === item.productName);
         if (prod) {
           const maxStock = prod.currentStock;
@@ -1048,10 +1058,9 @@ export default function ChallanModule({
         if (field === 'returnedQty') newRet = safeVal;
         if (field === 'damagedQty') newDam = safeVal;
 
-        const maxAllowed = newQty + (item.bonusQty || 0);
-        if (newRet + newDam > maxAllowed) {
-          newRet = Math.min(newRet, maxAllowed);
-          newDam = Math.max(0, maxAllowed - newRet);
+        const maxDispatched = newQty + (item.bonusQty || 0);
+        if (newRet > maxDispatched) {
+          newRet = maxDispatched;
         }
 
         const updated = {
@@ -1059,14 +1068,11 @@ export default function ChallanModule({
           qty: newQty,
           returnedQty: newRet,
           damagedQty: newDam,
-          totalQty: maxAllowed
+          totalQty: maxDispatched
         };
-        // SPEC COMPLIANT: Billable Qty = Billing Qty − Returned Qty  (Damage NOT subtracted)
-        // Damage is tracked separately via Damage Module + Claim register and is handled
-        // outside the sales register (company-side claim). It never reduces sales amount
-        // or Owner Net Receivable — SR remains accountable and company compensates later.
-        const billableQty = Math.max(0, newQty - newRet);
-        updated.totalAmount = billableQty * updated.rate - (updated.commissionAmount || 0);
+        // Billable Qty = Billing Qty − Returned Qty − Damaged Qty (floored at 0)
+        const billableQty = Math.max(0, newQty - newRet - Math.min(newDam, Math.max(0, newQty - newRet)));
+        updated.totalAmount = billableQty * updated.rate - (updated.commissionAmount || 0) + (updated.extraProfitAmount || 0);
         return updated;
       }
       return item;
@@ -1084,29 +1090,22 @@ export default function ChallanModule({
     const exists = editOrderItems.some(item => item.productName === prodName);
     if (exists) {
       showToast(language === 'bn'
-        ? 'পণ্যটি ইতিমধ্যেই অর্ডারে যুক্ত আছে, অনুগ্রহ করে পরিমাণ বাড়িয়ে দিন।'
-        : 'Product already added, please increase billing quantity instead.', 'error');
+        ? 'পণ্যটি ইতিমধ্যেই অর্ডারে যুক্ত আছে, অনুগ্রহ করে পরিমাণ বা ড্যামেজ সংশোধন করুন।'
+        : 'Product already added, please adjust quantity or damage in the table.', 'error');
       return;
     }
 
-    const availableStock = prod.currentStock;
-    if (availableStock <= 0) {
-      showToast(language === 'bn'
-        ? 'দুঃখিত! এই পণ্যটি স্টকে নেই।'
-        : 'Sorry! This product is out of stock.', 'error');
-      return;
-    }
-
+    // Default to 0 quantity so users can record day-end market damage even for 0-qty products
     const newItem: ChallanItem = {
       id: `item-${Date.now()}`,
       productName: prod.name,
       company: prod.company || '',
-      qty: 1,
+      qty: 0,
       bonusQty: 0,
-      totalQty: 1,
+      totalQty: 0,
       rate: prod.defaultWSP,
       attribute: 'Default',
-      totalAmount: prod.defaultWSP,
+      totalAmount: 0,
       srName: editSR,
       routeName: editRoute,
       deliveryManName: editDeliveryMan,
@@ -1120,7 +1119,7 @@ export default function ChallanModule({
     };
 
     setEditOrderItems(prev => [...prev, newItem]);
-    showToast(language === 'bn' ? 'পণ্যটি অর্ডারে যোগ করা হয়েছে!' : 'Product added to order!');
+    showToast(language === 'bn' ? 'পণ্যটি ০ পরিমাণ হিসেবে যুক্ত হয়েছে! এখন প্রয়োজনমতো ড্যামেজ বা পরিমাণ বসিয়ে দিন।' : 'Product added with 0 quantity! You can now record damage or billing quantity.');
   };
 
   const handleSaveEditOrder = (e: React.FormEvent) => {
@@ -1164,11 +1163,9 @@ export default function ChallanModule({
         }
 
         const finalChallanItems = editOrderItems.map(item => {
-          // SPEC COMPLIANT: Line Item Amount = Billable Qty × TP
-          // Billable Qty = Billing Qty − Returned Qty   (Damage NOT subtracted)
-          // SR remains accountable for damage value; company claim handles it separately.
-          const billableQty = Math.max(0, item.qty - (item.returnedQty || 0));
-          const totalAmount = billableQty * item.rate - (item.commissionAmount || 0);
+          // Billable Qty = Billing Qty − Returned Qty − Damaged Qty
+          const billableQty = Math.max(0, item.qty - (item.returnedQty || 0) - (item.damagedQty || 0));
+          const totalAmount = billableQty * item.rate - (item.commissionAmount || 0) + (item.extraProfitAmount || 0);
           return {
             ...item,
             srName: editSR,
@@ -1338,17 +1335,87 @@ export default function ChallanModule({
       </div>
 
       {/* Filter Engine Form */}
-      <form onSubmit={handleSearch} className="bg-indigo-50/30 border border-indigo-200 rounded-none p-6 shadow-sm space-y-6">
-        <div className="flex items-center justify-between border-b border-indigo-200 pb-3">
+      <form onSubmit={handleSearch} className="bg-indigo-50/30 border border-indigo-200 rounded-none p-5 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-indigo-200 pb-3 gap-2">
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-none bg-indigo-500 animate-ping shrink-0" />
             <h3 className="text-xs font-bold text-indigo-705 tracking-wider uppercase">{tChallan.filterTitle}</h3>
           </div>
-          <span className="text-[10px] bg-indigo-100 text-indigo-700 font-extrabold px-2.5 py-0.5 rounded-none uppercase tracking-wider font-mono">Dynamic Search</span>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] bg-indigo-100 text-indigo-700 font-extrabold px-2.5 py-0.5 rounded-none uppercase tracking-wider font-mono">Dynamic Search</span>
+          </div>
         </div>
+
+        {/* Quick Company / Brand Selection Pills */}
+        {availableCompanies.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5 pb-1">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mr-1">
+              {language === 'bn' ? 'কোম্পানি অনুযায়ী চালান:' : 'Filter By Company:'}
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setFilterCompany('');
+                setAppliedCompany('');
+                setCurrentPage(1);
+              }}
+              className={`px-3 py-1 rounded-none text-xs font-bold transition-all cursor-pointer border ${
+                !appliedCompany
+                  ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
+                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              {language === 'bn' ? 'সকল কোম্পানি' : 'All Companies'} ({groupedData.length})
+            </button>
+            {availableCompanies.map(cName => {
+              const count = groupedData.filter(g => g.items.some(i => (i.company || products.find(p => p.name === i.productName)?.company || '').toLowerCase() === cName.toLowerCase())).length;
+              const isActive = appliedCompany.toLowerCase() === cName.toLowerCase();
+              return (
+                <button
+                  key={cName}
+                  type="button"
+                  onClick={() => {
+                    setFilterCompany(cName);
+                    setAppliedCompany(cName);
+                    setCurrentPage(1);
+                  }}
+                  className={`px-3 py-1 rounded-none text-xs font-bold transition-all cursor-pointer border flex items-center gap-1.5 ${
+                    isActive
+                      ? 'bg-blue-600 text-white border-blue-700 shadow-sm'
+                      : 'bg-white text-blue-800 border-blue-200 hover:bg-blue-50'
+                  }`}
+                >
+                  <Building className="w-3 h-3 text-blue-500" />
+                  <span>{cName}</span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-none font-mono ${isActive ? 'bg-blue-800 text-white' : 'bg-blue-100 text-blue-900 font-bold'}`}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
         
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
           
+          {/* Company Dropdown */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-amber-700 uppercase tracking-wider block">
+              {tChallan.companyLabel || (language === 'bn' ? 'কোম্পানি / ব্র্যান্ড:' : 'Company / Brand:')}
+            </label>
+            <select
+              id="filter-company-select"
+              value={filterCompany}
+              onChange={(e) => setFilterCompany(e.target.value)}
+              className="h-10 w-full rounded-none border border-amber-300 bg-amber-50/20 px-3 text-xs font-bold text-amber-900 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100 transition-all cursor-pointer shadow-sm"
+            >
+              <option value="">{tChallan.allCompanies || (language === 'bn' ? 'সব কোম্পানি' : 'All Companies')}</option>
+              {availableCompanies.map(cName => (
+                <option key={cName} value={cName}>{cName}</option>
+              ))}
+            </select>
+          </div>
+
           {/* SR Dropdown */}
           <div className="space-y-1.5">
             <label className="text-[10px] font-bold text-purple-600 uppercase tracking-wider block">{tChallan.srLabel}</label>
@@ -1598,7 +1665,19 @@ export default function ChallanModule({
                   <tr key={g.id} className="hover:bg-slate-50/50 transition-colors duration-250 group">
                     <td className="px-5 py-4 text-center text-slate-400 font-mono font-bold whitespace-nowrap">{globalIndex}</td>
                     <td className="px-5 py-4 font-bold text-slate-800 whitespace-nowrap">
-                      ORD-{new Date(g.createdAt).getTime().toString().slice(-6)}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-mono text-slate-900">ORD-{new Date(g.createdAt).getTime().toString().slice(-6)}</span>
+                        {(() => {
+                          const orderCompanies = Array.from(new Set(g.items.map(i => i.company || products.find(p => p.name === i.productName)?.company).filter(Boolean)));
+                          if (orderCompanies.length === 0) return null;
+                          return (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-800 font-extrabold text-[10px] rounded-none border border-blue-300 uppercase tracking-wider shadow-2xs">
+                              <Building className="w-2.5 h-2.5 text-blue-600" />
+                              {orderCompanies.join(', ')}
+                            </span>
+                          );
+                        })()}
+                      </div>
                       {g.customerName && (
                         <div className="text-[11px] text-indigo-650 font-extrabold flex items-center gap-1 mt-0.5">
                           <Building className="w-3 h-3 text-indigo-500 shrink-0" />
@@ -1616,14 +1695,16 @@ export default function ChallanModule({
                       {(() => {
                         const profit = g.items.reduce((sum, item) => {
                           const pp = products.find(p => p.name === item.productName)?.defaultPP ?? item.rate * 0.85;
-                          const cogs = Math.max(0, item.qty - (item.returnedQty || 0)) * pp;
-                          return sum + (item.totalAmount - cogs);
+                          const netQty = Math.max(0, item.qty - (item.returnedQty || 0));
+                          const cogs = netQty * pp;
+                          const revenue = (netQty * item.rate) - (item.commissionAmount || 0) + (item.extraProfitAmount || 0);
+                          return sum + (revenue - cogs);
                         }, 0);
                         const isPositive = profit >= 0;
                         return (
                           <div className={`inline-flex items-center gap-0.5 mt-1 px-2 py-0.5 rounded-none text-[10px] font-bold border ${
                             isPositive 
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-250' 
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
                               : 'bg-rose-50 text-rose-700 border-rose-200'
                           }`}>
                             <span>{isPositive ? '▲' : '▼'}</span>
@@ -1996,9 +2077,9 @@ export default function ChallanModule({
                         <input
                           id="sub-challan-qty-input"
                           type="number"
-                          min="1"
+                          min="0"
                           value={newQty}
-                          onChange={(e) => setNewQty(Number(e.target.value))}
+                          onChange={(e) => setNewQty(Math.max(0, Number(e.target.value)))}
                           className="h-10 w-full rounded-none border border-slate-200 bg-white px-4 text-sm font-semibold outline-none transition-colors focus:border-blue-500"
                         />
                       </div>
@@ -2010,7 +2091,7 @@ export default function ChallanModule({
                           type="number"
                           min="0"
                           value={newBonusQty}
-                          onChange={(e) => setNewBonusQty(Number(e.target.value))}
+                          onChange={(e) => setNewBonusQty(Math.max(0, Number(e.target.value)))}
                           className="h-10 w-full rounded-none border border-slate-200 bg-white px-4 text-sm font-semibold outline-none transition-colors focus:border-blue-500"
                         />
                       </div>
@@ -2037,7 +2118,7 @@ export default function ChallanModule({
                             ]);
                             setNewProduct('');
                             setNewAttribute('');
-                            setNewQty(10);
+                            setNewQty(0);
                             setNewBonusQty(0);
                           }}
                           className="h-10 w-full rounded-none bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 transition-all cursor-pointer shadow-sm border border-indigo-700 flex items-center justify-center gap-1.5"
@@ -2223,8 +2304,20 @@ export default function ChallanModule({
               {/* Order ID + Meta row */}
               <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-none px-4 py-3">
                 <div>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Order ID</p>
-                  <p className="font-mono font-bold text-slate-800 text-sm">ORD-{new Date(viewingOrder.createdAt).getTime().toString().slice(-6)}</p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Order ID</p>
+                    {(() => {
+                      const orderCompanies = Array.from(new Set(viewingOrder.items.map(i => i.company || products.find(p => p.name === i.productName)?.company).filter(Boolean)));
+                      if (orderCompanies.length === 0) return null;
+                      return (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-800 font-extrabold text-[10px] rounded-none border border-blue-300 uppercase tracking-wider shadow-2xs">
+                          <Building className="w-2.5 h-2.5 text-blue-600" />
+                          {orderCompanies.join(', ')}
+                        </span>
+                      );
+                    })()}
+                  </div>
+                  <p className="font-mono font-bold text-slate-800 text-sm mt-0.5">ORD-{new Date(viewingOrder.createdAt).getTime().toString().slice(-6)}</p>
                   <p className="text-[10px] text-slate-400 mt-0.5">{new Date(viewingOrder.createdAt).toLocaleString()}</p>
                 </div>
                 <div className="text-right flex flex-col items-end gap-1.5">
@@ -2259,8 +2352,8 @@ export default function ChallanModule({
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {[
                   { label: language === 'bn' ? 'চালানি সরবরাহ' : 'Dispatched', value: `৳${settlement?.totalDispatchedValue.toLocaleString('en-BD')}`, sub: `${settlement?.totalDispatchedQty} units`, color: 'text-slate-800', bg: 'bg-slate-50 border-slate-200' },
-                  // SPEC: Net Market Collection = Dispatched − Returned   (Damage NOT subtracted)
-                  { label: language === 'bn' ? 'নিট মার্কেট কালেকশন' : 'Net Market Collection', value: `৳${settlement?.totalSoldValue.toLocaleString('en-BD')}`, sub: `${settlement?.totalSoldQty} billable (Q−R)`, color: 'text-blue-700', bg: 'bg-blue-50/60 border-blue-100' },
+                  // Net Market Collection = Dispatched − Returned − Damaged
+                  { label: language === 'bn' ? 'নিট মার্কেট কালেকশন' : 'Net Market Collection', value: `৳${settlement?.totalSoldValue.toLocaleString('en-BD')}`, sub: `${settlement?.totalSoldQty} units`, color: 'text-blue-700', bg: 'bg-blue-50/60 border-blue-100' },
                   { label: language === 'bn' ? 'মোট ফেরত' : 'Returned', value: `৳${settlement?.totalReturnedValue.toLocaleString('en-BD')}`, sub: `${settlement?.totalReturnedQty} returned`, color: 'text-amber-700', bg: 'bg-amber-50/60 border-amber-100' },
                   { label: language === 'bn' ? 'ড্যামেজ (কোম্পানি কাছে দাবি)' : 'Damage (Claim from Co.)', value: `৳${settlement?.totalDamagedValue.toLocaleString('en-BD')}`, sub: `${settlement?.totalDamagedQty} damaged`, color: 'text-rose-700', bg: 'bg-rose-50/60 border-rose-100' },
                 ].map((m, i) => (
@@ -2292,8 +2385,10 @@ export default function ChallanModule({
                 {(() => {
                   const orderProfitVal = viewingOrder.items.reduce((sum, item) => {
                     const pp = products.find(p => p.name === item.productName)?.defaultPP ?? item.rate * 0.85;
-                    const cogs = Math.max(0, item.qty - (item.returnedQty || 0)) * pp;
-                    return sum + (item.totalAmount - cogs);
+                    const netQty = Math.max(0, item.qty - (item.returnedQty || 0));
+                    const cogs = netQty * pp;
+                    const revenue = (netQty * item.rate) - (item.commissionAmount || 0) + (item.extraProfitAmount || 0);
+                    return sum + (revenue - cogs);
                   }, 0);
                   const isPositive = orderProfitVal >= 0;
                   return (
@@ -2336,7 +2431,14 @@ export default function ChallanModule({
                         return (
                         <tr key={idx} className="hover:bg-slate-50">
                           <td className="px-4 py-3">
-                            <p className="font-bold text-slate-800">{item.productName}</p>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <p className="font-bold text-slate-800">{item.productName}</p>
+                              {(item.company || prod?.company) && (
+                                <span className="text-[9px] bg-blue-50 text-blue-700 px-1.5 py-0.2 rounded-none border border-blue-200 font-bold uppercase">
+                                  {item.company || prod?.company}
+                                </span>
+                              )}
+                            </div>
                             <p className="text-[10px] text-slate-500">{item.attribute}</p>
                           </td>
                           <td className="px-4 py-3 text-right">
@@ -2390,9 +2492,9 @@ export default function ChallanModule({
                   id="viewing-challan-btn-email"
                   type="button"
                   onClick={async () => {
-                    if (!viewingOrder?.items?.[0]) return;
-                    showToast(language === 'bn' ? 'ইমেইল পাঠানো হচ্ছে...' : 'Sending email invoice...');
-                    const res = await sendInvoiceEmail(viewingOrder.items[0]);
+                    if (!viewingOrder?.items || viewingOrder.items.length === 0) return;
+                    showToast(language === 'bn' ? 'ইমেইল ইনভয়েস পাঠানো হচ্ছে...' : 'Sending email invoice...');
+                    const res = await sendInvoiceEmail(viewingOrder);
                     if (res.success) {
                       showToast(language === 'bn' ? 'চালানের ইনভয়েস ইমেইল সফলভাবে পাঠানো হয়েছে!' : 'Invoice email sent successfully via Resend!', 'success');
                     } else {
@@ -2492,12 +2594,23 @@ export default function ChallanModule({
             <form onSubmit={handleSaveSettlement} className="modal-body p-6 space-y-6">
               
               {/* Order Metadata */}
-              <div className="grid grid-cols-4 gap-4 bg-slate-50 p-4 rounded-none border border-slate-200 text-xs">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 bg-slate-50 p-4 rounded-none border border-slate-200 text-xs">
                 <div>
                   <p className="text-slate-400 font-semibold uppercase tracking-wider">{language === 'bn' ? 'অর্ডার নম্বর' : 'Order ID'}</p>
                   <p className="font-mono font-bold text-slate-800 text-sm mt-0.5">
                     ORD-{new Date(settlementOrder.createdAt).getTime().toString().slice(-6)}
                   </p>
+                </div>
+                <div>
+                  <p className="text-slate-455 font-semibold uppercase tracking-wider">{language === 'bn' ? 'কোম্পানি' : 'Company'}</p>
+                  {(() => {
+                    const orderCos = Array.from(new Set(settlementOrder.items.map(i => i.company || products.find(p => p.name === i.productName)?.company).filter(Boolean)));
+                    return (
+                      <p className="font-bold text-blue-700 text-sm mt-0.5 uppercase">
+                        {orderCos.length > 0 ? orderCos.join(', ') : 'General'}
+                      </p>
+                    );
+                  })()}
                 </div>
                 <div>
                   <p className="text-slate-455 font-semibold uppercase tracking-wider">SR Name</p>
@@ -2547,8 +2660,8 @@ export default function ChallanModule({
                         };
                         const returned = qUpdates.returned;
                         const damaged  = qUpdates.damaged;
-                        const sold = Math.max(0, item.qty - returned - damaged);
-                        const netAmount = (sold * item.rate) - (item.commissionAmount || 0);
+                        const sold = Math.max(0, item.qty - returned);
+                        const netAmount = ((item.qty - returned - damaged) * item.rate) - (item.commissionAmount || 0);
 
                         const updateSplitQty = (
                           field: 'returnedCartons' | 'returnedPcs' | 'damagedCartons' | 'damagedPcs',
@@ -2565,17 +2678,13 @@ export default function ChallanModule({
                               next.damaged  = next.damagedCartons;
                             }
                             const max = item.qty;
-                            if (next.returned + next.damaged > max) {
-                              next.returned = Math.min(next.returned, max);
-                              next.damaged  = Math.max(0, max - next.returned);
+                            if (next.returned > max) {
+                              next.returned = max;
                               if (hasCartonSplit) {
                                 next.returnedCartons = Math.floor(next.returned / cs);
                                 next.returnedPcs     = next.returned % cs;
-                                next.damagedCartons  = Math.floor(next.damaged / cs);
-                                next.damagedPcs      = next.damaged % cs;
                               } else {
                                 next.returnedCartons = next.returned;
-                                next.damagedCartons  = next.damaged;
                               }
                             }
                             return { ...prev, [item.id]: next };
@@ -2617,7 +2726,7 @@ export default function ChallanModule({
                               ) : (
                                 <div className="text-center">
                                   <p className="text-[9px] text-slate-400 mb-0.5">Ctn</p>
-                                  <input type="number" min="0" max={item.qty - damaged}
+                                  <input type="number" min="0" max={item.qty}
                                     value={qUpdates.returnedCartons}
                                     onChange={e => updateSplitQty('returnedCartons', Number(e.target.value))}
                                     className="h-8 w-16 text-center font-mono font-semibold rounded-none border border-amber-200 focus:border-amber-500 outline-none bg-amber-50" />
@@ -2648,19 +2757,30 @@ export default function ChallanModule({
                               ) : (
                                 <div className="text-center">
                                   <p className="text-[9px] text-slate-400 mb-0.5">Ctn</p>
-                                  <input type="number" min="0" max={item.qty - returned}
+                                  <input type="number" min="0"
                                     value={qUpdates.damagedCartons}
                                     onChange={e => updateSplitQty('damagedCartons', Number(e.target.value))}
                                     className="h-8 w-16 text-center font-mono font-semibold rounded-none border border-rose-200 focus:border-rose-500 outline-none bg-rose-50" />
                                 </div>
                               )}
-                              {damaged > 0 && <p className="text-[9px] text-rose-600 text-center mt-0.5 font-mono">= {damaged} {isPieceUnit ? 'pcs' : 'ctn'}</p>}
+                              {damaged > 0 && (
+                                <p className="text-[9px] text-rose-600 text-center mt-0.5 font-mono font-bold">
+                                  = {damaged} {isPieceUnit ? 'pcs' : 'ctn'} (৳{(damaged * item.rate).toLocaleString('en-BD')})
+                                </p>
+                              )}
                             </td>
                             <td className="px-4 py-3 text-center font-mono font-bold text-blue-655 bg-blue-50/10">
                               {sold} {isPieceUnit ? 'Pcs' : 'Ctn'}
                             </td>
-                            <td className="px-4 py-3 text-right font-mono font-extrabold text-slate-800">
-                              ৳{netAmount.toLocaleString('en-BD')}
+                            <td className="px-4 py-3 text-right font-mono font-extrabold">
+                              <span className={netAmount < 0 ? "text-rose-600 font-black" : "text-slate-800"}>
+                                {netAmount < 0 ? `-৳${Math.abs(netAmount).toLocaleString('en-BD')}` : `৳${netAmount.toLocaleString('en-BD')}`}
+                              </span>
+                              {damaged > 0 && (
+                                <p className="text-[10px] text-rose-600 font-bold mt-0.5">
+                                  (-৳{(damaged * item.rate).toLocaleString('en-BD')})
+                                </p>
+                              )}
                             </td>
                           </tr>
                         );
@@ -2811,6 +2931,28 @@ export default function ChallanModule({
               </div>
             </div>
 
+            {/* Prominent Company & Brand Banner */}
+            {(() => {
+              const orderCompanies = Array.from(new Set(editOrderItems.map(i => i.company || products.find(p => p.name === i.productName)?.company).filter(Boolean)));
+              const displayCo = orderCompanies.length > 0 ? orderCompanies.join(', ') : 'General Brand';
+              return (
+                <div className="mx-6 mt-4 p-3.5 bg-gradient-to-r from-blue-50 via-indigo-50 to-slate-50 border border-blue-200 rounded-none flex items-center justify-between shadow-2xs">
+                  <div className="flex items-center gap-2">
+                    <Building className="w-4 h-4 text-blue-600 shrink-0" />
+                    <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                      {language === 'bn' ? 'কোম্পানি / ব্র্যান্ড:' : 'Company / Brand:'}
+                    </span>
+                    <span className="px-3 py-0.5 bg-blue-600 text-white font-extrabold text-xs rounded-none shadow-sm uppercase tracking-wider">
+                      {displayCo}
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-blue-700 font-bold hidden sm:inline">
+                    {language === 'bn' ? '🏢 এই চালানের সকল পণ্য এই কোম্পানির অধীনে সংরক্ষিত' : '🏢 All products in this challan belong to this company'}
+                  </span>
+                </div>
+              );
+            })()}
+
             {/* Locked notice banner */}
             {!editModeEnabled && (
               <div className="mx-6 mt-4 flex items-center gap-2.5 bg-amber-50 border border-amber-200 rounded-none px-4 py-3 text-xs font-semibold text-amber-800">
@@ -2929,7 +3071,14 @@ export default function ChallanModule({
                         return (
                           <tr key={idx} className="hover:bg-slate-50/50">
                             <td className="px-3 py-2">
-                              <p className="font-bold text-slate-800">{item.productName}</p>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <p className="font-bold text-slate-800">{item.productName}</p>
+                                {(item.company || prod?.company) && (
+                                  <span className="text-[9px] bg-blue-50 text-blue-700 px-1.5 py-0.2 rounded-none border border-blue-200 font-bold uppercase">
+                                    {item.company || prod?.company}
+                                  </span>
+                                )}
+                              </div>
                               <p className="text-[10px] text-slate-500">{item.attribute}</p>
                             </td>
                             <td className="px-3 py-2 text-right font-mono text-indigo-700 font-bold">
@@ -2942,7 +3091,7 @@ export default function ChallanModule({
                               {editModeEnabled ? (
                                 <div className="flex items-center justify-center gap-1">
                                   <input
-                                    type="number" min="1" required
+                                    type="number" min="0"
                                     value={item.qty}
                                     onChange={(e) => handleEditOrderItemChange(item.id, 'qty', Number(e.target.value))}
                                     className="w-16 h-8 rounded-none border border-blue-300 text-center font-semibold font-mono text-xs focus:border-blue-500 outline-none bg-blue-50/20"
@@ -3097,9 +3246,8 @@ export default function ChallanModule({
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 border-t border-slate-200 pt-4">
                 {[
                   { label: language === 'bn' ? 'চালানি সরবরাহ' : 'Dispatched', value: `৳${Number(editOrderItems.reduce((acc, curr) => acc + (curr.qty * curr.rate), 0).toFixed(2)).toLocaleString('en-BD')}`, bg: 'bg-slate-50' },
-                  // SPEC: Net Market Collection / Sales Value = Dispatched − Returned Value
-                  // Damage does NOT reduce this — it's handled by separate company claim
-                  { label: language === 'bn' ? 'নিট মার্কেট কালেকশন' : 'Net Market Collection', value: `৳${Number(editOrderItems.reduce((acc, curr) => acc + (Math.max(0, curr.qty - (curr.returnedQty || 0)) * curr.rate), 0).toFixed(2)).toLocaleString('en-BD')}`, bg: 'bg-blue-50/50', text: 'text-blue-700' },
+                  // Net Market Collection / Sales Value = Dispatched − Returned − Damaged
+                  { label: language === 'bn' ? 'নিট মার্কেট কালেকশন' : 'Net Market Collection', value: `৳${Number(editOrderItems.reduce((acc, curr) => acc + (Math.max(0, curr.qty - (curr.returnedQty || 0) - (curr.damagedQty || 0)) * curr.rate), 0).toFixed(2)).toLocaleString('en-BD')}`, bg: 'bg-blue-50/50', text: 'text-blue-700' },
                   { label: language === 'bn' ? 'মোট ফেরত' : 'Returned Value', value: `৳${Number(editOrderItems.reduce((acc, curr) => acc + ((curr.returnedQty || 0) * curr.rate), 0).toFixed(2)).toLocaleString('en-BD')}`, bg: 'bg-amber-50/50', text: 'text-amber-700' },
                   { label: language === 'bn' ? 'ড্যামেজ (কোম্পানি কাছে দাবি)' : 'Damage (Claim from Co.)', value: `৳${Number(editOrderItems.reduce((acc, curr) => acc + ((curr.damagedQty || 0) * curr.rate), 0).toFixed(2)).toLocaleString('en-BD')}`, bg: 'bg-rose-50/50', text: 'text-rose-700' },
                 ].map((m, i) => (
