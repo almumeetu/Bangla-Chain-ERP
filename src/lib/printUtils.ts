@@ -24,6 +24,16 @@ function getShopSubBrand(): string {
   }
 }
 
+function getOwnerName(): string {
+  try {
+    return localStorage.getItem('erp_settings')
+      ? (JSON.parse(localStorage.getItem('erp_settings')!) as { ownerName?: string }).ownerName || 'Sohanur Rahman Sohan'
+      : 'Sohanur Rahman Sohan';
+  } catch {
+    return 'Sohanur Rahman Sohan';
+  }
+}
+
 function now(): string {
   return new Date().toLocaleString('en-BD', {
     year: 'numeric', month: 'short', day: 'numeric',

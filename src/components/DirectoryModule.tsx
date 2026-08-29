@@ -147,8 +147,16 @@ function ProductRow({ p, index, companies, categories, units, godowns, onEdit, o
       <td className="px-4 py-3.5 text-right font-mono font-semibold text-slate-900">{formatBDT(p.defaultWSP)}</td>
       <td className="px-4 py-3.5 text-right font-mono text-slate-650">{formatBDT(p.defaultMRP)}</td>
       <td className="px-4 py-3.5 text-center">
-        <div className="font-mono font-bold text-slate-750">{p.currentStock.toLocaleString()} {p.primaryUnit === 'Carton' ? 'Ctn' : 'Pcs'}</div>
-        <div className="text-[9px] text-slate-400 font-mono">DP: ৳{getStockValueDP(p).toLocaleString('en-BD')} | TP: ৳{getStockValueTP(p).toLocaleString('en-BD')}</div>
+        <div className="font-mono font-bold text-slate-800">
+          {(() => {
+            const cs = p.cartonSize || 24;
+            const isCtn = p.primaryUnit === 'Carton';
+            const ctn = isCtn ? Math.floor(p.currentStock) : Math.floor(p.currentStock / cs);
+            const pcs = isCtn ? Math.round((p.currentStock - ctn) * cs) : (p.currentStock % cs);
+            return `${ctn} Ctn + ${pcs} Pcs`;
+          })()}
+        </div>
+        <div className="text-[10px] text-slate-400 font-mono">({p.currentStock.toLocaleString()} {p.primaryUnit === 'Carton' ? 'Ctn' : 'Pcs'}) | DP: ৳{getStockValueDP(p).toLocaleString('en-BD')}</div>
       </td>
       <td className="px-4 py-3.5 text-center">
         <div className="flex items-center justify-center gap-1.5">
@@ -753,7 +761,7 @@ export default function DirectoryModule({
   }, []);
 
   const formatStock = useCallback((stock: number, size: number, primaryUnit?: string) => {
-    const s = size || 24;
+    const s = (size && size > 1) ? size : 24;
     let cartons = 0;
     let pieces = 0;
 
@@ -766,23 +774,16 @@ export default function DirectoryModule({
     }
 
     if (language === 'bn') {
-      if (cartons === 0 && pieces > 0) {
-        return `${pieces} পিস`;
-      }
-      if (pieces === 0) {
-        return `${cartons} কার্টন`;
-      }
-      return `${cartons} কার্টন, ${pieces} পিস`;
+      return `${cartons} কার্টন + ${pieces} পিস`;
     }
 
-    if (cartons === 0 && pieces > 0) {
-      return `${pieces} Pcs`;
-    }
-    if (pieces === 0) {
-      return `${cartons} Ctn`;
-    }
-    return `${cartons} Ctn, ${pieces} Pcs`;
+    return `${cartons} Ctn + ${pieces} Pcs`;
   }, [language]);
+
+  const getTotalPieces = useCallback((stock: number, size: number, primaryUnit?: string) => {
+    const s = (size && size > 1) ? size : 24;
+    return primaryUnit === 'Carton' ? Math.round(stock * s) : stock;
+  }, []);
 
   const getCompanyBadgeStyle = useCallback((companyName: string) => {
     if (!companyName || companyName === 'N/A') return 'bg-slate-100 text-slate-500 border-slate-200';
@@ -1887,14 +1888,14 @@ export default function DirectoryModule({
                               {categoryName}
                             </td>
                             <td className="px-5 py-3.5 whitespace-nowrap">
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-none text-[10px] font-bold uppercase tracking-wide border bg-slate-50 text-slate-700 border-slate-200">
-                                {formatStock(displayStock, p.cartonSize || 24, p.primaryUnit)}
-                              </span>
-                              {p.primaryUnit !== 'Carton' && (
-                                <span className="text-[10px] text-slate-400 ml-1.5 font-medium">
-                                  ({displayStock.toLocaleString()} Pcs)
+                              <div className="flex flex-col">
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-none text-[11px] font-bold font-mono uppercase tracking-wide border bg-slate-50 text-slate-800 border-slate-200">
+                                  {formatStock(displayStock, p.cartonSize || 24, p.primaryUnit)}
                                 </span>
-                              )}
+                                <span className="text-[9.5px] text-slate-500 font-mono font-bold mt-0.5">
+                                  ({language === 'bn' ? 'মোট' : 'Total'}: {getTotalPieces(displayStock, p.cartonSize || 24, p.primaryUnit).toLocaleString()} {language === 'bn' ? 'পিস' : 'Pcs'})
+                                </span>
+                              </div>
                             </td>
                             <td className="px-5 py-3.5 text-xs text-right font-semibold text-slate-600 whitespace-nowrap font-mono">
                               {formatBDT(p.defaultPP)}/{p.primaryUnit === 'Carton' ? 'Ctn' : 'pc'}
@@ -2017,9 +2018,14 @@ export default function DirectoryModule({
                       <div className="px-4 pb-3">
                         <div className="flex items-center justify-between mb-1.5">
                           <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">{language === 'bn' ? 'স্টক' : 'Stock'}</span>
-                          <span className={`text-[11px] font-black font-mono ${isLowStock ? 'text-amber-600' : 'text-slate-800'}`}>
-                            {formatStock(displayStock, p.cartonSize || 24, p.primaryUnit)}
-                          </span>
+                          <div className="text-right">
+                            <div className={`text-[12px] font-black font-mono leading-none ${isLowStock ? 'text-amber-600' : 'text-slate-900'}`}>
+                              {formatStock(displayStock, p.cartonSize || 24, p.primaryUnit)}
+                            </div>
+                            <div className="text-[9.5px] font-mono text-slate-500 font-bold mt-1">
+                              ({language === 'bn' ? 'মোট' : 'Total'}: {getTotalPieces(displayStock, p.cartonSize || 24, p.primaryUnit).toLocaleString()} {language === 'bn' ? 'পিস' : 'Pcs'})
+                            </div>
+                          </div>
                         </div>
                         <div className="w-full bg-slate-100 h-1 rounded-none overflow-hidden">
                           <div

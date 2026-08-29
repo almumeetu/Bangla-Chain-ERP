@@ -777,25 +777,24 @@ export default function ChallanModule({
     setSettlementExtraCommValue(0);
     setSettlementDSRCommRate(0);
 
-    // Build split-return initial quantities (Carton + Piece breakdowns for Piece products)
+    // Build split-return initial quantities (Carton + Piece breakdowns)
     const initialQtys: Record<string, {
       returned: number; damaged: number;
       returnedCartons: number; returnedPcs: number;
       damagedCartons: number; damagedPcs: number;
     }> = {};
     group.items.forEach(item => {
-      const prod = products.find(p => p.name === item.productName);
-      const isPiece = (prod?.primaryUnit ?? 'Piece') === 'Piece';
-      const cs = Math.max(1, prod?.cartonSize || 24);
+      const prod = products.find(p => (p.name || '').trim().toLowerCase() === (item.productName || '').trim().toLowerCase());
+      const cs = (prod?.cartonSize && prod.cartonSize > 1) ? prod.cartonSize : 24;
       const prevRet = item.returnedQty || 0;
       const prevDmg = item.damagedQty || 0;
       initialQtys[item.id] = {
         returned: prevRet,
         damaged:  prevDmg,
-        returnedCartons: isPiece ? Math.floor(prevRet / cs) : prevRet,
-        returnedPcs:     isPiece ? prevRet % cs : 0,
-        damagedCartons:  isPiece ? Math.floor(prevDmg / cs) : prevDmg,
-        damagedPcs:      isPiece ? prevDmg % cs : 0,
+        returnedCartons: Math.floor(prevRet / cs),
+        returnedPcs:     prevRet % cs,
+        damagedCartons:  Math.floor(prevDmg / cs),
+        damagedPcs:      prevDmg % cs,
       };
     });
 
@@ -1079,9 +1078,6 @@ export default function ChallanModule({
         if (field === 'damagedQty') newDam = safeVal;
 
         const maxDispatched = newQty + (item.bonusQty || 0);
-        if (newRet > maxDispatched) {
-          newRet = maxDispatched;
-        }
 
         const updated = {
           ...item,
@@ -1091,12 +1087,34 @@ export default function ChallanModule({
           totalQty: maxDispatched
         };
         // Billable Qty = Billing Qty − Returned Qty − Damaged Qty (floored at 0)
-        const billableQty = Math.max(0, newQty - newRet - Math.min(newDam, Math.max(0, newQty - newRet)));
+        const billableQty = Math.max(0, newQty - newRet - newDam);
         updated.totalAmount = billableQty * updated.rate - (updated.commissionAmount || 0) + (updated.extraProfitAmount || 0);
         return updated;
       }
       return item;
     }));
+  };
+
+  const updateEditItemSplit = (
+    itemId: string,
+    field: 'qty' | 'returnedQty' | 'damagedQty',
+    part: 'ctn' | 'pcs',
+    val: number
+  ) => {
+    const item = editOrderItems.find(i => i.id === itemId);
+    if (!item) return;
+    const prod = products.find(p => (p.name || '').trim().toLowerCase() === (item.productName || '').trim().toLowerCase());
+    const cs = (prod?.cartonSize && prod.cartonSize > 1) ? prod.cartonSize : 24;
+
+    const currentTotal = (field === 'qty' ? item.qty : (field === 'returnedQty' ? (item.returnedQty || 0) : (item.damagedQty || 0)));
+    let curCtn = Math.floor(currentTotal / cs);
+    let curPcs = currentTotal % cs;
+
+    if (part === 'ctn') curCtn = Math.max(0, val);
+    if (part === 'pcs') curPcs = Math.max(0, val);
+
+    const newTotal = curCtn * cs + curPcs;
+    handleEditOrderItemChange(itemId, field, newTotal);
   };
 
   const handleRemoveEditOrderItem = (itemId: string) => {
@@ -2679,10 +2697,8 @@ export default function ChallanModule({
                     </thead>
                     <tbody className="divide-y divide-slate-200 bg-white">
                       {settlementOrder.items.map((item) => {
-                        const prod = products.find(p => p.name === item.productName);
-                        const cs = Math.max(1, prod?.cartonSize || 24);
-                        const isPieceUnit = (prod?.primaryUnit ?? 'Piece') === 'Piece';
-                        const hasCartonSplit = cs > 1;
+                        const prod = products.find(p => (p.name || '').trim().toLowerCase() === (item.productName || '').trim().toLowerCase());
+                        const cs = (prod?.cartonSize && prod.cartonSize > 1) ? prod.cartonSize : 24;
                         const qUpdates = settlementQuantities[item.id] || {
                           returned: 0, damaged: 0,
                           returnedCartons: 0, returnedPcs: 0,
@@ -2700,23 +2716,8 @@ export default function ChallanModule({
                           setSettlementQuantities(prev => {
                             const cur = prev[item.id] || { returned: 0, damaged: 0, returnedCartons: 0, returnedPcs: 0, damagedCartons: 0, damagedPcs: 0 };
                             const next = { ...cur, [field]: Math.max(0, rawVal) };
-                            if (hasCartonSplit) {
-                              next.returned = next.returnedCartons * cs + next.returnedPcs;
-                              next.damaged  = next.damagedCartons  * cs + next.damagedPcs;
-                            } else {
-                              next.returned = next.returnedCartons;
-                              next.damaged  = next.damagedCartons;
-                            }
-                            const max = item.qty;
-                            if (next.returned > max) {
-                              next.returned = max;
-                              if (hasCartonSplit) {
-                                next.returnedCartons = Math.floor(next.returned / cs);
-                                next.returnedPcs     = next.returned % cs;
-                              } else {
-                                next.returnedCartons = next.returned;
-                              }
-                            }
+                            next.returned = next.returnedCartons * cs + next.returnedPcs;
+                            next.damaged  = next.damagedCartons  * cs + next.damagedPcs;
                             return { ...prev, [item.id]: next };
                           });
                         };
@@ -2727,80 +2728,74 @@ export default function ChallanModule({
                               <p className="font-bold text-slate-800">{item.productName}</p>
                               <p className="text-[10px] text-slate-500">
                                 {item.attribute} • Rate: ৳{item.rate}
-                                {hasCartonSplit && <span className="ml-1 text-indigo-500 font-bold">({cs} pcs/ctn)</span>}
+                                <span className="ml-1 text-indigo-500 font-bold">({cs} pcs/ctn)</span>
                               </p>
                             </td>
                             <td className="px-4 py-3 text-center font-mono font-bold text-slate-700">
-                              {item.qty} {isPieceUnit ? 'Pcs' : 'Ctn'}
+                              {item.qty > 0 ? (
+                                <>
+                                  <div>{Math.floor(item.qty / cs)} Ctn + {item.qty % cs} Pcs</div>
+                                  <div className="text-[9px] text-slate-400">({item.qty} Pcs)</div>
+                                </>
+                              ) : (
+                                <div>0 Pcs</div>
+                              )}
                             </td>
                             {/* Return column */}
                             <td className="px-4 py-3">
-                              {hasCartonSplit ? (
-                                <div className="flex items-center gap-1 justify-center">
-                                  <div className="text-center">
-                                    <p className="text-[9px] text-slate-400 mb-0.5">Ctn</p>
-                                    <input type="number" min="0"
-                                      value={qUpdates.returnedCartons}
-                                      onChange={e => updateSplitQty('returnedCartons', Number(e.target.value))}
-                                      className="h-8 w-14 text-center font-mono font-semibold rounded-none border border-amber-200 focus:border-amber-500 outline-none bg-amber-50" />
-                                  </div>
-                                  <span className="text-slate-300 text-xs mt-3">+</span>
-                                  <div className="text-center">
-                                    <p className="text-[9px] text-slate-400 mb-0.5">Pcs</p>
-                                    <input type="number" min="0" max={cs - 1}
-                                      value={qUpdates.returnedPcs}
-                                      onChange={e => updateSplitQty('returnedPcs', Number(e.target.value))}
-                                      className="h-8 w-14 text-center font-mono font-semibold rounded-none border border-amber-200 focus:border-amber-500 outline-none bg-amber-50" />
-                                  </div>
-                                </div>
-                              ) : (
+                              <div className="flex items-center gap-1 justify-center">
                                 <div className="text-center">
-                                  <p className="text-[9px] text-slate-400 mb-0.5">Ctn</p>
-                                  <input type="number" min="0" max={item.qty}
+                                  <p className="text-[9px] text-slate-400 font-bold uppercase mb-0.5">Ctn</p>
+                                  <input type="number" min="0"
                                     value={qUpdates.returnedCartons}
                                     onChange={e => updateSplitQty('returnedCartons', Number(e.target.value))}
-                                    className="h-8 w-16 text-center font-mono font-semibold rounded-none border border-amber-200 focus:border-amber-500 outline-none bg-amber-50" />
+                                    className="h-8 w-14 text-center font-mono font-semibold rounded-none border border-amber-200 focus:border-amber-500 outline-none bg-amber-50" />
                                 </div>
-                              )}
-                              {returned > 0 && <p className="text-[9px] text-amber-600 text-center mt-0.5 font-mono">= {returned} {isPieceUnit ? 'pcs' : 'ctn'}</p>}
+                                <span className="text-slate-300 text-xs mt-3">+</span>
+                                <div className="text-center">
+                                  <p className="text-[9px] text-slate-400 font-bold uppercase mb-0.5">Pcs</p>
+                                  <input type="number" min="0"
+                                    value={qUpdates.returnedPcs}
+                                    onChange={e => updateSplitQty('returnedPcs', Number(e.target.value))}
+                                    className="h-8 w-14 text-center font-mono font-semibold rounded-none border border-amber-200 focus:border-amber-500 outline-none bg-amber-50" />
+                                </div>
+                              </div>
+                              {returned > 0 && <p className="text-[9px] text-amber-600 text-center mt-1 font-mono font-bold">= {returned} pcs</p>}
                             </td>
                             {/* Damage column */}
                             <td className="px-4 py-3">
-                              {hasCartonSplit ? (
-                                <div className="flex items-center gap-1 justify-center">
-                                  <div className="text-center">
-                                    <p className="text-[9px] text-slate-400 mb-0.5">Ctn</p>
-                                    <input type="number" min="0"
-                                      value={qUpdates.damagedCartons}
-                                      onChange={e => updateSplitQty('damagedCartons', Number(e.target.value))}
-                                      className="h-8 w-14 text-center font-mono font-semibold rounded-none border border-rose-200 focus:border-rose-500 outline-none bg-rose-50" />
-                                  </div>
-                                  <span className="text-slate-300 text-xs mt-3">+</span>
-                                  <div className="text-center">
-                                    <p className="text-[9px] text-slate-400 mb-0.5">Pcs</p>
-                                    <input type="number" min="0" max={cs - 1}
-                                      value={qUpdates.damagedPcs}
-                                      onChange={e => updateSplitQty('damagedPcs', Number(e.target.value))}
-                                      className="h-8 w-14 text-center font-mono font-semibold rounded-none border border-rose-200 focus:border-rose-500 outline-none bg-rose-50" />
-                                  </div>
-                                </div>
-                              ) : (
+                              <div className="flex items-center gap-1 justify-center">
                                 <div className="text-center">
-                                  <p className="text-[9px] text-slate-400 mb-0.5">Ctn</p>
+                                  <p className="text-[9px] text-slate-400 font-bold uppercase mb-0.5">Ctn</p>
                                   <input type="number" min="0"
                                     value={qUpdates.damagedCartons}
                                     onChange={e => updateSplitQty('damagedCartons', Number(e.target.value))}
-                                    className="h-8 w-16 text-center font-mono font-semibold rounded-none border border-rose-200 focus:border-rose-500 outline-none bg-rose-50" />
+                                    className="h-8 w-14 text-center font-mono font-semibold rounded-none border border-rose-200 focus:border-rose-500 outline-none bg-rose-50" />
                                 </div>
-                              )}
+                                <span className="text-slate-300 text-xs mt-3">+</span>
+                                <div className="text-center">
+                                  <p className="text-[9px] text-slate-400 font-bold uppercase mb-0.5">Pcs</p>
+                                  <input type="number" min="0"
+                                    value={qUpdates.damagedPcs}
+                                    onChange={e => updateSplitQty('damagedPcs', Number(e.target.value))}
+                                    className="h-8 w-14 text-center font-mono font-semibold rounded-none border border-rose-200 focus:border-rose-500 outline-none bg-rose-50" />
+                                </div>
+                              </div>
                               {damaged > 0 && (
-                                <p className="text-[9px] text-rose-600 text-center mt-0.5 font-mono font-bold">
-                                  = {damaged} {isPieceUnit ? 'pcs' : 'ctn'} (৳{(damaged * item.rate).toLocaleString('en-BD')})
+                                <p className="text-[9px] text-rose-600 text-center mt-1 font-mono font-bold">
+                                  = {damaged} pcs (৳{(damaged * item.rate).toLocaleString('en-BD')})
                                 </p>
                               )}
                             </td>
-                            <td className="px-4 py-3 text-center font-mono font-bold text-blue-655 bg-blue-50/10">
-                              {sold} {isPieceUnit ? 'Pcs' : 'Ctn'}
+                            <td className="px-4 py-3 text-center font-mono font-bold text-blue-700 bg-blue-50/20">
+                              {sold > 0 ? (
+                                <>
+                                  <div>{Math.floor(sold / cs)} Ctn + {sold % cs} Pcs</div>
+                                  <div className="text-[9px] text-blue-500">({sold} Pcs)</div>
+                                </>
+                              ) : (
+                                <div>0 Pcs</div>
+                              )}
                             </td>
                             <td className="px-4 py-3 text-right font-mono font-extrabold">
                               <span className={netAmount < 0 ? "text-rose-600 font-black" : "text-slate-800"}>
@@ -3097,7 +3092,18 @@ export default function ChallanModule({
                     </thead>
                     <tbody className="divide-y divide-slate-250 bg-white">
                       {editOrderItems.map((item, idx) => {
-                        const prod = products.find(p => p.name === item.productName);
+                        const prod = products.find(p => (p.name || '').trim().toLowerCase() === (item.productName || '').trim().toLowerCase());
+                        const cs = (prod?.cartonSize && prod.cartonSize > 1) ? prod.cartonSize : 24;
+
+                        const qtyCtn = Math.floor(item.qty / cs);
+                        const qtyPcs = item.qty % cs;
+
+                        const retCtn = Math.floor((item.returnedQty || 0) / cs);
+                        const retPcs = (item.returnedQty || 0) % cs;
+
+                        const dmgCtn = Math.floor((item.damagedQty || 0) / cs);
+                        const dmgPcs = (item.damagedQty || 0) % cs;
+
                         return (
                           <tr key={idx} className="hover:bg-slate-50/50">
                             <td className="px-3 py-2">
@@ -3109,7 +3115,9 @@ export default function ChallanModule({
                                   </span>
                                 )}
                               </div>
-                              <p className="text-[10px] text-slate-500">{item.attribute}</p>
+                              <p className="text-[10px] text-slate-500">
+                                {item.attribute} <span className="text-indigo-600 font-bold">({cs} pcs/ctn)</span>
+                              </p>
                             </td>
                             <td className="px-3 py-2 text-right font-mono text-indigo-700 font-bold">
                               {prod ? prod.defaultPP.toLocaleString('en-BD') : '—'}
@@ -3119,67 +3127,106 @@ export default function ChallanModule({
                             </td>
                             <td className="px-3 py-2 text-center">
                               {editModeEnabled ? (
-                                <div className="flex items-center justify-center gap-1">
-                                  <input
-                                    type="number" min="0"
-                                    value={item.qty}
-                                    onChange={(e) => handleEditOrderItemChange(item.id, 'qty', Number(e.target.value))}
-                                    className="w-16 h-8 rounded-none border border-blue-300 text-center font-semibold font-mono text-xs focus:border-blue-500 outline-none bg-blue-50/20"
-                                  />
-                                  <span className="text-[10px] font-black text-slate-500 font-mono">
-                                    {prod?.primaryUnit === 'Carton' ? 'Ctn' : 'Pcs'}
-                                  </span>
+                                <div className="flex flex-col items-center gap-0.5">
+                                  <div className="flex items-center gap-1 justify-center">
+                                    <div className="text-center">
+                                      <span className="text-[8px] text-slate-400 font-bold uppercase">Ctn</span>
+                                      <input
+                                        type="number" min="0"
+                                        value={qtyCtn}
+                                        onChange={(e) => updateEditItemSplit(item.id, 'qty', 'ctn', Number(e.target.value))}
+                                        className="w-12 h-7 rounded-none border border-blue-300 text-center font-semibold font-mono text-xs focus:border-blue-500 outline-none bg-blue-50/20"
+                                      />
+                                    </div>
+                                    <span className="text-slate-300 text-xs mt-3">+</span>
+                                    <div className="text-center">
+                                      <span className="text-[8px] text-slate-400 font-bold uppercase">Pcs</span>
+                                      <input
+                                        type="number" min="0"
+                                        value={qtyPcs}
+                                        onChange={(e) => updateEditItemSplit(item.id, 'qty', 'pcs', Number(e.target.value))}
+                                        className="w-12 h-7 rounded-none border border-blue-300 text-center font-semibold font-mono text-xs focus:border-blue-500 outline-none bg-blue-50/20"
+                                      />
+                                    </div>
+                                  </div>
+                                  <span className="text-[8.5px] font-mono text-blue-700 font-bold">= {item.qty} pcs</span>
                                 </div>
                               ) : (
-                                <div className="flex items-center justify-center gap-1 font-mono font-bold text-slate-800">
-                                  <span>{item.qty}</span>
-                                  <span className="text-[10px] text-slate-400">
-                                    {prod?.primaryUnit === 'Carton' ? 'Ctn' : 'Pcs'}
-                                  </span>
+                                <div className="text-center font-mono">
+                                  <div className="font-bold text-slate-800 text-xs">
+                                    {qtyCtn} Ctn + {qtyPcs} Pcs
+                                  </div>
+                                  <div className="text-[9px] text-slate-400">({item.qty} Pcs)</div>
                                 </div>
                               )}
                             </td>
                             <td className="px-3 py-2 text-center">
                               {editModeEnabled ? (
-                                <div className="flex items-center justify-center gap-1">
-                                  <input
-                                    type="number" min="0"
-                                    value={item.returnedQty || 0}
-                                    onChange={(e) => handleEditOrderItemChange(item.id, 'returnedQty', Number(e.target.value))}
-                                    className="w-16 h-8 rounded-none border border-blue-300 text-center font-semibold font-mono text-xs focus:border-blue-500 outline-none bg-blue-50/20"
-                                  />
-                                  <span className="text-[10px] font-black text-slate-500 font-mono">
-                                    {prod?.primaryUnit === 'Carton' ? 'Ctn' : 'Pcs'}
-                                  </span>
+                                <div className="flex flex-col items-center gap-0.5">
+                                  <div className="flex items-center gap-1 justify-center">
+                                    <div className="text-center">
+                                      <span className="text-[8px] text-slate-400 font-bold uppercase">Ctn</span>
+                                      <input
+                                        type="number" min="0"
+                                        value={retCtn}
+                                        onChange={(e) => updateEditItemSplit(item.id, 'returnedQty', 'ctn', Number(e.target.value))}
+                                        className="w-12 h-7 rounded-none border border-amber-300 text-center font-semibold font-mono text-xs focus:border-amber-500 outline-none bg-amber-50/30"
+                                      />
+                                    </div>
+                                    <span className="text-slate-300 text-xs mt-3">+</span>
+                                    <div className="text-center">
+                                      <span className="text-[8px] text-slate-400 font-bold uppercase">Pcs</span>
+                                      <input
+                                        type="number" min="0"
+                                        value={retPcs}
+                                        onChange={(e) => updateEditItemSplit(item.id, 'returnedQty', 'pcs', Number(e.target.value))}
+                                        className="w-12 h-7 rounded-none border border-amber-300 text-center font-semibold font-mono text-xs focus:border-amber-500 outline-none bg-amber-50/30"
+                                      />
+                                    </div>
+                                  </div>
+                                  <span className="text-[8.5px] font-mono text-amber-700 font-bold">= {item.returnedQty || 0} pcs</span>
                                 </div>
                               ) : (
-                                <div className="flex items-center justify-center gap-1 font-mono font-bold text-rose-600">
-                                  <span>{item.returnedQty || 0}</span>
-                                  <span className="text-[10px] text-rose-450">
-                                    {prod?.primaryUnit === 'Carton' ? 'Ctn' : 'Pcs'}
-                                  </span>
+                                <div className="text-center font-mono">
+                                  <div className="font-bold text-amber-700 text-xs">
+                                    {retCtn} Ctn + {retPcs} Pcs
+                                  </div>
+                                  {(item.returnedQty || 0) > 0 && <div className="text-[9px] text-amber-600 font-bold">({item.returnedQty} Pcs)</div>}
                                 </div>
                               )}
                             </td>
                             <td className="px-3 py-2 text-center">
                               {editModeEnabled ? (
-                                <div className="flex items-center justify-center gap-1">
-                                  <input
-                                    type="number" min="0"
-                                    value={item.damagedQty || 0}
-                                    onChange={(e) => handleEditOrderItemChange(item.id, 'damagedQty', Number(e.target.value))}
-                                    className="w-16 h-8 rounded-none border border-blue-300 text-center font-semibold font-mono text-xs focus:border-blue-500 outline-none bg-blue-50/20"
-                                  />
-                                  <span className="text-[10px] font-black text-slate-500 font-mono">
-                                    {prod?.primaryUnit === 'Carton' ? 'Ctn' : 'Pcs'}
-                                  </span>
+                                <div className="flex flex-col items-center gap-0.5">
+                                  <div className="flex items-center gap-1 justify-center">
+                                    <div className="text-center">
+                                      <span className="text-[8px] text-slate-400 font-bold uppercase">Ctn</span>
+                                      <input
+                                        type="number" min="0"
+                                        value={dmgCtn}
+                                        onChange={(e) => updateEditItemSplit(item.id, 'damagedQty', 'ctn', Number(e.target.value))}
+                                        className="w-12 h-7 rounded-none border border-rose-300 text-center font-semibold font-mono text-xs focus:border-rose-500 outline-none bg-rose-50/30"
+                                      />
+                                    </div>
+                                    <span className="text-slate-300 text-xs mt-3">+</span>
+                                    <div className="text-center">
+                                      <span className="text-[8px] text-slate-400 font-bold uppercase">Pcs</span>
+                                      <input
+                                        type="number" min="0"
+                                        value={dmgPcs}
+                                        onChange={(e) => updateEditItemSplit(item.id, 'damagedQty', 'pcs', Number(e.target.value))}
+                                        className="w-12 h-7 rounded-none border border-rose-300 text-center font-semibold font-mono text-xs focus:border-rose-500 outline-none bg-rose-50/30"
+                                      />
+                                    </div>
+                                  </div>
+                                  <span className="text-[8.5px] font-mono text-rose-700 font-bold">= {item.damagedQty || 0} pcs</span>
                                 </div>
                               ) : (
-                                <div className="flex items-center justify-center gap-1 font-mono font-bold text-rose-600">
-                                  <span>{item.damagedQty || 0}</span>
-                                  <span className="text-[10px] text-rose-450">
-                                    {prod?.primaryUnit === 'Carton' ? 'Ctn' : 'Pcs'}
-                                  </span>
+                                <div className="text-center font-mono">
+                                  <div className="font-bold text-rose-600 text-xs">
+                                    {dmgCtn} Ctn + {dmgPcs} Pcs
+                                  </div>
+                                  {(item.damagedQty || 0) > 0 && <div className="text-[9px] text-rose-600 font-bold">({item.damagedQty} Pcs)</div>}
                                 </div>
                               )}
                             </td>

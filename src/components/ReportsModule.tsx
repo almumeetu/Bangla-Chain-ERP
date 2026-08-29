@@ -59,18 +59,21 @@ function CartonPcsDisplay({
     );
   }
 
-  // Fallback to legacy single-product calculation logic:
+  // Fallback to single-product calculation logic:
   const activeQty = qty || 0;
+  const cs = (cartonSize && cartonSize > 1) ? cartonSize : 24;
+
   if (primaryUnit === 'Carton') {
+    const totalPcs = Math.round(activeQty * cs);
     return (
       <div className="font-mono text-[11px] leading-snug">
         <span className={`${cartonColor} font-bold`}>{activeQty.toLocaleString()}</span>
         <span className="text-slate-400 text-[9px]"> Ctn</span>
+        <div className="text-[9px] text-slate-400 mt-0.5">(মোট: {totalPcs.toLocaleString()} pcs)</div>
       </div>
     );
   }
 
-  const cs = cartonSize || 24;
   const computedCartons = Math.floor(activeQty / cs);
   const computedPcs = activeQty % cs;
 
@@ -85,7 +88,7 @@ function CartonPcsDisplay({
           <span className="text-slate-400 text-[9px]"> Pcs</span>
         </>
       )}
-      <div className="text-[9px] text-slate-400 mt-0.5">({activeQty.toLocaleString()} pcs)</div>
+      <div className="text-[9px] text-slate-400 mt-0.5">(মোট: {activeQty.toLocaleString()} pcs)</div>
     </div>
   );
 }
@@ -737,9 +740,7 @@ export default function ReportsModule({
 
   /** Build the common options object for the report engine */
   const buildReportOpts = useCallback(() => {
-    // 'dp' tab in ReportsModule maps to 'pricelist' in the engine
-    // 'claims' tab has no report engine handler yet — export falls back to 'profit'
-    const typeMap: Record<Exclude<ReportTab, 'claims'>, ReportType> = {
+    const typeMap: Record<ReportTab, ReportType> = {
       stock:   'stock',
       sales:   'sales',
       damage:  'damage',
@@ -747,14 +748,15 @@ export default function ReportsModule({
       margin:  'margin',
       dp:      'pricelist',
       dayend:  'dayend',
+      claims:  'claims',
     };
-    const mappedType: ReportType = activeTab === 'claims' ? 'profit' : typeMap[activeTab];
+    const mappedType: ReportType = typeMap[activeTab];
     return {
       type:          mappedType,
+      subTab:        activeTab === 'stock' ? stockSubTab : (activeTab === 'sales' ? salesSubTab : undefined),
       shopName:      shopName     || 'Bangla-Chain ERP',
       shopSubBrand:  shopSubBrand || 'Distribution Management System',
-      shopLogo:      shopLogo,
-      generatedBy:   userRole === 'admin' ? 'Admin' : 'SR',
+      generatedBy:   userRole === 'admin' ? (typeof window !== 'undefined' && localStorage.getItem('erp_settings') ? ((JSON.parse(localStorage.getItem('erp_settings')!) as { ownerName?: string }).ownerName || 'Admin') : 'Admin') : (loggedInSrName || 'SR'),
       startDate,
       endDate,
       language,
@@ -767,12 +769,14 @@ export default function ReportsModule({
       deliveryMen,
       expenses,
       companies,
+      claims,
+      claimSettlements
     };
   }, [
-    activeTab, shopName, shopSubBrand, shopLogo, userRole,
+    activeTab, stockSubTab, salesSubTab, shopName, shopSubBrand, shopLogo, userRole, loggedInSrName,
     startDate, endDate, language,
     selectedCompanyFilter, selectedSrFilter, selectedDeliveryManFilter,
-    products, challans, srs, deliveryMen, expenses, companies,
+    products, challans, srs, deliveryMen, expenses, companies, claims, claimSettlements
   ]);
 
   const handleDownloadPDF = useCallback(() => {

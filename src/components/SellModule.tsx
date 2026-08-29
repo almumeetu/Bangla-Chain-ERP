@@ -124,27 +124,40 @@ function ProductCard({ product, onAddToCart, formatBDT, language, listView }: Pr
   const stockPct = Math.min(100, (product.currentStock / 5000) * 100);
 
   const handleAdd = useCallback(() => {
-    onAddToCart(product); // Now uses default 1 of product's unit
+    onAddToCart(product);
   }, [product, onAddToCart]);
 
   const stockDisplay = React.useMemo(() => {
-    const cartonSize = product.cartonSize || 24;
-    const cartons = Math.floor(product.currentStock / cartonSize);
-    const pieces = product.currentStock % cartonSize;
+    const isCarton = product.primaryUnit === 'Carton';
+    const cartonSize = (product.cartonSize && product.cartonSize > 1) ? product.cartonSize : 24;
+    let cartons = 0;
+    let pieces = 0;
+    let totalPieces = 0;
+    if (isCarton) {
+      cartons = Math.floor(product.currentStock);
+      pieces = Math.round((product.currentStock - cartons) * cartonSize);
+      totalPieces = Math.round(product.currentStock * cartonSize);
+    } else {
+      totalPieces = product.currentStock;
+      cartons = Math.floor(totalPieces / cartonSize);
+      pieces = totalPieces % cartonSize;
+    }
     return (
-      <>
-        <div className="font-mono font-bold text-slate-700">
-          {cartons} Ctn, {pieces} Pcs
+      <div className="text-right">
+        <div className="font-mono font-black text-slate-800 text-[12px]">
+          {cartons} Ctn + {pieces} Pcs
         </div>
-        <div className="text-[7px] text-slate-400">({product.currentStock.toLocaleString()} Pcs)</div>
-      </>
+        <div className="text-[8.5px] font-mono text-slate-500 font-bold mt-0.5">
+          ({language === 'bn' ? 'মোট' : 'Total'}: {totalPieces.toLocaleString()} {language === 'bn' ? 'পিস' : 'Pcs'})
+        </div>
+      </div>
     );
-  }, [product.currentStock, product.cartonSize]);
+  }, [product.currentStock, product.cartonSize, product.primaryUnit, language]);
 
   // ── LIST ROW ──
   if (listView) {
     return (
-      <div className={`flex items-center gap-0 rounded-none border border-slate-100 bg-white transition-all duration-200 hover:border-slate-300 hover:shadow-md hover:shadow-slate-100/50 ${isOut ? 'opacity-60' : ''}`}>
+      <div className={`flex items-center gap-0 rounded-none border border-slate-100 bg-white transition-all duration-200 hover:border-slate-300 hover:shadow-md hover:shadow-slate-100/50 ${isOut ? 'opacity-75' : ''}`}>
         <div className={`w-1 self-stretch rounded-none-l-xl shrink-0 ${theme.bar}`} />
         <div className="flex flex-1 min-w-0 items-center gap-3 px-4 py-2.5">
           <div className="flex-1 min-w-0">
@@ -175,11 +188,10 @@ function ProductCard({ product, onAddToCart, formatBDT, language, listView }: Pr
           id={`pos-add-to-cart-${product.id}`}
           type="button"
           onClick={handleAdd}
-          disabled={isOut}
-          className={`shrink-0 mr-3 h-9 px-4 rounded-none text-[11px] font-black flex items-center gap-1.5 transition-all duration-200 cursor-pointer ${isOut ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : `${theme.btn} text-white shadow-lg shadow-slate-200 hover:brightness-110 active:scale-[0.97]`
+          className={`shrink-0 mr-3 h-9 px-4 rounded-none text-[11px] font-black flex items-center gap-1.5 transition-all duration-200 cursor-pointer ${isOut ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-sm' : `${theme.btn} text-white shadow-lg shadow-slate-200 hover:brightness-110 active:scale-[0.97]`
             }`}>
           <Plus className="w-3.5 h-3.5" />
-          {isOut ? (language === 'bn' ? 'নেই' : 'N/A') : (language === 'bn' ? 'যোগ' : 'Add')}
+          {isOut ? (language === 'bn' ? '+0 কার্ট' : '+0 Cart') : (language === 'bn' ? 'যোগ' : 'Add')}
         </button>
       </div>
     );
@@ -187,7 +199,7 @@ function ProductCard({ product, onAddToCart, formatBDT, language, listView }: Pr
 
   // ── GRID CARD ──
   return (
-    <div className={`group flex flex-col rounded-none border border-slate-100 bg-white transition-all duration-200 hover:border-slate-300 hover:shadow-xl hover:shadow-slate-100/60 overflow-hidden ${isOut ? 'opacity-60' : ''}`}>
+    <div className={`group flex flex-col rounded-none border border-slate-100 bg-white transition-all duration-200 hover:border-slate-300 hover:shadow-xl hover:shadow-slate-100/60 overflow-hidden ${isOut ? 'opacity-85' : ''}`}>
       <div className={`h-1.5 w-full ${theme.bar}`} />
       <div className="flex flex-col flex-1 gap-2 p-3">
         <div>
@@ -196,8 +208,8 @@ function ProductCard({ product, onAddToCart, formatBDT, language, listView }: Pr
               {product.company}
             </span>
             {isOut && (
-              <span className="text-[7px] font-black text-rose-500 bg-rose-50 px-1.5 py-0.5 rounded-none border border-rose-100 shrink-0">
-                Out
+              <span className="text-[7px] font-black text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-none border border-amber-200 shrink-0">
+                0 Stock
               </span>
             )}
           </div>
@@ -220,7 +232,7 @@ function ProductCard({ product, onAddToCart, formatBDT, language, listView }: Pr
 
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
-            <span className={`flex items-center gap-0.5 text-[8px] font-medium ${isOut ? 'text-rose-500' : isLow ? 'text-amber-500' : 'text-slate-500'}`}>
+            <span className={`flex items-center gap-0.5 text-[8px] font-medium ${isOut ? 'text-amber-600' : isLow ? 'text-amber-500' : 'text-slate-500'}`}>
               {isLow && <AlertTriangle className="w-2.5 h-2.5" />}
               <span className="text-[7px] uppercase tracking-widest">Stock</span>
             </span>
@@ -237,13 +249,12 @@ function ProductCard({ product, onAddToCart, formatBDT, language, listView }: Pr
         id={`pos-add-to-cart-${product.id}`}
         type="button"
         onClick={handleAdd}
-        disabled={isOut}
         className={`flex w-full items-center justify-center gap-1.5 border-t py-2 text-[9px] font-black tracking-widest transition-all duration-200 cursor-pointer ${isOut
-          ? 'border-slate-100 bg-slate-50 text-slate-400 cursor-not-allowed'
+          ? 'border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 font-bold'
           : `border-slate-100 ${theme.btn} text-white hover:brightness-110 active:scale-[0.98]`
           }`}>
         <Plus className="w-3.5 h-3.5" />
-        {isOut ? (language === 'bn' ? 'স্টক নেই' : 'Out of Stock') : (language === 'bn' ? '+1 কার্টে' : '+1 to Cart')}
+        {isOut ? (language === 'bn' ? '+0 কার্টে (রিটার্ন/ড্যামেজ)' : '+0 to Cart (Return/Damage)') : (language === 'bn' ? '+1 কার্টে' : '+1 to Cart')}
       </button>
     </div>
   );
@@ -536,8 +547,8 @@ export default function SellModule({
     const existingIdx = cart.findIndex(i => i.product.id === product.id && i.selectedSpec === defaultSpec);
 
     const isCarton = product.primaryUnit === 'Carton';
-    const cartonsToAdd = customCartons !== undefined ? customCartons : 0;
-    const pcsToAdd = customPcs !== undefined ? customPcs : 0;
+    const cartonsToAdd = customCartons !== undefined ? customCartons : (product.currentStock > 0 ? (isCarton ? 1 : 0) : 0);
+    const pcsToAdd = customPcs !== undefined ? customPcs : (product.currentStock > 0 ? (isCarton ? 0 : 1) : 0);
     const bonus = customBonus ?? 0;
 
     const addedQty = getCartItemQtyInPrimaryUnit(cartonsToAdd, pcsToAdd, product);
@@ -545,7 +556,7 @@ export default function SellModule({
       ? getCartItemQtyInPrimaryUnit(cart[existingIdx].cartons, cart[existingIdx].pcs, product)
       : 0;
 
-    if (addedQty > 0 && existingQty + addedQty > product.currentStock) {
+    if (addedQty > 0 && product.currentStock > 0 && existingQty + addedQty > product.currentStock) {
       error(
         language === 'bn' ? 'স্টক অপ্রতুল' : 'Insufficient Stock',
         language === 'bn'
@@ -973,20 +984,16 @@ export default function SellModule({
 
                 <div className="bg-gradient-to-r from-slate-50/90 to-white px-5 py-4 space-y-3">
                   {(() => {
-                    const isCartQtyZero = cart.length === 0 || cart.reduce((sum, item) => {
-                      const isCarton = item.product.primaryUnit === 'Carton';
-                      const cartonSize = item.product.cartonSize || 24;
-                      return sum + (isCarton ? item.cartons : (item.cartons * cartonSize + item.pcs));
-                    }, 0) === 0;
+                    const isCartEmpty = cart.length === 0;
                     return (
-                      <button id="pos-btn-checkout" type="submit" disabled={isCartQtyZero}
-                        className={`w-full py-4 text-[15px] font-black flex items-center justify-center gap-2 rounded-none transition-all duration-200 cursor-pointer shadow-xl ${!isCartQtyZero
+                      <button id="pos-btn-checkout" type="submit" disabled={isCartEmpty}
+                        className={`w-full py-4 text-[15px] font-black flex items-center justify-center gap-2 rounded-none transition-all duration-200 cursor-pointer shadow-xl ${!isCartEmpty
                           ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-emerald-200 active:scale-[0.97]'
                           : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
                           }`}>
                         <Check className="w-5 h-5" />
                         {translations[language].challan.dispatchBtn}
-                        {!isCartQtyZero && <ChevronRight className="w-5 h-5 animate-pulse" />}
+                        {!isCartEmpty && <ChevronRight className="w-5 h-5 animate-pulse" />}
                       </button>
                     );
                   })()}
