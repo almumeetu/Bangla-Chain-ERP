@@ -50,7 +50,7 @@ export function useLocalStorageMigration() {
             shop_name: s.shopName || 'Samir Enterprise',
             shop_subbrand: s.shopSubBrand || 'Dhaka & Chittagong Regional Hub',
             shop_logo: s.shopLogo || '',
-            language: s.language || 'bn',
+            language: s.language || 'en',
           });
         }
       }

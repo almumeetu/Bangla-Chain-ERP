@@ -945,9 +945,9 @@ export async function loadAllData(): Promise<AllErpData> {
           shopName:     sbSettings.shop_name,
           shopSubBrand: sbSettings.shop_subbrand,
           shopLogo:     sbSettings.shop_logo ?? '',
-          language:     sbSettings.language,
+          language:     sbSettings.language || 'en',
         }
-      : { shopName: 'Samir Enterprise', shopSubBrand: 'Dhaka & Chittagong Regional Hub', shopLogo: '', language: 'bn' },
+      : { shopName: 'Samir Enterprise', shopSubBrand: 'Dhaka & Chittagong Regional Hub', shopLogo: '', language: 'en' },
     claims:           sbClaims.map(mapClaim),
     claimSettlements: sbClaimSettlements.map(mapClaimSettlement),
     claimReasons:     sbClaimReasons.map(mapClaimReason),
