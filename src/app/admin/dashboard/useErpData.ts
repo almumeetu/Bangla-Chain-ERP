@@ -1,8 +1,18 @@
 'use client';
 
 /**
- * useErpData — all ERP React state + localStorage sync wrappers.
- * No Supabase. All persistence via db.ts (which delegates to localStore.ts).
+ * useErpData — all ERP React state + Supabase persistence.
+ * No direct localStorage. All persistence via db.ts (which delegates to supabase-db.ts).
+ *
+ * ARCHITECTURE:
+ * - makeSyncer wraps setState to also call Supabase upsert/delete on change
+ * - setXxx are now SYNC-AWARE — they call syncXxx internally so no data is lost
+ * - The old pattern of calling setProducts/setChallans/setCustomers directly is safe:
+ *   changes are persisted to Supabase via the same upsert path as syncXxx
+ *
+ * P0 BUG FIX: Previous version exposed raw React.Dispatch setters as setXxx,
+ * which meant ChallanModule.executeTransaction() mutations were NEVER persisted
+ * to Supabase (data was lost on page refresh). Now all setXxx === syncXxx.
  */
 
 import { useState } from 'react';
@@ -41,6 +51,17 @@ import type { Language } from '../../../translations';
 
 type Identifiable = { id: string };
 
+/**
+ * makeSyncer: wraps React setState to also persist diffs to Supabase.
+ *
+ * For every state update:
+ *  - Added items   → upsert(item)
+ *  - Changed items → upsert(item)
+ *  - Removed items → remove(item.id)
+ *
+ * Supabase calls are fire-and-forget (catch(console.error)).
+ * UI state updates are synchronous; persistence is async.
+ */
 function makeSyncer<T extends Identifiable>(
   setState: React.Dispatch<React.SetStateAction<T[]>>,
   upsert:   (item: T)    => Promise<void>,
@@ -106,27 +127,30 @@ export interface ErpDataStore {
   syncShopSubBrand: (val: string | ((p: string) => string)) => void;
   syncShopLogo:     (val: string | ((p: string) => string)) => void;
 
-  setProducts:          React.Dispatch<React.SetStateAction<Product[]>>;
-  setSrs:               React.Dispatch<React.SetStateAction<SR[]>>;
-  setDeliveryMen:       React.Dispatch<React.SetStateAction<DeliveryMan[]>>;
-  setCustomers:         React.Dispatch<React.SetStateAction<Customer[]>>;
-  setAttributes:        React.Dispatch<React.SetStateAction<ProductAttribute[]>>;
-  setChallans:          React.Dispatch<React.SetStateAction<ChallanItem[]>>;
-  setProcurements:      React.Dispatch<React.SetStateAction<Procurement[]>>;
-  setAdjustments:       React.Dispatch<React.SetStateAction<StockAdjustment[]>>;
-  setCategories:        React.Dispatch<React.SetStateAction<ExpenseCategory[]>>;
-  setExpenses:          React.Dispatch<React.SetStateAction<ExpenseRecord[]>>;
-  setCompanies:         React.Dispatch<React.SetStateAction<CompanyBrand[]>>;
-  setProductCategories: React.Dispatch<React.SetStateAction<Category[]>>;
-  setUnits:             React.Dispatch<React.SetStateAction<UnitOfMeasure[]>>;
-  setGodowns:           React.Dispatch<React.SetStateAction<Godown[]>>;
-  setRoutes:            React.Dispatch<React.SetStateAction<Route[]>>;
-  setClaims:            React.Dispatch<React.SetStateAction<Claim[]>>;
-  setClaimReasons:      React.Dispatch<React.SetStateAction<ClaimReason[]>>;
-  setClaimSettlements:  React.Dispatch<React.SetStateAction<ClaimSettlement[]>>;
-  setShopName:          React.Dispatch<React.SetStateAction<string>>;
-  setShopSubBrand:      React.Dispatch<React.SetStateAction<string>>;
-  setShopLogo:          React.Dispatch<React.SetStateAction<string>>;
+  // ── setXxx = syncXxx (P0 bug fix) ────────────────────────────────────────────
+  // Now these are sync-aware so ALL mutations persist to Supabase.
+  // No component code changes needed — same function signature.
+  setProducts:          (u: Product[]          | ((prev: Product[])          => Product[]))          => void;
+  setSrs:               (u: SR[]               | ((prev: SR[])               => SR[]))               => void;
+  setDeliveryMen:       (u: DeliveryMan[]      | ((prev: DeliveryMan[])      => DeliveryMan[]))      => void;
+  setCustomers:         (u: Customer[]         | ((prev: Customer[])         => Customer[]))         => void;
+  setAttributes:        (u: ProductAttribute[] | ((prev: ProductAttribute[]) => ProductAttribute[])) => void;
+  setChallans:          (u: ChallanItem[]      | ((prev: ChallanItem[])      => ChallanItem[]))      => void;
+  setProcurements:      (u: Procurement[]      | ((prev: Procurement[])      => Procurement[]))      => void;
+  setAdjustments:       (u: StockAdjustment[]  | ((prev: StockAdjustment[])  => StockAdjustment[]))  => void;
+  setCategories:        (u: ExpenseCategory[]  | ((prev: ExpenseCategory[])  => ExpenseCategory[]))  => void;
+  setExpenses:          (u: ExpenseRecord[]    | ((prev: ExpenseRecord[])    => ExpenseRecord[]))    => void;
+  setCompanies:         (u: CompanyBrand[]     | ((prev: CompanyBrand[])     => CompanyBrand[]))     => void;
+  setProductCategories: (u: Category[]         | ((prev: Category[])         => Category[]))         => void;
+  setUnits:             (u: UnitOfMeasure[]    | ((prev: UnitOfMeasure[])    => UnitOfMeasure[]))    => void;
+  setGodowns:           (u: Godown[]           | ((prev: Godown[])           => Godown[]))           => void;
+  setRoutes:            (u: Route[]            | ((prev: Route[])            => Route[]))            => void;
+  setClaims:            (u: Claim[]            | ((prev: Claim[])            => Claim[]))            => void;
+  setClaimReasons:      (u: ClaimReason[]      | ((prev: ClaimReason[])      => ClaimReason[]))      => void;
+  setClaimSettlements:  (u: ClaimSettlement[]  | ((prev: ClaimSettlement[])  => ClaimSettlement[]))  => void;
+  setShopName:          (val: string | ((p: string) => string)) => void;
+  setShopSubBrand:      (val: string | ((p: string) => string)) => void;
+  setShopLogo:          (val: string | ((p: string) => string)) => void;
 }
 
 // ── Hook ──────────────────────────────────────────────────────────────────────
@@ -137,48 +161,49 @@ export function useErpData(
   shopSubBrand:string,
   shopLogo:    string,
 ): ErpDataStore {
-  const [products,          setProducts]          = useState<Product[]>([]);
-  const [srs,               setSrs]               = useState<SR[]>([]);
-  const [deliveryMen,       setDeliveryMen]       = useState<DeliveryMan[]>([]);
-  const [customers,         setCustomers]         = useState<Customer[]>([]);
-  const [attributes,        setAttributes]        = useState<ProductAttribute[]>([]);
-  const [challans,          setChallans]          = useState<ChallanItem[]>([]);
-  const [procurements,      setProcurements]      = useState<Procurement[]>([]);
-  const [adjustments,       setAdjustments]       = useState<StockAdjustment[]>([]);
-  const [categories,        setCategories]        = useState<ExpenseCategory[]>([]);
-  const [expenses,          setExpenses]          = useState<ExpenseRecord[]>([]);
-  const [companies,         setCompanies]         = useState<CompanyBrand[]>([]);
-  const [productCategories, setProductCategories] = useState<Category[]>([]);
-  const [units,             setUnits]             = useState<UnitOfMeasure[]>([]);
-  const [godowns,           setGodowns]           = useState<Godown[]>([]);
-  const [routes,            setRoutes]            = useState<Route[]>([]);
-  const [claims,            setClaims]            = useState<Claim[]>([]);
-  const [claimReasons,      setClaimReasons]      = useState<ClaimReason[]>([]);
-  const [claimSettlements,  setClaimSettlements]  = useState<ClaimSettlement[]>([]);
-  const [_shopName,         setShopName]          = useState(shopName);
-  const [_shopSubBrand,     setShopSubBrand]      = useState(shopSubBrand);
-  const [_shopLogo,         setShopLogo]          = useState(shopLogo);
+  const [products,          _setProducts]          = useState<Product[]>([]);
+  const [srs,               _setSrs]               = useState<SR[]>([]);
+  const [deliveryMen,       _setDeliveryMen]       = useState<DeliveryMan[]>([]);
+  const [customers,         _setCustomers]         = useState<Customer[]>([]);
+  const [attributes,        _setAttributes]        = useState<ProductAttribute[]>([]);
+  const [challans,          _setChallans]          = useState<ChallanItem[]>([]);
+  const [procurements,      _setProcurements]      = useState<Procurement[]>([]);
+  const [adjustments,       _setAdjustments]       = useState<StockAdjustment[]>([]);
+  const [categories,        _setCategories]        = useState<ExpenseCategory[]>([]);
+  const [expenses,          _setExpenses]          = useState<ExpenseRecord[]>([]);
+  const [companies,         _setCompanies]         = useState<CompanyBrand[]>([]);
+  const [productCategories, _setProductCategories] = useState<Category[]>([]);
+  const [units,             _setUnits]             = useState<UnitOfMeasure[]>([]);
+  const [godowns,           _setGodowns]           = useState<Godown[]>([]);
+  const [routes,            _setRoutes]            = useState<Route[]>([]);
+  const [claims,            _setClaims]            = useState<Claim[]>([]);
+  const [claimReasons,      _setClaimReasons]      = useState<ClaimReason[]>([]);
+  const [claimSettlements,  _setClaimSettlements]  = useState<ClaimSettlement[]>([]);
+  const [_shopName,         setShopNameRaw]        = useState(shopName);
+  const [_shopSubBrand,     setShopSubBrandRaw]    = useState(shopSubBrand);
+  const [_shopLogo,         setShopLogoRaw]        = useState(shopLogo);
 
-  const syncProducts          = makeSyncer(setProducts,          upsertProduct,          deleteProduct);
-  const syncSrs               = makeSyncer(setSrs,               upsertSR,               deleteSR);
-  const syncDeliveryMen       = makeSyncer(setDeliveryMen,       upsertDeliveryMan,      deleteDeliveryMan);
-  const syncCustomers         = makeSyncer(setCustomers,         upsertCustomer as (item: Customer) => Promise<void>, deleteCustomer);
-  const syncAttributes        = makeSyncer(setAttributes,        upsertAttribute,        deleteAttribute);
-  const syncChallans          = makeSyncer(setChallans,          upsertChallan,          deleteChallan);
-  const syncProcurements      = makeSyncer(setProcurements,      upsertProcurement,      deleteProcurement);
-  const syncExpenseCategories = makeSyncer(setCategories,        upsertExpenseCategory,  deleteExpenseCategory);
-  const syncExpenses          = makeSyncer(setExpenses,          upsertExpense,          deleteExpense);
-  const syncCompanies         = makeSyncer(setCompanies,         upsertCompany,          deleteCompany);
-  const syncProductCategories = makeSyncer(setProductCategories, upsertProductCategory,  deleteProductCategory);
-  const syncUnits             = makeSyncer(setUnits,             upsertUnit,             deleteUnit);
-  const syncGodowns           = makeSyncer(setGodowns,           upsertGodown,           deleteGodown);
-  const syncRoutes            = makeSyncer(setRoutes,            upsertRoute,            deleteRoute);
-  const syncClaims            = makeSyncer(setClaims,            upsertClaim,            deleteClaim);
-  const syncClaimReasons      = makeSyncer(setClaimReasons,      upsertClaimReason,      deleteClaimReason);
-  const syncClaimSettlements  = makeSyncer(setClaimSettlements,  upsertClaimSettlement,  deleteClaimSettlement);
+  // ── Sync-aware setters (persist to Supabase) ──────────────────────────────
+  const syncProducts          = makeSyncer(_setProducts,          upsertProduct,          deleteProduct);
+  const syncSrs               = makeSyncer(_setSrs,               upsertSR,               deleteSR);
+  const syncDeliveryMen       = makeSyncer(_setDeliveryMen,       upsertDeliveryMan,      deleteDeliveryMan);
+  const syncCustomers         = makeSyncer(_setCustomers,         upsertCustomer as (item: Customer) => Promise<void>, deleteCustomer);
+  const syncAttributes        = makeSyncer(_setAttributes,        upsertAttribute,        deleteAttribute);
+  const syncChallans          = makeSyncer(_setChallans,          upsertChallan,          deleteChallan);
+  const syncProcurements      = makeSyncer(_setProcurements,      upsertProcurement,      deleteProcurement);
+  const syncExpenseCategories = makeSyncer(_setCategories,        upsertExpenseCategory,  deleteExpenseCategory);
+  const syncExpenses          = makeSyncer(_setExpenses,          upsertExpense,          deleteExpense);
+  const syncCompanies         = makeSyncer(_setCompanies,         upsertCompany,          deleteCompany);
+  const syncProductCategories = makeSyncer(_setProductCategories, upsertProductCategory,  deleteProductCategory);
+  const syncUnits             = makeSyncer(_setUnits,             upsertUnit,             deleteUnit);
+  const syncGodowns           = makeSyncer(_setGodowns,           upsertGodown,           deleteGodown);
+  const syncRoutes            = makeSyncer(_setRoutes,            upsertRoute,            deleteRoute);
+  const syncClaims            = makeSyncer(_setClaims,            upsertClaim,            deleteClaim);
+  const syncClaimReasons      = makeSyncer(_setClaimReasons,      upsertClaimReason,      deleteClaimReason);
+  const syncClaimSettlements  = makeSyncer(_setClaimSettlements,  upsertClaimSettlement,  deleteClaimSettlement);
 
   function syncAdjustments(updaterOrValue: StockAdjustment[] | ((prev: StockAdjustment[]) => StockAdjustment[])) {
-    setAdjustments(prev => {
+    _setAdjustments(prev => {
       const next  = typeof updaterOrValue === 'function' ? updaterOrValue(prev) : updaterOrValue;
       const added = next.filter(n => !prev.find(p => p.id === n.id));
       added.forEach(a => insertStockAdjustment(a).catch(console.error));
@@ -196,7 +221,7 @@ export function useErpData(
   }
 
   function syncShopName(val: string | ((p: string) => string)) {
-    setShopName(prev => {
+    setShopNameRaw(prev => {
       const next = typeof val === 'function' ? val(prev) : val;
       upsertSettings(buildSettings({ shopName: next })).catch(console.error);
       return next;
@@ -204,7 +229,7 @@ export function useErpData(
   }
 
   function syncShopSubBrand(val: string | ((p: string) => string)) {
-    setShopSubBrand(prev => {
+    setShopSubBrandRaw(prev => {
       const next = typeof val === 'function' ? val(prev) : val;
       upsertSettings(buildSettings({ shopSubBrand: next })).catch(console.error);
       return next;
@@ -212,7 +237,7 @@ export function useErpData(
   }
 
   function syncShopLogo(val: string | ((p: string) => string)) {
-    setShopLogo(prev => {
+    setShopLogoRaw(prev => {
       const next = typeof val === 'function' ? val(prev) : val;
       upsertSettings(buildSettings({ shopLogo: next })).catch(console.error);
       return next;
@@ -220,19 +245,41 @@ export function useErpData(
   }
 
   return {
+    // ── State (read-only) ───────────────────────────────────────────────────
     products, srs, deliveryMen, customers, attributes, challans,
     procurements, adjustments, categories, expenses, companies,
     productCategories, units, godowns, routes, claims, claimReasons, claimSettlements,
     shopName: _shopName, shopSubBrand: _shopSubBrand, shopLogo: _shopLogo,
+
+    // ── Sync-aware update functions ─────────────────────────────────────────
+    // These update local React state AND persist diffs to Supabase.
     syncProducts, syncSrs, syncDeliveryMen, syncCustomers, syncAttributes,
     syncChallans, syncProcurements, syncAdjustments, syncExpenseCategories,
     syncExpenses, syncCompanies, syncProductCategories, syncUnits,
     syncGodowns, syncRoutes, syncClaims, syncClaimReasons, syncClaimSettlements,
     syncShopName, syncShopSubBrand, syncShopLogo,
-    setProducts, setSrs, setDeliveryMen, setCustomers, setAttributes,
-    setChallans, setProcurements, setAdjustments, setCategories, setExpenses,
-    setCompanies, setProductCategories, setUnits, setGodowns, setRoutes,
-    setClaims, setClaimReasons, setClaimSettlements,
-    setShopName, setShopSubBrand, setShopLogo,
+
+    // ── setXxx = syncXxx (P0 bug fix: data now persists) ────────────────────
+    setProducts:          syncProducts,
+    setSrs:               syncSrs,
+    setDeliveryMen:       syncDeliveryMen,
+    setCustomers:         syncCustomers,
+    setAttributes:        syncAttributes,
+    setChallans:          syncChallans,
+    setProcurements:      syncProcurements,
+    setAdjustments:       syncAdjustments,
+    setCategories:        syncExpenseCategories,
+    setExpenses:          syncExpenses,
+    setCompanies:         syncCompanies,
+    setProductCategories: syncProductCategories,
+    setUnits:             syncUnits,
+    setGodowns:           syncGodowns,
+    setRoutes:            syncRoutes,
+    setClaims:            syncClaims,
+    setClaimReasons:      syncClaimReasons,
+    setClaimSettlements:  syncClaimSettlements,
+    setShopName:          syncShopName,
+    setShopSubBrand:      syncShopSubBrand,
+    setShopLogo:          syncShopLogo,
   };
 }

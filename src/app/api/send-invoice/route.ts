@@ -1,62 +1,128 @@
-import { NextResponse } from 'next/server';
-
 /**
- * Next.js Route Handler for sending invoice emails via Resend REST API
- * 
+ * Bangla-Chain ERP — Send Invoice Email via Resend
+ *
+ * SECURITY:
+ * - Validates all inputs with Zod before processing.
+ * - Requires authenticated session (admin Supabase auth).
+ * - Rate-limited to 10 emails per 5 minutes per user.
+ *
  * Required Environment Variables in .env.local:
- * - RESEND_API_KEY: The API token obtained from https://resend.com
- * - SENDER_EMAIL: Optional, defaults to "onboarding@resend.dev"
+ *  - RESEND_API_KEY: API key from https://resend.com
+ *  - RESEND_FROM_EMAIL: Verified sender email address
+ *  - RESEND_TO_EMAIL: (Optional) Override recipient for testing
  */
-export async function POST(request: Request) {
-  try {
-    const body = await request.json();
-    const {
-      challanId,
-      customerName,
-      customerEmail,
-      productName,
-      qty,
-      bonusQty,
-      totalQty,
-      rate,
-      totalAmount,
-      deliveryDate,
-      shopName,
-      shopSubBrand,
-      selectedUnitName,
-      returnedQty = 0,
-      damagedQty = 0,
-    } = body;
 
-    const apiKey = process.env.RESEND_API_KEY;
-    if (!apiKey) {
-      console.warn('[Email] RESEND_API_KEY environment variable is not defined.');
-      return NextResponse.json(
-        { error: 'Mail server credentials are not configured.' },
-        { status: 500 }
-      );
+import { NextRequest, NextResponse } from 'next/server';
+import { createServerClient } from '@supabase/ssr';
+import { SendInvoiceSchema, parseOrThrow, ValidationError } from '@/lib/validation';
+import type { Database } from '@/lib/supabase.types';
+
+// ── Rate Limiter ───────────────────────────────────────────────────────────────
+const emailRateMap = new Map<string, { count: number; resetAt: number }>();
+const EMAIL_LIMIT = 10;
+const EMAIL_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
+
+function checkEmailRateLimit(userId: string): boolean {
+  const now = Date.now();
+  const record = emailRateMap.get(userId);
+
+  if (!record || now > record.resetAt) {
+    emailRateMap.set(userId, { count: 1, resetAt: now + EMAIL_WINDOW_MS });
+    return true;
+  }
+
+  if (record.count >= EMAIL_LIMIT) return false;
+  record.count += 1;
+  return true;
+}
+
+// ── POST ───────────────────────────────────────────────────────────────────────
+
+export async function POST(request: NextRequest) {
+  // ── 1. Auth check ─────────────────────────────────────────────────────────
+  const supabase = createServerClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll: () => request.cookies.getAll(),
+        setAll: () => {}, // Read-only in route handler
+      },
     }
+  );
 
-    const recipientEmail = process.env.RESEND_TO_EMAIL || customerEmail;
-    if (!recipientEmail) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json(
+      { error: 'UNAUTHORIZED', message: 'Authentication required.' },
+      { status: 401 }
+    );
+  }
+
+  // ── 2. Rate limiting ──────────────────────────────────────────────────────
+  if (!checkEmailRateLimit(user.id)) {
+    return NextResponse.json(
+      { error: 'RATE_LIMITED', message: 'অনেক বেশি ইমেইল পাঠানো হয়েছে। ৫ মিনিট পরে আবার চেষ্টা করুন।' },
+      { status: 429 }
+    );
+  }
+
+  // ── 3. Validate input ─────────────────────────────────────────────────────
+  let body: ReturnType<typeof SendInvoiceSchema.parse>;
+  try {
+    const rawBody = await request.json();
+    body = parseOrThrow(SendInvoiceSchema, rawBody);
+  } catch (err) {
+    if (err instanceof ValidationError) {
       return NextResponse.json(
-        { error: 'Recipient email address is required.' },
+        { error: 'VALIDATION_ERROR', message: err.message, fields: err.fieldErrors },
         { status: 400 }
       );
     }
+    return NextResponse.json(
+      { error: 'INVALID_REQUEST', message: 'Invalid request body.' },
+      { status: 400 }
+    );
+  }
 
-    const senderEmail = process.env.RESEND_FROM_EMAIL || process.env.SENDER_EMAIL || 'onboarding@resend.dev';
+  // ── 4. Check API key ──────────────────────────────────────────────────────
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    console.warn('[Email] RESEND_API_KEY environment variable is not defined.');
+    return NextResponse.json(
+      { error: 'MAIL_NOT_CONFIGURED', message: 'Mail server credentials are not configured.' },
+      { status: 500 }
+    );
+  }
 
-    // Format quantities
-    const formattedQty = `${qty} ${selectedUnitName || 'Pcs'}`;
-    const formattedBonus = bonusQty > 0 ? `${bonusQty} Pcs` : 'None';
+  // ── 5. Determine recipient ────────────────────────────────────────────────
+  const recipientEmail = process.env.RESEND_TO_EMAIL || body.customerEmail;
+  if (!recipientEmail) {
+    return NextResponse.json(
+      { error: 'NO_RECIPIENT', message: 'Recipient email address is required.' },
+      { status: 400 }
+    );
+  }
 
-    const deliveryFormatted = deliveryDate 
-      ? new Date(deliveryDate).toLocaleDateString('en-US', { dateStyle: 'medium' }) 
-      : new Date().toLocaleDateString('en-US', { dateStyle: 'medium' });
+  const senderEmail =
+    process.env.RESEND_FROM_EMAIL ||
+    process.env.SENDER_EMAIL ||
+    'onboarding@resend.dev';
 
-    // Premium bilingual HTML Template
-    const htmlContent = `
+  // ── 6. Build email HTML ───────────────────────────────────────────────────
+  const {
+    challanId, customerName, productName, qty, bonusQty, rate,
+    totalAmount, deliveryDate, shopName, shopSubBrand,
+    selectedUnitName, returnedQty, damagedQty,
+  } = body;
+
+  const formattedQty = `${qty} ${selectedUnitName || 'Pcs'}`;
+  const formattedBonus = bonusQty > 0 ? `${bonusQty} Pcs` : 'None';
+  const deliveryFormatted = deliveryDate
+    ? new Date(deliveryDate).toLocaleDateString('en-US', { dateStyle: 'medium' })
+    : new Date().toLocaleDateString('en-US', { dateStyle: 'medium' });
+
+  const htmlContent = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -64,7 +130,7 @@ export async function POST(request: Request) {
   <title>Invoice - ${shopName || 'Samir Enterprise'}</title>
   <style>
     body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #fafbfc; margin: 0; padding: 20px; color: #2d3748; -webkit-font-smoothing: antialiased; }
-    .container { max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+    .container { max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
     .header { background: #0f172a; padding: 32px 24px; color: #ffffff; }
     .brand-title { font-size: 20px; font-weight: 800; text-transform: uppercase; margin: 0; letter-spacing: 0.5px; }
     .brand-subtitle { font-size: 12px; color: #94a3b8; margin: 4px 0 0 0; font-weight: 500; }
@@ -77,13 +143,11 @@ export async function POST(request: Request) {
     .details-cell { display: table-cell; padding: 6px 0; }
     .details-label { font-weight: 700; color: #64748b; width: 40%; }
     .details-value { color: #0f172a; font-weight: 600; text-align: right; }
-    .table-container { margin-bottom: 28px; }
-    .invoice-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .invoice-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 28px; }
     .invoice-table th { background: #f1f5f9; color: #475569; font-weight: 700; text-align: left; padding: 12px; border-bottom: 2px solid #e2e8f0; }
     .invoice-table td { padding: 12px; border-bottom: 1px solid #e2e8f0; color: #334155; }
     .invoice-table tr:last-child td { border-bottom: none; }
-    .invoice-table .num-cell { text-align: right; }
-    .invoice-table th.num-cell { text-align: right; }
+    .num-cell { text-align: right; }
     .total-section { border-top: 2px solid #0f172a; padding-top: 16px; display: table; width: 100%; font-size: 14px; }
     .total-row { display: table-row; }
     .total-cell { display: table-cell; padding: 4px 0; }
@@ -91,7 +155,7 @@ export async function POST(request: Request) {
     .total-value { font-size: 16px; font-weight: 900; color: #0f172a; text-align: right; }
     .returns-banner { background-color: #fffbeb; border: 1px solid #fef3c7; color: #b45309; padding: 12px 16px; font-size: 12px; font-weight: 600; margin-bottom: 28px; }
     .footer { background: #f8fafc; padding: 24px; text-align: center; border-top: 1px solid #e2e8f0; }
-    .footer-text { font-size: 11px; color: #94a3b8; margin: 0 0 8px 0; line-height: 1.5; font-weight: 500; }
+    .footer-text { font-size: 11px; color: #94a3b8; margin: 0 0 8px 0; line-height: 1.5; }
     .footer-thankyou { font-size: 12px; font-weight: 700; color: #64748b; margin: 0; }
   </style>
 </head>
@@ -107,7 +171,6 @@ export async function POST(request: Request) {
         Dear <strong>${customerName || 'Valued Customer'}</strong>,<br/>
         An invoice has been generated for your recent order delivery. Please review the details below:
       </p>
-      
       <div class="invoice-details">
         <div class="details-grid">
           <div class="details-row">
@@ -120,44 +183,34 @@ export async function POST(request: Request) {
           </div>
         </div>
       </div>
-
-      <div class="table-container">
-        <table class="invoice-table">
-          <thead>
-            <tr>
-              <th>Item / বিবরণ</th>
-              <th class="num-cell">Qty / পরিমাণ</th>
-              <th class="num-cell">Rate / দর</th>
-              <th class="num-cell">Total / মূল্য</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td style="font-weight: 600;">${productName}</td>
-              <td class="num-cell">${formattedQty}</td>
-              <td class="num-cell">৳${rate}</td>
-              <td class="num-cell">৳${(qty * rate).toFixed(2)}</td>
-            </tr>
-            ${bonusQty > 0 ? `
-            <tr>
-              <td style="color: #64748b; font-style: italic;">└ Free Bonus Items</td>
-              <td class="num-cell" style="color: #64748b;">${formattedBonus}</td>
-              <td class="num-cell" style="color: #64748b;">৳0</td>
-              <td class="num-cell" style="color: #64748b;">৳0.00</td>
-            </tr>
-            ` : ''}
-          </tbody>
-        </table>
-      </div>
-
+      <table class="invoice-table">
+        <thead>
+          <tr>
+            <th>Item / বিবরণ</th>
+            <th class="num-cell">Qty / পরিমাণ</th>
+            <th class="num-cell">Rate / দর</th>
+            <th class="num-cell">Total / মূল্য</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="font-weight: 600;">${productName}</td>
+            <td class="num-cell">${formattedQty}</td>
+            <td class="num-cell">৳${rate}</td>
+            <td class="num-cell">৳${(qty * rate).toFixed(2)}</td>
+          </tr>
+          ${bonusQty > 0 ? `<tr>
+            <td style="color: #64748b; font-style: italic;">└ Free Bonus Items</td>
+            <td class="num-cell" style="color: #64748b;">${formattedBonus}</td>
+            <td class="num-cell" style="color: #64748b;">৳0</td>
+            <td class="num-cell" style="color: #64748b;">৳0.00</td>
+          </tr>` : ''}
+        </tbody>
+      </table>
       ${(returnedQty > 0 || damagedQty > 0) ? `
       <div class="returns-banner">
-        ⚠️ Returns/Damages processed: 
-        ${returnedQty > 0 ? `${returnedQty} Returned ` : ''} 
-        ${damagedQty > 0 ? `${damagedQty} Damaged ` : ''} 
-      </div>
-      ` : ''}
-
+        &#9888;&#65039; Returns/Damages: ${returnedQty > 0 ? `${returnedQty} Returned` : ''}${damagedQty > 0 ? ` ${damagedQty} Damaged` : ''}
+      </div>` : ''}
       <div class="total-section">
         <div class="total-row">
           <div class="total-cell total-label">Grand Total / সর্বমোট মূল্য</div>
@@ -166,16 +219,15 @@ export async function POST(request: Request) {
       </div>
     </div>
     <div class="footer">
-      <p class="footer-text">
-        This is an automated delivery receipt issued by Bangla Chain ERP on behalf of ${shopName || 'Samir Enterprise'}. Please do not reply directly to this mail.
-      </p>
+      <p class="footer-text">This is an automated delivery receipt issued by Bangla Chain ERP on behalf of ${shopName || 'Samir Enterprise'}. Please do not reply to this email.</p>
       <p class="footer-thankyou">Thank you for your business! / ধন্যবাদ!</p>
     </div>
   </div>
 </body>
-</html>
-    `;
+</html>`;
 
+  // ── 7. Send via Resend ────────────────────────────────────────────────────
+  try {
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
@@ -194,17 +246,15 @@ export async function POST(request: Request) {
     if (!res.ok) {
       console.error('[Email API] Resend returned error status:', res.status, data);
       return NextResponse.json(
-        { error: data.message || 'Resend API failed to process mail request.' },
+        { error: 'EMAIL_SEND_FAILED', message: data.message || 'Resend API failed to process mail request.' },
         { status: res.status }
       );
     }
 
     return NextResponse.json({ success: true, id: data.id });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Internal server error.';
     console.error('[Email API] Unhandled error sending invoice email:', error);
-    return NextResponse.json(
-      { error: error.message || 'Internal server error processing invoice email.' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'SERVER_ERROR', message }, { status: 500 });
   }
 }
