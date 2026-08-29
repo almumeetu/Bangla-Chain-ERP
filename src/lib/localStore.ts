@@ -391,50 +391,7 @@ export function loadAllData(): AllErpData {
 
 // ── Seed initial demo data (called once on first run) ─────────────────────────
 
-export const INITIAL_CLAIMS: Claim[] = [
-  {
-    id: 'claim-1',
-    claimDate: '2026-07-20',
-    companyId: 'comp-1',
-    companyName: 'Pran',
-    srId: 'sr-1',
-    srName: 'Rakib',
-    productId: 'prod-1',
-    productName: 'Pran Mango Juice 250ml',
-    qty: 50,
-    reason: 'Damaged packaging',
-    notes: 'Carton was wet during delivery.',
-    status: 'Pending'
-  },
-  {
-    id: 'claim-2',
-    claimDate: '2026-07-22',
-    companyId: 'comp-2',
-    companyName: 'Olympic',
-    srId: 'sr-2',
-    srName: 'Rahman',
-    productId: 'prod-4',
-    productName: 'Olympic Energy Biscuits 50g',
-    qty: 120,
-    reason: 'Shortage in shipment',
-    notes: 'Received 5 cartons less than invoiced.',
-    status: 'Approved'
-  },
-  {
-    id: 'claim-3',
-    claimDate: '2026-07-25',
-    companyId: 'comp-3',
-    companyName: 'Haque',
-    srId: 'sr-3',
-    srName: 'Rahim',
-    productId: 'prod-7',
-    productName: 'Haque Bourbon Biscuit 100g',
-    qty: 24,
-    reason: 'Expired items',
-    notes: 'Expiry date was June 2026.',
-    status: 'Rejected'
-  }
-];
+export const INITIAL_CLAIMS: Claim[] = [];
 
 export function seedInitialData(): void {
   const alreadySeeded = localStorage.getItem(KEYS.seeded);
