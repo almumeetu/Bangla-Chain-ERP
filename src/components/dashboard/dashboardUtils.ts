@@ -144,7 +144,7 @@ export function useDashboardMetrics(
         p.name.toLowerCase().trim() === (ch.productName ?? '').toLowerCase().trim()
       );
       const pp     = prod?.defaultPP ?? (ch.rate * 0.80);
-      const netQty = Math.max(0, (ch.qty ?? 0) - (ch.returnedQty ?? 0) - (ch.damagedQty ?? 0));
+      const netQty = Math.max(0, (ch.qty ?? 0) - (ch.returnedQty ?? 0));
       return s + netQty * pp;
     }, 0);
   }

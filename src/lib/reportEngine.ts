@@ -743,7 +743,7 @@ function genProfit(ctx: DocContext, opts: ReportOptions): void {
       const rev  = cc.reduce((s, ch) => s + (ch.totalAmount ?? 0), 0);
       const cost = cc.reduce((s, ch) => {
         const prod = opts.products.find(p => p.name === ch.productName);
-        const netQty = Math.max(0, (ch.qty ?? 0) - (ch.returnedQty || 0) - (ch.damagedQty || 0));
+        const netQty = Math.max(0, (ch.qty ?? 0) - (ch.returnedQty || 0));
         // Use actual purchase price from product; fallback to 80% of selling rate
         return s + (netQty * (prod?.defaultPP ?? ch.rate * 0.80));
       }, 0);
@@ -829,7 +829,7 @@ function genProfit(ctx: DocContext, opts: ReportOptions): void {
       maybePageBreak(ctx, 8, TITLE, SUBTITLE);
       const pc    = coChallans.filter(ch => ch.productName === pname);
       const rev   = pc.reduce((s, ch) => s + (ch.totalAmount ?? 0), 0);
-      const units = pc.reduce((s, ch) => s + Math.max(0, (ch.qty ?? 0) - (ch.returnedQty || 0) - (ch.damagedQty || 0)), 0);
+      const units = pc.reduce((s, ch) => s + Math.max(0, (ch.qty ?? 0) - (ch.returnedQty || 0)), 0);
       const prod  = opts.products.find(p => p.name === pname);
       const cost  = units * (prod?.defaultPP ?? 0);
       const pft   = rev - cost;
@@ -1010,7 +1010,7 @@ function genDayEnd(ctx: DocContext, opts: ReportOptions): void {
     coProds.forEach((p, i) => {
       maybePageBreak(ctx, 8, TITLE, SUBTITLE);
       const pc        = coChallans.filter(ch => ch.productName === p.name);
-      const salesQty  = pc.reduce((s, ch) => s + ch.qty - (ch.returnedQty || 0) - (ch.damagedQty || 0), 0);
+      const salesQty  = pc.reduce((s, ch) => s + ch.qty - (ch.returnedQty || 0), 0);
       const salesAmt  = pc.reduce((s, ch) => s + ch.totalAmount, 0);
       const grossQty  = pc.reduce((s, ch) => s + ch.qty, 0);
       const opening   = p.currentStock + grossQty;
@@ -1176,7 +1176,7 @@ export function exportReportExcel(opts: ReportOptions): void {
         const rev  = cc.reduce((s, ch) => s + ch.totalAmount, 0);
         const cost = cc.reduce((s, ch) => {
           const prod = opts.products.find(p => p.name === ch.productName);
-          const netQty = ch.qty - (ch.returnedQty || 0) - (ch.damagedQty || 0);
+          const netQty = ch.qty - (ch.returnedQty || 0);
           return s + (netQty * (prod?.defaultPP ?? ch.rate * 0.85));
         }, 0);
         const profit = rev - cost;
@@ -1208,7 +1208,7 @@ export function exportReportExcel(opts: ReportOptions): void {
         const coChallans = fch.filter(ch => ch.company === co);
         coProds.forEach(p => {
           const pc        = coChallans.filter(ch => ch.productName === p.name);
-          const salesQty  = pc.reduce((s, ch) => s + ch.qty - (ch.returnedQty || 0) - (ch.damagedQty || 0), 0);
+          const salesQty  = pc.reduce((s, ch) => s + ch.qty - (ch.returnedQty || 0), 0);
           const salesAmt  = pc.reduce((s, ch) => s + ch.totalAmount, 0);
           const grossQty  = pc.reduce((s, ch) => s + ch.qty, 0);
           const opening   = p.currentStock + grossQty;

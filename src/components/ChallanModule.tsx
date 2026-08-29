@@ -1614,7 +1614,7 @@ export default function ChallanModule({
                       {(() => {
                         const profit = g.items.reduce((sum, item) => {
                           const pp = products.find(p => p.name === item.productName)?.defaultPP ?? item.rate * 0.85;
-                          const cogs = Math.max(0, item.qty - (item.returnedQty || 0) - (item.damagedQty || 0)) * pp;
+                          const cogs = Math.max(0, item.qty - (item.returnedQty || 0)) * pp;
                           return sum + (item.totalAmount - cogs);
                         }, 0);
                         const isPositive = profit >= 0;
@@ -2290,7 +2290,7 @@ export default function ChallanModule({
                 {(() => {
                   const orderProfitVal = viewingOrder.items.reduce((sum, item) => {
                     const pp = products.find(p => p.name === item.productName)?.defaultPP ?? item.rate * 0.85;
-                    const cogs = Math.max(0, item.qty - (item.returnedQty || 0) - (item.damagedQty || 0)) * pp;
+                    const cogs = Math.max(0, item.qty - (item.returnedQty || 0)) * pp;
                     return sum + (item.totalAmount - cogs);
                   }, 0);
                   const isPositive = orderProfitVal >= 0;

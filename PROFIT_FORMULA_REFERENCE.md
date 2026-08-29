@@ -23,10 +23,11 @@
 | `extraProfitAmount` | Pro-rated addition (owner's extra share)                |
 | `totalAmount`     | **Final invoice amount** (after ± adjustments)            |
 
-### Derived Net Quantity (used universally in COGS)
+### Derived Net Quantity (used in Sales & COGS)
 ```
-Net Delivered Qty = MAX(0, qty − returnedQty − damagedQty)
+Net Delivered / Sold Qty = MAX(0, qty − returnedQty)
 ```
+> **Note on Damage:** `damagedQty` is tracked strictly as a separate physical stock register (in `damaged_stock` godown and company claim tracking). It does NOT reduce sales revenue or alter the COGS / profit of delivered sales.
 
 ---
 
@@ -86,7 +87,7 @@ sumSales(list) = Σ challan.totalAmount     for all challans in date bucket
 ```
 sumCOGS(list) = Σ per challan:
   pp       = product.defaultPP            OR   fallback: challan.rate × 0.65
-  netQty   = MAX(0, qty − returnedQty − damagedQty)
+  netQty   = MAX(0, qty − returnedQty)
   contribution = netQty × pp
 ```
 **Fallback note:** `rate × 0.65` assumes a 35% gross margin when product lookup fails.

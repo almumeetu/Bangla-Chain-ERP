@@ -173,7 +173,7 @@ function generateDashboardPDF(ctx: DocCtx, opts: GeneratePDFOptions) {
   const todaysSales       = todaysChallans.reduce((s, ch) => s + ch.totalAmount, 0);
   const todaysCOGS        = todaysChallans.reduce((s, ch) => {
     const pp = products.find(p => p.name === ch.productName)?.defaultPP ?? ch.rate * 0.65;
-    return s + (ch.qty - (ch.returnedQty ?? 0) - (ch.damagedQty ?? 0)) * pp;
+    return s + (ch.qty - (ch.returnedQty ?? 0)) * pp;
   }, 0);
   const todaysExpenses    = expenses.filter(e => e.expenseDate === todayStr).reduce((s, e) => s + e.amount, 0);
   const todaysNetProfit   = todaysSales - todaysCOGS - todaysExpenses;
