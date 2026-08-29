@@ -1,0 +1,156 @@
+{
+  "version": 1,
+  "exportedAt": "2026-07-25T12:01:24.646Z",
+  "data": {
+    "settings": {
+      "shopName": "Samir Enterprise",
+      "shopSubBrand": "Dhaka & Chittagong Regional Hub",
+      "shopLogo": "",
+      "language": "en"
+    },
+    "companies": [
+      {
+        "id": "comp-1783247007277",
+        "name": "Pran Dairy Milkman Group",
+        "contactPerson": "Shawon Vai",
+        "phone": "01704141903",
+        "address": "Joydevpur, Gazipur"
+      },
+      {
+        "id": "comp-1783247065744",
+        "name": "Abul Khair Milk Products LTD Sky Group",
+        "contactPerson": "Khaled Vai",
+        "phone": "01926670833",
+        "address": "Tongi Bazar, Gazipur"
+      },
+      {
+        "id": "comp-1783247144876",
+        "name": "Cocola Food Products Ltd C Group",
+        "contactPerson": "Toriqul Vai",
+        "phone": "01762750770",
+        "address": "Gazipur"
+      },
+      {
+        "id": "comp-1783247199503",
+        "name": "Olympic Industries LTD Jupiter Group",
+        "contactPerson": "Sadik Vai",
+        "phone": "01912131202",
+        "address": "Gazipur"
+      }
+    ],
+    "srs": [
+      {
+        "id": "sr-1783255426553",
+        "name": "Sobuj",
+        "phone": "01642222298",
+        "commissionRate": 5,
+        "assignedCompanyIds": [
+          "Pran Dairy Milkman Group"
+        ],
+        "loginUsername": "shohanur1472@gmail.com",
+        "loginPassword": "sohan2486"
+      },
+      {
+        "id": "sr-1783255480881",
+        "name": "Md. Sohan",
+        "phone": "01974816392",
+        "commissionRate": 0,
+        "assignedCompanyIds": [
+          "Pran Dairy Milkman Group"
+        ],
+        "loginUsername": "sohan-pran2",
+        "loginPassword": "sohan123"
+      },
+      {
+        "id": "sr-1783255524637",
+        "name": "Zinnat Ali",
+        "phone": "01301236408",
+        "commissionRate": 0,
+        "assignedCompanyIds": [
+          "Cocola Food Products Ltd C Group"
+        ],
+        "loginUsername": "",
+        "loginPassword": ""
+      },
+      {
+        "id": "sr-1783255587859",
+        "name": "Shohidul",
+        "phone": "01787591058",
+        "commissionRate": 0,
+        "assignedCompanyIds": [
+          "Abul Khair Milk Products LTD Sky Group"
+        ],
+        "loginUsername": "",
+        "loginPassword": ""
+      },
+      {
+        "id": "sr-1783255614409",
+        "name": "Sojib",
+        "phone": "01978471889",
+        "commissionRate": 0,
+        "assignedCompanyIds": [
+          "Abul Khair Milk Products LTD Sky Group"
+        ],
+        "loginUsername": "",
+        "loginPassword": ""
+      },
+      {
+        "id": "sr-1783255662354",
+        "name": "Kefayet",
+        "phone": "01614356405",
+        "commissionRate": 0,
+        "assignedCompanyIds": [
+          "Abul Khair Milk Products LTD Sky Group"
+        ],
+        "loginUsername": "",
+        "loginPassword": ""
+      }
+    ],
+    "deliveryMen": [
+      {
+        "id": "dm-1783255189686",
+        "name": "Ashik",
+        "vehicle": "01614325761"
+      },
+      {
+        "id": "dm-1783255221258",
+        "name": "Shorif",
+        "vehicle": "01884271531"
+      },
+      {
+        "id": "dm-1783255251938",
+        "name": "Lal Mia",
+        "vehicle": "01871896912"
+      },
+      {
+        "id": "dm-1784883900823",
+        "name": "Readysales Own",
+        "vehicle": "own123"
+      }
+    ],
+    "routes": [
+      { "id": "route-1783254698665", "name": "Badam Road", "area": "Tongi", "territory": "Gazipur" },
+      { "id": "route-1783254726183", "name": "Boro Dewra", "area": "Tongi", "territory": "Gazipur" },
+      { "id": "route-1783254782749", "name": "Mill Gate Kolabaghan", "area": "Tongi", "territory": "Gazipur" },
+      { "id": "route-1783254804964", "name": "College Road", "area": "Tongi", "territory": "Gazipur" },
+      { "id": "route-1783254830610", "name": "Saffiuddin Academy", "area": "Tongi", "territory": "Gazipur" },
+      { "id": "route-1783254885918", "name": "Mokter Bari Road", "area": "Tongi", "territory": "Gazipur" },
+      { "id": "route-1783254916467", "name": "Molla Bazar", "area": "Tongi", "territory": "Gazipur" },
+      { "id": "route-1783254937121", "name": "Shing Bari", "area": "Tongi", "territory": "Gazipur" },
+      { "id": "route-1783254979908", "name": "Kha Para Road-1", "area": "Tongi", "territory": "Gazipur" },
+      { "id": "route-1783254996008", "name": "Kha Para Road-2", "area": "Tongi", "territory": "Gazipur" },
+      { "id": "route-1783255024267", "name": "Ershadnagar Ledu Molla", "area": "Tongi", "territory": "Gazipur" },
+      { "id": "route-1783255047544", "name": "Erhsadnagar", "area": "Tongi", "territory": "Gazipur" },
+      { "id": "route-1783255073055", "name": "Majar Bornomala", "area": "Tongi", "territory": "Gazipur" },
+      { "id": "route-1783255097268", "name": "Alom Market Cherag Ali", "area": "Tongi", "territory": "Gazipur" },
+      { "id": "route-1783255122843", "name": "Shomaj Kallan Cherag Ali", "area": "Tongi", "territory": "Gazipur" },
+      { "id": "route-1783255151429", "name": "Bornomala", "area": "Tongi", "territory": "Gazipur" },
+      { "id": "route-1784897391723", "name": "Ready Sales", "area": "tongi", "territory": "gazipur", "assignedSRId": "sr-1783255426553" }
+    ],
+    "units": [
+      { "id": "uom-1784297360115", "name": "Cartoon", "symbol": "CTN", "multiplier": 1 },
+      { "id": "uom-1784297380091", "name": "Piece", "symbol": "PCS", "multiplier": 1 },
+      { "id": "uom-1784349585052", "name": "Dorzen", "symbol": "DZ", "multiplier": 12 }
+    ]
+  }
+}
