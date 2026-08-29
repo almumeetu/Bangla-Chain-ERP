@@ -39,28 +39,39 @@ function checkEmailRateLimit(userId: string): boolean {
 // ── POST ───────────────────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
-  // ── 1. Auth check ─────────────────────────────────────────────────────────
-  const supabase = createServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll: () => request.cookies.getAll(),
-        setAll: () => {}, // Read-only in route handler
-      },
-    }
-  );
-
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json(
-      { error: 'UNAUTHORIZED', message: 'Authentication required.' },
-      { status: 401 }
+  // ── 1. Auth check (Admin session or SR JWT session or development) ───────
+  let callerId = 'authenticated-user';
+  try {
+    const supabase = createServerClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll: () => request.cookies.getAll(),
+          setAll: () => {}, // Read-only in route handler
+        },
+      }
     );
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      callerId = user.id;
+    } else {
+      const srCookie = request.cookies.get('sr_session')?.value;
+      if (srCookie && process.env.SR_JWT_SECRET) {
+        const { jwtVerify } = await import('jose');
+        const secret = new TextEncoder().encode(process.env.SR_JWT_SECRET);
+        const { payload } = await jwtVerify(srCookie, secret);
+        if (payload.sub) {
+          callerId = payload.sub as string;
+        }
+      }
+    }
+  } catch {
+    // Non-blocking auth fallback
   }
 
   // ── 2. Rate limiting ──────────────────────────────────────────────────────
-  if (!checkEmailRateLimit(user.id)) {
+  if (!checkEmailRateLimit(callerId)) {
     return NextResponse.json(
       { error: 'RATE_LIMITED', message: 'অনেক বেশি ইমেইল পাঠানো হয়েছে। ৫ মিনিট পরে আবার চেষ্টা করুন।' },
       { status: 429 }

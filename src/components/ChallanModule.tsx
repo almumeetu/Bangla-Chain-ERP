@@ -21,11 +21,13 @@ import {
   Users,
   Printer,
   Pencil,
-  Building
+  Building,
+  Mail
 } from 'lucide-react';
 import { ChallanItem, SR, Route, DeliveryMan, Product, ProductAttribute, CompanyBrand } from '../types';
 import { translations, Language } from '../translations';
 import { printChallanInvoice, printChallanSheet } from '../lib/printUtils';
+import { sendInvoiceEmail } from '../lib/db';
 import { Customer } from '../lib/localStore';
 import { formatProductStock } from '../lib/productUtils';
 
@@ -2383,6 +2385,25 @@ export default function ChallanModule({
                 >
                   <Download className="w-3.5 h-3.5" />
                   {language === 'bn' ? 'পিডিএফ ডাউনলোড' : 'Download PDF'}
+                </button>
+                <button
+                  id="viewing-challan-btn-email"
+                  type="button"
+                  onClick={async () => {
+                    if (!viewingOrder?.items?.[0]) return;
+                    showToast(language === 'bn' ? 'ইমেইল পাঠানো হচ্ছে...' : 'Sending email invoice...');
+                    const res = await sendInvoiceEmail(viewingOrder.items[0]);
+                    if (res.success) {
+                      showToast(language === 'bn' ? 'চালানের ইনভয়েস ইমেইল সফলভাবে পাঠানো হয়েছে!' : 'Invoice email sent successfully via Resend!', 'success');
+                    } else {
+                      showToast(res.message || (language === 'bn' ? 'ইমেইল পাঠানো ব্যর্থ হয়েছে।' : 'Failed to send invoice email.'), 'error');
+                    }
+                  }}
+                  className="px-4 py-2.5 bg-emerald-50 border border-emerald-300 hover:bg-emerald-100 text-emerald-800 font-semibold rounded-none text-xs transition-all active:scale-95 text-center shadow-sm cursor-pointer flex items-center gap-1.5"
+                  title="Send invoice copy via Resend"
+                >
+                  <Mail className="w-3.5 h-3.5 text-emerald-600" />
+                  {language === 'bn' ? 'ইমেইল ইনভয়েস' : 'Email Invoice'}
                 </button>
                 {viewingOrder.status !== 'Delivered' && (
                   <button

@@ -41,7 +41,7 @@ export type SrLoginInput = z.infer<typeof SrLoginSchema>;
 export const SendInvoiceSchema = z.object({
   challanId: NonEmptyStr,
   customerName: z.string().max(200).default('Valued Customer'),
-  customerEmail: z.string().email('Invalid customer email.').optional(),
+  customerEmail: z.string().email('Invalid customer email.').optional().or(z.literal('')).or(z.null()),
   productName: NonEmptyStr.max(300),
   qty: PositiveNum,
   bonusQty: z.number().min(0).default(0),

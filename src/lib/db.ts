@@ -472,70 +472,121 @@ export async function upsertChallan(c: ChallanItem): Promise<void> {
     try {
       let customerEmail = '';
       if (c.customerId) {
+        try {
+          const { data: cust } = await (supabase
+            .from('customers')
+            .select('email')
+            .eq('id', c.customerId)
+            .maybeSingle() as any);
+          if (cust && cust.email) {
+            customerEmail = cust.email;
+          }
+        } catch {}
+      }
+
+      let sName = 'Samir Enterprise';
+      let sSub = 'Dhaka & Chittagong Regional Hub';
+      try {
+        const { data: settings } = await (supabase
+          .from('settings')
+          .select('shop_name, shop_subbrand')
+          .eq('owner_id', ownerId)
+          .maybeSingle() as any);
+        if (settings) {
+          sName = settings.shop_name || sName;
+          sSub = settings.shop_subbrand || sSub;
+        }
+      } catch {}
+
+      // Non-blocking asynchronous invoice delivery dispatch via Resend
+      fetch('/api/send-invoice', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          challanId: c.id,
+          customerName: c.customerName || 'Valued Customer',
+          customerEmail: customerEmail || undefined,
+          productName: c.productName || '',
+          qty: c.qty || 0,
+          bonusQty: c.bonusQty || 0,
+          totalQty: c.totalQty || 0,
+          rate: c.rate || 0,
+          totalAmount: c.totalAmount || 0,
+          deliveryDate: new Date().toISOString(),
+          shopName: sName,
+          shopSubBrand: sSub,
+          selectedUnitName: c.selectedUnitName || 'Piece',
+          returnedQty: c.returnedQty || 0,
+          damagedQty: c.damagedQty || 0,
+        }),
+      }).then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) {
+          console.error('[Email Trigger] Error response from /api/send-invoice:', data.message || data.error);
+        } else {
+          console.info('[Email Trigger] Invoice email sent successfully via Resend:', data.id);
+        }
+      }).catch((err) => {
+        console.error('[Email Trigger] Failed to post to send-invoice API:', err);
+      });
+    } catch (err) {
+      console.error('[Email Trigger] Failed to process email notification trigger:', err);
+    }
+  }
+}
+
+/**
+ * Explicit helper to send invoice email on demand
+ */
+export async function sendInvoiceEmail(c: ChallanItem, sName = 'Samir Enterprise', sSub = 'Dhaka & Chittagong Regional Hub'): Promise<{ success: boolean; message?: string }> {
+  try {
+    let customerEmail = '';
+    if (c.customerId) {
+      try {
         const { data: cust } = await (supabase
           .from('customers')
           .select('email')
           .eq('id', c.customerId)
-          .single() as any);
+          .maybeSingle() as any);
         if (cust && cust.email) {
           customerEmail = cust.email;
         }
-      }
-
-      if (customerEmail) {
-        let sName = 'Samir Enterprise';
-        let sSub = 'Dhaka & Chittagong Regional Hub';
-        try {
-          const { data: settings } = await (supabase
-            .from('settings')
-            .select('shop_name, shop_subbrand')
-            .eq('owner_id', ownerId)
-            .single() as any);
-          if (settings) {
-            sName = settings.shop_name || sName;
-            sSub = settings.shop_subbrand || sSub;
-          }
-        } catch (err) {}
-
-        // Non-blocking asynchronous invoice delivery dispatch
-        fetch('/api/send-invoice', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            challanId: c.id,
-            customerName: c.customerName || 'Valued Customer',
-            customerEmail,
-            productName: c.productName || '',
-            qty: c.qty || 0,
-            bonusQty: c.bonusQty || 0,
-            totalQty: c.totalQty || 0,
-            rate: c.rate || 0,
-            totalAmount: c.totalAmount || 0,
-            deliveryDate: new Date().toISOString(),
-            shopName: sName,
-            shopSubBrand: sSub,
-            selectedUnitName: c.selectedUnitName || 'Piece',
-            returnedQty: c.returnedQty || 0,
-            damagedQty: c.damagedQty || 0,
-          }),
-        }).then(async (res) => {
-          const data = await res.json();
-          if (!res.ok) {
-            console.error('[Email Trigger] Error response from /api/send-invoice:', data.error);
-          } else {
-            console.info('[Email Trigger] Invoice email sent successfully:', data.id);
-          }
-        }).catch((err) => {
-          console.error('[Email Trigger] Failed to post to send-invoice API:', err);
-        });
-      } else {
-        console.info(`[Email Trigger] Customer email address not configured for customer ID ${c.customerId}. Skipping email invoice.`);
-      }
-    } catch (err) {
-      console.error('[Email Trigger] Failed to process email notification trigger:', err);
+      } catch {}
     }
+
+    const res = await fetch('/api/send-invoice', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        challanId: c.id,
+        customerName: c.customerName || 'Valued Customer',
+        customerEmail: customerEmail || undefined,
+        productName: c.productName || '',
+        qty: c.qty || 0,
+        bonusQty: c.bonusQty || 0,
+        totalQty: c.totalQty || 0,
+        rate: c.rate || 0,
+        totalAmount: c.totalAmount || 0,
+        deliveryDate: new Date().toISOString(),
+        shopName: sName,
+        shopSubBrand: sSub,
+        selectedUnitName: c.selectedUnitName || 'Piece',
+        returnedQty: c.returnedQty || 0,
+        damagedQty: c.damagedQty || 0,
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      return { success: false, message: data.message || data.error || 'Failed to send email' };
+    }
+    return { success: true, message: 'ইমেইল সফলভাবে পাঠানো হয়েছে!' };
+  } catch (err: any) {
+    return { success: false, message: err?.message || 'Network error sending invoice email' };
   }
 }
 export async function deleteChallan(id: string): Promise<void> {
