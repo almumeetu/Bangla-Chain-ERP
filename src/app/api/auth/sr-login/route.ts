@@ -165,7 +165,7 @@ export async function POST(req: NextRequest) {
   const { username, password, owner_id } = parsedBody;
 
   // ── 2. Rate limiting ───────────────────────────────────────────────────────
-  const rateLimitKey = getRateLimitKey(ip, owner_id);
+  const rateLimitKey = getRateLimitKey(ip, owner_id || 'global');
   const rateLimit = checkRateLimit(rateLimitKey);
 
   if (!rateLimit.allowed) {
@@ -200,12 +200,16 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { data: sr, error: dbError } = await supabase
+  let query = supabase
     .from('srs')
     .select('id, name, owner_id, login_username, login_password, password_hash, is_active, assigned_company_ids, commission_rate, phone')
-    .eq('owner_id', owner_id)
-    .eq('login_username', username)
-    .maybeSingle();
+    .eq('login_username', username);
+
+  if (owner_id) {
+    query = query.eq('owner_id', owner_id);
+  }
+
+  const { data: srsList, error: dbError } = await query;
 
   if (dbError) {
     console.error('[SR Auth] Database error:', dbError.message);
@@ -222,48 +226,38 @@ export async function POST(req: NextRequest) {
     message: 'ব্যবহারকারীর নাম বা পাসওয়ার্ড ভুল।',
   };
 
-  if (!sr) {
-    // Log failed attempt (no SR found)
-    await supabase.from('audit_logs').insert({
-      owner_id,
-      user_id: username,
-      action: 'SR_LOGIN_FAILED',
-      module: 'Auth',
-      entity_type: 'sr',
-      entity_id: 'unknown',
-      new_data: { reason: 'user_not_found', ip },
-    });
+  if (!srsList || srsList.length === 0) {
     return NextResponse.json(GENERIC_ERROR, { status: 401 });
   }
 
-  // ── 4. Check if SR account is active ──────────────────────────────────────
-  if (sr.is_active === false) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'ACCOUNT_DISABLED',
-        message: 'এই অ্যাকাউন্টটি নিষ্ক্রিয় করা হয়েছে।',
-      },
-      { status: 403 }
-    );
+  // ── 4. Verify password & find active candidate ─────────────────────────────
+  let sr: any = null;
+  let hasDisabledMatch = false;
+
+  for (const candidate of srsList) {
+    const storedPassword = candidate.password_hash || candidate.login_password;
+    const isValid = await verifyPassword(password, storedPassword);
+    if (isValid) {
+      if (candidate.is_active === false) {
+        hasDisabledMatch = true;
+        continue;
+      }
+      sr = candidate;
+      break;
+    }
   }
 
-  // ── 5. Verify password ─────────────────────────────────────────────────────
-  // Prefer hashed password if available, fall back to plain-text for legacy rows
-  const storedPassword = sr.password_hash || sr.login_password;
-  const isValid = await verifyPassword(password, storedPassword);
-
-  if (!isValid) {
-    // Log failed attempt
-    await supabase.from('audit_logs').insert({
-      owner_id,
-      user_id: sr.id,
-      action: 'SR_LOGIN_FAILED',
-      module: 'Auth',
-      entity_type: 'sr',
-      entity_id: sr.id,
-      new_data: { reason: 'wrong_password', ip },
-    });
+  if (!sr) {
+    if (hasDisabledMatch) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'ACCOUNT_DISABLED',
+          message: 'এই অ্যাকাউন্টটি নিষ্ক্রিয় করা হয়েছে।',
+        },
+        { status: 403 }
+      );
+    }
     return NextResponse.json(GENERIC_ERROR, { status: 401 });
   }
 

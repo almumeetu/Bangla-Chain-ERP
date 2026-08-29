@@ -363,13 +363,13 @@ export default function ReportsModule({
       : [selectedCompanyFilter];
     const companySales = brandList.map(brandName => {
       const brandChallans = filteredChallans.filter(ch => ch.company === brandName);
-      const unitsSold = brandChallans.reduce((sum, ch) => sum + ch.qty, 0);
-      const revenue = brandChallans.reduce((sum, ch) => sum + (ch.totalAmount || 0) + ((ch.damagedQty || 0) * (ch.rate || 0)), 0);
+      const unitsSold = brandChallans.reduce((sum, ch) => sum + Math.max(0, ch.qty - (ch.returnedQty || 0) - (ch.damagedQty || 0)), 0);
+      const revenue = brandChallans.reduce((sum, ch) => sum + (ch.totalAmount || 0), 0);
       const returns = brandChallans.reduce((sum, ch) => sum + (ch.returnedQty || 0), 0);
       const damages = brandChallans.reduce((sum, ch) => sum + (ch.damagedQty || 0), 0);
       const dpTotal = brandChallans.reduce((sum, ch) => {
         const product = products.find(p => p.name === ch.productName);
-        const netQty = Math.max(0, ch.qty - (ch.returnedQty || 0));
+        const netQty = Math.max(0, ch.qty - (ch.returnedQty || 0) - (ch.damagedQty || 0));
         return sum + ((product?.defaultPP || 0) * netQty);
       }, 0);
 
@@ -396,13 +396,13 @@ export default function ReportsModule({
       : srs.filter(s => (s.name || '').toLowerCase() === selectedSrFilter.toLowerCase());
     const srSales = activeSrs.map(sr => {
       const srChallans = filteredChallans.filter(ch => (ch.srName || '').toLowerCase() === (sr.name || '').toLowerCase());
-      const unitsSold = srChallans.reduce((sum, ch) => sum + ch.qty, 0);
-      const revenue = srChallans.reduce((sum, ch) => sum + (ch.totalAmount || 0) + ((ch.damagedQty || 0) * (ch.rate || 0)), 0);
+      const unitsSold = srChallans.reduce((sum, ch) => sum + Math.max(0, ch.qty - (ch.returnedQty || 0) - (ch.damagedQty || 0)), 0);
+      const revenue = srChallans.reduce((sum, ch) => sum + (ch.totalAmount || 0), 0);
       const returns = srChallans.reduce((sum, ch) => sum + (ch.returnedQty || 0), 0);
       const damages = srChallans.reduce((sum, ch) => sum + (ch.damagedQty || 0), 0);
       const dpTotal = srChallans.reduce((sum, ch) => {
         const product = products.find(p => p.name === ch.productName);
-        const netQty = Math.max(0, ch.qty - (ch.returnedQty || 0));
+        const netQty = Math.max(0, ch.qty - (ch.returnedQty || 0) - (ch.damagedQty || 0));
         return sum + ((product?.defaultPP || 0) * netQty);
       }, 0);
 
@@ -430,14 +430,14 @@ export default function ReportsModule({
       : deliveryMen.filter(dm => (dm.name || '').toLowerCase() === selectedDeliveryManFilter.toLowerCase());
     const dmSales = activeDeliveryMen.map(dm => {
       const dmChallans = filteredChallans.filter(ch => (ch.deliveryManName || '').toLowerCase() === (dm.name || '').toLowerCase());
-      const unitsSold = dmChallans.reduce((sum, ch) => sum + ch.qty, 0);
-      const revenue = dmChallans.reduce((sum, ch) => sum + (ch.totalAmount || 0) + ((ch.damagedQty || 0) * (ch.rate || 0)), 0);
+      const unitsSold = dmChallans.reduce((sum, ch) => sum + Math.max(0, ch.qty - (ch.returnedQty || 0) - (ch.damagedQty || 0)), 0);
+      const revenue = dmChallans.reduce((sum, ch) => sum + (ch.totalAmount || 0), 0);
       const returns = dmChallans.reduce((sum, ch) => sum + (ch.returnedQty || 0), 0);
       const damages = dmChallans.reduce((sum, ch) => sum + (ch.damagedQty || 0), 0);
       const totalChallans = dmChallans.length;
       const dpTotal = dmChallans.reduce((sum, ch) => {
         const product = products.find(p => p.name === ch.productName);
-        const netQty = Math.max(0, ch.qty - (ch.returnedQty || 0));
+        const netQty = Math.max(0, ch.qty - (ch.returnedQty || 0) - (ch.damagedQty || 0));
         return sum + ((product?.defaultPP || 0) * netQty);
       }, 0);
 
@@ -463,8 +463,8 @@ export default function ReportsModule({
     // D. Product-wise Sales (Net Sold, Net Cost, Net Revenue)
     const productSales = products.map(p => {
       const pChallans = filteredChallans.filter(ch => (ch.productName || '').toLowerCase() === (p.name || '').toLowerCase());
-      const unitsSold = pChallans.reduce((sum, ch) => sum + Math.max(0, ch.qty - (ch.returnedQty || 0)), 0);
-      const revenue = pChallans.reduce((sum, ch) => sum + (ch.totalAmount || 0) + ((ch.damagedQty || 0) * (ch.rate || 0)), 0);
+      const unitsSold = pChallans.reduce((sum, ch) => sum + Math.max(0, ch.qty - (ch.returnedQty || 0) - (ch.damagedQty || 0)), 0);
+      const revenue = pChallans.reduce((sum, ch) => sum + (ch.totalAmount || 0), 0);
       const returns = pChallans.reduce((sum, ch) => sum + (ch.returnedQty || 0), 0);
       const damages = pChallans.reduce((sum, ch) => sum + (ch.damagedQty || 0), 0);
       const dpTotal = unitsSold * p.defaultPP;
@@ -495,13 +495,13 @@ export default function ReportsModule({
       }
       const product = products.find(p => p.name === ch.productName);
       const pp = product?.defaultPP || 0;
-      const netQty = Math.max(0, ch.qty - (ch.returnedQty || 0));
+      const netQty = Math.max(0, ch.qty - (ch.returnedQty || 0) - (ch.damagedQty || 0));
       const dpVal = pp * netQty;
 
       unitGroups[uom].unitsSold += netQty;
       unitGroups[uom].returns += ch.returnedQty || 0;
       unitGroups[uom].damages += ch.damagedQty || 0;
-      unitGroups[uom].revenue += (ch.totalAmount || 0) + ((ch.damagedQty || 0) * (ch.rate || 0));
+      unitGroups[uom].revenue += (ch.totalAmount || 0);
       unitGroups[uom].dpTotal += dpVal;
     }
 
@@ -591,13 +591,13 @@ export default function ReportsModule({
 
     const rows = brandList.map(brandName => {
       const brandChallans = filteredChallans.filter(ch => ch.company === brandName);
-      const revenue = brandChallans.reduce((sum, ch) => sum + (ch.totalAmount || 0) + ((ch.damagedQty || 0) * (ch.rate || 0)), 0);
+      const revenue = brandChallans.reduce((sum, ch) => sum + (ch.totalAmount || 0), 0);
       
-      // Calculate Cost of Goods Sold based on Product DP (defaultPP) using Net Delivered Qty (returns excluded, damage claimed from company)
+      // Calculate Cost of Goods Sold based on Product DP (defaultPP) using Net Delivered Qty (returns and damages excluded)
       const costOfGoods = brandChallans.reduce((sum, ch) => {
         const prod = products.find(p => p.name === ch.productName);
-        const dp = prod ? prod.defaultPP : (ch.rate * 0.85); // fallback to 85% of trade price
-        const netQty = Math.max(0, ch.qty - (ch.returnedQty || 0));
+        const dp = prod ? prod.defaultPP : (ch.rate * 0.80);
+        const netQty = Math.max(0, ch.qty - (ch.returnedQty || 0) - (ch.damagedQty || 0));
         return sum + (netQty * dp);
       }, 0);
 
@@ -689,8 +689,8 @@ export default function ReportsModule({
 
       const productRows = companyProducts.map((p, idx) => {
         const pChallans = companyChallans.filter(ch => ch.productName === p.name);
-        const salesQty   = pChallans.reduce((s, ch) => s + Math.max(0, ch.qty - (ch.returnedQty || 0)), 0);
-        const salesAmt   = pChallans.reduce((s, ch) => s + (ch.totalAmount || 0) + ((ch.damagedQty || 0) * (ch.rate || 0)), 0);
+        const salesQty   = pChallans.reduce((s, ch) => s + Math.max(0, ch.qty - (ch.returnedQty || 0) - (ch.damagedQty || 0)), 0);
+        const salesAmt   = pChallans.reduce((s, ch) => s + (ch.totalAmount || 0), 0);
         // Opening stock = current stock + gross sold qty (since stock was reduced after sales)
         const grossQty   = pChallans.reduce((s, ch) => s + ch.qty, 0);
         const openingStock = p.currentStock + grossQty;
@@ -1529,10 +1529,10 @@ export default function ReportsModule({
               const productNames = Array.from(new Set(compChallans.map(ch => ch.productName)));
               const productRows = productNames.map(pName => {
                 const pChallans = compChallans.filter(ch => ch.productName === pName);
-                const revenue = pChallans.reduce((s, ch) => s + ch.totalAmount, 0);
-                const unitsSold = pChallans.reduce((s, ch) => s + ch.qty, 0);
+                const revenue = pChallans.reduce((s, ch) => s + (ch.totalAmount || 0), 0);
+                const unitsSold = pChallans.reduce((s, ch) => s + Math.max(0, ch.qty - (ch.returnedQty || 0) - (ch.damagedQty || 0)), 0);
                 const prod = products.find(p => p.name === pName);
-                const dp = prod ? prod.defaultPP : 0;
+                const dp = prod ? prod.defaultPP : (pChallans[0]?.rate ? pChallans[0].rate * 0.80 : 0);
                 const cost = unitsSold * dp;
                 const profit = revenue - cost;
                 const margin = revenue > 0 ? (profit / revenue) * 100 : 0;

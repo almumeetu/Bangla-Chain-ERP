@@ -192,7 +192,10 @@ export async function POST(request: NextRequest) {
   const totalSentUnits = productItems.reduce((s, it) => s + it.qty, 0);
   const totalReturnedUnits = productItems.reduce((s, it) => s + it.returnedQty, 0);
   const totalDamagedUnits = productItems.reduce((s, it) => s + it.damagedQty, 0);
+  const totalReturnedValue = productItems.reduce((s, it) => s + (it.returnedQty * it.rate), 0);
   const totalDamagedValue = productItems.reduce((s, it) => s + (it.damagedQty * it.rate), 0);
+  const totalNetDeliveredUnits = productItems.reduce((s, it) => s + Math.max(0, it.qty - it.returnedQty - it.damagedQty), 0);
+  const totalNetDeliveredGross = productItems.reduce((s, it) => s + (Math.max(0, it.qty - it.returnedQty - it.damagedQty) * it.rate), 0);
   const totalBonusUnits = productItems.reduce((s, it) => s + it.bonusQty, 0);
   const totalItemsCount = productItems.length;
 
@@ -358,24 +361,22 @@ export async function POST(request: NextRequest) {
                     </div>` : ''}
                 </td>
                 <td align="center" style="border: 1px solid #cbd5e1; padding: 8px 4px; font-size: 11px; font-weight: 600; color: #475569;">
-                  ${item.selectedUnitName || 'Pcs'}
+                  ${item.selectedUnitName}
                 </td>
-                <td align="center" style="border: 1px solid #cbd5e1; padding: 8px 4px; font-size: 11px; font-family: monospace; font-weight: 800; color: #0f172a;">
+                <td align="center" style="border: 1px solid #cbd5e1; padding: 8px 4px; font-size: 11px; font-family: monospace; font-weight: 700; color: #0f172a;">
                   ${item.qty}
-                  ${(!isZeroQtyDamage && item.returnedQty > 0) ? `<div style="font-size: 9px; color: #d97706; font-weight: 700;">-${item.returnedQty} ret</div>` : ''}
-                  ${(!isZeroQtyDamage && item.damagedQty > 0) ? `<div style="font-size: 9px; color: #dc2626; font-weight: 700;">-${item.damagedQty} dmg</div>` : ''}
                 </td>
-                <td align="center" style="border: 1px solid #cbd5e1; padding: 8px 4px; font-size: 11px; font-family: monospace; font-weight: 700; color: ${item.bonusQty > 0 ? '#059669' : '#94a3b8'};">
-                  ${item.bonusQty > 0 ? `+${item.bonusQty}` : '0'}
+                <td align="center" style="border: 1px solid #cbd5e1; padding: 8px 4px; font-size: 11px; font-family: monospace; color: #2563eb;">
+                  ${item.bonusQty > 0 ? `+${item.bonusQty}` : '—'}
                 </td>
-                <td align="center" style="border: 1px solid #cbd5e1; padding: 8px 4px; font-size: 11px; font-family: monospace; font-weight: 800; color: #0f172a;">
-                  ${item.totalQty || (item.qty + (item.bonusQty || 0))}
+                <td align="center" style="border: 1px solid #cbd5e1; padding: 8px 4px; font-size: 11px; font-family: monospace; font-weight: 700; color: #0f172a;">
+                  ${item.totalQty}
                 </td>
-                <td align="right" style="border: 1px solid #cbd5e1; padding: 8px 6px; font-size: 11px; font-family: monospace; font-weight: 600; color: #334155;">
+                <td align="right" style="border: 1px solid #cbd5e1; padding: 8px 6px; font-size: 11px; font-family: monospace; color: #334155;">
                   ${Number(item.rate).toFixed(2)}
                 </td>
-                <td align="right" style="border: 1px solid #cbd5e1; padding: 8px 8px; font-size: 11px; font-family: monospace; font-weight: 800; color: ${item.totalAmount < 0 ? '#dc2626' : '#0f172a'};">
-                  ${item.totalAmount < 0 ? `-৳${Math.abs(Number(item.totalAmount)).toFixed(2)}` : `৳${Number(item.totalAmount).toFixed(2)}`}
+                <td align="right" style="border: 1px solid #cbd5e1; padding: 8px 8px; font-size: 11px; font-family: monospace; font-weight: 800; color: #0f172a;">
+                  ${Number(item.totalAmount).toFixed(2)}
                 </td>
               </tr>
             `;}).join('')}
@@ -420,9 +421,19 @@ export async function POST(request: NextRequest) {
                 Market Damage & Return Adjustment (ড্যামেজ ও ফেরত সমন্বয়: ${totalReturnedUnits} ret, ${totalDamagedUnits} dmg):
               </td>
               <td align="right" style="border: 1px solid #cbd5e1; padding: 6px 8px; font-size: 11px; font-family: monospace; font-weight: 800; color: #dc2626;">
-                - ৳${Number(totalDamagedValue).toFixed(2)}
+                - ৳${Number(totalDamagedValue + totalReturnedValue).toFixed(2)}
               </td>
             </tr>` : ''}
+
+            <!-- Summary Row 3b: Net Delivered Breakdown -->
+            <tr style="background-color: #f0fdf4; font-weight: 700;">
+              <td colspan="7" align="right" style="border: 1px solid #86efac; padding: 6px 8px; font-size: 11px; color: #166534;">
+                Net Delivered Qty & Gross Value (প্রকৃত ডেলিভারি পরিমাণ ও মূল্য: ${totalNetDeliveredUnits} units):
+              </td>
+              <td align="right" style="border: 1px solid #86efac; padding: 6px 8px; font-size: 11px; font-family: monospace; font-weight: 800; color: #166534;">
+                ৳${Number(totalNetDeliveredGross).toFixed(2)}
+              </td>
+            </tr>
 
             <!-- Summary Row 4: Extra Profit (if any) -->
             ${(extraProfitAmount && extraProfitAmount > 0) ? `

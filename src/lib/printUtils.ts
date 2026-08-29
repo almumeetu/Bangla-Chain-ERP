@@ -14,6 +14,16 @@ function getShopName(): string {
   } catch { return 'Bangla-Chain ERP'; }
 }
 
+function getShopSubBrand(): string {
+  try {
+    return localStorage.getItem('erp_settings')
+      ? (JSON.parse(localStorage.getItem('erp_settings')!) as { shopSubBrand?: string }).shopSubBrand || 'FMCG Dealer & Distribution Hub'
+      : 'FMCG Dealer & Distribution Hub';
+  } catch {
+    return 'FMCG Dealer & Distribution Hub';
+  }
+}
+
 function now(): string {
   return new Date().toLocaleString('en-BD', {
     year: 'numeric', month: 'short', day: 'numeric',
@@ -35,38 +45,38 @@ function printHTML(title: string, body: string): void {
     <title>${title}</title>
     <style>
       *{box-sizing:border-box;margin:0;padding:0}
-      body{font-family:system-ui,-apple-system,sans-serif;color:#0f172a;background:#fff;padding:32px 40px;font-size:12px;line-height:1.6}
-      @media print{body{padding:10mm 12mm}@page{margin:10mm}}
-      .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #0f172a}
-      .brand h1{font-size:18px;font-weight:800;text-transform:uppercase;letter-spacing:.5px}
+      body{font-family:system-ui,-apple-system,sans-serif;color:#0f172a;background:#fff;padding:28px 36px;font-size:11.5px;line-height:1.5}
+      @media print{body{padding:8mm 10mm}@page{margin:8mm}}
+      .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid #0f172a}
+      .brand h1{font-size:18px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:#0f172a}
       .brand p{font-size:10px;color:#64748b;margin-top:2px}
       .doc-meta{text-align:right}
-      .doc-meta .doc-type{font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+      .doc-meta .doc-type{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#0f172a}
       .doc-meta .doc-id{font-family:monospace;font-size:11px;color:#475569;margin-top:2px}
       .doc-meta .doc-date{font-size:10px;color:#94a3b8;margin-top:2px}
-      .meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 24px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px;margin-bottom:20px}
-      .meta-item .label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;display:block;margin-bottom:2px}
-      .meta-item .value{font-weight:600;color:#0f172a;font-size:11px}
-      table{width:100%;border-collapse:collapse;margin:16px 0;font-size:11px}
+      .meta-grid{display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:8px 16px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:6px;padding:12px 14px;margin-bottom:16px}
+      .meta-item .label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#64748b;display:block;margin-bottom:2px}
+      .meta-item .value{font-weight:700;color:#0f172a;font-size:11.5px}
+      table{width:100%;border-collapse:collapse;margin:14px 0;font-size:10.5px}
       thead tr{background:#0f172a;color:#fff}
-      thead th{padding:9px 12px;text-align:left;font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.4px}
+      thead th{padding:8px 8px;text-align:left;font-weight:700;font-size:9.5px;text-transform:uppercase;letter-spacing:.4px}
       tbody tr{border-bottom:1px solid #e2e8f0}
       tbody tr:nth-child(even){background:#f8fafc}
-      tbody td{padding:9px 12px;color:#334155}
+      tbody td{padding:7px 8px;color:#334155}
       .text-right{text-align:right}
       .text-center{text-align:center}
       .summary{display:flex;justify-content:flex-end;margin-top:16px}
-      .summary table{width:280px;font-size:11px}
-      .summary td{padding:6px 10px;border-bottom:1px solid #e2e8f0}
-      .summary .total td{border-top:2px solid #0f172a;border-bottom:2px solid #0f172a;font-weight:700;font-size:13px}
-      .badge{display:inline-block;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:600;border:1px solid}
+      .summary table{width:320px;font-size:11px}
+      .summary td{padding:5px 8px;border-bottom:1px solid #e2e8f0}
+      .summary .total td{border-top:2px solid #0f172a;border-bottom:2px solid #0f172a;font-weight:800;font-size:13px}
+      .badge{display:inline-block;padding:2px 8px;border-radius:99px;font-size:9.5px;font-weight:700;border:1px solid}
       .badge-green{background:#dcfce7;color:#166534;border-color:#86efac}
       .badge-amber{background:#fef9c3;color:#854d0e;border-color:#fde047}
       .badge-red{background:#fee2e2;color:#991b1b;border-color:#fca5a5}
       .badge-blue{background:#dbeafe;color:#1e40af;border-color:#93c5fd}
-      .signatures{display:grid;grid-template-columns:1fr 1fr 1fr;gap:40px;margin-top:60px}
-      .sig-line{border-top:1px solid #94a3b8;padding-top:6px;text-align:center;font-size:10px;color:#64748b}
-      .footer{margin-top:32px;padding-top:12px;border-top:1px dashed #e2e8f0;display:flex;justify-content:space-between;font-size:9px;color:#94a3b8}
+      .signatures{display:grid;grid-template-columns:1fr 1fr 1fr;gap:36px;margin-top:48px;page-break-inside:avoid}
+      .sig-line{border-top:1px solid #94a3b8;padding-top:6px;text-align:center;font-size:9.5px;color:#64748b}
+      .footer{margin-top:24px;padding-top:10px;border-top:1px dashed #cbd5e1;display:flex;justify-content:space-between;font-size:9px;color:#94a3b8}
       .tag-increase{color:#166534;font-weight:700} .tag-decrease{color:#991b1b;font-weight:700}
     </style>
   </head><body>${body}<script>window.onload=function(){window.print()}</script></body></html>`);
@@ -81,134 +91,358 @@ import type { ChallanItem, Procurement, ExpenseRecord, StockAdjustment } from '.
 
 export function printChallanInvoice(items: ChallanItem[]): void {
   if (items.length === 0) return;
-  const ch = items[0]; // Header info comes from first item
+  const ch = items[0];
   const shop = getShopName();
+  const subBrand = getShopSubBrand();
 
-  const totalGrossQty = items.reduce((sum, item) => sum + item.qty, 0);
+  const totalGrossQty = items.reduce((sum, item) => sum + (item.qty || 0), 0);
   const totalBonusQty = items.reduce((sum, item) => sum + (item.bonusQty || 0), 0);
   const totalReturned = items.reduce((sum, item) => sum + (item.returnedQty || 0), 0);
   const totalDamaged = items.reduce((sum, item) => sum + (item.damagedQty || 0), 0);
-  const totalNetPayable = items.reduce((sum, item) => sum + item.totalAmount, 0);
+  const totalNetDelivered = items.reduce((sum, item) => sum + Math.max(0, item.qty - (item.returnedQty || 0) - (item.damagedQty || 0)), 0);
+  
+  const totalGrossAmount = items.reduce((sum, item) => sum + (item.qty * item.rate), 0);
+  const totalCommission = items.reduce((sum, item) => sum + (item.commissionAmount || 0), 0);
+  const totalExtraProfit = items.reduce((sum, item) => sum + (item.extraProfitAmount || 0), 0);
+  const totalNetPayable = items.reduce((sum, item) => sum + (item.totalAmount || 0), 0);
 
-  const rows = items.map((item, idx) => {
-    const netQty = item.qty - (item.returnedQty || 0) - (item.damagedQty || 0);
+  const uniqueCompanies = Array.from(new Set(items.map(i => i.company).filter(Boolean)));
+  const companyTitle = uniqueCompanies.length > 0 ? uniqueCompanies.join(', ') : 'General Brand';
+
+  // Group items by company
+  const companyGroups = new Map<string, ChallanItem[]>();
+  items.forEach(item => {
+    const co = item.company || 'General Brand';
+    if (!companyGroups.has(co)) companyGroups.set(co, []);
+    companyGroups.get(co)!.push(item);
+  });
+
+  let slNo = 1;
+  const tableContent = Array.from(companyGroups.entries()).map(([coName, coItems]) => {
+    const showHeader = companyGroups.size > 1;
+    const coGrossQty = coItems.reduce((s, it) => s + (it.qty || 0), 0);
+    const coBonusQty = coItems.reduce((s, it) => s + (it.bonusQty || 0), 0);
+    const coReturned = coItems.reduce((s, it) => s + (it.returnedQty || 0), 0);
+    const coDamaged = coItems.reduce((s, it) => s + (it.damagedQty || 0), 0);
+    const coNetQty = coItems.reduce((s, it) => s + Math.max(0, it.qty - (it.returnedQty || 0) - (it.damagedQty || 0)), 0);
+    const coGrossAmt = coItems.reduce((s, it) => s + (it.qty * it.rate), 0);
+    const coNetAmt = coItems.reduce((s, it) => s + (it.totalAmount || 0), 0);
+
+    const rows = coItems.map((item) => {
+      const netQty = Math.max(0, item.qty - (item.returnedQty || 0) - (item.damagedQty || 0));
+      const itemGross = item.qty * item.rate;
+      return `
+        <tr>
+          <td class="text-center" style="color:#64748b;font-weight:600">${slNo++}</td>
+          <td>
+            <b>${item.productName}</b>
+            ${item.attribute && item.attribute !== 'None' && item.attribute !== 'Default' ? `<br><span style="font-size:10px;color:#64748b">${item.attribute}</span>` : ''}
+          </td>
+          <td class="text-center" style="font-size:10px;color:#475569">${item.selectedUnitName || 'Pcs'}</td>
+          <td class="text-center"><b>${item.qty}</b></td>
+          <td class="text-center" style="color:#2563eb">${item.bonusQty || 0}</td>
+          <td class="text-center" style="color:${item.returnedQty ? '#dc2626' : '#94a3b8'}">${item.returnedQty || 0}</td>
+          <td class="text-center" style="color:${item.damagedQty ? '#dc2626' : '#94a3b8'}">${item.damagedQty || 0}</td>
+          <td class="text-center" style="background:#f0fdf4;font-weight:800;color:#166534">${netQty}</td>
+          <td class="text-right">৳${item.rate.toFixed(0)}</td>
+          <td class="text-right" style="color:#64748b">৳${itemGross.toLocaleString('en-BD')}</td>
+          <td class="text-right" style="font-weight:800;color:#0f172a">৳${item.totalAmount.toLocaleString('en-BD')}</td>
+        </tr>
+      `;
+    }).join('');
+
     return `
-      <tr>
-        <td><b>${item.productName}</b><br><span style="font-size:10px;color:#64748b">${item.company || ''}</span></td>
-        <td>${item.attribute}</td>
-        <td class="text-center">${item.qty}</td>
-        <td class="text-center">${item.bonusQty}</td>
-        <td class="text-center">${item.returnedQty || 0}</td>
-        <td class="text-center">${item.damagedQty || 0}</td>
-        <td class="text-center"><b>${netQty}</b></td>
-        <td class="text-right">${item.rate.toFixed(0)}</td>
-        <td class="text-right"><b>${item.totalAmount.toFixed(0)}</b></td>
-      </tr>
+      ${showHeader ? `
+        <tr style="background:#f1f5f9;">
+          <td colspan="11" style="padding:6px 10px;font-weight:800;color:#1e40af;font-size:11px;border-top:1px solid #cbd5e1;border-bottom:1px solid #cbd5e1;">
+            🏢 Company: ${coName} (${coItems.length} Products)
+          </td>
+        </tr>
+      ` : ''}
+      ${rows}
+      ${showHeader ? `
+        <tr style="background:#f8fafc;font-weight:700;border-top:1px solid #cbd5e1;font-size:10.5px;">
+          <td colspan="3" style="text-align:right;color:#475569;">Subtotal (${coName}):</td>
+          <td class="text-center">${coGrossQty}</td>
+          <td class="text-center" style="color:#2563eb">${coBonusQty}</td>
+          <td class="text-center" style="color:${coReturned ? '#dc2626' : '#94a3b8'}">${coReturned}</td>
+          <td class="text-center" style="color:${coDamaged ? '#dc2626' : '#94a3b8'}">${coDamaged}</td>
+          <td class="text-center" style="color:#166534;font-weight:800">${coNetQty}</td>
+          <td></td>
+          <td class="text-right" style="color:#64748b">৳${coGrossAmt.toLocaleString('en-BD')}</td>
+          <td class="text-right" style="color:#1e40af;font-weight:800">৳${coNetAmt.toLocaleString('en-BD')}</td>
+        </tr>
+      ` : ''}
     `;
   }).join('');
 
-  printHTML(`Challan ORD-${new Date(ch.createdAt).getTime().toString().slice(-6)}`, `
+  let voucherNo = ch.id || '';
+  if (!voucherNo || voucherNo.includes('_') || voucherNo.includes('T')) {
+    const ts = new Date(ch.createdAt).getTime();
+    voucherNo = !isNaN(ts) ? `CH-${ts.toString().slice(-6)}` : `CH-${Date.now().toString().slice(-6)}`;
+  }
+
+  printHTML(`Delivery Challan & Invoice #${voucherNo}`, `
     <div class="header">
-      <div class="brand"><h1>${shop}</h1><p>FMCG Dealer &amp; Distributor</p></div>
+      <div class="brand">
+        <h1>${shop}</h1>
+        <p>${subBrand}</p>
+        <div style="margin-top:6px;">
+          <span style="display:inline-block;background:#f1f5f9;border:1px solid #cbd5e1;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;color:#1e40af">
+            🏢 Brand: ${companyTitle}
+          </span>
+        </div>
+      </div>
       <div class="doc-meta">
-        <div class="doc-type">Delivery Challan</div>
-        <div class="doc-id">ORD-${new Date(ch.createdAt).getTime().toString().slice(-6)}</div>
+        <div class="doc-type">Delivery Challan &amp; Invoice</div>
+        <div class="doc-id">Voucher No: <b>#${voucherNo}</b></div>
         <div class="doc-date">Printed: ${now()}</div>
+        <div style="margin-top:4px;">
+          <span class="badge ${ch.status === 'Delivered' ? 'badge-green' : ch.status === 'Shipped' ? 'badge-blue' : 'badge-amber'}">
+            ● ${ch.status || 'Delivered'}
+          </span>
+        </div>
       </div>
     </div>
 
     <div class="meta-grid">
-      <div class="meta-item"><span class="label">SR Name</span><span class="value">${ch.srName}</span></div>
-      <div class="meta-item"><span class="label">Route / Market</span><span class="value">${ch.routeName || '—'}</span></div>
-      <div class="meta-item"><span class="label">Delivery Agent</span><span class="value">${ch.deliveryManName}</span></div>
+      <div class="meta-item"><span class="label">Customer / Shop</span><span class="value">${ch.customerName || 'Walk-In Customer'}</span></div>
       <div class="meta-item"><span class="label">Challan Date</span><span class="value">${dateOnly(ch.createdAt)}</span></div>
-      <div class="meta-item"><span class="label">Status</span><span class="value">
-        <span class="badge ${ch.status === 'Delivered' ? 'badge-green' : ch.status === 'Shipped' ? 'badge-blue' : 'badge-amber'}">${ch.status}</span>
-      </span></div>
+      <div class="meta-item"><span class="label">Market / Route Beat</span><span class="value">${ch.routeName || 'General Route'}</span></div>
+      <div class="meta-item"><span class="label">Delivery Agent</span><span class="value">${ch.deliveryManName || 'N/A'}</span></div>
+      <div class="meta-item"><span class="label">Sales Officer (SR)</span><span class="value">${ch.srName || 'N/A'}</span></div>
+      <div class="meta-item"><span class="label">Total Item Lines</span><span class="value">${items.length} Product${items.length !== 1 ? 's' : ''}</span></div>
     </div>
 
     <table>
       <thead><tr>
-        <th>Product</th><th>Specification</th>
-        <th class="text-center">Gross Qty</th><th class="text-center">Bonus</th>
-        <th class="text-center">Returned</th><th class="text-center">Damaged</th>
-        <th class="text-center">Net Qty</th>
-        <th class="text-right">Rate (৳)</th><th class="text-right">Total (৳)</th>
+        <th class="text-center" style="width:25px">#</th>
+        <th>Product &amp; Specification</th>
+        <th class="text-center">Unit</th>
+        <th class="text-center">Order Qty</th>
+        <th class="text-center">Bonus</th>
+        <th class="text-center">Returned</th>
+        <th class="text-center">Damaged</th>
+        <th class="text-center">Delivered Qty</th>
+        <th class="text-right">Rate (৳)</th>
+        <th class="text-right">Gross (৳)</th>
+        <th class="text-right">Net Total (৳)</th>
       </tr></thead>
-      <tbody>${rows}</tbody>
+      <tbody>${tableContent}</tbody>
     </table>
 
-    <div class="summary"><table>
-      <tr><td>Gross Qty:</td><td class="text-right">${totalGrossQty} units</td></tr>
-      <tr><td>Bonus Qty:</td><td class="text-right">${totalBonusQty} units</td></tr>
-      <tr><td>Returned:</td><td class="text-right">−${totalReturned} units</td></tr>
-      <tr><td>Damaged:</td><td class="text-right">−${totalDamaged} units</td></tr>
-      <tr class="total"><td><b>NET PAYABLE:</b></td><td class="text-right"><b>৳${totalNetPayable.toLocaleString('en-BD')}</b></td></tr>
-    </table></div>
+    <div class="summary">
+      <table style="width:380px;">
+        <tr>
+          <td>Total Ordered (মোট অর্ডার):</td>
+          <td class="text-right"><b>${totalGrossQty} units</b> <span style="color:#64748b;font-size:10px;">(৳${totalGrossAmount.toLocaleString('en-BD', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})</span></td>
+        </tr>
+        ${totalBonusQty > 0 ? `
+        <tr>
+          <td>Total Bonus (মোট বোনাস):</td>
+          <td class="text-right" style="color:#2563eb">+${totalBonusQty} units <span style="font-size:10px;">(Free)</span></td>
+        </tr>` : ''}
+        ${totalReturned > 0 ? `
+        <tr>
+          <td>Total Returned (মোট ফেরত):</td>
+          <td class="text-right" style="color:#dc2626">−${totalReturned} units <span style="font-size:10px;">(−৳${(items.reduce((s, it) => s + ((it.returnedQty || 0) * it.rate), 0)).toLocaleString('en-BD', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})</span></td>
+        </tr>` : ''}
+        ${totalDamaged > 0 ? `
+        <tr>
+          <td>Total Damaged (মোট ড্যামেজ):</td>
+          <td class="text-right" style="color:#dc2626">−${totalDamaged} units <span style="font-size:10px;">(−৳${(items.reduce((s, it) => s + ((it.damagedQty || 0) * it.rate), 0)).toLocaleString('en-BD', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})</span></td>
+        </tr>` : ''}
+        <tr style="background:#f0fdf4;border-top:1px solid #86efac;border-bottom:1px solid #86efac;">
+          <td style="color:#166534;font-weight:700;">Net Delivered (প্রকৃত ডেলিভারি):</td>
+          <td class="text-right" style="color:#166534;font-weight:800;">
+            ${totalNetDelivered} units <span style="font-size:10.5px;">(৳${(items.reduce((s, it) => s + (Math.max(0, it.qty - (it.returnedQty || 0) - (it.damagedQty || 0)) * it.rate), 0)).toLocaleString('en-BD', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})</span>
+          </td>
+        </tr>
+        ${totalCommission > 0 ? `
+        <tr>
+          <td>SR Commission / Discount (কমিশন / ছাড়):</td>
+          <td class="text-right" style="color:#dc2626">−৳${totalCommission.toLocaleString('en-BD', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+        </tr>` : ''}
+        ${totalExtraProfit > 0 ? `
+        <tr>
+          <td>Adjustment / Extra (সমন্বয় / অতিরিক্ত):</td>
+          <td class="text-right" style="color:#166534">+৳${totalExtraProfit.toLocaleString('en-BD', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+        </tr>` : ''}
+        <tr class="total">
+          <td><b>NET PAYABLE (সর্বমোট প্রদেয় বিল):</b></td>
+          <td class="text-right" style="color:#1e3a8a;font-size:14px"><b>৳${totalNetPayable.toLocaleString('en-BD', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b></td>
+        </tr>
+      </table>
+    </div>
 
     <div class="signatures">
-      <div class="sig-line">Warehouse / Dispatch</div>
-      <div class="sig-line">Delivery Agent</div>
-      <div class="sig-line">SR / Customer</div>
+      <div class="sig-line">Warehouse / Dispatch In-charge</div>
+      <div class="sig-line">Delivery Agent / Carrier</div>
+      <div class="sig-line">SR / Customer Acknowledgment</div>
     </div>
-    <div class="footer"><span>System: Bangla-Chain DMS</span><span>Printed: ${now()}</span></div>
+    <div class="footer"><span>System: Bangla-Chain ERP (B2B Distribution Management)</span><span>Generated: ${now()}</span></div>
   `);
 }
 
-// ── 1b. Challan Bulk Sheet (filtered list) ────────────────────────────────────
+// ── 1b. Challan Bulk Sheet (Company-wise Consolidated) ─────────────────────────
 
 export function printChallanSheet(challans: ChallanItem[]): void {
   const shop = getShopName();
-  const totalAmt = challans.reduce((s, c) => s + c.totalAmount, 0);
+  const subBrand = getShopSubBrand();
 
-  const rows = challans.map((c, i) => {
-    const statusClass = c.status === 'Delivered' ? 'badge-green' : c.status === 'Shipped' ? 'badge-blue' : 'badge-amber';
-    return `<tr>
-      <td class="text-center">${i + 1}</td>
-      <td><b>${c.productName}</b><br><span style="font-size:10px;color:#64748b">${c.attribute}</span></td>
-      <td class="text-center">${c.qty}</td>
-      <td class="text-center">${c.bonusQty}</td>
-      <td class="text-center"><b>${c.totalQty}</b></td>
-      <td class="text-right">৳${c.rate.toFixed(0)}</td>
-      <td class="text-right"><b>৳${c.totalAmount.toFixed(0)}</b></td>
-      <td>${c.srName}</td>
-      <td>${c.routeName || '—'}</td>
-      <td>${c.deliveryManName}</td>
-      <td class="text-center"><span class="badge ${statusClass}">${c.status}</span></td>
-    </tr>`;
+  if (challans.length === 0) {
+    printHTML('Challan Sheet', `<p style="padding:40px;text-align:center;color:#64748b">No challan records found.</p>`);
+    return;
+  }
+
+  // 1. Group ALL challans by Company
+  const companyGroups = new Map<string, ChallanItem[]>();
+  challans.forEach(c => {
+    const co = c.company || 'General Brand';
+    if (!companyGroups.has(co)) companyGroups.set(co, []);
+    companyGroups.get(co)!.push(c);
+  });
+
+  const totalCompanies = companyGroups.size;
+  const totalItemsCount = challans.length;
+  const totalGrossQty = challans.reduce((s, c) => s + (c.qty || 0), 0);
+  const totalBonusQty = challans.reduce((s, c) => s + (c.bonusQty || 0), 0);
+  const totalReturned = challans.reduce((s, c) => s + (c.returnedQty || 0), 0);
+  const totalDamaged = challans.reduce((s, c) => s + (c.damagedQty || 0), 0);
+  const totalNetDelivered = challans.reduce((s, c) => s + Math.max(0, c.qty - (c.returnedQty || 0) - (c.damagedQty || 0)), 0);
+  const totalGrossAmt = challans.reduce((s, c) => s + (c.qty * c.rate), 0);
+  const totalReturnedValue = challans.reduce((s, c) => s + ((c.returnedQty || 0) * c.rate), 0);
+  const totalDamagedValue = challans.reduce((s, c) => s + ((c.damagedQty || 0) * c.rate), 0);
+  const totalNetDeliveredGross = challans.reduce((s, c) => s + (Math.max(0, c.qty - (c.returnedQty || 0) - (c.damagedQty || 0)) * c.rate), 0);
+  const totalNetAmt = challans.reduce((s, c) => s + (c.totalAmount || 0), 0);
+
+  let globalIndex = 1;
+
+  const companySectionsHtml = Array.from(companyGroups.entries()).map(([coName, coItems]) => {
+    const coGrossQty = coItems.reduce((s, it) => s + (it.qty || 0), 0);
+    const coBonusQty = coItems.reduce((s, it) => s + (it.bonusQty || 0), 0);
+    const coReturned = coItems.reduce((s, it) => s + (it.returnedQty || 0), 0);
+    const coDamaged = coItems.reduce((s, it) => s + (it.damagedQty || 0), 0);
+    const coNetQty = coItems.reduce((s, it) => s + Math.max(0, it.qty - (it.returnedQty || 0) - (it.damagedQty || 0)), 0);
+    const coGrossAmt = coItems.reduce((s, it) => s + (it.qty * it.rate), 0);
+    const coReturnedVal = coItems.reduce((s, it) => s + ((it.returnedQty || 0) * it.rate), 0);
+    const coDamagedVal = coItems.reduce((s, it) => s + ((it.damagedQty || 0) * it.rate), 0);
+    const coNetDelivGross = coItems.reduce((s, it) => s + (Math.max(0, it.qty - (it.returnedQty || 0) - (it.damagedQty || 0)) * it.rate), 0);
+    const coNetAmt = coItems.reduce((s, it) => s + (it.totalAmount || 0), 0);
+
+    const rows = coItems.map((c) => {
+      const netQty = Math.max(0, c.qty - (c.returnedQty || 0) - (c.damagedQty || 0));
+      const statusClass = c.status === 'Delivered' ? 'badge-green' : c.status === 'Shipped' ? 'badge-blue' : 'badge-amber';
+      return `
+        <tr>
+          <td class="text-center" style="color:#64748b;font-weight:600">${globalIndex++}</td>
+          <td>
+            <b>${c.productName}</b>
+            ${c.attribute && c.attribute !== 'None' && c.attribute !== 'Default' ? `<br><span style="font-size:10px;color:#64748b">${c.attribute}</span>` : ''}
+          </td>
+          <td class="text-center">${c.qty}</td>
+          <td class="text-center" style="color:#2563eb">${c.bonusQty || 0}</td>
+          <td class="text-center" style="color:${c.returnedQty ? '#dc2626' : '#94a3b8'}">${c.returnedQty || 0}</td>
+          <td class="text-center" style="color:${c.damagedQty ? '#dc2626' : '#94a3b8'}">${c.damagedQty || 0}</td>
+          <td class="text-center" style="background:#f0fdf4;font-weight:800;color:#166534">${netQty}</td>
+          <td class="text-right">৳${c.rate.toFixed(0)}</td>
+          <td class="text-right" style="color:#64748b">৳${(c.qty * c.rate).toLocaleString('en-BD')}</td>
+          <td class="text-right" style="font-weight:800;color:#0f172a">৳${c.totalAmount.toLocaleString('en-BD')}</td>
+          <td>${c.srName || '—'}</td>
+          <td>${c.routeName || '—'}</td>
+          <td class="text-center"><span class="badge ${statusClass}">${c.status}</span></td>
+        </tr>
+      `;
+    }).join('');
+
+    return `
+      <div style="margin-top:20px;page-break-inside:avoid;">
+        <div style="background:#1e293b;color:#fff;padding:8px 14px;display:flex;justify-content:space-between;align-items:center;border-radius:4px 4px 0 0;">
+          <div style="font-size:12px;font-weight:800;letter-spacing:.3px;">
+            🏢 Company: <span style="color:#93c5fd">${coName}</span> (${coItems.length} Products)
+          </div>
+          <div style="font-size:11px;font-weight:700;color:#cbd5e1;">
+            Company Total: ৳${coNetAmt.toLocaleString('en-BD', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </div>
+        </div>
+
+        <table style="margin-top:0;margin-bottom:0;border:1px solid #cbd5e1;border-top:none;">
+          <thead>
+            <tr style="background:#0f172a;color:#fff;">
+              <th class="text-center" style="width:25px">#</th>
+              <th>Product &amp; Spec</th>
+              <th class="text-center">Qty</th>
+              <th class="text-center">Bonus</th>
+              <th class="text-center">Returned</th>
+              <th class="text-center">Damaged</th>
+              <th class="text-center">Delivered</th>
+              <th class="text-right">Rate</th>
+              <th class="text-right">Gross</th>
+              <th class="text-right">Net Total</th>
+              <th>SR Name</th>
+              <th>Route</th>
+              <th class="text-center">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows}
+            <tr style="background:#f8fafc;font-weight:700;border-top:2px solid #94a3b8;font-size:10.5px;">
+              <td colspan="2" style="text-align:right;color:#334155;">Subtotal (${coName}):</td>
+              <td class="text-center">${coGrossQty}</td>
+              <td class="text-center" style="color:#2563eb">${coBonusQty}</td>
+              <td class="text-center" style="color:${coReturned ? '#dc2626' : '#94a3b8'}">${coReturned}</td>
+              <td class="text-center" style="color:${coDamaged ? '#dc2626' : '#94a3b8'}">${coDamaged}</td>
+              <td class="text-center" style="color:#166534;font-weight:800">${coNetQty}</td>
+              <td></td>
+              <td class="text-right" style="color:#64748b">৳${coGrossAmt.toLocaleString('en-BD', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+              <td class="text-right" style="color:#1e40af;font-weight:800">৳${coNetAmt.toLocaleString('en-BD', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+              <td colspan="3"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    `;
   }).join('');
 
-  printHTML('Challan Sheet', `
+  printHTML('Company-wise Delivery Challan Sheet', `
     <div class="header">
-      <div class="brand"><h1>${shop}</h1><p>FMCG Dealer &amp; Distributor</p></div>
+      <div class="brand">
+        <h1>${shop}</h1>
+        <p>${subBrand}</p>
+      </div>
       <div class="doc-meta">
-        <div class="doc-type">Challan Sheet</div>
-        <div class="doc-id">${challans.length} Record${challans.length !== 1 ? 's' : ''}</div>
+        <div class="doc-type">Company-wise Delivery Challan Sheet</div>
+        <div class="doc-id">${totalCompanies} Companies • ${totalItemsCount} Products</div>
         <div class="doc-date">Printed: ${now()}</div>
       </div>
     </div>
 
-    <table>
-      <thead><tr>
-        <th class="text-center" style="width:30px">#</th>
-        <th>Product &amp; Spec</th>
-        <th class="text-center">Qty</th>
-        <th class="text-center">Bonus</th>
-        <th class="text-center">Total Qty</th>
-        <th class="text-right">Rate (৳)</th>
-        <th class="text-right">Total Amt (৳)</th>
-        <th>SR Name</th>
-        <th>Route Beat</th>
-        <th>Delivery Man</th>
-        <th class="text-center">Status</th>
-      </tr></thead>
-      <tbody>${rows.length ? rows : '<tr><td colspan="11" style="text-align:center;padding:20px;color:#94a3b8">No challans found.</td></tr>'}</tbody>
-    </table>
+    ${companySectionsHtml}
 
-    <div class="summary"><table>
-      <tr class="total"><td><b>TOTAL AMOUNT:</b></td><td class="text-right"><b>৳${totalAmt.toLocaleString('en-BD')}</b></td></tr>
-    </table></div>
-    <div class="footer"><span>System: Bangla-Chain DMS</span><span>Printed: ${now()}</span></div>
+    <div class="summary" style="margin-top:24px;page-break-inside:avoid;">
+      <table style="width:380px;">
+        <tr><td>Total Companies:</td><td class="text-right"><b>${totalCompanies}</b></td></tr>
+        <tr><td>Total Product Rows:</td><td class="text-right"><b>${totalItemsCount} items</b></td></tr>
+        <tr><td>Total Ordered Qty:</td><td class="text-right"><b>${totalGrossQty} units</b> <span style="color:#64748b;font-size:10px;">(৳${totalGrossAmt.toLocaleString('en-BD', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})</span></td></tr>
+        ${totalBonusQty > 0 ? `<tr><td>Total Bonus Qty:</td><td class="text-right" style="color:#2563eb">+${totalBonusQty} units <span style="font-size:10px;">(Free)</span></td></tr>` : ''}
+        ${totalReturned > 0 ? `<tr><td>Total Returned:</td><td class="text-right" style="color:#dc2626">−${totalReturned} units <span style="font-size:10px;">(−৳${totalReturnedValue.toLocaleString('en-BD', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})</span></td></tr>` : ''}
+        ${totalDamaged > 0 ? `<tr><td>Total Damaged:</td><td class="text-right" style="color:#dc2626">−${totalDamaged} units <span style="font-size:10px;">(−৳${totalDamagedValue.toLocaleString('en-BD', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})</span></td></tr>` : ''}
+        <tr style="background:#f0fdf4;border-top:1px solid #86efac;border-bottom:1px solid #86efac;">
+          <td style="color:#166534;font-weight:700;">Total Net Delivered Qty:</td>
+          <td class="text-right" style="color:#166534;font-weight:800;">
+            ${totalNetDelivered} units <span style="font-size:10.5px;">(৳${totalNetDeliveredGross.toLocaleString('en-BD', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})</span>
+          </td>
+        </tr>
+        <tr class="total"><td><b>GRAND TOTAL AMOUNT:</b></td><td class="text-right" style="color:#1e3a8a;font-size:14px"><b>৳${totalNetAmt.toLocaleString('en-BD', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b></td></tr>
+      </table>
+    </div>
+
+    <div class="signatures">
+      <div class="sig-line">Warehouse / Store Manager</div>
+      <div class="sig-line">Delivery Supervisor</div>
+      <div class="sig-line">Accounts / Audit Verification</div>
+    </div>
+    <div class="footer"><span>System: Bangla-Chain ERP (Company Consolidated Challan Engine)</span><span>Printed: ${now()}</span></div>
   `);
 }
 

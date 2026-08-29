@@ -28,8 +28,12 @@ export type { ClaimReason };
 
 async function getOwnerId(): Promise<string> {
   const { data } = await supabase.auth.getUser();
-  if (!data.user) throw new Error('Not authenticated — please log in first.');
-  return data.user.id;
+  if (data?.user) return data.user.id;
+  if (typeof window !== 'undefined') {
+    const srOwnerId = sessionStorage.getItem('erp_sr_owner_id');
+    if (srOwnerId) return srOwnerId;
+  }
+  throw new Error('Not authenticated — please log in first.');
 }
 
 // ── Map helpers: Supabase row ↔ app type ──────────────────────────────────────
@@ -258,7 +262,8 @@ export async function upsertSR(sr: SR): Promise<void> {
     assigned_company_ids: sr.assignedCompanyIds ?? [],
     login_username:       sr.loginUsername ?? null,
     login_password:       sr.loginPassword ?? null,
-  });
+    password_hash:        null,
+  } as any);
 }
 export async function deleteSR(id: string): Promise<void> {
   await db.srs.delete(id);
@@ -420,22 +425,6 @@ export async function deleteProduct(id: string): Promise<void> {
 export async function upsertChallan(c: ChallanItem): Promise<void> {
   const ownerId = await getOwnerId();
 
-  // 1. Fetch existing status to check transition to Delivered
-  let wasDelivered = false;
-  try {
-    const { data: existing } = await (supabase
-      .from('challans')
-      .select('status')
-      .eq('id', c.id)
-      .single() as any);
-    if (existing && existing.status === 'Delivered') {
-      wasDelivered = true;
-    }
-  } catch (e) {
-    // If not found, wasDelivered remains false
-  }
-
-  // 2. Perform the database update
   await db.challans.upsert({
     id:                    c.id,
     owner_id:              ownerId,
@@ -466,100 +455,14 @@ export async function upsertChallan(c: ChallanItem): Promise<void> {
     sr_commission_value:   c.srCommissionValue ?? 0,
     sr_commission_amount:  c.srCommissionAmount ?? 0,
   });
-
-  // 3. Trigger invoice email if status is transition to Delivered
-  if (c.status === 'Delivered' && !wasDelivered) {
-    try {
-      let customerEmail = '';
-      if (c.customerId) {
-        try {
-          const { data: cust } = await (supabase
-            .from('customers')
-            .select('email')
-            .eq('id', c.customerId)
-            .maybeSingle() as any);
-          if (cust && cust.email) {
-            customerEmail = cust.email;
-          }
-        } catch {}
-      }
-
-      let sName = 'Samir Enterprise';
-      let sSub = 'Dhaka & Chittagong Regional Hub';
-      try {
-        const { data: settings } = await (supabase
-          .from('settings')
-          .select('shop_name, shop_subbrand')
-          .eq('owner_id', ownerId)
-          .maybeSingle() as any);
-        if (settings) {
-          sName = settings.shop_name || sName;
-          sSub = settings.shop_subbrand || sSub;
-        }
-      } catch {}
-
-      // Non-blocking asynchronous invoice delivery dispatch via Resend
-      fetch('/api/send-invoice', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          challanId: c.id,
-          companyName: c.company || '',
-          srName: c.srName || '',
-          deliveryManName: c.deliveryManName || '',
-          routeName: c.routeName || '',
-          customerName: c.customerName || 'Valued Customer',
-          customerEmail: customerEmail || undefined,
-          productName: c.productName || '',
-          qty: c.qty || 0,
-          bonusQty: c.bonusQty || 0,
-          totalQty: c.totalQty || 0,
-          rate: c.rate || 0,
-          totalAmount: c.totalAmount || 0,
-          deliveryDate: c.createdAt || new Date().toISOString(),
-          shopName: sName,
-          shopSubBrand: sSub,
-          selectedUnitName: c.selectedUnitName || 'Piece',
-          returnedQty: c.returnedQty || 0,
-          damagedQty: c.damagedQty || 0,
-          items: [{
-            productName: c.productName || '',
-            company: c.company || '',
-            attribute: c.attribute || '',
-            qty: c.qty || 0,
-            bonusQty: c.bonusQty || 0,
-            totalQty: c.totalQty || 0,
-            rate: c.rate || 0,
-            totalAmount: c.totalAmount || 0,
-            returnedQty: c.returnedQty || 0,
-            damagedQty: c.damagedQty || 0,
-            selectedUnitName: c.selectedUnitName || 'Piece',
-          }],
-        }),
-      }).then(async (res) => {
-        const data = await res.json();
-        if (!res.ok) {
-          console.error('[Email Trigger] Error response from /api/send-invoice:', data.message || data.error);
-        } else {
-          console.info('[Email Trigger] Invoice email sent successfully via Resend:', data.id);
-        }
-      }).catch((err) => {
-        console.error('[Email Trigger] Failed to post to send-invoice API:', err);
-      });
-    } catch (err) {
-      console.error('[Email Trigger] Failed to process email notification trigger:', err);
-    }
-  }
 }
 
 /**
  * Explicit helper to send invoice email on demand
- * Supports both a single ChallanItem and a full GroupedOrder
+ * Consolidates all items of a single Challan / GroupedOrder into 1 single email.
  */
 export async function sendInvoiceEmail(
-  target: ChallanItem | {
+  target: ChallanItem[] | ChallanItem | {
     id: string;
     items: ChallanItem[];
     createdAt?: string;
@@ -570,16 +473,72 @@ export async function sendInvoiceEmail(
     status?: string;
     totalAmount?: number;
   },
-  sName = 'Samir Enterprise',
-  sSub = 'Dhaka & Chittagong Regional Hub'
+  customShopName?: string,
+  customShopSub?: string
 ): Promise<{ success: boolean; message?: string }> {
   try {
-    const isGrouped = 'items' in target && Array.isArray((target as any).items);
-    const grouped = isGrouped ? (target as { id: string; items: ChallanItem[]; createdAt?: string; srName?: string; routeName?: string; deliveryManName?: string; customerName?: string; status?: string; totalAmount?: number; }) : null;
-    const single = !isGrouped ? (target as ChallanItem) : null;
-    const firstItem = isGrouped ? grouped!.items[0] : single!;
+    let itemsListRaw: ChallanItem[] = [];
+    let targetId = '';
+    let targetCreatedAt = '';
+    let targetSrName = '';
+    let targetRouteName = '';
+    let targetDeliveryManName = '';
+    let targetCustomerName = '';
+    let targetStatus = 'Delivered';
+    let targetExplicitTotal: number | undefined;
+
+    if (Array.isArray(target)) {
+      itemsListRaw = target;
+      const first = target[0];
+      targetId = first?.id ? `CH-${first.id.replace(/^ch-/, '').split('-')[0]}` : `CH-${Date.now().toString().slice(-6)}`;
+      targetCreatedAt = first?.createdAt || new Date().toISOString();
+      targetSrName = first?.srName || '';
+      targetRouteName = first?.routeName || '';
+      targetDeliveryManName = first?.deliveryManName || '';
+      targetCustomerName = first?.customerName || '';
+      targetStatus = first?.status || 'Delivered';
+    } else if ('items' in target && Array.isArray((target as any).items)) {
+      const grouped = target as {
+        id: string;
+        items: ChallanItem[];
+        createdAt?: string;
+        srName?: string;
+        routeName?: string;
+        deliveryManName?: string;
+        customerName?: string;
+        status?: string;
+        totalAmount?: number;
+      };
+      itemsListRaw = grouped.items;
+      targetId = grouped.id;
+      targetCreatedAt = grouped.createdAt || new Date().toISOString();
+      targetSrName = grouped.srName || grouped.items[0]?.srName || '';
+      targetRouteName = grouped.routeName || grouped.items[0]?.routeName || '';
+      targetDeliveryManName = grouped.deliveryManName || grouped.items[0]?.deliveryManName || '';
+      targetCustomerName = grouped.customerName || grouped.items[0]?.customerName || '';
+      targetStatus = grouped.status || grouped.items[0]?.status || 'Delivered';
+      targetExplicitTotal = grouped.totalAmount;
+    } else {
+      const single = target as ChallanItem;
+      itemsListRaw = [single];
+      targetId = single.id;
+      targetCreatedAt = single.createdAt || new Date().toISOString();
+      targetSrName = single.srName || '';
+      targetRouteName = single.routeName || '';
+      targetDeliveryManName = single.deliveryManName || '';
+      targetCustomerName = single.customerName || '';
+      targetStatus = single.status || 'Delivered';
+      targetExplicitTotal = single.totalAmount;
+    }
+
+    if (!itemsListRaw || itemsListRaw.length === 0) {
+      return { success: false, message: 'No items in challan to send.' };
+    }
+
+    const firstItem = itemsListRaw[0];
     const customerId = firstItem?.customerId;
 
+    // 1. Resolve customer email
     let customerEmail = '';
     if (customerId) {
       try {
@@ -593,58 +552,70 @@ export async function sendInvoiceEmail(
         }
       } catch {}
     }
+    if (!customerEmail && targetCustomerName) {
+      try {
+        const { data: cust } = await (supabase
+          .from('customers')
+          .select('email')
+          .eq('name', targetCustomerName)
+          .maybeSingle() as any);
+        if (cust && cust.email) {
+          customerEmail = cust.email;
+        }
+      } catch {}
+    }
 
-    const itemsList = isGrouped
-      ? grouped!.items.map(it => ({
-          productName: it.productName || '',
-          company: it.company || '',
-          attribute: it.attribute || '',
-          qty: it.qty || 0,
-          bonusQty: it.bonusQty || 0,
-          totalQty: it.totalQty || 0,
-          rate: it.rate || 0,
-          totalAmount: it.totalAmount || 0,
-          returnedQty: it.returnedQty || 0,
-          damagedQty: it.damagedQty || 0,
-          selectedUnitName: it.selectedUnitName || 'Piece',
-        }))
-      : [{
-          productName: single!.productName || '',
-          company: single!.company || '',
-          attribute: single!.attribute || '',
-          qty: single!.qty || 0,
-          bonusQty: single!.bonusQty || 0,
-          totalQty: single!.totalQty || 0,
-          rate: single!.rate || 0,
-          totalAmount: single!.totalAmount || 0,
-          returnedQty: single!.returnedQty || 0,
-          damagedQty: single!.damagedQty || 0,
-          selectedUnitName: single!.selectedUnitName || 'Piece',
-        }];
+    // 2. Resolve Shop Name & Sub-brand from settings
+    let shopName = customShopName;
+    let shopSubBrand = customShopSub;
+    if (!shopName) {
+      try {
+        const ownerId = await getOwnerId();
+        const { data: settings } = await (supabase
+          .from('settings')
+          .select('shop_name, shop_subbrand')
+          .eq('owner_id', ownerId)
+          .maybeSingle() as any);
+        if (settings) {
+          shopName = settings.shop_name || 'Bangla-Chain ERP';
+          shopSubBrand = settings.shop_subbrand || 'FMCG Distribution & Regional Hub';
+        }
+      } catch {}
+    }
+    if (!shopName) shopName = 'Bangla-Chain ERP';
+    if (!shopSubBrand) shopSubBrand = 'FMCG Distribution & Regional Hub';
 
-    const challanId = isGrouped
-      ? (grouped!.id?.startsWith('ORD-') ? grouped!.id : `ORD-${new Date(grouped!.createdAt || Date.now()).getTime().toString().slice(-6)}`)
-      : single!.id;
+    // 3. Format items list for the email
+    const itemsList = itemsListRaw.map(it => ({
+      productName: it.productName || '',
+      company: it.company || '',
+      attribute: it.attribute || '',
+      qty: it.qty || 0,
+      bonusQty: it.bonusQty || 0,
+      totalQty: it.totalQty || (it.qty + (it.bonusQty || 0)),
+      rate: it.rate || 0,
+      totalAmount: it.totalAmount || 0,
+      returnedQty: it.returnedQty || 0,
+      damagedQty: it.damagedQty || 0,
+      selectedUnitName: it.selectedUnitName || 'Piece',
+    }));
 
-    const companyName = isGrouped
-      ? (grouped!.items.find(i => i.company)?.company || '')
-      : (single!.company || '');
+    // 4. Clean Challan / Voucher ID
+    let challanId = targetId;
+    if (!challanId || challanId.includes('_') || challanId.includes('T')) {
+      const ts = new Date(targetCreatedAt).getTime();
+      challanId = !isNaN(ts) ? `CH-${ts.toString().slice(-6)}` : `CH-${Date.now().toString().slice(-6)}`;
+    }
 
-    const totalAmount = isGrouped
-      ? (grouped!.totalAmount ?? grouped!.items.reduce((s, it) => s + it.totalAmount, 0))
-      : single!.totalAmount;
+    // 5. Consolidated Company Names
+    const uniqueCompanies = Array.from(new Set(itemsListRaw.map(i => i.company).filter(Boolean)));
+    const companyName = uniqueCompanies.length > 0 ? uniqueCompanies.join(', ') : 'General Brand';
 
-    const grossAmount = isGrouped
-      ? grouped!.items.reduce((s, it) => s + (it.qty * it.rate), 0)
-      : (single!.qty * single!.rate);
-
-    const commissionAmount = isGrouped
-      ? grouped!.items.reduce((s, it) => s + (it.commissionAmount || 0), 0)
-      : (single!.commissionAmount || 0);
-
-    const extraProfitAmount = isGrouped
-      ? grouped!.items.reduce((s, it) => s + (it.extraProfitAmount || 0), 0)
-      : (single!.extraProfitAmount || 0);
+    // 6. Aggregate calculations for the whole challan
+    const grossAmount = itemsListRaw.reduce((s, it) => s + (it.qty * it.rate), 0);
+    const commissionAmount = itemsListRaw.reduce((s, it) => s + (it.commissionAmount || 0), 0);
+    const extraProfitAmount = itemsListRaw.reduce((s, it) => s + (it.extraProfitAmount || 0), 0);
+    const totalAmount = targetExplicitTotal ?? itemsListRaw.reduce((s, it) => s + it.totalAmount, 0);
 
     const res = await fetch('/api/send-invoice', {
       method: 'POST',
@@ -654,21 +625,21 @@ export async function sendInvoiceEmail(
       body: JSON.stringify({
         challanId,
         companyName,
-        srName: isGrouped ? (grouped!.srName || firstItem?.srName || '') : (single!.srName || ''),
-        deliveryManName: isGrouped ? (grouped!.deliveryManName || firstItem?.deliveryManName || '') : (single!.deliveryManName || ''),
-        routeName: isGrouped ? (grouped!.routeName || firstItem?.routeName || '') : (single!.routeName || ''),
-        customerName: isGrouped ? (grouped!.customerName || firstItem?.customerName || 'Valued Customer') : (single!.customerName || 'Valued Customer'),
+        srName: targetSrName || 'N/A',
+        deliveryManName: targetDeliveryManName || 'N/A',
+        routeName: targetRouteName || 'N/A',
+        customerName: targetCustomerName || 'Valued Customer',
         customerEmail: customerEmail || undefined,
-        deliveryDate: isGrouped ? (grouped!.createdAt || new Date().toISOString()) : (single!.createdAt || new Date().toISOString()),
-        status: isGrouped ? (grouped!.status || 'Delivered') : (single!.status || 'Delivered'),
-        shopName: sName,
-        shopSubBrand: sSub,
+        deliveryDate: targetCreatedAt,
+        status: targetStatus,
+        shopName,
+        shopSubBrand,
         totalAmount,
         grossAmount,
         commissionAmount,
         extraProfitAmount,
         items: itemsList,
-        // Legacy fallback fields
+        // Fallback fields for backwards compatibility
         productName: firstItem?.productName || '',
         qty: firstItem?.qty || 0,
         bonusQty: firstItem?.bonusQty || 0,

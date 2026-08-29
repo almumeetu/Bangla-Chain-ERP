@@ -938,6 +938,26 @@ export default function ChallanModule({
         return { products: tempProducts, customers: tempCustomers, challans: tempChallans };
       });
 
+      // Dispatch 1 consolidated email for the entire challan on delivery settlement
+      if (settlementStatus === 'Delivered' && settlementOrder) {
+        const settledItems = settlementOrder.items.map(item => {
+          const updated = tempChallans.find(c => c.id === item.id);
+          return updated || { ...item, status: 'Delivered' as const };
+        });
+        const totalDeliveredAmount = settledItems.reduce((s, it) => s + it.totalAmount, 0);
+        sendInvoiceEmail({
+          id: settlementOrder.id,
+          items: settledItems,
+          createdAt: settlementOrder.createdAt,
+          srName: settlementOrder.srName,
+          routeName: settlementOrder.routeName,
+          deliveryManName: settlementOrder.deliveryManName,
+          customerName: settlementOrder.customerName,
+          status: 'Delivered',
+          totalAmount: totalDeliveredAmount,
+        }).catch(err => console.error('[Settlement Email Trigger]', err));
+      }
+
       setSettlementOrder(null);
       setViewingOrder(null); // Auto-close viewing order drawer on status change (settled)
       showToast(language === 'bn' 
@@ -2461,8 +2481,18 @@ export default function ChallanModule({
                     </tbody>
                   </table>
                 </div>
-                <div className="flex justify-end pt-2 text-sm">
-                  <p className="font-bold text-slate-800">Order Total: <span className="font-mono text-lg text-emerald-600">৳{viewingOrder.totalAmount.toLocaleString('en-BD')}</span></p>
+                <div className="flex flex-col sm:flex-row items-end sm:items-center justify-between pt-3 gap-2 border-t border-slate-200 text-xs">
+                  <div className="flex flex-wrap items-center gap-3 text-slate-600">
+                    <span>{language === 'bn' ? 'মোট অর্ডার:' : 'Ordered:'} <strong className="text-slate-900 font-mono">{viewingOrder.items.reduce((s, it) => s + (it.qty || 0), 0)} units</strong></span>
+                    {viewingOrder.items.some(it => (it.returnedQty || 0) > 0) && (
+                      <span className="text-rose-600">{language === 'bn' ? 'ফেরত:' : 'Returned:'} <strong className="font-mono">−{viewingOrder.items.reduce((s, it) => s + (it.returnedQty || 0), 0)} (৳{viewingOrder.items.reduce((s, it) => s + ((it.returnedQty || 0) * it.rate), 0).toFixed(2)})</strong></span>
+                    )}
+                    {viewingOrder.items.some(it => (it.damagedQty || 0) > 0) && (
+                      <span className="text-amber-600">{language === 'bn' ? 'ড্যামেজ:' : 'Damaged:'} <strong className="font-mono">−{viewingOrder.items.reduce((s, it) => s + (it.damagedQty || 0), 0)} (৳{viewingOrder.items.reduce((s, it) => s + ((it.damagedQty || 0) * it.rate), 0).toFixed(2)})</strong></span>
+                    )}
+                    <span className="text-emerald-700 font-semibold">{language === 'bn' ? 'প্রকৃত ডেলিভারি:' : 'Delivered:'} <strong className="font-mono">{viewingOrder.items.reduce((s, it) => s + Math.max(0, it.qty - (it.returnedQty || 0) - (it.damagedQty || 0)), 0)} units (৳{viewingOrder.items.reduce((s, it) => s + (Math.max(0, it.qty - (it.returnedQty || 0) - (it.damagedQty || 0)) * it.rate), 0).toFixed(2)})</strong></span>
+                  </div>
+                  <p className="font-bold text-slate-800 text-sm">{language === 'bn' ? 'সর্বমোট প্রদেয়:' : 'Order Total:'} <span className="font-mono text-lg text-emerald-600 font-extrabold">৳{viewingOrder.totalAmount.toLocaleString('en-BD', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></p>
                 </div>
               </div>
             </div>

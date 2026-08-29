@@ -121,6 +121,7 @@ export default function App() {
       setIsAuthenticated(true);
       setUserRole('sr');
       setActiveTab('sales');
+      applyData(loadAllData());
       setReady(true);
       return;
     }
@@ -159,7 +160,11 @@ export default function App() {
   const handleLogin = useCallback((role: 'admin' | 'sr') => {
     setIsAuthenticated(true);
     setUserRole(role);
-    if (role === 'sr') { setActiveTab('sales'); return; }
+    if (role === 'sr') {
+      setActiveTab('sales');
+      applyData(loadAllData());
+      return;
+    }
     const tab = lsGet('erp_active_tab');
     setActiveTab((tab as TabID) || 'dashboard');
     applyData(loadAllData());
@@ -170,9 +175,12 @@ export default function App() {
     if (!confirm(translations[language].sidebar.userSessionConfirm)) return;
     sessionStorage.removeItem('erp_sr_id');
     sessionStorage.removeItem('erp_sr_name');
+    sessionStorage.removeItem('erp_sr_owner_id');
+    sessionStorage.removeItem('erp_sr_companies');
     lsDel('erp_auth_role');
     lsDel('erp_active_tab');
     lsDel('erp_active_sub_tab');
+    fetch('/api/auth/sr-logout', { method: 'POST' }).catch(() => {});
     signOut().finally(() => {
       setIsAuthenticated(false);
       setUserRole('admin');

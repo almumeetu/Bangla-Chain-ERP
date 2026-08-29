@@ -123,13 +123,10 @@ export function useDashboardMetrics(
   }, [challans, todayStr, yesterdayStr]);
 
   /**
-   * Total revenue from a list of challans (Market collection + Company damage claim).
+   * Total revenue from a list of challans.
    */
   function sumSales(list: ChallanItem[]): number {
-    return list.reduce((s, ch) => {
-      const dmgVal = (ch.damagedQty || 0) * (ch.rate || 0);
-      return s + (ch.totalAmount ?? 0) + dmgVal;
-    }, 0);
+    return list.reduce((s, ch) => s + (ch.totalAmount ?? 0), 0);
   }
 
   /**
@@ -139,7 +136,7 @@ export function useDashboardMetrics(
    *   1. Product defaultPP matched by product name (most accurate)
    *   2. ch.rate × 0.80 (reasonable DP ≈ 80% of selling rate when no product found)
    *
-   * Net qty = qty dispatched - returned (damage is claimed from company, so profit is preserved).
+   * Net qty = qty dispatched - returned - damaged (actual sold units).
    */
   function sumCOGS(list: ChallanItem[]): number {
     return list.reduce((s, ch) => {
@@ -147,7 +144,7 @@ export function useDashboardMetrics(
         p.name.toLowerCase().trim() === (ch.productName ?? '').toLowerCase().trim()
       );
       const pp     = prod?.defaultPP ?? (ch.rate * 0.80);
-      const netQty = Math.max(0, (ch.qty ?? 0) - (ch.returnedQty || 0));
+      const netQty = Math.max(0, (ch.qty ?? 0) - (ch.returnedQty || 0) - (ch.damagedQty || 0));
       return s + netQty * pp;
     }, 0);
   }

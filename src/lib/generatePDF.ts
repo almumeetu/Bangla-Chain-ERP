@@ -170,10 +170,10 @@ function generateDashboardPDF(ctx: DocCtx, opts: GeneratePDFOptions) {
   const todayStr = getLocalDateString(new Date());
 
   const todaysChallans    = challans.filter(ch => getChallanDate(ch.id, ch.createdAt) === todayStr);
-  const todaysSales       = todaysChallans.reduce((s, ch) => s + (ch.totalAmount ?? 0) + ((ch.damagedQty || 0) * (ch.rate || 0)), 0);
+  const todaysSales       = todaysChallans.reduce((s, ch) => s + (ch.totalAmount ?? 0), 0);
   const todaysCOGS        = todaysChallans.reduce((s, ch) => {
-    const pp = products.find(p => p.name === ch.productName)?.defaultPP ?? ch.rate * 0.65;
-    return s + (ch.qty - (ch.returnedQty ?? 0)) * pp;
+    const pp = products.find(p => p.name === ch.productName)?.defaultPP ?? ch.rate * 0.80;
+    return s + Math.max(0, ch.qty - (ch.returnedQty ?? 0) - (ch.damagedQty ?? 0)) * pp;
   }, 0);
   const todaysExpenses    = expenses.filter(e => e.expenseDate === todayStr).reduce((s, e) => s + e.amount, 0);
   const todaysNetProfit   = todaysSales - todaysCOGS - todaysExpenses;

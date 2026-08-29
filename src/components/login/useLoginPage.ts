@@ -176,22 +176,47 @@ export function useLoginPage(onLogin: (role: 'admin' | 'sr') => void): UseLoginP
     });
   }, [email, password, t, onLogin]);
 
-  // ── SR Login → Supabase (srs table, username/password) ────────────────────
-  const handleSRLogin = useCallback((e: React.FormEvent) => {
+  // ── SR Login → Server API /api/auth/sr-login (bypasses client RLS securely) ──
+  const handleSRLogin = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     if (!srUsername.trim() || !srPassword.trim()) { setError(t.errorRequired); return; }
     setIsLoading(true);
     setError('');
 
-    srLogin(srUsername.trim(), srPassword).then((sr) => {
+    try {
+      const res = await fetch('/api/auth/sr-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          username: srUsername.trim(),
+          password: srPassword.trim(),
+        }),
+      });
+
+      const data = await res.json();
       setIsLoading(false);
-      if (!sr) { setError(t.errorInvalid); return; }
-      // Store SR session info (non-auth, just for UI routing)
-      sessionStorage.setItem('erp_sr_id',   sr.id);
-      sessionStorage.setItem('erp_sr_name', sr.name);
+
+      if (!res.ok || !data.success) {
+        setError(data.message || t.errorInvalid);
+        return;
+      }
+
+      // Store SR session profile for UI routing & local access
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('erp_sr_id', data.sr.id);
+        sessionStorage.setItem('erp_sr_name', data.sr.name);
+        sessionStorage.setItem('erp_sr_owner_id', data.sr.owner_id);
+        if (data.sr.assigned_company_ids) {
+          sessionStorage.setItem('erp_sr_companies', JSON.stringify(data.sr.assigned_company_ids));
+        }
+      }
       onLogin('sr');
-    });
-  }, [srUsername, srPassword, t, onLogin]);
+    } catch (err: any) {
+      setIsLoading(false);
+      setError(err?.message || (language === 'bn' ? 'নেটওয়ার্ক ত্রুটি। আবার চেষ্টা করুন।' : 'Network error. Please try again.'));
+    }
+  }, [srUsername, srPassword, t, language, onLogin]);
 
   // ── Admin Register → Supabase Auth ────────────────────────────────────────
   const handleRegister = useCallback((e: React.FormEvent) => {

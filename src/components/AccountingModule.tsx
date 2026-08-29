@@ -131,15 +131,12 @@ export default function AccountingModule({
       return chDate >= fromDate && chDate <= toDate;
     });
 
-    const totalSoldQty = validChallans.reduce((sum, ch) => sum + Math.max(0, (ch.qty ?? 0) - (ch.returnedQty || 0)), 0);
-    const totalSellAmt = validChallans.reduce((sum, ch) => {
-      const dmgVal = (ch.damagedQty || 0) * (ch.rate || 0);
-      return sum + (ch.totalAmount ?? 0) + dmgVal;
-    }, 0);
+    const totalSoldQty = validChallans.reduce((sum, ch) => sum + Math.max(0, (ch.qty ?? 0) - (ch.returnedQty || 0) - (ch.damagedQty || 0)), 0);
+    const totalSellAmt = validChallans.reduce((sum, ch) => sum + (ch.totalAmount ?? 0), 0);
 
     // COGS: actual purchase price of sold goods (per-unit PP × net qty)
     const totalCOGS = validChallans.reduce((sum, ch) => {
-      const netQty = Math.max(0, (ch.qty ?? 0) - (ch.returnedQty || 0));
+      const netQty = Math.max(0, (ch.qty ?? 0) - (ch.returnedQty || 0) - (ch.damagedQty || 0));
       // purchaseCost not on challan, so we use rate × 0.80 as estimate if product not found
       const unitPP = ch.rate * 0.80;
       return sum + netQty * unitPP;

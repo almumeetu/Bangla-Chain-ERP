@@ -31,7 +31,7 @@ const PositiveAmount = z.number().positive('Amount must be greater than zero.');
 export const SrLoginSchema = z.object({
   username: NonEmptyStr.max(100),
   password: NonEmptyStr.max(200),
-  owner_id: z.string().uuid('Invalid owner ID.'),
+  owner_id: z.string().uuid('Invalid owner ID.').optional(),
 });
 
 export type SrLoginInput = z.infer<typeof SrLoginSchema>;
@@ -46,7 +46,7 @@ export const InvoiceItemSchema = z.object({
   bonusQty: z.number().min(0).default(0),
   totalQty: z.number().min(0).default(0),
   rate: z.number().min(0),
-  totalAmount: z.number().min(0),
+  totalAmount: z.number(),
   returnedQty: z.number().min(0).default(0),
   damagedQty: z.number().min(0).default(0),
   selectedUnitName: z.string().max(50).optional().default('Pcs'),
@@ -65,10 +65,10 @@ export const SendInvoiceSchema = z.object({
   status: z.string().max(50).optional().default('Delivered'),
   shopName: z.string().max(200).default('Bangla Chain ERP'),
   shopSubBrand: z.string().max(200).default(''),
-  totalAmount: z.number().min(0),
-  grossAmount: z.number().min(0).optional(),
-  commissionAmount: z.number().min(0).optional(),
-  extraProfitAmount: z.number().min(0).optional(),
+  totalAmount: z.number(),
+  grossAmount: z.number().optional(),
+  commissionAmount: z.number().optional(),
+  extraProfitAmount: z.number().optional(),
   items: z.array(InvoiceItemSchema).optional(),
   // Single-item fallback fields for backwards compatibility
   productName: z.string().max(300).optional(),
