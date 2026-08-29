@@ -4,6 +4,14 @@
 -- (No dummy sales / challan records included — Fresh Start)
 -- ============================================================
 
+-- 0. Ensure schema compatibility for older database migrations
+ALTER TABLE IF EXISTS settings ADD COLUMN IF NOT EXISTS owner_name TEXT DEFAULT 'Sohanur Rahman Sohan';
+ALTER TABLE IF EXISTS delivery_men ADD COLUMN IF NOT EXISTS phone TEXT DEFAULT '';
+ALTER TABLE IF EXISTS delivery_men ADD COLUMN IF NOT EXISTS assigned_company_ids TEXT[] DEFAULT '{}';
+ALTER TABLE IF EXISTS units ADD COLUMN IF NOT EXISTS symbol TEXT DEFAULT '';
+ALTER TABLE IF EXISTS units ADD COLUMN IF NOT EXISTS multiplier NUMERIC(10,4) DEFAULT 1;
+ALTER TABLE IF EXISTS products ADD COLUMN IF NOT EXISTS uom_id TEXT;
+
 DO $$
 DECLARE
   v_owner_id UUID;
@@ -46,13 +54,14 @@ BEGIN
     address        = EXCLUDED.address;
 
   -- 4. UNITS OF MEASURE (3 Units)
-  INSERT INTO units (id, owner_id, name, multiplier)
+  INSERT INTO units (id, owner_id, name, symbol, multiplier)
   VALUES
-    ('uom-1784297360115', v_owner_id, 'Cartoon', 1),
-    ('uom-1784297380091', v_owner_id, 'Piece', 1),
-    ('uom-1784349585052', v_owner_id, 'Dorzen', 12)
+    ('uom-1784297360115', v_owner_id, 'Cartoon', 'CTN', 1),
+    ('uom-1784297380091', v_owner_id, 'Piece', 'PCS', 1),
+    ('uom-1784349585052', v_owner_id, 'Dorzen', 'DZ', 12)
   ON CONFLICT (id) DO UPDATE SET
     name       = EXCLUDED.name,
+    symbol     = EXCLUDED.symbol,
     multiplier = EXCLUDED.multiplier;
 
   -- 5. PRODUCT CATEGORIES (4 Categories)
@@ -76,12 +85,15 @@ BEGIN
     location         = EXCLUDED.location,
     is_damage_godown = EXCLUDED.is_damage_godown;
 
-  -- 7. SALES REPRESENTATIVES (SRs with login accounts)
+  -- 7. SALES REPRESENTATIVES (6 SRs with login credentials)
   INSERT INTO srs (id, owner_id, name, phone, commission_rate, assigned_company_ids, login_username, login_password)
   VALUES
-    ('sr-1', v_owner_id, 'Rakib', '01711223344', 5.00, ARRAY['Pran Dairy Milkman Group', 'comp-1783247007277'], 'rakib', 'rakib123'),
-    ('sr-2', v_owner_id, 'Rahman', '01811223344', 5.00, ARRAY['Cocola Food Products Ltd C Group', 'comp-1783247144876', 'Olympic Industries LTD Jupiter Group', 'comp-1783247199503'], 'rahman', 'rahman123'),
-    ('sr-3', v_owner_id, 'Rahim', '01911223344', 5.00, ARRAY['Abul Khair Milk Products LTD Sky Group', 'comp-1783247065744'], 'rahim', 'rahim123')
+    ('sr-1783255426553', v_owner_id, 'Sobuj', '01642222298', 5.00, ARRAY['Pran Dairy Milkman Group', 'comp-1783247007277'], 'shohanur1472@gmail.com', 'sohan2486'),
+    ('sr-1783255480881', v_owner_id, 'Md. Sohan', '01974816392', 0.00, ARRAY['Pran Dairy Milkman Group', 'comp-1783247007277'], 'sohan-pran2', 'sohan123'),
+    ('sr-1783255524637', v_owner_id, 'Zinnat Ali', '01301236408', 0.00, ARRAY['Cocola Food Products Ltd C Group', 'comp-1783247144876'], 'zinnat', 'zinnat123'),
+    ('sr-1783255587859', v_owner_id, 'Shohidul', '01787591058', 0.00, ARRAY['Abul Khair Milk Products LTD Sky Group', 'comp-1783247065744'], 'shohidul', 'shohidul123'),
+    ('sr-1783255614409', v_owner_id, 'Sojib', '01978471889', 0.00, ARRAY['Abul Khair Milk Products LTD Sky Group', 'comp-1783247065744'], 'sojib', 'sojib123'),
+    ('sr-1783255662354', v_owner_id, 'Kefayet', '01614356405', 0.00, ARRAY['Abul Khair Milk Products LTD Sky Group', 'comp-1783247065744'], 'kefayet', 'kefayet123')
   ON CONFLICT (id) DO UPDATE SET
     name                 = EXCLUDED.name,
     phone                = EXCLUDED.phone,
@@ -90,22 +102,39 @@ BEGIN
     login_username       = EXCLUDED.login_username,
     login_password       = EXCLUDED.login_password;
 
-  -- 8. DELIVERY MEN
-  INSERT INTO delivery_men (id, owner_id, name, vehicle)
+  -- 8. DELIVERY MEN (4 Delivery Men)
+  INSERT INTO delivery_men (id, owner_id, name, vehicle, phone, assigned_company_ids)
   VALUES
-    ('dm-1', v_owner_id, 'Abul Kalam', 'PickUp Truck (Metro-Tha-11-2044)'),
-    ('dm-2', v_owner_id, 'Sujon Mia', 'Covered Van (Metro-Cha-54-9988)'),
-    ('dm-3', v_owner_id, 'Khorshed Alam', 'Three Wheeler Cargo (Dhaka-H-12-3456)')
+    ('dm-1783255189686', v_owner_id, 'Ashik', '01614325761', '01614325761', ARRAY['Pran Dairy Milkman Group', 'comp-1783247007277']),
+    ('dm-1783255221258', v_owner_id, 'Shorif', '01884271531', '01884271531', ARRAY['Pran Dairy Milkman Group', 'comp-1783247007277']),
+    ('dm-1783255251938', v_owner_id, 'Lal Mia', '01871896912', '01871896912', ARRAY['Pran Dairy Milkman Group', 'comp-1783247007277', 'Abul Khair Milk Products LTD Sky Group', 'comp-1783247065744']),
+    ('dm-1784883900823', v_owner_id, 'Readysales Own', 'own123', 'own123', ARRAY['Pran Dairy Milkman Group', 'comp-1783247007277', 'Abul Khair Milk Products LTD Sky Group', 'comp-1783247065744'])
   ON CONFLICT (id) DO UPDATE SET
-    name    = EXCLUDED.name,
-    vehicle = EXCLUDED.vehicle;
+    name                 = EXCLUDED.name,
+    vehicle              = EXCLUDED.vehicle,
+    phone                = EXCLUDED.phone,
+    assigned_company_ids = EXCLUDED.assigned_company_ids;
 
-  -- 9. ROUTES / BEATS
+  -- 9. ROUTES / BEATS (17 Routes)
   INSERT INTO routes (id, owner_id, name, area, territory, assigned_sr_id)
   VALUES
-    ('route-1', v_owner_id, 'Elephant Road Beat', 'Dhanmondi & Science Lab', 'Dhaka South', 'sr-1'),
-    ('route-2', v_owner_id, 'Chawkbazar Beat', 'Sadarghat & Chawkbazar', 'Old Dhaka Hub', 'sr-2'),
-    ('route-3', v_owner_id, 'Bogura Sadar Beat', 'Bogura Sadar & Rail Market', 'North Bengal Region', 'sr-3')
+    ('route-1783254698665', v_owner_id, 'Badam Road', 'Tongi', 'Gazipur', NULL),
+    ('route-1783254726183', v_owner_id, 'Boro Dewra', 'Tongi', 'Gazipur', NULL),
+    ('route-1783254782749', v_owner_id, 'Mill Gate Kolabaghan', 'Tongi', 'Gazipur', NULL),
+    ('route-1783254804964', v_owner_id, 'College Road', 'Tongi', 'Gazipur', NULL),
+    ('route-1783254830610', v_owner_id, 'Saffiuddin Academy', 'Tongi', 'Gazipur', NULL),
+    ('route-1783254885918', v_owner_id, 'Mokter Bari Road', 'Tongi', 'Gazipur', NULL),
+    ('route-1783254916467', v_owner_id, 'Molla Bazar', 'Tongi', 'Gazipur', NULL),
+    ('route-1783254937121', v_owner_id, 'Shing Bari', 'Tongi', 'Gazipur', NULL),
+    ('route-1783254979908', v_owner_id, 'Kha Para Road-1', 'Tongi', 'Gazipur', NULL),
+    ('route-1783254996008', v_owner_id, 'Kha Para Road-2', 'Tongi', 'Gazipur', NULL),
+    ('route-1783255024267', v_owner_id, 'Ershadnagar Ledu Molla', 'Tongi', 'Gazipur', NULL),
+    ('route-1783255047544', v_owner_id, 'Erhsadnagar', 'Tongi', 'Gazipur', NULL),
+    ('route-1783255073055', v_owner_id, 'Majar Bornomala', 'Tongi', 'Gazipur', NULL),
+    ('route-1783255097268', v_owner_id, 'Alom Market Cherag Ali', 'Tongi', 'Gazipur', NULL),
+    ('route-1783255122843', v_owner_id, 'Shomaj Kallan Cherag Ali', 'Tongi', 'Gazipur', NULL),
+    ('route-1783255151429', v_owner_id, 'Bornomala', 'Tongi', 'Gazipur', NULL),
+    ('route-1784897391723', v_owner_id, 'Ready Sales', 'Tongi', 'Gazipur', 'sr-1783255426553')
   ON CONFLICT (id) DO UPDATE SET
     name           = EXCLUDED.name,
     area           = EXCLUDED.area,
@@ -122,34 +151,34 @@ BEGIN
     name        = EXCLUDED.name,
     description = EXCLUDED.description;
 
-  -- 11. PRODUCTS (55 Items)
+  -- 11. PRODUCTS (55 Items with real stock & pricing)
   INSERT INTO products (id, owner_id, name, sku, company, uom_id, default_pp, default_wsp, default_mrp, current_stock, damaged_stock)
   VALUES
-    ('prod-1783248232464', v_owner_id, 'Milkman UHT 200ml', '46851', 'Pran Dairy Milkman Group', 'uom-1783247459352', 24.25, 25.67, 30, 1709, 0),
+    ('prod-1783248232464', v_owner_id, 'Milkman UHT 200ml', '46851', 'Pran Dairy Milkman Group', 'uom-1783247459352', 24.25, 25.67, 30, 825, 0),
     ('prod-1783248942773', v_owner_id, 'Milkman UHT 500ml', '46855', 'Pran Dairy Milkman Group', 'uom-1783247459352', 49.65, 52.5, 60, 0, 0),
-    ('prod-1783249048217', v_owner_id, 'Pran FCMP 10gm', '47091', 'Pran Dairy Milkman Group', 'uom-1783247469418', 7.15, 7.83, 10, 6720, 0),
-    ('prod-1783249198385', v_owner_id, 'Pran Milk Powder 50gm Chain', '53497', 'Pran Dairy Milkman Group', 'uom-1783247459352', 39.18, 41.14, 50, 114, 0),
-    ('prod-1783249257480', v_owner_id, 'Pran Full Cream Milk Powder 200gm', '32729', 'Pran Dairy Milkman Group', 'uom-1783247459352', 170.52, 180, 205, 84, 0),
-    ('prod-1783249385932', v_owner_id, 'Pran Full Cream Milk Powder 400gm', '32733', 'Pran Dairy Milkman Group', 'uom-1783247459352', 308.77, 325, 390, 60, 0),
+    ('prod-1783249048217', v_owner_id, 'Pran FCMP 10gm', '47091', 'Pran Dairy Milkman Group', 'uom-1783247469418', 7.15, 7.83, 10, 780, 0),
+    ('prod-1783249198385', v_owner_id, 'Pran Milk Powder 50gm Chain', '53497', 'Pran Dairy Milkman Group', 'uom-1783247459352', 39.18, 41.14, 50, 18, 0),
+    ('prod-1783249257480', v_owner_id, 'Pran Full Cream Milk Powder 200gm', '32729', 'Pran Dairy Milkman Group', 'uom-1783247459352', 170.52, 180, 205, 57, 0),
+    ('prod-1783249385932', v_owner_id, 'Pran Full Cream Milk Powder 400gm', '32733', 'Pran Dairy Milkman Group', 'uom-1783247459352', 308.77, 325, 390, 35, 0),
     ('prod-1783249456368', v_owner_id, 'Pran Full Cream Milk Powder 500gm', '32706', 'Pran Dairy Milkman Group', 'uom-1783247459352', 385.58, 405, 460, 4, 0),
-    ('prod-1783249516685', v_owner_id, 'Super Milk 200gm', '51091', 'Pran Dairy Milkman Group', 'uom-1783247459352', 132, 140, 175, 67, 0),
-    ('prod-1783249591128', v_owner_id, 'Super Milk 500gm', '47838', 'Pran Dairy Milkman Group', 'uom-1783247459352', 304.62, 320, 365, 16, 0),
-    ('prod-1783249704719', v_owner_id, 'Super Milk 1000gm', '47092', 'Pran Dairy Milkman Group', 'uom-1783247459352', 585.12, 615, 690, 83, 0),
-    ('prod-1783249799083', v_owner_id, 'Super Milk 5gm', '74038', 'Pran Dairy Milkman Group', 'uom-1783247469418', 4, 4.17, 5, 2916, 0),
-    ('prod-1783250134600', v_owner_id, 'Pran Premium Ghee 100gm', '32744', 'Pran Dairy Milkman Group', 'uom-1783247459352', 149.84, 160, 190, 1031, 0),
-    ('prod-1783250214554', v_owner_id, 'Pran Premium Ghee 200gm', '32745', 'Pran Dairy Milkman Group', 'uom-1783247459352', 284.88, 300, 350, 384, 0),
-    ('prod-1783250342182', v_owner_id, 'Pran Premium Ghee 450gm', '72495', 'Pran Dairy Milkman Group', 'uom-1783247459352', 641, 680, 760, 100, 0),
-    ('prod-1783250395116', v_owner_id, 'Pran Premium Ghee 1000gm', '72496', 'Pran Dairy Milkman Group', 'uom-1783247459352', 1318, 1420, 1625, 9, 0),
-    ('prod-1783250483407', v_owner_id, 'Mango Fruit Drink 200ml', '34494', 'Pran Dairy Milkman Group', 'uom-1783247514768', 13.79, 14.59, 20, 3760, 0),
+    ('prod-1783249516685', v_owner_id, 'Super Milk 200gm', '51091', 'Pran Dairy Milkman Group', 'uom-1783247459352', 132, 140, 175, 47, 0),
+    ('prod-1783249591128', v_owner_id, 'Super Milk 500gm', '47838', 'Pran Dairy Milkman Group', 'uom-1783247459352', 304.62, 320, 365, 1, 0),
+    ('prod-1783249704719', v_owner_id, 'Super Milk 1000gm', '47092', 'Pran Dairy Milkman Group', 'uom-1783247459352', 585.12, 615, 690, 37, 0),
+    ('prod-1783249799083', v_owner_id, 'Super Milk 5gm', '74038', 'Pran Dairy Milkman Group', 'uom-1783247469418', 4, 4.17, 5, 288, 0),
+    ('prod-1783250134600', v_owner_id, 'Pran Premium Ghee 100gm', '32744', 'Pran Dairy Milkman Group', 'uom-1783247459352', 149.84, 160, 190, 738, 0),
+    ('prod-1783250214554', v_owner_id, 'Pran Premium Ghee 200gm', '32745', 'Pran Dairy Milkman Group', 'uom-1783247459352', 284.88, 300, 350, 295, 0),
+    ('prod-1783250342182', v_owner_id, 'Pran Premium Ghee 450gm', '72495', 'Pran Dairy Milkman Group', 'uom-1783247459352', 641, 680, 760, 78, 0),
+    ('prod-1783250395116', v_owner_id, 'Pran Premium Ghee 1000gm', '72496', 'Pran Dairy Milkman Group', 'uom-1783247459352', 1318, 1420, 1625, 1, 0),
+    ('prod-1783250483407', v_owner_id, 'Mango Fruit Drink 200ml', '34494', 'Pran Dairy Milkman Group', 'uom-1783247514768', 13.79, 14.59, 20, 784, 0),
     ('prod-1783250537609', v_owner_id, 'Mango Fruit Drink 150ml', '34886', 'Pran Dairy Milkman Group', 'uom-1783247514768', 11.29, 12, 15, 0, 0),
-    ('prod-1783250613069', v_owner_id, 'Orange Fruit Drink 200ml', '53571', 'Pran Dairy Milkman Group', 'uom-1783247514768', 14.29, 15, 20, 304, 0),
+    ('prod-1783250613069', v_owner_id, 'Orange Fruit Drink 200ml', '53571', 'Pran Dairy Milkman Group', 'uom-1783247514768', 14.29, 15, 20, 288, 0),
     ('prod-1783250742499', v_owner_id, 'Pran FCMP 10gm new', 'PRA-PF1N-619', 'Pran Dairy Milkman Group', 'uom-1783247469418', 7.39, 7.84, 10, 1524, 0),
-    ('prod-1783250818474', v_owner_id, 'Active+ Lemon', '52249', 'Pran Dairy Milkman Group', 'uom-1783247538460', 17.83, 19, 25, 1200, 0),
-    ('prod-1783250861129', v_owner_id, 'Active+ Orange', '52250', 'Pran Dairy Milkman Group', 'uom-1783247538460', 17.83, 19, 25, 852, 0),
-    ('prod-1783251021700', v_owner_id, 'Pran Matha 200ml', '74048', 'Pran Dairy Milkman Group', 'uom-1783247304023', 548.36, 13920, 30, 0, 0),
-    ('prod-1783251836203', v_owner_id, 'Champion Chocolate Biscuits', 'COC-CCB-876', 'Cocola Food Products Ltd C Group', 'uom-1783251757334', 300, 320, 400, 6, 0),
+    ('prod-1783250818474', v_owner_id, 'Active+ Lemon', '52249', 'Pran Dairy Milkman Group', 'uom-1783247538460', 17.83, 19, 25, 834, 0),
+    ('prod-1783250861129', v_owner_id, 'Active+ Orange', '52250', 'Pran Dairy Milkman Group', 'uom-1783247538460', 17.83, 19, 25, 630, 0),
+    ('prod-1783251021700', v_owner_id, 'Pran Matha 200ml', '74048', 'Pran Dairy Milkman Group', 'uom-1783247304023', 548.36, 580, 30, 0, 0),
+    ('prod-1783251836203', v_owner_id, 'Champion Chocolate Biscuits', 'COC-CCB-876', 'Cocola Food Products Ltd C Group', 'uom-1783251757334', 300, 320, 20, 5, 0),
     ('prod-1783251898150', v_owner_id, 'Jr. Champion Chocolate Biscuits', 'COC-JCCB-626', 'Cocola Food Products Ltd C Group', 'uom-1783251797413', 112.5, 120, 15, 334, 0),
-    ('prod-1783251992147', v_owner_id, 'Anarkali Butter Toast Biscuit', 'COC-ABTB-451', 'Cocola Food Products Ltd C Group', 'uom-1783247459352', 37.5, 40, 0, 7, 0),
+    ('prod-1783251992147', v_owner_id, 'Anarkali Butter Toast Biscuit', 'COC-ABTB-451', 'Cocola Food Products Ltd C Group', 'uom-1783247459352', 37.5, 40, 0, 3, 0),
     ('prod-1783252075309', v_owner_id, 'Milk Vanilla (Vanilla Cream Biscuit)', 'COC-MVC-425', 'Cocola Food Products Ltd C Group', 'uom-1783251797413', 180, 192, 20, 22, 0),
     ('prod-1783252118886', v_owner_id, 'Time Pass Salted Biscuits', 'COC-TPSB-219', 'Cocola Food Products Ltd C Group', 'uom-1783251797413', 45, 48, 5, 5, 0),
     ('prod-1783252158606', v_owner_id, 'Real Horlicks Cookies Biscuit', 'COC-RHCB-468', 'Cocola Food Products Ltd C Group', 'uom-1783251797413', 42.5, 45, 0, 3, 0),
@@ -157,7 +186,7 @@ BEGIN
     ('prod-1783252270119', v_owner_id, 'Eat Me Instant Noodles', 'COC-EMIN-730', 'Cocola Food Products Ltd C Group', 'uom-1783247469418', 93.67, 96, 10, 30, 0),
     ('prod-1783252320424', v_owner_id, 'Junior Cup Noodles (Chicken Curry)', 'COC-JCN-758', 'Cocola Food Products Ltd C Group', 'uom-1783247459352', 25.32, 27, 35, 0, 0),
     ('prod-1783252355581', v_owner_id, 'Junior Cup Noodles (Chicken Curry) Savings', 'COC-JCN-932', 'Cocola Food Products Ltd C Group', 'uom-1783251797413', 24.17, 27, 35, 102, 0),
-    ('prod-1783252408027', v_owner_id, 'Egg & Chicken Noodles (300gm)', 'COC-ECN-390', 'Cocola Food Products Ltd C Group', 'uom-1783247459352', 39.5, 42, 50, 98, 0),
+    ('prod-1783252408027', v_owner_id, 'Egg & Chicken Noodles (300gm)', 'COC-ECN-390', 'Cocola Food Products Ltd C Group', 'uom-1783247459352', 39.5, 42, 50, 94, 0),
     ('prod-1783252452797', v_owner_id, 'Egg & Chicken Noodles (500 gm)', 'COC-ECN-669', 'Cocola Food Products Ltd C Group', 'uom-1783247459352', 66, 70, 85, 110, 0),
     ('prod-1783252618515', v_owner_id, 'Wafer Roll Jar (Chocolate)', 'COC-WRJ-863', 'Cocola Food Products Ltd C Group', 'uom-1783247549042', 56.75, 60, 0, 509, 0),
     ('prod-1783252776789', v_owner_id, 'Milky Milk-chocolate crispy Wafer Roll', 'COC-MMCW-866', 'Cocola Food Products Ltd C Group', 'uom-1783251797413', 180, 192, 10, 17, 0),
@@ -175,8 +204,8 @@ BEGIN
     ('prod-1783253919739', v_owner_id, 'Momo Marshmallow', 'COC-MM-318', 'Cocola Food Products Ltd C Group', 'uom-1783247549042', 305.4, 330, 15, 12, 0),
     ('prod-1783253970863', v_owner_id, 'Jolly Lolly Lollipop', 'COC-JLL-148', 'Cocola Food Products Ltd C Group', 'uom-1783251797413', 90, 96, 5, 58, 0),
     ('prod-1783254034954', v_owner_id, 'Tatul Super Chutney (50 Pcs) FG', 'COC-TSC-490', 'Cocola Food Products Ltd C Group', 'uom-1783247549042', 180, 190, 5, 22, 0),
-    ('prod-1783254095550', v_owner_id, 'Stick Noodles 20tk', 'COC-SN2-255', 'Cocola Food Products Ltd C Group', 'uom-1783247304023', 368.53, 390, 0, 20, 0),
-    ('prod-1783254140956', v_owner_id, 'Stick Noodles 25tk', 'COC-SN2-357', 'Cocola Food Products Ltd C Group', 'uom-1783247304023', 452.74, 490, 0, 34, 0),
+    ('prod-1783254095550', v_owner_id, 'Stick Noodles 20tk', 'COC-SN2-255', 'Cocola Food Products Ltd C Group', 'uom-1783247304023', 368.53, 390, 20, 20, 0),
+    ('prod-1783254140956', v_owner_id, 'Stick Noodles 25tk', 'COC-SN2-357', 'Cocola Food Products Ltd C Group', 'uom-1783247304023', 452.74, 490, 25, 34, 0),
     ('prod-1783254197702', v_owner_id, 'Tiffin Rolls', 'COC-TR-979', 'Cocola Food Products Ltd C Group', 'uom-1783251797413', 180, 192, 10, 28, 0),
     ('prod-1783254246067', v_owner_id, 'Happy Ice lolly (Pouch)', 'COC-HIL-694', 'Cocola Food Products Ltd C Group', 'uom-1783251797413', 44.64, 48, 0, 0, 0),
     ('prod-1783254290329', v_owner_id, 'Mango Pops', 'COC-MP-524', 'Cocola Food Products Ltd C Group', 'uom-1783247549042', 168.75, 180, 5, 7, 0),
@@ -185,12 +214,12 @@ BEGIN
     ('prod-1783254422621', v_owner_id, 'Choco Waffy 25pc', 'COC-CW2-983', 'Cocola Food Products Ltd C Group', 'uom-1783247549042', 187.5, 200, 10, 30, 0),
     ('prod-1783254471002', v_owner_id, 'Mango Ice Lolly', 'COC-MIL-193', 'Cocola Food Products Ltd C Group', 'uom-1783247549042', 182.5, 195, 0, 10, 0),
     ('prod-1783254524710', v_owner_id, 'Lychee Gel Jar 65psc', 'COC-LGJ6-393', 'Cocola Food Products Ltd C Group', 'uom-1783247549042', 91, 98, 0, 1, 0),
-    ('prod-1784297523296', v_owner_id, 'Marks FCMP 1000gm Poly', 'ABU-MF1P-848', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 856.21, 883, 950, 23, 0),
+    ('prod-1784297523296', v_owner_id, 'Marks FCMP 1000gm Poly', 'ABU-MF1P-848', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 856.21, 883, 950, 13, 0),
     ('prod-1784297788297', v_owner_id, 'Marks FCMP 1000gm Tin', 'ABU-MF1T-367', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 1056, 1100, 1300, 6, 0),
     ('prod-1784298492160', v_owner_id, 'Marks FCMP 500gm', 'ABU-MF5-971', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 430.53, 444, 480, 0, 0),
-    ('prod-1784298620609', v_owner_id, 'Marks FCMP 500gm with Sugar', 'ABU-MF5W-430', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 435.53, 449, 480, 409, 0),
-    ('prod-1784307123505', v_owner_id, 'Marks FCMP 400gm', 'ABU-MF4-159', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 343.08, 354, 400, 42, 0),
-    ('prod-1784307262821', v_owner_id, 'Marks FCMP 200gm', 'ABU-MF2-386', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 182.3, 188, 205, 218, 0),
+    ('prod-1784298620609', v_owner_id, 'Marks FCMP 500gm with Sugar', 'ABU-MF5W-430', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 435.53, 449, 480, 355, 0),
+    ('prod-1784307123505', v_owner_id, 'Marks FCMP 400gm', 'ABU-MF4-159', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 343.08, 354, 400, 39, 0),
+    ('prod-1784307262821', v_owner_id, 'Marks FCMP 200gm', 'ABU-MF2-386', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 182.3, 188, 205, 207, 0),
     ('prod-1784307358053', v_owner_id, 'Marks FCMP 100gm', 'ABU-MF1-482', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 96, 99, 100, 56, 0),
     ('prod-1784307958965', v_owner_id, 'Marks FCMP 50gm', 'ABU-MF5-522', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 50.43, 52, 60, 72, 0),
     ('prod-1784308030495', v_owner_id, 'Marks FCMP 75gm', 'ABU-MF7-170', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 69.09, 71.25, 80, 18, 0),
@@ -203,37 +232,37 @@ BEGIN
     ('prod-1784308502216', v_owner_id, 'Marks Diet Tin 400gm', 'ABU-MDT4-717', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 1148, 1200, 1400, 3, 0),
     ('prod-1784308703034', v_owner_id, 'Ama FCMP 2000gm', 'ABU-AF2-789', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 1514.84, 1562, 1730, 24, 0),
     ('prod-1784308769833', v_owner_id, 'Ama FCMP 1000gm', 'ABU-AF1-121', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 762.27, 786, 870, 15, 0),
-    ('prod-1784308831997', v_owner_id, 'Ama FCMP 500gm', 'ABU-AF5-172', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 391.81, 404, 450, 40, 0),
-    ('prod-1784308923621', v_owner_id, 'Ama FCMP 200gm', 'ABU-AF2-596', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 159.05, 165, 190, 75, 0),
-    ('prod-1784308996705', v_owner_id, 'Ama FCMP 100gm', 'ABU-AF1-156', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 79.04, 82, 100, 24, 0),
+    ('prod-1784308831997', v_owner_id, 'Ama FCMP 500gm', 'ABU-AF5-172', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 391.81, 404, 450, 39, 0),
+    ('prod-1784308923621', v_owner_id, 'Ama FCMP 200gm', 'ABU-AF2-596', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 159.05, 165, 190, 69, 0),
+    ('prod-1784308996705', v_owner_id, 'Ama FCMP 100gm', 'ABU-AF1-156', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 79.04, 82, 100, 18, 0),
     ('prod-1784309093133', v_owner_id, 'Ama FCMP 50gm', 'ABU-AF5-136', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 41.46, 43, 50, 75, 0),
-    ('prod-1784309268051', v_owner_id, 'Ama FCMP 10gm', 'ABU-AF1-667', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 7.71, 8, 10, 2976, 0),
+    ('prod-1784309268051', v_owner_id, 'Ama FCMP 10gm', 'ABU-AF1-667', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 7.71, 8, 10, 2148, 0),
     ('prod-1784349714138', v_owner_id, 'Ama Paper Cup 150ml', 'ABU-APC1-780', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297360115', 368.6, 380, 0, 2, 0),
     ('prod-1784349816077', v_owner_id, 'Ama Paper Cup 120ml', 'ABU-APC1-222', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297360115', 329.8, 340, 0, 3, 0),
     ('prod-1784350018364', v_owner_id, 'Ama Paper Cup 100ml', 'ABU-APC1-781', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297360115', 310.4, 330, 0, 3, 0),
-    ('prod-1784350295577', v_owner_id, 'Ama Sugar Free Coffee 500gm', 'ABU-ASFC-609', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 305.24, 315, 375, 4, 0),
+    ('prod-1784350295577', v_owner_id, 'Ama Sugar Free Coffee 500gm', 'ABU-ASFC-609', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 305.24, 315, 375, 1, 0),
     ('prod-1784350683288', v_owner_id, 'Ama Sugar Free Coffee 15gm', 'ABU-ASFC-145', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 11.64, 12, 0, 192, 0),
-    ('prod-1784350976217', v_owner_id, 'Ama Coffeemix 1000gm', 'ABU-AC1-108', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 416.5, 430, 500, 20, 0),
-    ('prod-1784351127672', v_owner_id, 'Ama Classic Coffee 0.75gm', 'ABU-ACC0-467', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 2.4, 2.5, 3, 5904, 0),
-    ('prod-1784351236848', v_owner_id, 'Ama Classic Coffee 1gm', 'ABU-ACC1-354', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 3.65, 3.8, 5, 2210, 0),
-    ('prod-1784351378539', v_owner_id, 'Ama Coffeemix Stick 14gm', 'ABU-ACS1-925', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 8.25, 8.5, 10, 1224, 0),
+    ('prod-1784350976217', v_owner_id, 'Ama Coffeemix 1000gm', 'ABU-AC1-108', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 416.5, 430, 500, 16, 0),
+    ('prod-1784351127672', v_owner_id, 'Ama Classic Coffee 0.75gm', 'ABU-ACC0-467', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 2.4, 2.5, 3, 5580, 0),
+    ('prod-1784351236848', v_owner_id, 'Ama Classic Coffee 1gm', 'ABU-ACC1-354', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 3.65, 3.8, 5, 2070, 0),
+    ('prod-1784351378539', v_owner_id, 'Ama Coffeemix Stick 14gm', 'ABU-ACS1-925', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 8.25, 8.5, 10, 912, 0),
     ('prod-1784351482121', v_owner_id, 'Aura Hot Chocolate 500gm', 'ABU-AHC5-761', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 208.25, 215, 260, 4, 0),
     ('prod-1784351581568', v_owner_id, 'Seylon Masala Raw Tea 1000gm', 'ABU-SMRT-179', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 300.1, 310, 370, 8, 0),
-    ('prod-1784525514428', v_owner_id, 'Seylon Tea 14gm', 'ABU-ST1-813', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 7.81, 8.1, 10, 930, 0),
-    ('prod-1784526297597', v_owner_id, 'Seylon Tea 50gm', 'ABU-ST5-936', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 22.8, 23.5, 30, 550, 0),
+    ('prod-1784525514428', v_owner_id, 'Seylon Tea 14gm', 'ABU-ST1-813', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 7.81, 8.1, 10, 810, 0),
+    ('prod-1784526297597', v_owner_id, 'Seylon Tea 50gm', 'ABU-ST5-936', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 22.8, 23.5, 30, 530, 0),
     ('prod-1784526774396', v_owner_id, 'Seylon Tea 100gm', 'ABU-ST1-287', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 44.53, 46, 60, 215, 0),
-    ('prod-1784526942733', v_owner_id, 'Seylon Tea 200gm', 'ABU-ST2-201', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 89.1, 92, 120, 213, 0),
-    ('prod-1784527103450', v_owner_id, 'Seylon Tea 400gm', 'ABU-ST4-266', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 176.24, 182, 225, 171, 0),
-    ('prod-1784527266951', v_owner_id, 'Seylon PD Tea 500gm', 'ABU-SPT5-942', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 192.35, 199, 230, 104, 0),
-    ('prod-1784527335125', v_owner_id, 'Seylon Gold Tea 500gm', 'ABU-SGT5-894', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 201.2, 208, 240, 85, 0),
-    ('prod-1784527511122', v_owner_id, 'Seylon BOP Tea 500gm', 'ABU-SBT5-301', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 192.35, 199, 235, 46, 0),
+    ('prod-1784526942733', v_owner_id, 'Seylon Tea 200gm', 'ABU-ST2-201', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 89.1, 92, 120, 199, 0),
+    ('prod-1784527103450', v_owner_id, 'Seylon Tea 400gm', 'ABU-ST4-266', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 176.24, 182, 225, 162, 0),
+    ('prod-1784527266951', v_owner_id, 'Seylon PD Tea 500gm', 'ABU-SPT5-942', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 192.35, 199, 230, 101, 0),
+    ('prod-1784527335125', v_owner_id, 'Seylon Gold Tea 500gm', 'ABU-SGT5-894', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 201.2, 208, 240, 23, 0),
+    ('prod-1784527511122', v_owner_id, 'Seylon BOP Tea 500gm', 'ABU-SBT5-301', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 192.35, 199, 235, 43, 0),
     ('prod-1784527643549', v_owner_id, 'Seylon Bag In Bag', 'ABU-SBIB-805', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 57.7, 60, 75, 44, 0),
     ('prod-1784527759308', v_owner_id, 'Seylon Saver Pack', 'ABU-SSP-775', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 535.94, 560, 600, 4, 0),
     ('prod-1784527856144', v_owner_id, 'Seylon Pyramid Gold', 'ABU-SPG-362', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 68.6, 71, 90, 53, 0),
-    ('prod-1784527988159', v_owner_id, 'Seylon Green Tea', 'ABU-SGT-375', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 82.15, 85, 120, 146, 0),
-    ('prod-1784528269919', v_owner_id, 'Ama UHT Milk 1000ml', 'ABU-AUM1-577', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 103.4, 110, 130, 145, 0),
-    ('prod-1784635440602', v_owner_id, 'Seylon Milk Tea 15gm', 'ABU-SMT1-243', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 7.52, 7.75, 10, 1056, 0),
-    ('prod-1784635627096', v_owner_id, 'Seylon Milk Tea 1000gm', 'ABU-SMT1-207', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 387.4, 400, 470, 39, 0),
+    ('prod-1784527988159', v_owner_id, 'Seylon Green Tea', 'ABU-SGT-375', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 82.15, 85, 120, 142, 0),
+    ('prod-1784528269919', v_owner_id, 'Ama UHT Milk 1000ml', 'ABU-AUM1-577', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 103.4, 110, 130, 143, 0),
+    ('prod-1784635440602', v_owner_id, 'Seylon Milk Tea 15gm', 'ABU-SMT1-243', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 7.52, 7.75, 10, 792, 0),
+    ('prod-1784635627096', v_owner_id, 'Seylon Milk Tea 1000gm', 'ABU-SMT1-207', 'Abul Khair Milk Products LTD Sky Group', 'uom-1784297380091', 387.4, 400, 470, 33, 0),
     ('prod-1784901919211', v_owner_id, 'Super Milk 5gm New', 'PRA-SM5-216', 'Pran Dairy Milkman Group', 'uom-1784297469418', 3.85, 4.04, 5, 0, 0)
   ON CONFLICT (id) DO UPDATE SET
     name          = EXCLUDED.name,

@@ -203,17 +203,92 @@ export interface ExpenseRecord {
   paidTo: string;
 }
 
-// Initial Mock Data matching the Diller Management drawing
 export const INITIAL_SRS: SR[] = [
-  { id: 'sr-1', name: 'Rakib', phone: '01711223344', commissionRate: 200, assignedCompanyIds: ['Pran Dairy Milkman Group', 'comp-1783247007277'], loginUsername: 'rakib', loginPassword: 'rakib123' },
-  { id: 'sr-2', name: 'Rahman', phone: '01811223344', commissionRate: 200, assignedCompanyIds: ['Cocola Food Products Ltd C Group', 'comp-1783247144876', 'Olympic Industries LTD Jupiter Group', 'comp-1783247199503'], loginUsername: 'rahman', loginPassword: 'rahman123' },
-  { id: 'sr-3', name: 'Rahim', phone: '01911223344', commissionRate: 200, assignedCompanyIds: ['Abul Khair Milk Products LTD Sky Group', 'comp-1783247065744'], loginUsername: 'rahim', loginPassword: 'rahim123' },
+  {
+    id: "sr-1783255426553",
+    name: "Sobuj",
+    phone: "01642222298",
+    commissionRate: 5,
+    assignedCompanyIds: ["Pran Dairy Milkman Group", "comp-1783247007277"],
+    loginUsername: "shohanur1472@gmail.com",
+    loginPassword: "sohan2486"
+  },
+  {
+    id: "sr-1783255480881",
+    name: "Md. Sohan",
+    phone: "01974816392",
+    commissionRate: 0,
+    assignedCompanyIds: ["Pran Dairy Milkman Group", "comp-1783247007277"],
+    loginUsername: "sohan-pran2",
+    loginPassword: "sohan123"
+  },
+  {
+    id: "sr-1783255524637",
+    name: "Zinnat Ali",
+    phone: "01301236408",
+    commissionRate: 0,
+    assignedCompanyIds: ["Cocola Food Products Ltd C Group", "comp-1783247144876"],
+    loginUsername: "zinnat",
+    loginPassword: "zinnat123"
+  },
+  {
+    id: "sr-1783255587859",
+    name: "Shohidul",
+    phone: "01787591058",
+    commissionRate: 0,
+    assignedCompanyIds: ["Abul Khair Milk Products LTD Sky Group", "comp-1783247065744"],
+    loginUsername: "shohidul",
+    loginPassword: "shohidul123"
+  },
+  {
+    id: "sr-1783255614409",
+    name: "Sojib",
+    phone: "01978471889",
+    commissionRate: 0,
+    assignedCompanyIds: ["Abul Khair Milk Products LTD Sky Group", "comp-1783247065744"],
+    loginUsername: "sojib",
+    loginPassword: "sojib123"
+  },
+  {
+    id: "sr-1783255662354",
+    name: "Kefayet",
+    phone: "01614356405",
+    commissionRate: 0,
+    assignedCompanyIds: ["Abul Khair Milk Products LTD Sky Group", "comp-1783247065744"],
+    loginUsername: "kefayet",
+    loginPassword: "kefayet123"
+  }
 ];
 
 export const INITIAL_DELIVERY_MEN: DeliveryMan[] = [
-  { id: 'dm-1', name: 'Abul Kalam', vehicle: 'PickUp Truck (Metro-Tha-11-2044)', phone: '01711998877', assignedCompanyIds: ['Pran Dairy Milkman Group', 'comp-1783247007277'] },
-  { id: 'dm-2', name: 'Sujon Mia', vehicle: 'Covered Van (Metro-Cha-54-9988)', phone: '01811998877', assignedCompanyIds: ['Cocola Food Products Ltd C Group', 'comp-1783247144876'] },
-  { id: 'dm-3', name: 'Khorshed Alam', vehicle: 'Three Wheeler Cargo (Dhaka-H-12-3456)', phone: '01911998877', assignedCompanyIds: ['Abul Khair Milk Products LTD Sky Group', 'comp-1783247065744'] },
+  {
+    id: "dm-1783255189686",
+    name: "Ashik",
+    vehicle: "01614325761",
+    phone: "01614325761",
+    assignedCompanyIds: ["Pran Dairy Milkman Group", "comp-1783247007277"]
+  },
+  {
+    id: "dm-1783255221258",
+    name: "Shorif",
+    vehicle: "01884271531",
+    phone: "01884271531",
+    assignedCompanyIds: ["Pran Dairy Milkman Group", "comp-1783247007277"]
+  },
+  {
+    id: "dm-1783255251938",
+    name: "Lal Mia",
+    vehicle: "01871896912",
+    phone: "01871896912",
+    assignedCompanyIds: ["Pran Dairy Milkman Group", "comp-1783247007277", "Abul Khair Milk Products LTD Sky Group", "comp-1783247065744"]
+  },
+  {
+    id: "dm-1784883900823",
+    name: "Readysales Own",
+    vehicle: "own123",
+    phone: "own123",
+    assignedCompanyIds: ["Pran Dairy Milkman Group", "comp-1783247007277", "Abul Khair Milk Products LTD Sky Group", "comp-1783247065744"]
+  }
 ];
 
 // Products categorized by Company: Pran Dairy Milkman Group, Cocola Food Products Ltd C Group, Abul Khair Milk Products LTD Sky Group
@@ -2332,9 +2407,23 @@ export const INITIAL_GODOWNS: Godown[] = [
 ];
 
 export const INITIAL_ROUTES: Route[] = [
-  { id: 'route-1', name: 'Elephant Road Beat', area: 'Dhanmondi', territory: 'Dhaka South', assignedSRId: 'sr-1' },
-  { id: 'route-2', name: 'Chawkbazar Beat', area: 'Sadarghat', territory: 'Dhaka South', assignedSRId: 'sr-2' },
-  { id: 'route-3', name: 'Bogura Sadar Beat', area: 'Bogura Sadar', territory: 'Rajshahi Division', assignedSRId: 'sr-3' }
+  { id: "route-1783254698665", name: "Badam Road", area: "Tongi", territory: "Gazipur" },
+  { id: "route-1783254726183", name: "Boro Dewra", area: "Tongi", territory: "Gazipur" },
+  { id: "route-1783254782749", name: "Mill Gate Kolabaghan", area: "Tongi", territory: "Gazipur" },
+  { id: "route-1783254804964", name: "College Road", area: "Tongi", territory: "Gazipur" },
+  { id: "route-1783254830610", name: "Saffiuddin Academy", area: "Tongi", territory: "Gazipur" },
+  { id: "route-1783254885918", name: "Mokter Bari Road", area: "Tongi", territory: "Gazipur" },
+  { id: "route-1783254916467", name: "Molla Bazar", area: "Tongi", territory: "Gazipur" },
+  { id: "route-1783254937121", name: "Shing Bari", area: "Tongi", territory: "Gazipur" },
+  { id: "route-1783254979908", name: "Kha Para Road-1", area: "Tongi", territory: "Gazipur" },
+  { id: "route-1783254996008", name: "Kha Para Road-2", area: "Tongi", territory: "Gazipur" },
+  { id: "route-1783255024267", name: "Ershadnagar Ledu Molla", area: "Tongi", territory: "Gazipur" },
+  { id: "route-1783255047544", name: "Erhsadnagar", area: "Tongi", territory: "Gazipur" },
+  { id: "route-1783255073055", name: "Majar Bornomala", area: "Tongi", territory: "Gazipur" },
+  { id: "route-1783255097268", name: "Alom Market Cherag Ali", area: "Tongi", territory: "Gazipur" },
+  { id: "route-1783255122843", name: "Shomaj Kallan Cherag Ali", area: "Tongi", territory: "Gazipur" },
+  { id: "route-1783255151429", name: "Bornomala", area: "Tongi", territory: "Gazipur" },
+  { id: "route-1784897391723", name: "Ready Sales", area: "Tongi", territory: "Gazipur", assignedSRId: "sr-1783255426553" }
 ];
 
 export interface Claim {

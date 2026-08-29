@@ -365,3 +365,11 @@ DROP TRIGGER IF EXISTS trg_settings_updated_at ON settings;
 CREATE TRIGGER trg_settings_updated_at
   BEFORE UPDATE ON settings
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- Safe column additions for pre-existing database tables
+ALTER TABLE IF EXISTS settings ADD COLUMN IF NOT EXISTS owner_name TEXT DEFAULT 'Sohanur Rahman Sohan';
+ALTER TABLE IF EXISTS delivery_men ADD COLUMN IF NOT EXISTS phone TEXT DEFAULT '';
+ALTER TABLE IF EXISTS delivery_men ADD COLUMN IF NOT EXISTS assigned_company_ids TEXT[] DEFAULT '{}';
+ALTER TABLE IF EXISTS units ADD COLUMN IF NOT EXISTS symbol TEXT DEFAULT '';
+ALTER TABLE IF EXISTS units ADD COLUMN IF NOT EXISTS multiplier NUMERIC(10,4) DEFAULT 1;
+ALTER TABLE IF EXISTS products ADD COLUMN IF NOT EXISTS uom_id TEXT;
