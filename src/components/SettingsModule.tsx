@@ -16,6 +16,8 @@ interface SettingsModuleProps {
   setShopSubBrand: (sub: string) => void;
   shopLogo: string;
   setShopLogo: (logo: string) => void;
+  ownerName?: string;
+  setOwnerName?: (owner: string) => void;
   language: 'en' | 'bn';
   directoryBaseProps: any;
   srs: SR[];
@@ -29,6 +31,8 @@ export default function SettingsModule({
   setShopSubBrand,
   shopLogo,
   setShopLogo,
+  ownerName = 'Samir Chowdhury',
+  setOwnerName,
   language,
   directoryBaseProps,
   srs,
@@ -38,6 +42,7 @@ export default function SettingsModule({
   const [tempName, setTempName] = useState(shopName);
   const [tempSub, setTempSub] = useState(shopSubBrand);
   const [tempLogo, setTempLogo] = useState(shopLogo);
+  const [tempOwner, setTempOwner] = useState(ownerName);
   const [activeSettingsTab, setActiveSettingsTab] = useState<'branding' | 'accounts' | 'godowns' | 'backup'>('branding');
 
   // ─── Backup / Restore ────────────────────────────────────────
@@ -74,7 +79,8 @@ export default function SettingsModule({
     setShopName(tempName);
     setShopSubBrand(tempSub);
     setShopLogo(tempLogo);
-    success(language === 'bn' ? 'সেটিংস আপডেট' : 'Settings Updated', language === 'bn' ? 'ব্র্যান্ডিং তথ্য সফলভাবে আপডেট করা হয়েছে!' : 'Branding settings updated successfully.');
+    if (setOwnerName) setOwnerName(tempOwner);
+    success(language === 'bn' ? 'সেটিংস আপডেট' : 'Settings Updated', language === 'bn' ? 'ব্র্যান্ডিং ও মালিকের নাম সফলভাবে আপডেট করা হয়েছে!' : 'Branding and owner settings updated successfully.');
   };
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -286,7 +292,7 @@ export default function SettingsModule({
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className="mb-1.5 block text-xs font-bold text-slate-700">
                   {language === 'bn' ? 'প্রতিষ্ঠানের নাম' : 'Organization Name'}
@@ -296,6 +302,18 @@ export default function SettingsModule({
                   value={tempName}
                   onChange={(e) => setTempName(e.target.value)}
                   placeholder="e.g. Samir Enterprise"
+                  className="h-11 w-full rounded-none border border-slate-200 bg-white px-4 text-xs font-semibold outline-none focus:border-slate-800 transition-all text-slate-800"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-bold text-slate-700">
+                  {language === 'bn' ? 'মালিকের নাম' : 'Shop Owner Name'}
+                </label>
+                <input
+                  type="text"
+                  value={tempOwner}
+                  onChange={(e) => setTempOwner(e.target.value)}
+                  placeholder="e.g. Samir Chowdhury"
                   className="h-11 w-full rounded-none border border-slate-200 bg-white px-4 text-xs font-semibold outline-none focus:border-slate-800 transition-all text-slate-800"
                 />
               </div>

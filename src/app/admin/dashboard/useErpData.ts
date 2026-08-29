@@ -101,6 +101,7 @@ export interface ErpDataStore {
   shopName:          string;
   shopSubBrand:      string;
   shopLogo:          string;
+  ownerName:         string;
   claims:            Claim[];
   claimReasons:      ClaimReason[];
   claimSettlements:  ClaimSettlement[];
@@ -126,6 +127,7 @@ export interface ErpDataStore {
   syncShopName:     (val: string | ((p: string) => string)) => void;
   syncShopSubBrand: (val: string | ((p: string) => string)) => void;
   syncShopLogo:     (val: string | ((p: string) => string)) => void;
+  syncOwnerName:    (val: string | ((p: string) => string)) => void;
 
   // ── setXxx = syncXxx (P0 bug fix) ────────────────────────────────────────────
   // Now these are sync-aware so ALL mutations persist to Supabase.
@@ -151,6 +153,7 @@ export interface ErpDataStore {
   setShopName:          (val: string | ((p: string) => string)) => void;
   setShopSubBrand:      (val: string | ((p: string) => string)) => void;
   setShopLogo:          (val: string | ((p: string) => string)) => void;
+  setOwnerName:         (val: string | ((p: string) => string)) => void;
 }
 
 // ── Hook ──────────────────────────────────────────────────────────────────────
@@ -160,6 +163,7 @@ export function useErpData(
   shopName:    string,
   shopSubBrand:string,
   shopLogo:    string,
+  ownerName:   string = 'Samir Chowdhury',
 ): ErpDataStore {
   const [products,          _setProducts]          = useState<Product[]>([]);
   const [srs,               _setSrs]               = useState<SR[]>([]);
@@ -182,6 +186,7 @@ export function useErpData(
   const [_shopName,         setShopNameRaw]        = useState(shopName);
   const [_shopSubBrand,     setShopSubBrandRaw]    = useState(shopSubBrand);
   const [_shopLogo,         setShopLogoRaw]        = useState(shopLogo);
+  const [_ownerName,        setOwnerNameRaw]       = useState(ownerName);
 
   // ── Sync-aware setters (persist to Supabase) ──────────────────────────────
   const syncProducts          = makeSyncer(_setProducts,          upsertProduct,          deleteProduct);
@@ -216,6 +221,7 @@ export function useErpData(
       shopName:    overrides.shopName     ?? _shopName,
       shopSubBrand:overrides.shopSubBrand ?? _shopSubBrand,
       shopLogo:    overrides.shopLogo     ?? _shopLogo,
+      ownerName:   overrides.ownerName    ?? _ownerName,
       language,
     };
   }
@@ -244,12 +250,20 @@ export function useErpData(
     });
   }
 
+  function syncOwnerName(val: string | ((p: string) => string)) {
+    setOwnerNameRaw(prev => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      upsertSettings(buildSettings({ ownerName: next })).catch(console.error);
+      return next;
+    });
+  }
+
   return {
     // ── State (read-only) ───────────────────────────────────────────────────
     products, srs, deliveryMen, customers, attributes, challans,
     procurements, adjustments, categories, expenses, companies,
     productCategories, units, godowns, routes, claims, claimReasons, claimSettlements,
-    shopName: _shopName, shopSubBrand: _shopSubBrand, shopLogo: _shopLogo,
+    shopName: _shopName, shopSubBrand: _shopSubBrand, shopLogo: _shopLogo, ownerName: _ownerName,
 
     // ── Sync-aware update functions ─────────────────────────────────────────
     // These update local React state AND persist diffs to Supabase.
@@ -257,7 +271,7 @@ export function useErpData(
     syncChallans, syncProcurements, syncAdjustments, syncExpenseCategories,
     syncExpenses, syncCompanies, syncProductCategories, syncUnits,
     syncGodowns, syncRoutes, syncClaims, syncClaimReasons, syncClaimSettlements,
-    syncShopName, syncShopSubBrand, syncShopLogo,
+    syncShopName, syncShopSubBrand, syncShopLogo, syncOwnerName,
 
     // ── setXxx = syncXxx (P0 bug fix: data now persists) ────────────────────
     setProducts:          syncProducts,
@@ -281,5 +295,6 @@ export function useErpData(
     setShopName:          syncShopName,
     setShopSubBrand:      syncShopSubBrand,
     setShopLogo:          syncShopLogo,
+    setOwnerName:         syncOwnerName,
   };
 }

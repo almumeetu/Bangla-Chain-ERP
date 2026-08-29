@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS settings (
   shop_name     TEXT NOT NULL DEFAULT 'Samir Enterprise',
   shop_subbrand TEXT NOT NULL DEFAULT 'Dhaka & Chittagong Regional Hub',
   shop_logo     TEXT DEFAULT '',
+  owner_name    TEXT DEFAULT 'Samir Chowdhury',
   language      TEXT NOT NULL DEFAULT 'bn',
   created_at    TIMESTAMPTZ DEFAULT NOW(),
   updated_at    TIMESTAMPTZ DEFAULT NOW(),
@@ -202,10 +203,17 @@ CREATE TABLE IF NOT EXISTS procurements (
   created_at       TIMESTAMPTZ DEFAULT NOW()
 );
 
--- FK from procurement_items → procurements
-ALTER TABLE procurement_items
-  ADD CONSTRAINT fk_procurement
-  FOREIGN KEY (procurement_id) REFERENCES procurements(id) ON DELETE CASCADE;
+-- FK from procurement_items → procurements (safe idempotent constraint)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'fk_procurement'
+  ) THEN
+    ALTER TABLE procurement_items
+      ADD CONSTRAINT fk_procurement
+      FOREIGN KEY (procurement_id) REFERENCES procurements(id) ON DELETE CASCADE;
+  END IF;
+END $$;
 
 -- ─────────────────────────────────────────────
 -- STOCK ADJUSTMENTS

@@ -39,7 +39,7 @@ export default function App() {
   const [showSplash,      setShowSplash]      = useState(true);
   const [splashFade,      setSplashFade]      = useState(false);
 
-  const db = useErpData(language, 'Samir Enterprise', 'Dhaka & Chittagong Regional Hub', '');
+  const db = useErpData(language, 'Samir Enterprise', 'Dhaka & Chittagong Regional Hub', '', 'Samir Chowdhury');
 
   // ── localStorage key helpers ─────────────────────────────────────────────────
   function lsGet(key: string)              { return typeof window !== 'undefined' ? localStorage.getItem(key) : null; }
@@ -82,6 +82,7 @@ export default function App() {
       if (data.settings.shopName)     db.setShopName(data.settings.shopName);
       if (data.settings.shopSubBrand) db.setShopSubBrand(data.settings.shopSubBrand);
       if (data.settings.shopLogo)     db.setShopLogo(data.settings.shopLogo);
+      if (data.settings.ownerName)    db.setOwnerName(data.settings.ownerName);
       if (data.settings.language === 'en' || data.settings.language === 'bn') {
         setLanguage(data.settings.language);
       }
@@ -365,6 +366,7 @@ export default function App() {
         <SettingsModule shopName={db.shopName} setShopName={db.syncShopName}
           shopSubBrand={db.shopSubBrand} setShopSubBrand={db.syncShopSubBrand}
           shopLogo={db.shopLogo} setShopLogo={db.syncShopLogo}
+          ownerName={db.ownerName} setOwnerName={db.syncOwnerName}
           language={language} directoryBaseProps={directoryBaseProps}
           srs={db.srs} setSrs={db.syncSrs} />
       );
@@ -496,6 +498,7 @@ export default function App() {
           shopName={db.shopName}
           shopSubBrand={db.shopSubBrand}
           shopLogo={db.shopLogo}
+          ownerName={db.ownerName}
           userRole={userRole}
         />
       </div>
@@ -548,11 +551,11 @@ export default function App() {
             </div>
 
             <div className="flex items-center gap-1.5 sm:gap-2 border-l border-slate-200 pl-1.5 sm:pl-2 md:pl-3">
-              <span className="text-xs font-semibold text-slate-500 hidden md:block">
-                {translations[language].header.profileTitle}
+              <span className="text-xs font-semibold text-slate-700 hidden md:block">
+                {db.ownerName || translations[language].header.profileTitle}
               </span>
               <div className="w-8 h-8 rounded-none bg-slate-900 flex items-center justify-center font-semibold text-white text-sm select-none shrink-0">
-                {(db.shopName?.[0] ?? 'S').toUpperCase()}
+                {((db.ownerName || db.shopName)?.[0] ?? 'S').toUpperCase()}
               </div>
             </div>
 

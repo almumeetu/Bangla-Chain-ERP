@@ -23,6 +23,7 @@ export interface AppSettings {
   shopName:    string;
   shopSubBrand:string;
   shopLogo:    string;
+  ownerName?:  string;
   language:    string;
 }
 
@@ -163,6 +164,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   shopName:    'Samir Enterprise',
   shopSubBrand:'Dhaka & Chittagong Regional Hub',
   shopLogo:    '',
+  ownerName:   'Samir Chowdhury',
   language:    'en',
 };
 

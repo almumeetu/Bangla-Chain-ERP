@@ -2,6 +2,7 @@ import React from 'react';
 
 interface SidebarUserFooterProps {
   shopName:      string;
+  ownerName?:    string;
   collapsed:     boolean;
   adminRoleLabel:string;
   hubLabel:      string;
@@ -9,9 +10,9 @@ interface SidebarUserFooterProps {
 }
 
 export default function SidebarUserFooter({
-  shopName, collapsed, adminRoleLabel, hubLabel, activeLabel,
+  shopName, ownerName, collapsed, adminRoleLabel, hubLabel, activeLabel,
 }: SidebarUserFooterProps) {
-  const initial = shopName ? shopName[0].toUpperCase() : 'S';
+  const initial = ownerName ? ownerName[0].toUpperCase() : (shopName ? shopName[0].toUpperCase() : 'S');
 
   const avatar = (
     <div className="w-9 h-9 rounded-none bg-slate-900 flex items-center justify-center font-medium text-white border-0">

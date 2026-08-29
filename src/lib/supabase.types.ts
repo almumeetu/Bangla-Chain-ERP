@@ -24,6 +24,7 @@ export interface Database {
           shop_name: string;
           shop_subbrand: string;
           shop_logo: string | null;
+          owner_name?: string | null;
           language: string;
           created_at: string | null;
           updated_at: string | null;
@@ -34,6 +35,7 @@ export interface Database {
           shop_name?: string;
           shop_subbrand?: string;
           shop_logo?: string | null;
+          owner_name?: string | null;
           language?: string;
           created_at?: string | null;
           updated_at?: string | null;

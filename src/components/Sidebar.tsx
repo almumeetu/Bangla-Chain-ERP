@@ -34,6 +34,7 @@ interface SidebarProps {
   shopName:     string;
   shopSubBrand: string;
   shopLogo:     string;
+  ownerName?:   string;
   userRole?:    'admin' | 'sr';
 }
 
@@ -43,6 +44,7 @@ export default function Sidebar({
   activeTab, setActiveTab, activeSubTab,
   collapsed, setCollapsed,
   language, shopName, shopSubBrand, shopLogo,
+  ownerName,
   userRole = 'admin',
 }: SidebarProps) {
   const s        = translations[language].sidebar;
@@ -107,8 +109,9 @@ export default function Sidebar({
       {/* User avatar row */}
       <SidebarUserFooter
         shopName={shopName}
+        ownerName={ownerName}
         collapsed={collapsed}
-        adminRoleLabel={`${translations[language].header.profileTitle.split(' ')[0]} (${s.adminRole})`}
+        adminRoleLabel={`${(ownerName || translations[language].header.profileTitle).split(' ')[0]} (${s.adminRole})`}
         hubLabel={s.dhakaHub}
         activeLabel={s.activeStatus}
       />
