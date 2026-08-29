@@ -1284,7 +1284,7 @@ export function printReport(opts: ReportOptions): void {
       }).join('');
 
       tablesHtml += `
-        <div class="section-title">Company Summary (কোম্পানি অনুযায়ী মোট স্টক)</div>
+        <div class="section-title">${opts.language === 'bn' ? 'Company Summary (কোম্পানি অনুযায়ী মোট স্টক)' : 'Company Stock Summary'}</div>
         <table>
           <thead>
             <tr><th class="text-center" style="width:40px">#</th><th>Company / Brand</th><th class="text-center">Products</th><th class="text-right">Stock Qty (Ctn + Pcs)</th><th class="text-right">Valuation (DP)</th></tr>
@@ -1314,7 +1314,7 @@ export function printReport(opts: ReportOptions): void {
     }).join('');
 
     tablesHtml += `
-      <div class="section-title">Product Stock Details (পণ্যভিত্তিক বিস্তারিত স্টক ও দর)</div>
+      <div class="section-title">${opts.language === 'bn' ? 'Product Stock Details (পণ্যভিত্তিক বিস্তারিত স্টক ও দর)' : 'Product Stock Details'}</div>
       <table>
         <thead>
           <tr>
@@ -1383,7 +1383,7 @@ export function printReport(opts: ReportOptions): void {
       }).filter(Boolean).join('');
 
       tablesHtml = `
-        <div class="section-title">Sales Officer (SR) Performance (এসআর বিক্রয় পারফরম্যান্স)</div>
+        <div class="section-title">${opts.language === 'bn' ? 'Sales Officer (SR) Performance (এসআর বিক্রয় পারফরম্যান্স)' : 'Sales Officer (SR) Performance'}</div>
         <table>
           <thead>
             <tr><th class="text-center" style="width:35px">#</th><th>SR Name</th><th>Phone</th><th class="text-center">Orders</th><th class="text-right">Units Sold</th><th class="text-center">Returns</th><th class="text-center">Damages</th><th class="text-right">Net Revenue</th></tr>
@@ -1418,7 +1418,7 @@ export function printReport(opts: ReportOptions): void {
       }).filter(Boolean).join('');
 
       tablesHtml = `
-        <div class="section-title">Delivery Agent Performance (ডেলিভারিম্যান সরবরাহ বিবরণ)</div>
+        <div class="section-title">${opts.language === 'bn' ? 'Delivery Agent Performance (ডেলিভারিম্যান সরবরাহ বিবরণ)' : 'Delivery Agent Performance'}</div>
         <table>
           <thead>
             <tr><th class="text-center" style="width:35px">#</th><th>Delivery Man</th><th>Vehicle / Phone</th><th class="text-center">Trips</th><th class="text-right">Delivered Units</th><th class="text-center">Returns</th><th class="text-right">Delivered Value</th></tr>
@@ -1451,7 +1451,7 @@ export function printReport(opts: ReportOptions): void {
       }).filter(Boolean).join('');
 
       tablesHtml = `
-        <div class="section-title">Product-wise Sales Breakdown (পণ্যভিত্তিক মোট বিক্রয়)</div>
+        <div class="section-title">${opts.language === 'bn' ? 'Product-wise Sales Breakdown (পণ্যভিত্তিক মোট বিক্রয়)' : 'Product-wise Sales Breakdown'}</div>
         <table>
           <thead>
             <tr><th class="text-center" style="width:35px">#</th><th>Product Name</th><th>Company</th><th class="text-center">SKU</th><th class="text-right">Units Sold</th><th class="text-center">Returns</th><th class="text-center">Damages</th><th class="text-right">Net Sales (৳)</th></tr>
@@ -1493,7 +1493,7 @@ export function printReport(opts: ReportOptions): void {
       </tr>`).join('');
 
       tablesHtml = `
-        <div class="section-title">Company-wise Sales Summary (কোম্পানিভিত্তিক বিক্রয় সংক্ষেপ)</div>
+        <div class="section-title">Company-wise Sales Summary</div>
         <table>
           <thead>
             <tr><th class="text-center" style="width:35px">#</th><th>Company / Brand</th><th class="text-right">Sold Units</th><th class="text-center">Returns</th><th class="text-center">Damages</th><th class="text-right">Gross Sales (৳)</th></tr>
@@ -1504,7 +1504,7 @@ export function printReport(opts: ReportOptions): void {
           </tbody>
         </table>
 
-        <div class="section-title" style="margin-top:24px">Delivered Challans Log (সরবরাহকৃত চালান রেজিস্টার)</div>
+        <div class="section-title" style="margin-top:24px">Delivered Challans Log</div>
         <table>
           <thead>
             <tr><th class="text-center" style="width:35px">#</th><th>Product</th><th>SR</th><th>Delivery Man</th><th class="text-center">Date</th><th class="text-right">Qty</th><th class="text-center">Return</th><th class="text-right">Amount (৳)</th></tr>
@@ -1554,7 +1554,7 @@ export function printReport(opts: ReportOptions): void {
     </tr>`).join('');
 
     tablesHtml = `
-      <div class="section-title">Damage Reconciliation Log (নষ্ট ও মেয়াদোত্তীর্ণ পণ্যের বিবরণ)</div>
+      <div class="section-title">${opts.language === 'bn' ? 'Damage Reconciliation Log (নষ্ট ও মেয়াদোত্তীর্ণ পণ্যের বিবরণ)' : 'Damage Reconciliation Log'}</div>
       <table>
         <thead>
           <tr><th class="text-center" style="width:35px">#</th><th>Product</th><th>Company</th><th class="text-center">Prev Damage</th><th class="text-center">New Damage</th><th class="text-center">Total Dmg</th><th class="text-right">DP Rate</th><th class="text-right">Loss Valuation (DP)</th></tr>
@@ -1607,7 +1607,7 @@ export function printReport(opts: ReportOptions): void {
     </tr>`).join('');
 
     tablesHtml = `
-      <div class="section-title">Company Profit & Margin Breakdown (কোম্পানিভিত্তিক লাভ ও মার্জিন)</div>
+      <div class="section-title">${opts.language === 'bn' ? 'Company Profit & Margin Breakdown (কোম্পানিভিত্তিক লাভ ও মার্জিন)' : 'Company Profit & Margin Breakdown'}</div>
       <table>
         <thead>
           <tr><th class="text-center" style="width:35px">#</th><th>Company / Brand</th><th class="text-right">Sales Revenue</th><th class="text-right">COGS (DP)</th><th class="text-right">Gross Profit</th><th class="text-right">Margin %</th></tr>
@@ -1646,7 +1646,7 @@ export function printReport(opts: ReportOptions): void {
     }).join('');
 
     tablesHtml = `
-      <div class="section-title">Official Product Price Schedule (মূল্য তালিকা - DP / TP / MRP)</div>
+      <div class="section-title">${opts.language === 'bn' ? 'Official Product Price Schedule (মূল্য তালিকা - DP / TP / MRP)' : 'Official Product Price Schedule'}</div>
       <table>
         <thead>
           <tr><th class="text-center" style="width:35px">#</th><th>Product Name</th><th>Company</th><th class="text-center">SKU</th><th class="text-center">Packaging</th><th class="text-right">Dealer Price (DP)</th><th class="text-right">Trade Price (TP)</th><th class="text-right">MRP</th><th class="text-right">Margin %</th></tr>
@@ -1674,7 +1674,7 @@ export function printReport(opts: ReportOptions): void {
     }).join('');
 
     tablesHtml = `
-      <div class="section-title">Margin Variance Schedule (লাভের মার্জিন বিশ্লেষণ)</div>
+      <div class="section-title">${opts.language === 'bn' ? 'Margin Variance Schedule (লাভের মার্জিন বিশ্লেষণ)' : 'Margin Variance Schedule'}</div>
       <table>
         <thead>
           <tr><th class="text-center" style="width:35px">#</th><th>Product</th><th>Company</th><th class="text-right">DP</th><th class="text-right">TP</th><th class="text-right">MRP</th><th class="text-right">Variance (TP-DP)</th><th class="text-right">Margin %</th></tr>
@@ -1753,7 +1753,7 @@ export function printReport(opts: ReportOptions): void {
     </tr>`).join('');
 
     tablesHtml = `
-      <div class="section-title">Claims & Damage Replacement Log (ক্লেইম ও ক্ষতিপূরণ লগ)</div>
+      <div class="section-title">${opts.language === 'bn' ? 'Claims & Damage Replacement Log (ক্লেইম ও ক্ষতিপূরণ লগ)' : 'Claims & Damage Replacement Log'}</div>
       <table>
         <thead>
           <tr><th class="text-center" style="width:35px">#</th><th class="text-center">Date</th><th>SR</th><th>Company</th><th>Product</th><th class="text-center">Qty</th><th>Reason</th><th class="text-right">Value (৳)</th><th class="text-center">Status</th></tr>

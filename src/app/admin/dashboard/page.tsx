@@ -48,7 +48,11 @@ export default function App() {
   // ── Restore UI prefs & auth from localStorage ─────────────────────────────────
   function restorePrefs() {
     const lang = lsGet('erp_language');
-    if (lang === 'en' || lang === 'bn') setLanguage(lang);
+    if (lang === 'en' || lang === 'bn') {
+      setLanguage(lang);
+    } else {
+      setLanguage('en');
+    }
     const col = lsGet('erp_sidebar_collapsed');
     if (col !== null) setSidebarCollapsed(col === 'true');
     const tab = lsGet('erp_active_tab');
@@ -82,8 +86,13 @@ export default function App() {
       if (data.settings.shopSubBrand) db.setShopSubBrand(data.settings.shopSubBrand);
       if (data.settings.shopLogo)     db.setShopLogo(data.settings.shopLogo);
       if (data.settings.ownerName)    db.setOwnerName(data.settings.ownerName);
-      if (data.settings.language === 'en' || data.settings.language === 'bn') {
+      const savedLang = lsGet('erp_language');
+      if (savedLang === 'en' || savedLang === 'bn') {
+        setLanguage(savedLang);
+      } else if (data.settings.language === 'en' || data.settings.language === 'bn') {
         setLanguage(data.settings.language);
+      } else {
+        setLanguage('en');
       }
     }).catch((err) => {
       console.error('[dashboard] loadAllData error:', err);

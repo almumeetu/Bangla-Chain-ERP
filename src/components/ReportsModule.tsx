@@ -27,6 +27,7 @@ function CartonPcsDisplay({
   primaryUnit, 
   cartons, 
   pcs,
+  language = 'en',
   cartonColor = "text-indigo-700",
   pcsColor = "text-emerald-700"
 }: { 
@@ -35,6 +36,7 @@ function CartonPcsDisplay({
   primaryUnit?: string; 
   cartons?: number; 
   pcs?: number;
+  language?: Language;
   cartonColor?: string;
   pcsColor?: string;
 }) {
@@ -49,7 +51,9 @@ function CartonPcsDisplay({
         <span className={`${pcsColor} font-bold`}>{pcs}</span>
         <span className="text-slate-400 text-[9px]"> Pcs</span>
         {rawPcs > 0 && (
-          <div className="text-[9px] text-slate-500 font-semibold mt-0.5">({rawPcs.toLocaleString()} pcs)</div>
+          <div className="text-[9px] text-slate-500 font-semibold mt-0.5">
+            ({language === 'bn' ? `মোট: ${rawPcs.toLocaleString()} পিস` : `Total: ${rawPcs.toLocaleString()} Pcs`})
+          </div>
         )}
       </div>
     );
@@ -68,7 +72,9 @@ function CartonPcsDisplay({
         <span className="text-slate-300 mx-0.5">+</span>
         <span className={`${pcsColor} font-bold`}>0</span>
         <span className="text-slate-400 text-[9px]"> Pcs</span>
-        <div className="text-[9px] text-slate-500 font-semibold mt-0.5">({totalPcs.toLocaleString()} pcs)</div>
+        <div className="text-[9px] text-slate-500 font-semibold mt-0.5">
+          ({language === 'bn' ? `মোট: ${totalPcs.toLocaleString()} পিস` : `Total: ${totalPcs.toLocaleString()} Pcs`})
+        </div>
       </div>
     );
   }
@@ -83,7 +89,9 @@ function CartonPcsDisplay({
       <span className="text-slate-300 mx-0.5">+</span>
       <span className={`${pcsColor} font-bold`}>{computedPcs}</span>
       <span className="text-slate-400 text-[9px]"> Pcs</span>
-      <div className="text-[9px] text-slate-500 font-semibold mt-0.5">({activeQty.toLocaleString()} pcs)</div>
+      <div className="text-[9px] text-slate-500 font-semibold mt-0.5">
+        ({language === 'bn' ? `মোট: ${activeQty.toLocaleString()} পিস` : `Total: ${activeQty.toLocaleString()} Pcs`})
+      </div>
     </div>
   );
 }
@@ -1004,7 +1012,7 @@ export default function ReportsModule({
                       <tr key={idx} className="hover:bg-slate-50/40 transition-colors">
                         <td className="px-4 py-3.5 font-bold text-slate-850">{row.companyName}</td>
                         <td className="px-4 py-3.5 text-center">
-                          <CartonPcsDisplay qty={row.stockQtyObj.rawPcs} cartons={row.stockQtyObj.cartons} pcs={row.stockQtyObj.pcs} />
+                          <CartonPcsDisplay qty={row.stockQtyObj.rawPcs} cartons={row.stockQtyObj.cartons} pcs={row.stockQtyObj.pcs} language={language} />
                         </td>
                         <td className="px-4 py-3.5 text-right font-mono font-bold text-indigo-700">{formatBDT(row.totalValueDP)}</td>
                       </tr>
@@ -1012,7 +1020,7 @@ export default function ReportsModule({
                     <tr className="bg-slate-50 border-t-2 border-slate-200 font-extrabold text-slate-900">
                       <td className="px-4 py-4">{language === 'bn' ? 'সর্বমোট স্টক' : 'GRAND TOTAL STOCK'}</td>
                       <td className="px-4 py-4 text-center">
-                        <CartonPcsDisplay qty={stockReportData.grandStockQtyObj.rawPcs} cartons={stockReportData.grandStockQtyObj.cartons} pcs={stockReportData.grandStockQtyObj.pcs} />
+                        <CartonPcsDisplay qty={stockReportData.grandStockQtyObj.rawPcs} cartons={stockReportData.grandStockQtyObj.cartons} pcs={stockReportData.grandStockQtyObj.pcs} language={language} />
                       </td>
                       <td className="px-4 py-4 text-right font-mono text-indigo-605">{formatBDT(stockReportData.grandValueDP)}</td>
                     </tr>
@@ -1049,10 +1057,10 @@ export default function ReportsModule({
                         <td className="px-4 py-3.5 text-slate-600">{product.company}</td>
                         <td className="px-4 py-3.5 text-slate-500 font-mono text-[10px]">{product.sku}</td>
                         <td className="px-4 py-3.5 text-center">
-                          <CartonPcsDisplay qty={product.currentStock} cartonSize={product.cartonSize} primaryUnit={product.primaryUnit} />
+                          <CartonPcsDisplay qty={product.currentStock} cartonSize={product.cartonSize} primaryUnit={product.primaryUnit} language={language} />
                         </td>
                         <td className="px-4 py-3.5 text-center">
-                          <CartonPcsDisplay qty={product.damagedStock || 0} cartonSize={product.cartonSize} primaryUnit={product.primaryUnit} />
+                          <CartonPcsDisplay qty={product.damagedStock || 0} cartonSize={product.cartonSize} primaryUnit={product.primaryUnit} language={language} />
                         </td>
                         <td className="px-4 py-3.5 text-right font-mono font-bold text-indigo-700">{formatBDT(getStockValueDP(product))}</td>
                       </tr>
@@ -1157,11 +1165,11 @@ export default function ReportsModule({
             </div>
             <div className="bg-white border border-slate-200 rounded-none p-5 shadow-sm">
               <p className="text-[10px] font-bold uppercase text-slate-400 tracking-wider mb-2">{language === 'bn' ? 'মোট বিক্রিত ইউনিট' : 'Total Units Sold'}</p>
-              <CartonPcsDisplay cartons={salesReportData.grandSoldQtyObj.cartons} pcs={salesReportData.grandSoldQtyObj.pcs} qty={salesReportData.grandSoldQtyObj.rawPcs} />
+              <CartonPcsDisplay cartons={salesReportData.grandSoldQtyObj.cartons} pcs={salesReportData.grandSoldQtyObj.pcs} qty={salesReportData.grandSoldQtyObj.rawPcs} language={language} />
             </div>
             <div className="bg-white border border-slate-200 rounded-none p-5 shadow-sm">
               <p className="text-[10px] font-bold uppercase text-rose-500 tracking-wider mb-2">{language === 'bn' ? 'মোট রিটার্ন/ড্যামেজ' : 'Total Returns/Damages'}</p>
-              <CartonPcsDisplay cartons={salesReportData.grandReturnsAndDamagesQtyObj.cartons} pcs={salesReportData.grandReturnsAndDamagesQtyObj.pcs} qty={salesReportData.grandReturnsAndDamagesQtyObj.rawPcs} />
+              <CartonPcsDisplay cartons={salesReportData.grandReturnsAndDamagesQtyObj.cartons} pcs={salesReportData.grandReturnsAndDamagesQtyObj.pcs} qty={salesReportData.grandReturnsAndDamagesQtyObj.rawPcs} language={language} />
             </div>
           </div>
 
@@ -1242,13 +1250,13 @@ export default function ReportsModule({
                       <tr key={idx} className="hover:bg-slate-50/40 transition-colors">
                         <td className="px-4 py-3.5 font-bold text-slate-850">{row.companyName}</td>
                         <td className="px-4 py-3.5 text-center">
-                          <CartonPcsDisplay qty={row.soldQtyObj.rawPcs} cartons={row.soldQtyObj.cartons} pcs={row.soldQtyObj.pcs} />
+                          <CartonPcsDisplay qty={row.soldQtyObj.rawPcs} cartons={row.soldQtyObj.cartons} pcs={row.soldQtyObj.pcs} language={language} />
                         </td>
                         <td className="px-4 py-3.5 text-center font-mono font-bold text-amber-600">
-                          <CartonPcsDisplay qty={row.returnsQtyObj.rawPcs} cartons={row.returnsQtyObj.cartons} pcs={row.returnsQtyObj.pcs} />
+                          <CartonPcsDisplay qty={row.returnsQtyObj.rawPcs} cartons={row.returnsQtyObj.cartons} pcs={row.returnsQtyObj.pcs} language={language} />
                         </td>
                         <td className="px-4 py-3.5 text-center font-mono font-bold text-rose-600">
-                          <CartonPcsDisplay qty={row.damagesQtyObj.rawPcs} cartons={row.damagesQtyObj.cartons} pcs={row.damagesQtyObj.pcs} />
+                          <CartonPcsDisplay qty={row.damagesQtyObj.rawPcs} cartons={row.damagesQtyObj.cartons} pcs={row.damagesQtyObj.pcs} language={language} />
                         </td>
                         <td className="px-4 py-3.5 text-right font-mono font-bold text-indigo-700">{formatBDT(row.dpTotal)}</td>
                         <td className="px-4 py-3.5 text-right font-mono font-bold text-emerald-700">{formatBDT(row.revenue)}</td>
@@ -1285,13 +1293,13 @@ export default function ReportsModule({
                           <div className="text-[9px] text-slate-400 font-mono mt-0.5">{row.phone}</div>
                         </td>
                         <td className="px-4 py-3.5 text-center font-mono font-bold text-slate-700">
-                          <CartonPcsDisplay qty={row.soldQtyObj.rawPcs} cartons={row.soldQtyObj.cartons} pcs={row.soldQtyObj.pcs} />
+                          <CartonPcsDisplay qty={row.soldQtyObj.rawPcs} cartons={row.soldQtyObj.cartons} pcs={row.soldQtyObj.pcs} language={language} />
                         </td>
                         <td className="px-4 py-3.5 text-center font-mono font-bold text-amber-600">
-                          <CartonPcsDisplay qty={row.returnsQtyObj.rawPcs} cartons={row.returnsQtyObj.cartons} pcs={row.returnsQtyObj.pcs} />
+                          <CartonPcsDisplay qty={row.returnsQtyObj.rawPcs} cartons={row.returnsQtyObj.cartons} pcs={row.returnsQtyObj.pcs} language={language} />
                         </td>
                         <td className="px-4 py-3.5 text-center font-mono font-bold text-rose-600">
-                          <CartonPcsDisplay qty={row.damagesQtyObj.rawPcs} cartons={row.damagesQtyObj.cartons} pcs={row.damagesQtyObj.pcs} />
+                          <CartonPcsDisplay qty={row.damagesQtyObj.rawPcs} cartons={row.damagesQtyObj.cartons} pcs={row.damagesQtyObj.pcs} language={language} />
                         </td>
                         <td className="px-4 py-3.5 text-right font-mono font-bold text-indigo-700">{formatBDT(row.dpTotal)}</td>
                         <td className="px-4 py-3.5 text-right font-mono font-bold text-emerald-700">{formatBDT(row.revenue)}</td>
@@ -1332,13 +1340,13 @@ export default function ReportsModule({
                         </td>
                         <td className="px-4 py-3.5 text-center font-mono font-bold text-slate-600">{row.totalChallans}</td>
                         <td className="px-4 py-3.5 text-center font-mono font-bold text-slate-700">
-                          <CartonPcsDisplay qty={row.soldQtyObj.rawPcs} cartons={row.soldQtyObj.cartons} pcs={row.soldQtyObj.pcs} />
+                          <CartonPcsDisplay qty={row.soldQtyObj.rawPcs} cartons={row.soldQtyObj.cartons} pcs={row.soldQtyObj.pcs} language={language} />
                         </td>
                         <td className="px-4 py-3.5 text-center font-mono font-bold text-amber-600">
-                          <CartonPcsDisplay qty={row.returnsQtyObj.rawPcs} cartons={row.returnsQtyObj.cartons} pcs={row.returnsQtyObj.pcs} />
+                          <CartonPcsDisplay qty={row.returnsQtyObj.rawPcs} cartons={row.returnsQtyObj.cartons} pcs={row.returnsQtyObj.pcs} language={language} />
                         </td>
                         <td className="px-4 py-3.5 text-center font-mono font-bold text-rose-600">
-                          <CartonPcsDisplay qty={row.damagesQtyObj.rawPcs} cartons={row.damagesQtyObj.cartons} pcs={row.damagesQtyObj.pcs} />
+                          <CartonPcsDisplay qty={row.damagesQtyObj.rawPcs} cartons={row.damagesQtyObj.cartons} pcs={row.damagesQtyObj.pcs} language={language} />
                         </td>
                         <td className="px-4 py-3.5 text-right font-mono font-bold text-indigo-700">{formatBDT(row.dpTotal)}</td>
                         <td className="px-4 py-3.5 text-right font-mono font-bold text-emerald-700">{formatBDT(row.revenue)}</td>
@@ -1384,13 +1392,13 @@ export default function ReportsModule({
                           <div className="text-[9px] text-slate-400 font-mono mt-0.5">{row.sku} · {row.company}</div>
                         </td>
                         <td className="px-4 py-3.5 text-center font-mono font-bold text-slate-700">
-                          <CartonPcsDisplay qty={row.unitsSold} cartonSize={row.cartonSize} primaryUnit={row.primaryUnit} />
+                          <CartonPcsDisplay qty={row.unitsSold} cartonSize={row.cartonSize} primaryUnit={row.primaryUnit} language={language} />
                         </td>
                         <td className="px-4 py-3.5 text-center font-mono font-bold text-amber-600">
-                          <CartonPcsDisplay qty={row.returns} cartonSize={row.cartonSize} primaryUnit={row.primaryUnit} />
+                          <CartonPcsDisplay qty={row.returns} cartonSize={row.cartonSize} primaryUnit={row.primaryUnit} language={language} />
                         </td>
                         <td className="px-4 py-3.5 text-center font-mono font-bold text-rose-600">
-                          <CartonPcsDisplay qty={row.damages} cartonSize={row.cartonSize} primaryUnit={row.primaryUnit} />
+                          <CartonPcsDisplay qty={row.damages} cartonSize={row.cartonSize} primaryUnit={row.primaryUnit} language={language} />
                         </td>
                         <td className="px-4 py-3.5 text-right font-mono font-bold text-indigo-700">{formatBDT(row.dpTotal)}</td>
                         <td className="px-4 py-3.5 text-right font-mono font-bold text-emerald-700">{formatBDT(row.revenue)}</td>
