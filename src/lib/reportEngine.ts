@@ -201,15 +201,14 @@ function fmtNum(n: number): string {
 
 /** Formats stock into Cartons + Pieces representation */
 function formatCtnPcs(qty: number, cartonSize = 24, primaryUnit = 'Piece'): string {
+  const cs = (cartonSize && cartonSize > 1) ? cartonSize : 24;
   if (primaryUnit === 'Carton') {
-    return `${qty.toLocaleString()} Ctn`;
+    const totalPcs = Math.round(qty * cs);
+    return `${qty.toLocaleString()} Ctn + 0 Pcs (${totalPcs.toLocaleString()} pcs)`;
   }
-  const cs = cartonSize || 24;
   const ctn = Math.floor(qty / cs);
   const pcs = qty % cs;
-  if (ctn > 0 && pcs > 0) return `${ctn} Ctn + ${pcs} Pcs (${qty.toLocaleString()} pcs)`;
-  if (ctn > 0) return `${ctn} Ctn (${qty.toLocaleString()} pcs)`;
-  return `${pcs} Pcs`;
+  return `${ctn} Ctn + ${pcs} Pcs (${qty.toLocaleString()} pcs)`;
 }
 
 /** Safely clamp a string for jsPDF text rendering */
@@ -777,7 +776,7 @@ function genProfit(ctx: DocContext, opts: ReportOptions, dynamicInfo: DynamicRep
     const cc   = fch.filter(ch => ch.company === co);
     const rev  = cc.reduce((s, ch) => s + (ch.totalAmount ?? 0), 0);
     const cost = cc.reduce((s, ch) => {
-      const prod = opts.products.find(p => p.name === ch.productName);
+      const prod = opts.products.find(p => (p.name || '').trim().toLowerCase() === (ch.productName || '').trim().toLowerCase());
       const netQty = Math.max(0, (ch.qty ?? 0) - (ch.returnedQty || 0) - (ch.damagedQty || 0));
       return s + (netQty * (prod?.defaultPP ?? ch.rate * 0.80));
     }, 0);
@@ -962,7 +961,7 @@ function genDayEnd(ctx: DocContext, opts: ReportOptions, dynamicInfo: DynamicRep
     let totSalesAmt = 0, totStockAmt = 0, totSalesQty = 0;
     coProds.forEach((p, i) => {
       maybePageBreak(ctx, 8, dynamicInfo.title, dynamicInfo.subtitle);
-      const pc       = coChallans.filter(ch => ch.productName === p.name);
+      const pc       = coChallans.filter(ch => (ch.productName || '').trim().toLowerCase() === (p.name || '').trim().toLowerCase());
       const soldQty  = pc.reduce((s, ch) => s + Math.max(0, (ch.qty ?? 0) - (ch.returnedQty || 0) - (ch.damagedQty || 0)), 0);
       const salesAmt = pc.reduce((s, ch) => s + (ch.totalAmount ?? 0), 0);
       const grossQty = pc.reduce((s, ch) => s + ch.qty, 0);
@@ -1139,7 +1138,7 @@ export function exportReportExcel(opts: ReportOptions): void {
       const cc   = fch.filter(ch => ch.company === co);
       const rev  = cc.reduce((s, ch) => s + (ch.totalAmount ?? 0), 0);
       const cost = cc.reduce((s, ch) => {
-        const prod = opts.products.find(p => p.name === ch.productName);
+        const prod = opts.products.find(p => (p.name || '').trim().toLowerCase() === (ch.productName || '').trim().toLowerCase());
         const netQty = Math.max(0, ch.qty - (ch.returnedQty || 0) - (ch.damagedQty || 0));
         return s + (netQty * (prod?.defaultPP ?? ch.rate * 0.80));
       }, 0);
@@ -1169,7 +1168,7 @@ export function exportReportExcel(opts: ReportOptions): void {
       const coProds = opts.products.filter(p => p.company === co).sort((a, b) => a.name.localeCompare(b.name));
       const coChallans = fch.filter(ch => ch.company === co);
       coProds.forEach(p => {
-        const pc        = coChallans.filter(ch => ch.productName === p.name);
+        const pc        = coChallans.filter(ch => (ch.productName || '').trim().toLowerCase() === (p.name || '').trim().toLowerCase());
         const salesQty  = pc.reduce((s, ch) => s + Math.max(0, (ch.qty ?? 0) - (ch.returnedQty || 0) - (ch.damagedQty || 0)), 0);
         const salesAmt  = pc.reduce((s, ch) => s + (ch.totalAmount ?? 0), 0);
         const grossQty  = pc.reduce((s, ch) => s + ch.qty, 0);
@@ -1262,13 +1261,24 @@ export function printReport(opts: ReportOptions): void {
       const byCompany = productsByCompany(opts);
       const sumRows = Object.keys(byCompany).sort().map((co, i) => {
         const prods = byCompany[co];
-        const qty = prods.reduce((s, p) => s + p.currentStock, 0);
+        const ctnSum = prods.reduce((s, p) => {
+          const cs = (p.cartonSize && p.cartonSize > 1) ? p.cartonSize : 24;
+          return s + (p.primaryUnit === 'Carton' ? p.currentStock : Math.floor(p.currentStock / cs));
+        }, 0);
+        const pcsSum = prods.reduce((s, p) => {
+          const cs = (p.cartonSize && p.cartonSize > 1) ? p.cartonSize : 24;
+          return s + (p.primaryUnit === 'Carton' ? 0 : p.currentStock % cs);
+        }, 0);
+        const totalRawPcs = prods.reduce((s, p) => {
+          const cs = (p.cartonSize && p.cartonSize > 1) ? p.cartonSize : 24;
+          return s + (p.primaryUnit === 'Carton' ? Math.round(p.currentStock * cs) : p.currentStock);
+        }, 0);
         const dp = prods.reduce((s, p) => s + p.currentStock * (p.defaultPP || 0), 0);
         return `<tr>
           <td class="text-center">${i+1}</td>
           <td><b>${co}</b></td>
           <td class="text-center">${prods.length}</td>
-          <td class="text-right font-mono">${fmtNum(qty)} pcs</td>
+          <td class="text-right font-mono">${ctnSum} Ctn + ${pcsSum} Pcs (${fmtNum(totalRawPcs)} pcs)</td>
           <td class="text-right font-mono font-bold">${fmtBDT(dp)}</td>
         </tr>`;
       }).join('');
@@ -1277,7 +1287,7 @@ export function printReport(opts: ReportOptions): void {
         <div class="section-title">Company Summary (কোম্পানি অনুযায়ী মোট স্টক)</div>
         <table>
           <thead>
-            <tr><th class="text-center" style="width:40px">#</th><th>Company / Brand</th><th class="text-center">Products</th><th class="text-right">Stock Qty</th><th class="text-right">Valuation (DP)</th></tr>
+            <tr><th class="text-center" style="width:40px">#</th><th>Company / Brand</th><th class="text-center">Products</th><th class="text-right">Stock Qty (Ctn + Pcs)</th><th class="text-right">Valuation (DP)</th></tr>
           </thead>
           <tbody>
             ${sumRows}
@@ -1566,7 +1576,7 @@ export function printReport(opts: ReportOptions): void {
       const cc   = fch.filter(ch => ch.company === co);
       const rev  = cc.reduce((s, ch) => s + (ch.totalAmount ?? 0), 0);
       const cost = cc.reduce((s, ch) => {
-        const prod = opts.products.find(p => p.name === ch.productName);
+        const prod = opts.products.find(p => (p.name || '').trim().toLowerCase() === (ch.productName || '').trim().toLowerCase());
         const netQty = Math.max(0, (ch.qty ?? 0) - (ch.returnedQty || 0) - (ch.damagedQty || 0));
         return s + (netQty * (prod?.defaultPP ?? ch.rate * 0.80));
       }, 0);
@@ -1678,7 +1688,7 @@ export function printReport(opts: ReportOptions): void {
       const coProds = fProds.filter(p => p.company === co);
       const coChallans = fch.filter(ch => ch.company === co);
       const rows = coProds.map((p, i) => {
-        const pc = coChallans.filter(ch => ch.productName === p.name);
+        const pc = coChallans.filter(ch => (ch.productName || '').trim().toLowerCase() === (p.name || '').trim().toLowerCase());
         const soldQty = pc.reduce((s, ch) => s + Math.max(0, (ch.qty ?? 0) - (ch.returnedQty || 0) - (ch.damagedQty || 0)), 0);
         const salesAmt = pc.reduce((s, ch) => s + (ch.totalAmount ?? 0), 0);
         const grossQty = pc.reduce((s, ch) => s + ch.qty, 0);

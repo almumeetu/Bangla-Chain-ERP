@@ -45,15 +45,11 @@ function CartonPcsDisplay({
       <div className="font-mono text-[11px] leading-snug">
         <span className={`${cartonColor} font-bold`}>{cartons.toLocaleString()}</span>
         <span className="text-slate-400 text-[9px]"> Ctn</span>
-        {pcs > 0 && (
-          <>
-            <span className="text-slate-300 mx-0.5">+</span>
-            <span className={`${pcsColor} font-bold`}>{pcs}</span>
-            <span className="text-slate-400 text-[9px]"> Pcs</span>
-          </>
-        )}
+        <span className="text-slate-300 mx-0.5">+</span>
+        <span className={`${pcsColor} font-bold`}>{pcs}</span>
+        <span className="text-slate-400 text-[9px]"> Pcs</span>
         {rawPcs > 0 && (
-          <div className="text-[9px] text-slate-400 mt-0.5">({rawPcs.toLocaleString()} pcs)</div>
+          <div className="text-[9px] text-slate-500 font-semibold mt-0.5">({rawPcs.toLocaleString()} pcs)</div>
         )}
       </div>
     );
@@ -69,7 +65,10 @@ function CartonPcsDisplay({
       <div className="font-mono text-[11px] leading-snug">
         <span className={`${cartonColor} font-bold`}>{activeQty.toLocaleString()}</span>
         <span className="text-slate-400 text-[9px]"> Ctn</span>
-        <div className="text-[9px] text-slate-400 mt-0.5">(মোট: {totalPcs.toLocaleString()} pcs)</div>
+        <span className="text-slate-300 mx-0.5">+</span>
+        <span className={`${pcsColor} font-bold`}>0</span>
+        <span className="text-slate-400 text-[9px]"> Pcs</span>
+        <div className="text-[9px] text-slate-500 font-semibold mt-0.5">({totalPcs.toLocaleString()} pcs)</div>
       </div>
     );
   }
@@ -81,14 +80,10 @@ function CartonPcsDisplay({
     <div className="font-mono text-[11px] leading-snug">
       <span className={`${cartonColor} font-bold`}>{computedCartons.toLocaleString()}</span>
       <span className="text-slate-400 text-[9px]"> Ctn</span>
-      {computedPcs > 0 && (
-        <>
-          <span className="text-slate-300 mx-0.5">+</span>
-          <span className={`${pcsColor} font-bold`}>{computedPcs}</span>
-          <span className="text-slate-400 text-[9px]"> Pcs</span>
-        </>
-      )}
-      <div className="text-[9px] text-slate-400 mt-0.5">(মোট: {activeQty.toLocaleString()} pcs)</div>
+      <span className="text-slate-300 mx-0.5">+</span>
+      <span className={`${pcsColor} font-bold`}>{computedPcs}</span>
+      <span className="text-slate-400 text-[9px]"> Pcs</span>
+      <div className="text-[9px] text-slate-500 font-semibold mt-0.5">({activeQty.toLocaleString()} pcs)</div>
     </div>
   );
 }
@@ -102,11 +97,12 @@ function getAggregatedStockQty(productsList: Product[], field: 'currentStock' | 
     const val = Number(p[field]) || 0;
     if (val <= 0) return;
 
+    const cs = (p.cartonSize && p.cartonSize > 1) ? p.cartonSize : 24;
+
     if (p.primaryUnit === 'Carton') {
       totalCartons += val;
-      totalRawPcs += val * (p.cartonSize || 24);
+      totalRawPcs += val * cs;
     } else {
-      const cs = p.cartonSize || 24;
       totalCartons += Math.floor(val / cs);
       totalPcs += val % cs;
       totalRawPcs += val;
@@ -125,19 +121,13 @@ function getAggregatedChallanQty(items: ChallanItem[], productsList: Product[], 
     const val = Number(item[field]) || 0;
     if (val <= 0) return;
 
-    const product = productsList.find(p => (p.name || '').toLowerCase() === (item.productName || '').toLowerCase());
-    if (!product) {
-      totalRawPcs += val;
-      totalCartons += Math.floor(val / 24);
-      totalPcs += val % 24;
-      return;
-    }
+    const product = productsList.find(p => (p.name || '').trim().toLowerCase() === (item.productName || '').trim().toLowerCase());
+    const cs = (product?.cartonSize && product.cartonSize > 1) ? product.cartonSize : 24;
 
-    if (product.primaryUnit === 'Carton') {
+    if (product?.primaryUnit === 'Carton') {
       totalCartons += val;
-      totalRawPcs += val * (product.cartonSize || 24);
+      totalRawPcs += val * cs;
     } else {
-      const cs = product.cartonSize || 24;
       totalCartons += Math.floor(val / cs);
       totalPcs += val % cs;
       totalRawPcs += val;
@@ -371,7 +361,7 @@ export default function ReportsModule({
       const returns = brandChallans.reduce((sum, ch) => sum + (ch.returnedQty || 0), 0);
       const damages = brandChallans.reduce((sum, ch) => sum + (ch.damagedQty || 0), 0);
       const dpTotal = brandChallans.reduce((sum, ch) => {
-        const product = products.find(p => p.name === ch.productName);
+        const product = products.find(p => (p.name || '').trim().toLowerCase() === (ch.productName || '').trim().toLowerCase());
         const netQty = Math.max(0, ch.qty - (ch.returnedQty || 0) - (ch.damagedQty || 0));
         return sum + ((product?.defaultPP || 0) * netQty);
       }, 0);
@@ -404,7 +394,7 @@ export default function ReportsModule({
       const returns = srChallans.reduce((sum, ch) => sum + (ch.returnedQty || 0), 0);
       const damages = srChallans.reduce((sum, ch) => sum + (ch.damagedQty || 0), 0);
       const dpTotal = srChallans.reduce((sum, ch) => {
-        const product = products.find(p => p.name === ch.productName);
+        const product = products.find(p => (p.name || '').trim().toLowerCase() === (ch.productName || '').trim().toLowerCase());
         const netQty = Math.max(0, ch.qty - (ch.returnedQty || 0) - (ch.damagedQty || 0));
         return sum + ((product?.defaultPP || 0) * netQty);
       }, 0);
@@ -439,7 +429,7 @@ export default function ReportsModule({
       const damages = dmChallans.reduce((sum, ch) => sum + (ch.damagedQty || 0), 0);
       const totalChallans = dmChallans.length;
       const dpTotal = dmChallans.reduce((sum, ch) => {
-        const product = products.find(p => p.name === ch.productName);
+        const product = products.find(p => (p.name || '').trim().toLowerCase() === (ch.productName || '').trim().toLowerCase());
         const netQty = Math.max(0, ch.qty - (ch.returnedQty || 0) - (ch.damagedQty || 0));
         return sum + ((product?.defaultPP || 0) * netQty);
       }, 0);
@@ -465,7 +455,7 @@ export default function ReportsModule({
 
     // D. Product-wise Sales (Net Sold, Net Cost, Net Revenue)
     const productSales = products.map(p => {
-      const pChallans = filteredChallans.filter(ch => (ch.productName || '').toLowerCase() === (p.name || '').toLowerCase());
+      const pChallans = filteredChallans.filter(ch => (ch.productName || '').trim().toLowerCase() === (p.name || '').trim().toLowerCase());
       const unitsSold = pChallans.reduce((sum, ch) => sum + Math.max(0, ch.qty - (ch.returnedQty || 0) - (ch.damagedQty || 0)), 0);
       const revenue = pChallans.reduce((sum, ch) => sum + (ch.totalAmount || 0), 0);
       const returns = pChallans.reduce((sum, ch) => sum + (ch.returnedQty || 0), 0);
@@ -496,7 +486,7 @@ export default function ReportsModule({
       if (!unitGroups[uom]) {
         unitGroups[uom] = { unitsSold: 0, returns: 0, damages: 0, revenue: 0, dpTotal: 0 };
       }
-      const product = products.find(p => p.name === ch.productName);
+      const product = products.find(p => (p.name || '').trim().toLowerCase() === (ch.productName || '').trim().toLowerCase());
       const pp = product?.defaultPP || 0;
       const netQty = Math.max(0, ch.qty - (ch.returnedQty || 0) - (ch.damagedQty || 0));
       const dpVal = pp * netQty;
@@ -598,7 +588,7 @@ export default function ReportsModule({
       
       // Calculate Cost of Goods Sold based on Product DP (defaultPP) using Net Delivered Qty (returns and damages excluded)
       const costOfGoods = brandChallans.reduce((sum, ch) => {
-        const prod = products.find(p => p.name === ch.productName);
+        const prod = products.find(p => (p.name || '').trim().toLowerCase() === (ch.productName || '').trim().toLowerCase());
         const dp = prod ? prod.defaultPP : (ch.rate * 0.80);
         const netQty = Math.max(0, ch.qty - (ch.returnedQty || 0) - (ch.damagedQty || 0));
         return sum + (netQty * dp);
@@ -691,7 +681,7 @@ export default function ReportsModule({
         .map(ch => ({ productName: ch.productName, damagedQty: ch.returnedQty, type: 'Return' as const }));
 
       const productRows = companyProducts.map((p, idx) => {
-        const pChallans = companyChallans.filter(ch => ch.productName === p.name);
+        const pChallans = companyChallans.filter(ch => (ch.productName || '').trim().toLowerCase() === (p.name || '').trim().toLowerCase());
         const salesQty   = pChallans.reduce((s, ch) => s + Math.max(0, ch.qty - (ch.returnedQty || 0) - (ch.damagedQty || 0)), 0);
         const salesAmt   = pChallans.reduce((s, ch) => s + (ch.totalAmount || 0), 0);
         // Opening stock = current stock + gross sold qty (since stock was reduced after sales)
@@ -1532,10 +1522,10 @@ export default function ReportsModule({
               const compChallans = filteredChallans.filter(ch => ch.company === companyRow.companyName);
               const productNames = Array.from(new Set(compChallans.map(ch => ch.productName)));
               const productRows = productNames.map(pName => {
-                const pChallans = compChallans.filter(ch => ch.productName === pName);
+                const pChallans = compChallans.filter(ch => (ch.productName || '').trim().toLowerCase() === (pName || '').trim().toLowerCase());
                 const revenue = pChallans.reduce((s, ch) => s + (ch.totalAmount || 0), 0);
                 const unitsSold = pChallans.reduce((s, ch) => s + Math.max(0, ch.qty - (ch.returnedQty || 0) - (ch.damagedQty || 0)), 0);
-                const prod = products.find(p => p.name === pName);
+                const prod = products.find(p => (p.name || '').trim().toLowerCase() === (pName || '').trim().toLowerCase());
                 const dp = prod ? prod.defaultPP : (pChallans[0]?.rate ? pChallans[0].rate * 0.80 : 0);
                 const cost = unitsSold * dp;
                 const profit = revenue - cost;
