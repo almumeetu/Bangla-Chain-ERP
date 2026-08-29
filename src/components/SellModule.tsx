@@ -420,7 +420,14 @@ export default function SellModule({
   const [orderStatus, setOrderStatus] = useState<'Shipped' | 'Delivered' | 'Pending'>('Pending');
   const [orderDate, setOrderDate] = useState<string>(new Date().toISOString().slice(0, 10));
 
-  const uniqueCompanies = Array.from(new Set(products.map(p => p.company).filter(Boolean)));
+  const uniqueCompanies = React.useMemo(() => {
+    return Array.from(
+      new Set([
+        ...products.map(p => p.company),
+        ...companies.map(c => c.name)
+      ].filter(Boolean))
+    );
+  }, [products, companies]);
 
   const filteredSrs = React.useMemo(() => {
     if (selectedCompany === 'All') return srs;
@@ -482,16 +489,11 @@ export default function SellModule({
     }
   }, [filteredDeliveryMen, selectedDeliveryMan]);
 
-  React.useEffect(() => {
-    if (cart.length === 0 && selectedCompany !== 'All') {
-      setSelectedCompany('All');
-    }
-  }, [cart, selectedCompany]);
-
   const filteredProducts = products.filter(p => {
     const q = searchQuery.toLowerCase();
     const matchSearch = p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q);
-    const matchCompany = selectedCompany === 'All' || p.company === selectedCompany;
+    const matchCompany = selectedCompany === 'All' || 
+      (p.company || '').trim().toLowerCase() === selectedCompany.trim().toLowerCase();
     const matchCategory = selectedCategory === 'All' || p.categoryId === selectedCategory;
     let matchStock = true;
     if (selectedStockFilter === 'InStock') matchStock = p.currentStock > 0;
