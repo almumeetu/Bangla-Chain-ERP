@@ -39,7 +39,7 @@ export default function App() {
   const [showSplash,      setShowSplash]      = useState(true);
   const [splashFade,      setSplashFade]      = useState(false);
 
-  const db = useErpData(language, 'Samir Enterprise', 'Dhaka & Chittagong Regional Hub', '', 'Samir Chowdhury');
+  const db = useErpData(language, 'Samir Enterprise', 'Dhaka & Chittagong Regional Hub', '', 'Sohanur Rahman Sohan');
 
   // ── localStorage key helpers ─────────────────────────────────────────────────
   function lsGet(key: string)              { return typeof window !== 'undefined' ? localStorage.getItem(key) : null; }

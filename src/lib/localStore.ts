@@ -164,7 +164,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   shopName:    'Samir Enterprise',
   shopSubBrand:'Dhaka & Chittagong Regional Hub',
   shopLogo:    '',
-  ownerName:   'Samir Chowdhury',
+  ownerName:   'Sohanur Rahman Sohan',
   language:    'en',
 };
 

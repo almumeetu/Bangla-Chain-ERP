@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS settings (
   shop_name     TEXT NOT NULL DEFAULT 'Samir Enterprise',
   shop_subbrand TEXT NOT NULL DEFAULT 'Dhaka & Chittagong Regional Hub',
   shop_logo     TEXT DEFAULT '',
-  owner_name    TEXT DEFAULT 'Samir Chowdhury',
+  owner_name    TEXT DEFAULT 'Sohanur Rahman Sohan',
   language      TEXT NOT NULL DEFAULT 'bn',
   created_at    TIMESTAMPTZ DEFAULT NOW(),
   updated_at    TIMESTAMPTZ DEFAULT NOW(),

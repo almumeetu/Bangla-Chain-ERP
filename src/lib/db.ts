@@ -247,7 +247,7 @@ export async function upsertSettings(s: AppSettings): Promise<void> {
     shop_name:     s.shopName,
     shop_subbrand: s.shopSubBrand,
     shop_logo:     s.shopLogo,
-    owner_name:    s.ownerName ?? 'Samir Chowdhury',
+    owner_name:    s.ownerName ?? 'Sohanur Rahman Sohan',
     language:      s.language,
   };
   const res = await db.settings.upsert(payload);
@@ -924,10 +924,10 @@ export async function loadAllData(): Promise<AllErpData> {
         shopName: sbSettings.shop_name,
         shopSubBrand: sbSettings.shop_subbrand,
         shopLogo: sbSettings.shop_logo ?? '',
-        ownerName: sbSettings.owner_name ?? 'Samir Chowdhury',
+        ownerName: sbSettings.owner_name ?? 'Sohanur Rahman Sohan',
         language: sbSettings.language || 'en',
       }
-      : { shopName: 'Samir Enterprise', shopSubBrand: 'Dhaka & Chittagong Regional Hub', shopLogo: '', ownerName: 'Samir Chowdhury', language: 'en' },
+      : { shopName: 'Samir Enterprise', shopSubBrand: 'Dhaka & Chittagong Regional Hub', shopLogo: '', ownerName: 'Sohanur Rahman Sohan', language: 'en' },
     claims: sbClaims.map(mapClaim),
     claimSettlements: sbClaimSettlements.map(mapClaimSettlement),
     claimReasons: sbClaimReasons.map(mapClaimReason),

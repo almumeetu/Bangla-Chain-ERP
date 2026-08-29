@@ -163,7 +163,7 @@ export function useErpData(
   shopName:    string,
   shopSubBrand:string,
   shopLogo:    string,
-  ownerName:   string = 'Samir Chowdhury',
+  ownerName:   string = 'Sohanur Rahman Sohan',
 ): ErpDataStore {
   const [products,          _setProducts]          = useState<Product[]>([]);
   const [srs,               _setSrs]               = useState<SR[]>([]);

@@ -31,7 +31,7 @@ export default function SettingsModule({
   setShopSubBrand,
   shopLogo,
   setShopLogo,
-  ownerName = 'Samir Chowdhury',
+  ownerName = 'Sohanur Rahman Sohan',
   setOwnerName,
   language,
   directoryBaseProps,
@@ -313,7 +313,7 @@ export default function SettingsModule({
                   type="text"
                   value={tempOwner}
                   onChange={(e) => setTempOwner(e.target.value)}
-                  placeholder="e.g. Samir Chowdhury"
+                  placeholder="e.g. Sohanur Rahman Sohan"
                   className="h-11 w-full rounded-none border border-slate-200 bg-white px-4 text-xs font-semibold outline-none focus:border-slate-800 transition-all text-slate-800"
                 />
               </div>
