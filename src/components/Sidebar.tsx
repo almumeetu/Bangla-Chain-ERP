@@ -15,7 +15,8 @@ export type TabID =
   | 'dashboard' | 'sales'    | 'delivery' | 'purchase'
   | 'stock'     | 'accounts' | 'companies'| 'products'
   | 'routes'    | 'damage'   | 'reports'  | 'settings'
-  | 'help'      | 'claims';
+  | 'help'      | 'claims'
+  | 'sr-dashboard' | 'sr-attendance' | 'sr-collection' | 'sr-targets';
 
 /** @deprecated use TabID */
 export type LegacyTabID =
@@ -97,13 +98,15 @@ export default function Sidebar({
           </nav>
         </div>
 
-        {/* Help + Settings buttons at bottom of nav */}
-        <SidebarBottomActions
-          activeTab={activeTab}
-          collapsed={collapsed}
-          language={language}
-          onSelect={handleNavSelect}
-        />
+        {/* Help + Settings buttons at bottom of nav (Admin only) */}
+        {userRole !== 'sr' && (
+          <SidebarBottomActions
+            activeTab={activeTab}
+            collapsed={collapsed}
+            language={language}
+            onSelect={handleNavSelect}
+          />
+        )}
       </div>
 
       {/* User avatar row */}
@@ -111,7 +114,11 @@ export default function Sidebar({
         shopName={shopName}
         ownerName={ownerName}
         collapsed={collapsed}
-        adminRoleLabel={`${(ownerName || translations[language].header.profileTitle).split(' ')[0]} (${s.adminRole})`}
+        adminRoleLabel={
+          userRole === 'sr'
+            ? `${ownerName || 'SR'} (${language === 'bn' ? 'সেলস অফিসার' : 'Sales Officer'})`
+            : `${(ownerName || translations[language].header.profileTitle).split(' ')[0]} (${s.adminRole})`
+        }
         hubLabel={s.dhakaHub}
         activeLabel={s.activeStatus}
       />

@@ -12,6 +12,7 @@ import { translations, Language } from '../translations';
 import { printSalesOrder, type SalesOrderData } from '../lib/printUtils';
 import { Customer } from '../lib/localStore';
 import { useToast } from './ui/Toast';
+import { getTPPerCarton, getTPPerPiece, getCartonSize, isCartonProduct } from '../lib/productUtils';
 
 interface SellModuleProps {
   products: Product[];
@@ -28,6 +29,7 @@ interface SellModuleProps {
   customers: Customer[];
   setCustomers: React.Dispatch<React.SetStateAction<Customer[]>>;
   companies?: CompanyBrand[];
+  userRole?: string;
 }
 
 interface CartItem {
@@ -41,29 +43,26 @@ interface CartItem {
 }
 
 function getCartItemTotals(item: CartItem) {
-  const isCartonProduct = item.product.primaryUnit === 'Carton';
-  const cartonSize = item.product.cartonSize || 24;
-  const pricePerCarton = item.product.pricePerCarton || (item.product.defaultWSP * (isCartonProduct ? 1 : cartonSize));
-  const pricePerPiece = item.product.pricePerPiece || item.product.defaultWSP;
+  const isCarton = isCartonProduct(item.product);
+  const cartonSize = getCartonSize(item.product);
+  const pricePerCarton = getTPPerCarton(item.product);
+  const pricePerPiece = getTPPerPiece(item.product);
 
-  // For Carton products: defaultPP is stored per-carton, totalQty is in cartons
-  // For Piece products: defaultPP is per-piece, totalQty is total pieces
-  const totalTP = isCartonProduct
-    ? item.cartons * pricePerCarton
-    : item.cartons * (item.product.pricePerCarton || (item.product.defaultWSP * cartonSize)) + item.pcs * pricePerPiece;
+  const totalTP = (item.cartons * pricePerCarton) + (item.pcs * pricePerPiece);
+  const totalDP = isCarton
+    ? (item.cartons * item.product.defaultPP) + (item.pcs * (cartonSize > 0 ? item.product.defaultPP / cartonSize : item.product.defaultPP))
+    : (item.cartons * (item.product.defaultPP * cartonSize)) + (item.pcs * item.product.defaultPP);
 
-  const totalDP = isCartonProduct
-    ? item.cartons * item.product.defaultPP
-    : item.cartons * (item.product.defaultPP * cartonSize) + item.pcs * item.product.defaultPP;
+  const totalQty = isCarton
+    ? item.cartons
+    : (item.cartons * cartonSize + item.pcs);
 
-  const totalQty = isCartonProduct
-    ? item.cartons              // cartons are the storage unit for Carton products
-    : item.cartons * cartonSize + item.pcs;  // convert to pieces for Piece products
-
-  const purchasePricePerCarton = isCartonProduct
-    ? item.product.defaultPP          // already per-carton
+  const purchasePricePerCarton = isCarton
+    ? item.product.defaultPP
     : item.product.defaultPP * cartonSize;
-  const purchasePricePerPiece = item.product.defaultPP; // per piece for Piece products
+  const purchasePricePerPiece = isCarton
+    ? (cartonSize > 0 ? item.product.defaultPP / cartonSize : item.product.defaultPP)
+    : item.product.defaultPP;
 
   return {
     pricePerCarton,
@@ -74,7 +73,7 @@ function getCartItemTotals(item: CartItem) {
     totalDP,
     totalQty,
     cartonSize,
-    isCartonProduct
+    isCartonProduct: isCarton
   };
 }
 
@@ -171,11 +170,11 @@ function ProductCard({ product, onAddToCart, formatBDT, language, listView }: Pr
             <div className="flex gap-2">
               <div className="text-right">
                 <p className="text-[7px] font-black text-indigo-400 uppercase tracking-wider mb-0.5">Ctn Price</p>
-                <p className="text-[11px] font-black font-mono text-indigo-700 leading-none">{formatBDT(product.pricePerCarton || (product.defaultWSP * (product.cartonSize || 24)))}</p>
+                <p className="text-[11px] font-black font-mono text-indigo-700 leading-none">{formatBDT(getTPPerCarton(product))}</p>
               </div>
               <div className="text-right">
                 <p className="text-[7px] font-black text-emerald-400 uppercase tracking-wider mb-0.5">Pc Price</p>
-                <p className={`text-[11px] font-black font-mono ${theme.accent} leading-none`}>{formatBDT(product.pricePerPiece || product.defaultWSP)}</p>
+                <p className={`text-[11px] font-black font-mono ${theme.accent} leading-none`}>{formatBDT(getTPPerPiece(product))}</p>
               </div>
             </div>
           </div>
@@ -222,11 +221,11 @@ function ProductCard({ product, onAddToCart, formatBDT, language, listView }: Pr
         <div className="grid grid-cols-2 gap-2">
           <div className="bg-indigo-50 rounded-none px-2.5 py-1.5 border border-indigo-100/50">
             <p className="text-[7px] font-black text-indigo-500 uppercase tracking-wider mb-0.5">Ctn Price</p>
-            <p className="text-[11px] font-black font-mono leading-none text-indigo-700">{formatBDT(product.pricePerCarton || (product.defaultWSP * (product.cartonSize || 24)))}</p>
+            <p className="text-[11px] font-black font-mono leading-none text-indigo-700">{formatBDT(getTPPerCarton(product))}</p>
           </div>
           <div className="bg-emerald-50 rounded-none px-2.5 py-1.5 border border-emerald-100/50">
             <p className="text-[7px] font-black text-emerald-500 uppercase tracking-wider mb-0.5">Pc Price</p>
-            <p className="text-[11px] font-black font-mono leading-none text-emerald-700">{formatBDT(product.pricePerPiece || product.defaultWSP)}</p>
+            <p className="text-[11px] font-black font-mono leading-none text-emerald-700">{formatBDT(getTPPerPiece(product))}</p>
           </div>
         </div>
 
@@ -288,9 +287,9 @@ function CartItemRow({
   const handleRemove = useCallback(() => onRemove(idx), [idx, onRemove]);
   const handleSpecChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => onUpdateSpec(idx, e.target.value), [idx, onUpdateSpec]);
 
-  const cartonSize = item.product.cartonSize || 24;
-  const pricePerCarton = item.product.pricePerCarton || (item.product.defaultWSP * cartonSize);
-  const pricePerPiece = item.product.pricePerPiece || item.product.defaultWSP;
+  const cartonSize = getCartonSize(item.product);
+  const pricePerCarton = getTPPerCarton(item.product);
+  const pricePerPiece = getTPPerPiece(item.product);
 
   const cartonTotal = item.cartons * pricePerCarton;
   const pieceTotal = item.pcs * pricePerPiece;
@@ -305,13 +304,11 @@ function CartItemRow({
             <p className="text-[11px] font-semibold text-slate-800 leading-tight line-clamp-1">{item.product.name}</p>
             <div className="flex gap-2 mt-0.5">
               <p className="text-[8px] font-mono text-indigo-500">
-                Carton Price: {formatBDT(pricePerCarton)} {item.product.primaryUnit !== 'Carton' && `(Size: ${cartonSize})`}
+                Carton Price: {formatBDT(pricePerCarton)} (Size: {cartonSize})
               </p>
-              {item.product.primaryUnit !== 'Carton' && (
-                <p className="text-[8px] font-mono text-emerald-500">
-                  Piece Price: {formatBDT(pricePerPiece)}
-                </p>
-              )}
+              <p className="text-[8px] font-mono text-emerald-500">
+                Piece Price: {formatBDT(pricePerPiece)}
+              </p>
             </div>
           </div>
           <button type="button" onClick={handleRemove}
@@ -320,7 +317,7 @@ function CartItemRow({
           </button>
         </div>
 
-        <div className={item.product.primaryUnit === 'Carton' ? "block" : "grid grid-cols-2 gap-2"}>
+        <div className="grid grid-cols-2 gap-2">
           <div>
             <label className="block text-[8px] font-medium text-slate-400 uppercase tracking-widest mb-1">Cartons</label>
             <div className="flex h-8 items-center rounded-none border border-slate-200 bg-slate-50 overflow-hidden">
@@ -328,27 +325,27 @@ function CartItemRow({
                 className="w-8 h-full flex items-center justify-center text-slate-500 hover:bg-slate-200 font-black text-lg transition-all duration-200 cursor-pointer shrink-0">−</button>
               <input type="number" min="0"
                 value={item.cartons}
+                onWheel={e => e.currentTarget.blur()}
                 onChange={e => onUpdateCartons(idx, Math.max(0, Number(e.target.value)))}
                 className="flex-1 text-center text-[11px] font-black font-mono text-slate-800 outline-none bg-transparent" />
               <button type="button" onClick={() => onUpdateCartons(idx, item.cartons + 1)}
                 className="w-8 h-full flex items-center justify-center text-slate-500 hover:bg-slate-200 font-black text-lg transition-all duration-200 cursor-pointer shrink-0">+</button>
             </div>
           </div>
-          {item.product.primaryUnit !== 'Carton' && (
-            <div>
-              <label className="block text-[8px] font-medium text-slate-400 uppercase tracking-widest mb-1">Pieces</label>
-              <div className="flex h-8 items-center rounded-none border border-slate-200 bg-slate-50 overflow-hidden">
-                <button type="button" onClick={() => onUpdatePcs(idx, Math.max(0, item.pcs - 1))}
-                  className="w-8 h-full flex items-center justify-center text-slate-500 hover:bg-slate-200 font-black text-lg transition-all duration-200 cursor-pointer shrink-0">−</button>
-                <input type="number" min="0"
-                  value={item.pcs}
-                  onChange={e => onUpdatePcs(idx, Math.max(0, Number(e.target.value)))}
-                  className="flex-1 text-center text-[11px] font-black font-mono text-slate-800 outline-none bg-transparent" />
-                <button type="button" onClick={() => onUpdatePcs(idx, item.pcs + 1)}
-                  className="w-8 h-full flex items-center justify-center text-slate-500 hover:bg-slate-200 font-black text-lg transition-all duration-200 cursor-pointer shrink-0">+</button>
-              </div>
+          <div>
+            <label className="block text-[8px] font-medium text-slate-400 uppercase tracking-widest mb-1">Pieces</label>
+            <div className="flex h-8 items-center rounded-none border border-slate-200 bg-slate-50 overflow-hidden">
+              <button type="button" onClick={() => onUpdatePcs(idx, Math.max(0, item.pcs - 1))}
+                className="w-8 h-full flex items-center justify-center text-slate-500 hover:bg-slate-200 font-black text-lg transition-all duration-200 cursor-pointer shrink-0">−</button>
+              <input type="number" min="0"
+                value={item.pcs}
+                onWheel={e => e.currentTarget.blur()}
+                onChange={e => onUpdatePcs(idx, Math.max(0, Number(e.target.value)))}
+                className="flex-1 text-center text-[11px] font-black font-mono text-slate-800 outline-none bg-transparent" />
+              <button type="button" onClick={() => onUpdatePcs(idx, item.pcs + 1)}
+                className="w-8 h-full flex items-center justify-center text-slate-500 hover:bg-slate-200 font-black text-lg transition-all duration-200 cursor-pointer shrink-0">+</button>
             </div>
-          )}
+          </div>
         </div>
 
         <div className="bg-slate-50 rounded-none px-3 py-1.5 border border-slate-100/50 text-[10px] space-y-1">
@@ -388,39 +385,66 @@ function CartItemRow({
 export default function SellModule({
   products: propProducts, setProducts, attributes, srs, routes, deliveryMen,
   setChallans, categories, units, onNavigate, language,
-  customers, setCustomers, companies = []
+  customers, setCustomers, companies = [], userRole
 }: SellModuleProps) {
   const { success, error, warning } = useToast();
   const loggedInSrId = typeof window !== 'undefined' ? sessionStorage.getItem('erp_sr_id') : null;
+  const loggedInSrNameStorage = typeof window !== 'undefined' ? sessionStorage.getItem('erp_sr_name') : null;
+
   const loggedInSr = React.useMemo(() => {
-    return srs.find(sr => sr.id === loggedInSrId);
-  }, [srs, loggedInSrId]);
+    if (!loggedInSrId && !loggedInSrNameStorage) return null;
+    return srs.find(sr => 
+      (loggedInSrId && sr.id === loggedInSrId) ||
+      (loggedInSrNameStorage && sr.name.toLowerCase() === loggedInSrNameStorage.toLowerCase())
+    );
+  }, [srs, loggedInSrId, loggedInSrNameStorage]);
 
   const srAssignedCompanyNames = React.useMemo(() => {
-    if (!loggedInSr) return [];
-    return (loggedInSr.assignedCompanyIds || []).map(cid => {
-      const comp = companies.find(c => c.id === cid);
-      return comp ? comp.name : '';
-    }).filter(Boolean);
+    let list: string[] = [];
+    if (loggedInSr) {
+      list = loggedInSr.assignedCompanyIds || (loggedInSr as any).assigned_company_ids || [];
+    }
+    if (list.length === 0 && typeof window !== 'undefined') {
+      try {
+        const stored = sessionStorage.getItem('erp_sr_companies');
+        if (stored) list = JSON.parse(stored);
+      } catch {}
+    }
+    if (list.length === 0) return [];
+
+    const names: string[] = [];
+    list.forEach(item => {
+      const comp = companies.find(c => c.id === item || c.name.toLowerCase() === item.toLowerCase());
+      if (comp) {
+        names.push(comp.name);
+      } else {
+        names.push(item);
+      }
+    });
+    return Array.from(new Set(names.filter(Boolean)));
   }, [loggedInSr, companies]);
 
   const products = React.useMemo(() => {
-    if (loggedInSr) {
+    if (srAssignedCompanyNames.length > 0) {
       return propProducts.filter(p => 
         srAssignedCompanyNames.some(cn => cn.toLowerCase() === (p.company || '').toLowerCase())
       );
     }
     return propProducts;
-  }, [propProducts, loggedInSr, srAssignedCompanyNames]);
+  }, [propProducts, srAssignedCompanyNames]);
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [lastOrder, setLastOrder] = useState<SalesOrderData | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCompany, setSelectedCompany] = useState('All');
+  const [selectedCompany, setSelectedCompany] = useState(() => {
+    if (srAssignedCompanyNames.length > 0) return srAssignedCompanyNames[0];
+    return 'All';
+  });
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedStockFilter, setSelectedStockFilter] = useState('All');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [selectedSR, setSelectedSR] = useState(() => {
+    if (loggedInSrNameStorage) return loggedInSrNameStorage;
     const sId = typeof window !== 'undefined' ? sessionStorage.getItem('erp_sr_id') : null;
     const currentSr = srs.find(sr => sr.id === sId);
     if (currentSr) return currentSr.name;
@@ -428,17 +452,28 @@ export default function SellModule({
   });
   const [selectedRoute, setSelectedRoute] = useState(routes[0]?.name || '');
   const [selectedDeliveryMan, setSelectedDeliveryMan] = useState(deliveryMen[0]?.name || '');
+  const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [orderStatus, setOrderStatus] = useState<'Shipped' | 'Delivered' | 'Pending'>('Pending');
   const [orderDate, setOrderDate] = useState<string>(new Date().toISOString().slice(0, 10));
 
+  // Sync selectedCompany if SR company resolved
+  React.useEffect(() => {
+    if (srAssignedCompanyNames.length > 0 && selectedCompany !== srAssignedCompanyNames[0]) {
+      setSelectedCompany(srAssignedCompanyNames[0]);
+    }
+  }, [srAssignedCompanyNames, selectedCompany]);
+
   const uniqueCompanies = React.useMemo(() => {
+    if (srAssignedCompanyNames.length > 0) {
+      return srAssignedCompanyNames;
+    }
     return Array.from(
       new Set([
         ...products.map(p => p.company),
         ...companies.map(c => c.name)
       ].filter(Boolean))
     );
-  }, [products, companies]);
+  }, [products, companies, srAssignedCompanyNames]);
 
   const filteredSrs = React.useMemo(() => {
     if (selectedCompany === 'All') return srs;
@@ -449,6 +484,24 @@ export default function SellModule({
     if (!comp) return srs;
     return srs.filter(sr => (sr.assignedCompanyIds || []).some(cid => cid === comp.id || cid.toLowerCase() === comp.name.toLowerCase()));
   }, [selectedCompany, srs, companies]);
+
+  const filteredCustomers = React.useMemo(() => {
+    let list = customers.filter(c => (c as any).isActive !== false && (c as any).is_active !== false);
+    if (selectedSR) {
+      const srObj = srs.find(s => s.name === selectedSR);
+      const routeObj = routes.find(r => r.name === selectedRoute);
+      list = list.filter(c => {
+        const matchSR = !c.assignedSR || c.assignedSR === selectedSR || (srObj && (c as any).assignedSRId === srObj.id);
+        const matchRoute = !selectedRoute || !c.routeId || (routeObj && c.routeId === routeObj.id);
+        return matchSR || matchRoute;
+      });
+    }
+    return list;
+  }, [customers, selectedSR, selectedRoute, srs, routes]);
+
+  const selectedCustomer = React.useMemo(() => {
+    return filteredCustomers.find(c => c.id === selectedCustomerId) || customers.find(c => c.id === selectedCustomerId) || null;
+  }, [filteredCustomers, customers, selectedCustomerId]);
 
   const filteredRoutes = React.useMemo(() => {
     if (!selectedSR) return routes;
@@ -468,6 +521,10 @@ export default function SellModule({
 
   // Cascade selections
   React.useEffect(() => {
+    if (loggedInSrNameStorage || loggedInSr) {
+      setSelectedSR(loggedInSrNameStorage || loggedInSr?.name || '');
+      return;
+    }
     if (filteredSrs.length > 0) {
       const exists = filteredSrs.some(sr => sr.name === selectedSR);
       if (!exists) {
@@ -476,7 +533,7 @@ export default function SellModule({
     } else {
       setSelectedSR('');
     }
-  }, [filteredSrs, selectedSR]);
+  }, [filteredSrs, selectedSR, loggedInSr, loggedInSrNameStorage]);
 
   React.useEffect(() => {
     if (filteredRoutes.length > 0) {
@@ -547,8 +604,8 @@ export default function SellModule({
     const existingIdx = cart.findIndex(i => i.product.id === product.id && i.selectedSpec === defaultSpec);
 
     const isCarton = product.primaryUnit === 'Carton';
-    const cartonsToAdd = customCartons !== undefined ? customCartons : (product.currentStock > 0 ? (isCarton ? 1 : 0) : 0);
-    const pcsToAdd = customPcs !== undefined ? customPcs : (product.currentStock > 0 ? (isCarton ? 0 : 1) : 0);
+    const cartonsToAdd = customCartons !== undefined ? customCartons : 0;
+    const pcsToAdd = customPcs !== undefined ? customPcs : 0;
     const bonus = customBonus ?? 0;
 
     const addedQty = getCartItemQtyInPrimaryUnit(cartonsToAdd, pcsToAdd, product);
@@ -635,18 +692,16 @@ export default function SellModule({
   }, []);
 
   const cartSubtotalDP = cart.reduce((s, item) => {
-    const isCarton = item.product.primaryUnit === 'Carton';
-    const cartonSize = isCarton ? 1 : (item.product.cartonSize || 24);
+    const isCarton = isCartonProduct(item.product);
+    const cartonSize = getCartonSize(item.product);
     const purchasePricePerCarton = isCarton ? item.product.defaultPP : item.product.defaultPP * cartonSize;
-    const purchasePricePerPiece = item.product.defaultPP;
+    const purchasePricePerPiece = isCarton ? (cartonSize > 0 ? item.product.defaultPP / cartonSize : item.product.defaultPP) : item.product.defaultPP;
     return s + (item.cartons * purchasePricePerCarton + item.pcs * purchasePricePerPiece);
   }, 0);
 
   const cartSubtotalTP = cart.reduce((s, item) => {
-    const isCarton = item.product.primaryUnit === 'Carton';
-    const cartonSize = isCarton ? 1 : (item.product.cartonSize || 24);
-    const pricePerCarton = item.product.pricePerCarton || (item.product.defaultWSP * cartonSize);
-    const pricePerPiece = isCarton ? 0 : (item.product.pricePerPiece || item.product.defaultWSP);
+    const pricePerCarton = getTPPerCarton(item.product);
+    const pricePerPiece = getTPPerPiece(item.product);
     return s + (item.cartons * pricePerCarton + item.pcs * pricePerPiece);
   }, 0);
 
@@ -670,34 +725,43 @@ export default function SellModule({
 
     const currentTimeStr = new Date().toISOString().slice(11, 24);
     const orderTimestamp = new Date(`${orderDate}T${currentTimeStr}`).toISOString();
-    const orderIdSuffix = Date.now();
+    const effectiveSR = selectedSR || loggedInSrNameStorage || loggedInSr?.name || '';
 
     const newChallans: ChallanItem[] = activeCartItems.map((item, idx) => {
-      const isCarton = item.product.primaryUnit === 'Carton';
-      const cartonSize = item.product.cartonSize || 24;
+      const isCarton = isCartonProduct(item.product);
+      const cartonSize = getCartonSize(item.product);
       const totalQty = isCarton ? item.cartons : (item.cartons * cartonSize + item.pcs);
 
-      const pricePerCarton = item.product.pricePerCarton || (item.product.defaultWSP * (isCarton ? 1 : cartonSize));
-      const pricePerPiece = item.product.pricePerPiece || item.product.defaultWSP;
-      const finalPrice = isCarton
-        ? item.cartons * pricePerCarton
-        : item.cartons * (item.product.pricePerCarton || item.product.defaultWSP * cartonSize) + item.pcs * pricePerPiece;
+      const pricePerCarton = getTPPerCarton(item.product);
+      const pricePerPiece = getTPPerPiece(item.product);
+      const finalPrice = (item.cartons * pricePerCarton) + (item.pcs * pricePerPiece);
       const rate = isCarton ? pricePerCarton : pricePerPiece;
 
       return {
-        id: `ch-${orderIdSuffix}-${idx}`,
-        productName: item.product.name, company: item.product.company,
-        attribute: item.selectedSpec, qty: totalQty, bonusQty: item.bonusQty,
-        totalQty: totalQty + item.bonusQty, rate,
-        totalAmount: finalPrice, srName: selectedSR, routeName: selectedRoute,
-        deliveryManName: selectedDeliveryMan, status: 'Pending',
-        returnedQty: item.returnedQty || 0, damagedQty: item.damagedQty || 0,
-        commissionAmount: 0, createdAt: orderTimestamp,
-        customerId: undefined,
-        customerName: '',
+        id: `CH-${Date.now()}-${idx + 1}`,
+        productName: item.product.name,
+        company: item.product.company || '',
+        attribute: item.selectedSpec,
+        qty: totalQty,
+        bonusQty: item.bonusQty,
+        totalQty: totalQty + item.bonusQty,
+        rate,
+        totalAmount: finalPrice,
+        srName: effectiveSR,
+        routeName: selectedRoute,
+        deliveryManName: selectedDeliveryMan,
+        status: 'Pending',
+        returnedQty: item.returnedQty || 0,
+        damagedQty: item.damagedQty || 0,
+        commissionAmount: 0,
+        createdAt: orderTimestamp,
+        customerId: selectedCustomer ? selectedCustomer.id : undefined,
+        customerName: selectedCustomer ? selectedCustomer.name : '',
         selectedUnitName: isCarton
           ? `${item.cartons} ctn`
-          : `${item.cartons} ctn, ${item.pcs} pcs`
+          : (item.cartons > 0 && item.pcs > 0
+              ? `${item.cartons} ctn, ${item.pcs} pcs`
+              : (item.cartons > 0 ? `${item.cartons} ctn` : `${item.pcs} pcs`))
       };
     });
 
@@ -705,18 +769,16 @@ export default function SellModule({
 
     const orderData: SalesOrderData = {
       items: activeCartItems.map(i => {
-        const isCarton = i.product.primaryUnit === 'Carton';
-        const cartonSize = i.product.cartonSize || 24;
+        const isCarton = isCartonProduct(i.product);
+        const cartonSize = getCartonSize(i.product);
         const totalQty = isCarton ? i.cartons : (i.cartons * cartonSize + i.pcs);
-        const pricePerCarton = i.product.pricePerCarton || (i.product.defaultWSP * (isCarton ? 1 : cartonSize));
-        const pricePerPiece = i.product.pricePerPiece || i.product.defaultWSP;
-        const finalPrice = isCarton
-          ? i.cartons * pricePerCarton
-          : i.cartons * (i.product.pricePerCarton || i.product.defaultWSP * cartonSize) + i.pcs * pricePerPiece;
+        const pricePerCarton = getTPPerCarton(i.product);
+        const pricePerPiece = getTPPerPiece(i.product);
+        const finalPrice = (i.cartons * pricePerCarton) + (i.pcs * pricePerPiece);
         const rate = isCarton ? pricePerCarton : pricePerPiece;
         return {
           productName: i.product.name,
-          company: i.product.company,
+          company: i.product.company || '',
           spec: i.selectedSpec,
           qty: totalQty,
           bonusQty: i.bonusQty,
@@ -724,9 +786,14 @@ export default function SellModule({
           total: finalPrice
         };
       }),
-      srName: selectedSR, routeName: selectedRoute, deliveryMan: selectedDeliveryMan,
-      commissionPct: 0, subtotal: cartSubtotalTP, commissionAmt: 0,
-      extraCommissionAmt: 0, netTotal,
+      srName: effectiveSR,
+      routeName: selectedRoute,
+      deliveryMan: selectedDeliveryMan,
+      commissionPct: 0,
+      subtotal: cartSubtotalTP,
+      commissionAmt: 0,
+      extraCommissionAmt: 0,
+      netTotal,
       orderIds: newChallans.map(c => c.id),
     };
     setLastOrder(orderData);
@@ -734,7 +801,7 @@ export default function SellModule({
     setOrderStatus('Pending');
     success('Checkout Successful', 'Challans generated and order saved.');
     onNavigate('delivery');
-  }, [cart, cartSubtotalTP, netTotal, selectedSR, selectedRoute, selectedDeliveryMan, orderDate, setChallans, onNavigate, customers, language]);
+  }, [cart, cartSubtotalTP, netTotal, selectedSR, selectedRoute, selectedDeliveryMan, orderDate, setChallans, onNavigate, customers, language, loggedInSrNameStorage, loggedInSr, selectedCustomer]);
 
   const LabelInput = ({ label, icon: Icon, children }: { label: string; icon?: React.ComponentType<{ className?: string }>; children: React.ReactNode }) => (
     <div className="space-y-1">
@@ -899,8 +966,33 @@ export default function SellModule({
               </div>
 
               {/* Form Settings Card Grid */}
-              <div className="p-4 bg-white border-b border-slate-100 space-y-4 shrink-0">
-                <div className="grid grid-cols-2 gap-3.5">
+              <div className="p-4 bg-white border-b border-slate-100 space-y-3 shrink-0">
+                {/* Retailer / Customer Selector */}
+                <div className="space-y-1">
+                  <LabelInput label={language === 'bn' ? 'রিটেইলার / দোকান নির্বাচন' : 'Retailer / Customer'} icon={User}>
+                    <select
+                      value={selectedCustomerId}
+                      onChange={e => setSelectedCustomerId(e.target.value)}
+                      className={selectCls}
+                    >
+                      <option value="">{language === 'bn' ? '-- দোকান বা কাস্টমার নির্বাচন করুন --' : '-- Select Retailer / Customer --'}</option>
+                      {filteredCustomers.map(c => (
+                        <option key={c.id} value={c.id}>
+                          {c.name} {c.market ? `(${c.market})` : ''} {c.due && c.due > 0 ? ` [${language === 'bn' ? 'বাকি' : 'Due'}: ৳${c.due.toLocaleString()}]` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </LabelInput>
+                  {selectedCustomer && (
+                    <div className="p-2 bg-slate-50 border border-slate-200 text-[11px] text-slate-600 flex flex-wrap items-center justify-between gap-2">
+                      <span><strong>{language === 'bn' ? 'বাজার:' : 'Market:'}</strong> {selectedCustomer.market || selectedCustomer.address || 'N/A'}</span>
+                      <span><strong>{language === 'bn' ? 'ফোন:' : 'Phone:'}</strong> {selectedCustomer.phone || 'N/A'}</span>
+                      <span className="text-amber-700 font-bold"><strong>{language === 'bn' ? 'বাকি:' : 'Due:'}</strong> ৳{(selectedCustomer.due || 0).toLocaleString()}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
                   <LabelInput label={translations[language].challan.srSelectLabel} icon={User}>
                     <select
                       value={selectedSR}
@@ -935,7 +1027,7 @@ export default function SellModule({
               </div>
 
               {/* Cart List Items Scroll block */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-3 modal-body min-h-[220px]">
+              <div className="flex-1 overflow-y-auto p-4 space-y-3 modal-body max-h-[340px]">
                 {cart.length === 0 ? (
                   <div className="flex flex-col items-center justify-center gap-3.5 py-12 text-slate-455 bg-gradient-to-b from-slate-50/50 to-white rounded-none border border-dashed border-slate-200">
                     <div className="w-14 h-14 rounded-none bg-slate-100/85 flex items-center justify-center border border-slate-200/50 shadow-sm">
@@ -956,48 +1048,42 @@ export default function SellModule({
                 )}
               </div>
 
-              {/* Total calculations receipt overlay footer */}
-              <div className="border-t border-slate-200 shrink-0">
-                <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 px-6 py-5 rounded-none-t-3xl text-white shadow-xl space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="text-right">
-                      <p className="text-[9px] font-black text-indigo-300 uppercase tracking-widest mb-1">DP (Cost)</p>
-                      <p className="text-base font-black font-mono text-indigo-100">{formatBDT(cartSubtotalDP)}</p>
+              {/* Total calculations receipt footer */}
+              <div className="border-t border-slate-200 bg-slate-900 text-white p-4.5 space-y-3.5 shrink-0 shadow-2xl">
+                <div className="flex items-center justify-between">
+                  {userRole !== 'sr' ? (
+                    <div className="text-left">
+                      <p className="text-[9px] font-black text-indigo-300 uppercase tracking-widest">DP (Cost)</p>
+                      <p className="text-sm font-black font-mono text-indigo-100">{formatBDT(cartSubtotalDP)}</p>
                     </div>
-                    <div className="text-right">
-                      <p className="text-[9px] font-black text-emerald-300 uppercase tracking-widest mb-1">TP (Wholesale)</p>
-                      <p className="text-base font-black font-mono text-emerald-100">{formatBDT(cartSubtotalTP)}</p>
+                  ) : (
+                    <div className="text-left">
+                      <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">{language === 'bn' ? 'আইটেম সংখ্যা' : 'Items'}</p>
+                      <p className="text-sm font-black font-mono text-slate-200">{cart.length} {language === 'bn' ? 'টি পণ্য' : 'items'}</p>
                     </div>
-                  </div>
-                  <div className="pt-3 border-t border-white/10">
-                    <div className="flex items-end justify-between">
-                      <div>
-                        <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest leading-none">{language === 'bn' ? 'মোট বিল' : 'Net Total'}</p>
-                        <p className="text-[9px] font-bold text-slate-400 mt-1">{cart.length} {language === 'bn' ? 'টি আইটেম' : `item${cart.length !== 1 ? 's' : ''}`}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-3xl font-black font-mono text-emerald-400 leading-none tracking-tight">{formatBDT(Math.max(0, netTotal))}</p>
-                      </div>
-                    </div>
+                  )}
+                  <div className="text-right">
+                    <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">{language === 'bn' ? 'সর্বমোট বিল (TP)' : 'Net Total (TP)'}</p>
+                    <p className="text-2xl font-black font-mono text-emerald-400 leading-none mt-0.5">{formatBDT(Math.max(0, netTotal))}</p>
                   </div>
                 </div>
 
-                <div className="bg-gradient-to-r from-slate-50/90 to-white px-5 py-4 space-y-3">
-                  {(() => {
-                    const isCartEmpty = cart.length === 0;
-                    return (
-                      <button id="pos-btn-checkout" type="submit" disabled={isCartEmpty}
-                        className={`w-full py-4 text-[15px] font-black flex items-center justify-center gap-2 rounded-none transition-all duration-200 cursor-pointer shadow-xl ${!isCartEmpty
-                          ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-emerald-200 active:scale-[0.97]'
-                          : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
-                          }`}>
-                        <Check className="w-5 h-5" />
-                        {translations[language].challan.dispatchBtn}
-                        {!isCartEmpty && <ChevronRight className="w-5 h-5 animate-pulse" />}
-                      </button>
-                    );
-                  })()}
-                </div>
+                <button
+                  id="pos-btn-checkout"
+                  type="submit"
+                  disabled={cart.length === 0}
+                  className={`w-full py-3.5 px-4 text-sm font-black flex items-center justify-center gap-2 rounded-none transition-all duration-200 cursor-pointer shadow-xl ${
+                    cart.length > 0
+                      ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-emerald-950/60 active:scale-[0.98]'
+                      : 'bg-slate-700 text-slate-400 cursor-not-allowed shadow-none'
+                  }`}
+                >
+                  <Truck className="w-4 h-4 stroke-[2.5]" />
+                  <span>
+                    {language === 'bn' ? 'চালান তৈরি ও ডেলিভারিতে পাঠান' : 'Generate Challan & Send to Delivery'}
+                  </span>
+                  {cart.length > 0 && <ChevronRight className="w-4 h-4 animate-pulse" />}
+                </button>
               </div>
             </div>
           </form>

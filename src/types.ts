@@ -6,6 +6,7 @@ export interface CompanyBrand {
   contactPerson?: string;
   phone?: string;
   address?: string;
+  isActive?: boolean;
 }
 
 export interface Category {
@@ -38,6 +39,7 @@ export interface Route {
   name: string;
   area: string;
   territory: string;
+  companyId?: string;
   assignedSRId?: string; // Mapped SR
   assignedDeliveryManId?: string; // Mapped Delivery Man
 }
@@ -48,8 +50,50 @@ export interface SR {
   phone: string;
   commissionRate: number;      // SR Commission Rate in percentage (e.g. 5)
   assignedCompanyIds: string[]; // Companies this SR distributes for
+  companyId?: string;           // Primary assigned company ID
+  companyName?: string;         // Primary assigned company name
+  assignedRouteId?: string;     // Primary assigned route ID
+  employeeId?: string;          // Employee ID
+  isActive?: boolean;           // Active status
   loginUsername?: string;       // Custom login username
   loginPassword?: string;       // Custom login password
+}
+
+export interface SRAttendance {
+  id: string;
+  srId: string;
+  srName: string;
+  date: string;            // 'YYYY-MM-DD'
+  dayStart?: string;       // ISO timestamp
+  dayEnd?: string;         // ISO timestamp
+  routeName?: string;
+  notes?: string;
+  createdAt?: string;
+}
+
+export interface SRCollection {
+  id: string;
+  srId: string;
+  srName: string;
+  challanId: string;
+  customerName: string;
+  customerId?: string;
+  companyId?: string;
+  amount: number;
+  paymentMethod: 'Cash' | 'bKash' | 'Nagad' | 'Bank' | 'Cheque';
+  collectedAt: string;
+  notes?: string;
+}
+
+export interface SRTarget {
+  id: string;
+  srId: string;
+  srName: string;
+  month: string;           // 'YYYY-MM'
+  companyId?: string;
+  companyName?: string;
+  targetAmount: number;
+  createdAt?: string;
 }
 
 export interface DeliveryMan {

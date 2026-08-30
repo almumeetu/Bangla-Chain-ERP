@@ -20,6 +20,7 @@ import type {
   Product, ProductAttribute, ChallanItem, Procurement,
   StockAdjustment, ExpenseCategory, ExpenseRecord, SR,
   CompanyBrand, Category, UnitOfMeasure, Godown, Route, DeliveryMan, Claim, ClaimSettlement,
+  SRAttendance, SRCollection, SRTarget,
 } from '../../../types';
 import {
   upsertProduct,    deleteProduct,
@@ -41,6 +42,9 @@ import {
   upsertClaim,      deleteClaim,
   upsertClaimReason, deleteClaimReason,
   upsertClaimSettlement, deleteClaimSettlement,
+  upsertSRAttendance, deleteSRAttendance,
+  upsertSRCollection, deleteSRCollection,
+  upsertSRTarget, deleteSRTarget,
   type AppSettings,
   type Customer,
   type ClaimReason,
@@ -105,6 +109,9 @@ export interface ErpDataStore {
   claims:            Claim[];
   claimReasons:      ClaimReason[];
   claimSettlements:  ClaimSettlement[];
+  srAttendance:      SRAttendance[];
+  srCollections:     SRCollection[];
+  srTargets:         SRTarget[];
 
   syncProducts:          (u: Product[]          | ((prev: Product[])          => Product[]))          => void;
   syncSrs:               (u: SR[]               | ((prev: SR[])               => SR[]))               => void;
@@ -124,6 +131,9 @@ export interface ErpDataStore {
   syncClaims:            (u: Claim[]            | ((prev: Claim[])            => Claim[]))            => void;
   syncClaimReasons:      (u: ClaimReason[]      | ((prev: ClaimReason[])      => ClaimReason[]))      => void;
   syncClaimSettlements:  (u: ClaimSettlement[]  | ((prev: ClaimSettlement[])  => ClaimSettlement[]))  => void;
+  syncSRAttendance:      (u: SRAttendance[]     | ((prev: SRAttendance[])     => SRAttendance[]))     => void;
+  syncSRCollections:     (u: SRCollection[]     | ((prev: SRCollection[])     => SRCollection[]))     => void;
+  syncSRTargets:         (u: SRTarget[]         | ((prev: SRTarget[])         => SRTarget[]))         => void;
   syncShopName:     (val: string | ((p: string) => string)) => void;
   syncShopSubBrand: (val: string | ((p: string) => string)) => void;
   syncShopLogo:     (val: string | ((p: string) => string)) => void;
@@ -150,6 +160,9 @@ export interface ErpDataStore {
   setClaims:            (u: Claim[]            | ((prev: Claim[])            => Claim[]))            => void;
   setClaimReasons:      (u: ClaimReason[]      | ((prev: ClaimReason[])      => ClaimReason[]))      => void;
   setClaimSettlements:  (u: ClaimSettlement[]  | ((prev: ClaimSettlement[])  => ClaimSettlement[]))  => void;
+  setSRAttendance:      (u: SRAttendance[]     | ((prev: SRAttendance[])     => SRAttendance[]))     => void;
+  setSRCollections:     (u: SRCollection[]     | ((prev: SRCollection[])     => SRCollection[]))     => void;
+  setSRTargets:         (u: SRTarget[]         | ((prev: SRTarget[])         => SRTarget[]))         => void;
   setShopName:          (val: string | ((p: string) => string)) => void;
   setShopSubBrand:      (val: string | ((p: string) => string)) => void;
   setShopLogo:          (val: string | ((p: string) => string)) => void;
@@ -183,6 +196,9 @@ export function useErpData(
   const [claims,            _setClaims]            = useState<Claim[]>([]);
   const [claimReasons,      _setClaimReasons]      = useState<ClaimReason[]>([]);
   const [claimSettlements,  _setClaimSettlements]  = useState<ClaimSettlement[]>([]);
+  const [srAttendance,      _setSRAttendance]      = useState<SRAttendance[]>([]);
+  const [srCollections,     _setSRCollections]     = useState<SRCollection[]>([]);
+  const [srTargets,         _setSRTargets]         = useState<SRTarget[]>([]);
   const [_shopName,         setShopNameRaw]        = useState(shopName);
   const [_shopSubBrand,     setShopSubBrandRaw]    = useState(shopSubBrand);
   const [_shopLogo,         setShopLogoRaw]        = useState(shopLogo);
@@ -206,6 +222,9 @@ export function useErpData(
   const syncClaims            = makeSyncer(_setClaims,            upsertClaim,            deleteClaim);
   const syncClaimReasons      = makeSyncer(_setClaimReasons,      upsertClaimReason,      deleteClaimReason);
   const syncClaimSettlements  = makeSyncer(_setClaimSettlements,  upsertClaimSettlement,  deleteClaimSettlement);
+  const syncSRAttendance      = makeSyncer(_setSRAttendance,      upsertSRAttendance,      deleteSRAttendance);
+  const syncSRCollections     = makeSyncer(_setSRCollections,     upsertSRCollection,     deleteSRCollection);
+  const syncSRTargets         = makeSyncer(_setSRTargets,         upsertSRTarget,         deleteSRTarget);
 
   function syncAdjustments(updaterOrValue: StockAdjustment[] | ((prev: StockAdjustment[]) => StockAdjustment[])) {
     _setAdjustments(prev => {
@@ -263,6 +282,7 @@ export function useErpData(
     products, srs, deliveryMen, customers, attributes, challans,
     procurements, adjustments, categories, expenses, companies,
     productCategories, units, godowns, routes, claims, claimReasons, claimSettlements,
+    srAttendance, srCollections, srTargets,
     shopName: _shopName, shopSubBrand: _shopSubBrand, shopLogo: _shopLogo, ownerName: _ownerName,
 
     // ── Sync-aware update functions ─────────────────────────────────────────
@@ -271,6 +291,7 @@ export function useErpData(
     syncChallans, syncProcurements, syncAdjustments, syncExpenseCategories,
     syncExpenses, syncCompanies, syncProductCategories, syncUnits,
     syncGodowns, syncRoutes, syncClaims, syncClaimReasons, syncClaimSettlements,
+    syncSRAttendance, syncSRCollections, syncSRTargets,
     syncShopName, syncShopSubBrand, syncShopLogo, syncOwnerName,
 
     // ── setXxx = syncXxx (P0 bug fix: data now persists) ────────────────────
@@ -292,6 +313,9 @@ export function useErpData(
     setClaims:            syncClaims,
     setClaimReasons:      syncClaimReasons,
     setClaimSettlements:  syncClaimSettlements,
+    setSRAttendance:      syncSRAttendance,
+    setSRCollections:     syncSRCollections,
+    setSRTargets:         syncSRTargets,
     setShopName:          syncShopName,
     setShopSubBrand:      syncShopSubBrand,
     setShopLogo:          syncShopLogo,

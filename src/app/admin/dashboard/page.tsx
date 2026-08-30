@@ -17,6 +17,10 @@ import HelpGuideModule       from '../../../components/HelpGuideModule';
 import ReportsModule         from '../../../components/ReportsModule';
 import LoginPage             from '../../../components/LoginPage';
 import ClaimManagementModule from '../../../components/ClaimManagementModule';
+import SRDashboard           from '../../../components/SRDashboard';
+import SRAttendanceModule   from '../../../components/SRAttendanceModule';
+import SRCollectionModule   from '../../../components/SRCollectionModule';
+import SRTargetsModule      from '../../../components/SRTargetsModule';
 
 import { loadAllData, seedInitialData } from '../../../lib/db';
 import { generatePDF, type PDFView }    from '../../../lib/generatePDF';
@@ -30,6 +34,7 @@ export default function App() {
   const [ready,           setReady]           = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userRole,        setUserRole]        = useState<'admin' | 'sr'>('admin');
+  const [srName,          setSrName]          = useState<string>('');
   const [activeTab,       setActiveTab]       = useState<TabID>('dashboard');
   const [activeSubTab,    setActiveSubTab]    = useState<string>('');
   const [sidebarCollapsed,setSidebarCollapsed]= useState(false);
@@ -82,6 +87,9 @@ export default function App() {
       db.setClaims(data.claims);
       db.setClaimReasons(data.claimReasons);
       db.setClaimSettlements(data.claimSettlements);
+      if (data.srAttendance)  db.setSRAttendance(data.srAttendance);
+      if (data.srCollections) db.setSRCollections(data.srCollections);
+      if (data.srTargets)     db.setSRTargets(data.srTargets);
       if (data.settings.shopName)     db.setShopName(data.settings.shopName);
       if (data.settings.shopSubBrand) db.setShopSubBrand(data.settings.shopSubBrand);
       if (data.settings.shopLogo)     db.setShopLogo(data.settings.shopLogo);
@@ -126,10 +134,13 @@ export default function App() {
 
     // SR session check (SR login is sessionStorage-based, not Supabase Auth)
     const srId = typeof window !== 'undefined' ? sessionStorage.getItem('erp_sr_id') : null;
+    const storedSrName = typeof window !== 'undefined' ? sessionStorage.getItem('erp_sr_name') : null;
     if (srId) {
       setIsAuthenticated(true);
       setUserRole('sr');
-      setActiveTab('sales');
+      if (storedSrName) setSrName(storedSrName);
+      const savedTab = lsGet('erp_active_tab');
+      setActiveTab((savedTab as TabID) || 'sr-dashboard');
       applyData(loadAllData());
       setReady(true);
       return;
@@ -170,10 +181,13 @@ export default function App() {
     setIsAuthenticated(true);
     setUserRole(role);
     if (role === 'sr') {
-      setActiveTab('sales');
+      const storedSrName = typeof window !== 'undefined' ? sessionStorage.getItem('erp_sr_name') : null;
+      if (storedSrName) setSrName(storedSrName);
+      setActiveTab('sr-dashboard');
       applyData(loadAllData());
       return;
     }
+    setSrName('');
     const tab = lsGet('erp_active_tab');
     setActiveTab((tab as TabID) || 'dashboard');
     applyData(loadAllData());
@@ -186,6 +200,7 @@ export default function App() {
     sessionStorage.removeItem('erp_sr_name');
     sessionStorage.removeItem('erp_sr_owner_id');
     sessionStorage.removeItem('erp_sr_companies');
+    setSrName('');
     lsDel('erp_auth_role');
     lsDel('erp_active_tab');
     lsDel('erp_active_sub_tab');
@@ -241,13 +256,72 @@ export default function App() {
     godowns:           db.godowns,           setGodowns:           db.syncGodowns,
     routes:            db.routes,            setRoutes:            db.syncRoutes,
     language,
+    userRole,
   };
 
   const t = translations[language];
 
   // ── Module renderer ────────────────────────────────────────────────────────────
   function renderModule() {
+    const renderSRDashboard = () => (
+      <SRDashboard
+        srName={srName}
+        srs={db.srs}
+        products={db.products}
+        challans={db.challans}
+        routes={db.routes}
+        companies={db.companies}
+        attendance={db.srAttendance}
+        collections={db.srCollections}
+        targets={db.srTargets}
+        onNavigate={handleNavigate}
+        language={language}
+      />
+    );
+
+    // If SR is logged in, restrict access strictly to SR modules only
+    if (userRole === 'sr') {
+      const allowedSRTabs = ['sr-dashboard', 'sales', 'delivery', 'sr-collection', 'sr-attendance', 'sr-targets', 'reports'];
+      if (!allowedSRTabs.includes(activeTab)) {
+        return renderSRDashboard();
+      }
+    }
+
     switch (activeTab) {
+      case 'sr-dashboard': return renderSRDashboard();
+      case 'sr-attendance': return (
+        <SRAttendanceModule
+          srName={srName}
+          srs={db.srs}
+          routes={db.routes}
+          attendance={db.srAttendance}
+          setAttendance={db.syncSRAttendance}
+          language={language}
+        />
+      );
+      case 'sr-collection': return (
+        <SRCollectionModule
+          srName={srName}
+          srs={db.srs}
+          challans={db.challans}
+          setChallans={db.syncChallans}
+          collections={db.srCollections}
+          setCollections={db.syncSRCollections}
+          language={language}
+        />
+      );
+      case 'sr-targets': return (
+        <SRTargetsModule
+          srName={srName}
+          srs={db.srs}
+          challans={db.challans}
+          targets={db.srTargets}
+          setTargets={db.syncSRTargets}
+          companies={db.companies}
+          userRole={userRole}
+          language={language}
+        />
+      );
       case 'dashboard': return (
         <Dashboard products={db.products} challans={db.challans} procurements={db.procurements}
           expenses={db.expenses} srs={db.srs} onNavigate={handleNavigate}
@@ -260,7 +334,8 @@ export default function App() {
           categories={db.productCategories} units={db.units}
           onNavigate={handleNavigate} language={language}
           customers={db.customers} setCustomers={db.syncCustomers as any}
-          companies={db.companies} />
+          companies={db.companies}
+          userRole={userRole} />
       );
       case 'delivery': return (
         <ChallanModule challans={db.challans} setChallans={db.syncChallans}
@@ -268,7 +343,9 @@ export default function App() {
           products={db.products} setProducts={db.syncProducts}
           attributes={db.attributes} language={language}
           customers={db.customers} setCustomers={db.syncCustomers as any}
-          companies={db.companies} />
+          companies={db.companies}
+          userRole={userRole}
+          loggedInSrName={srName || undefined} />
       );
       case 'stock': return (
         <StockAdjustmentModule attributes={db.attributes} setAttributes={db.syncAttributes}
@@ -506,7 +583,7 @@ export default function App() {
           shopName={db.shopName}
           shopSubBrand={db.shopSubBrand}
           shopLogo={db.shopLogo}
-          ownerName={db.ownerName}
+          ownerName={userRole === 'sr' ? (srName || 'SR') : db.ownerName}
           userRole={userRole}
         />
       </div>
@@ -560,10 +637,14 @@ export default function App() {
 
             <div className="flex items-center gap-1.5 sm:gap-2 border-l border-slate-200 pl-1.5 sm:pl-2 md:pl-3">
               <span className="text-xs font-semibold text-slate-700 hidden md:block">
-                {db.ownerName || translations[language].header.profileTitle}
+                {userRole === 'sr'
+                  ? (srName ? `${srName} (SR)` : 'SR Panel')
+                  : (db.ownerName || translations[language].header.profileTitle)}
               </span>
               <div className="w-8 h-8 rounded-none bg-slate-900 flex items-center justify-center font-semibold text-white text-sm select-none shrink-0">
-                {((db.ownerName || db.shopName)?.[0] ?? 'S').toUpperCase()}
+                {userRole === 'sr'
+                  ? ((srName || 'S')?.[0] ?? 'S').toUpperCase()
+                  : ((db.ownerName || db.shopName)?.[0] ?? 'S').toUpperCase()}
               </div>
             </div>
 

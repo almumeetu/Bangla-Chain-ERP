@@ -89,6 +89,42 @@ export function getTP(product: Product): number {
 }
 
 /**
+ * Trade Price (TP) per Carton.
+ * - If explicit pricePerCarton > 0, returns pricePerCarton.
+ * - If product.primaryUnit === 'Carton', defaultWSP is already the carton price.
+ * - If product.primaryUnit === 'Piece', returns defaultWSP * cartonSize.
+ */
+export function getTPPerCarton(product: Product): number {
+  const cs = getCartonSize(product);
+  if (product.pricePerCarton && product.pricePerCarton > 0) {
+    return product.pricePerCarton;
+  }
+  if (isCartonProduct(product)) {
+    return product.defaultWSP || 0;
+  }
+  const pcPrice = product.pricePerPiece || product.defaultWSP || 0;
+  return pcPrice * cs;
+}
+
+/**
+ * Trade Price (TP) per Piece.
+ * - If explicit pricePerPiece > 0, returns pricePerPiece.
+ * - If product.primaryUnit === 'Piece', defaultWSP is already the piece price.
+ * - If product.primaryUnit === 'Carton', returns defaultWSP / cartonSize.
+ */
+export function getTPPerPiece(product: Product): number {
+  const cs = getCartonSize(product);
+  if (product.pricePerPiece && product.pricePerPiece > 0) {
+    return product.pricePerPiece;
+  }
+  if (isPieceProduct(product)) {
+    return product.defaultWSP || 0;
+  }
+  const ctnPrice = product.pricePerCarton || product.defaultWSP || 0;
+  return cs > 0 ? (ctnPrice / cs) : ctnPrice;
+}
+
+/**
  * Dealer/Purchase Price (DP) per selling unit.
  * defaultPP is stored per selling unit for BOTH product types:
  *   - Piece product : defaultPP = price per piece.

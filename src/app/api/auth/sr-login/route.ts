@@ -103,6 +103,10 @@ async function generateSrToken(payload: {
   owner_id: string;
   username: string;
   name: string;
+  company_id?: string | null;
+  company_name?: string | null;
+  assigned_company_ids?: string[];
+  assigned_route_id?: string | null;
 }): Promise<string> {
   const secret = process.env.SR_JWT_SECRET;
   if (!secret) throw new Error('SR_JWT_SECRET is not configured.');
@@ -115,6 +119,10 @@ async function generateSrToken(payload: {
     owner_id: payload.owner_id,
     username: payload.username,
     name: payload.name,
+    company_id: payload.company_id || '',
+    company_name: payload.company_name || '',
+    assigned_company_ids: payload.assigned_company_ids || [],
+    assigned_route_id: payload.assigned_route_id || '',
     role: 'sr',
   })
     .setProtectedHeader({ alg: 'HS256' })
@@ -202,7 +210,7 @@ export async function POST(req: NextRequest) {
 
   let query = supabase
     .from('srs')
-    .select('id, name, owner_id, login_username, login_password, password_hash, is_active, assigned_company_ids, commission_rate, phone')
+    .select('id, name, owner_id, login_username, login_password, password_hash, is_active, company_id, assigned_route_id, assigned_company_ids, commission_rate, phone')
     .eq('login_username', username);
 
   if (owner_id) {
@@ -253,12 +261,55 @@ export async function POST(req: NextRequest) {
         {
           success: false,
           error: 'ACCOUNT_DISABLED',
-          message: 'এই অ্যাকাউন্টটি নিষ্ক্রিয় করা হয়েছে।',
+          message: 'এই অ্যাকাউন্টটি নিষ্ক্রিয় করা হয়েছে। অ্যাডমিন বা ডিস্ট্রিবিউটরের সাথে যোগাযোগ করুন।',
         },
         { status: 403 }
       );
     }
     return NextResponse.json(GENERIC_ERROR, { status: 401 });
+  }
+
+  // ── 5. Resolve Company and verify Company Active Status ────────────────────
+  let resolvedCompanyId: string = sr.company_id || '';
+  let resolvedCompanyName: string = '';
+
+  if (!resolvedCompanyId && sr.assigned_company_ids && sr.assigned_company_ids.length > 0) {
+    resolvedCompanyId = sr.assigned_company_ids[0];
+  }
+
+  if (resolvedCompanyId) {
+    // Look up company in companies table
+    let compQuery = supabase
+      .from('companies')
+      .select('id, name, is_active')
+      .eq('owner_id', sr.owner_id);
+
+    // Try by ID or Name
+    const { data: compList } = await compQuery;
+    if (compList && compList.length > 0) {
+      const foundComp = compList.find(
+        (c: any) => c.id === resolvedCompanyId || c.name.toLowerCase() === resolvedCompanyId.toLowerCase()
+      );
+      if (foundComp) {
+        if (foundComp.is_active === false) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: 'COMPANY_INACTIVE',
+              message: 'আপনার কোম্পানি অ্যাকাউন্টটি বর্তমানে নিষ্ক্রিয় রয়েছে। অনুগ্রহ করে অ্যাডমিন/ডিস্ট্রিবিউটরের সাথে যোগাযোগ করুন।',
+            },
+            { status: 403 }
+          );
+        }
+        resolvedCompanyId = foundComp.id;
+        resolvedCompanyName = foundComp.name;
+      }
+    }
+  }
+
+  // Fallback: If no company name resolved yet but company_id present
+  if (!resolvedCompanyName && resolvedCompanyId) {
+    resolvedCompanyName = resolvedCompanyId;
   }
 
   // ── 6. Upgrade legacy plain-text password to bcrypt hash ──────────────────
@@ -271,7 +322,7 @@ export async function POST(req: NextRequest) {
         .from('srs')
         .update({ password_hash: hash, login_password: null }) // Clear plain-text
         .eq('id', sr.id)
-        .eq('owner_id', owner_id);
+        .eq('owner_id', sr.owner_id);
     } catch {
       // Non-fatal: upgrade failure is logged but does not block login
       console.warn('[SR Auth] Password upgrade to bcrypt failed for SR:', sr.id);
@@ -283,9 +334,9 @@ export async function POST(req: NextRequest) {
     .from('srs')
     .update({ last_login_at: new Date().toISOString() })
     .eq('id', sr.id)
-    .eq('owner_id', owner_id);
+    .eq('owner_id', sr.owner_id);
 
-  // ── 8. Generate JWT token ──────────────────────────────────────────────────
+  // ── 8. Generate JWT token with full Company Scope ──────────────────────────
   let token: string;
   try {
     token = await generateSrToken({
@@ -293,6 +344,10 @@ export async function POST(req: NextRequest) {
       owner_id: sr.owner_id,
       username,
       name: sr.name,
+      company_id: resolvedCompanyId,
+      company_name: resolvedCompanyName,
+      assigned_company_ids: sr.assigned_company_ids || [],
+      assigned_route_id: sr.assigned_route_id || null,
     });
   } catch (err: any) {
     console.error('[SR Auth] JWT generation failed:', err.message);
@@ -304,14 +359,19 @@ export async function POST(req: NextRequest) {
 
   // ── 9. Audit log success ───────────────────────────────────────────────────
   await supabase.from('audit_logs').insert({
-    owner_id,
+    owner_id: sr.owner_id,
     user_id: sr.id,
     action: 'SR_LOGIN_SUCCESS',
     module: 'Auth',
     entity_type: 'sr',
     entity_id: sr.id,
     ip_address: ip,
-    new_data: { username, name: sr.name },
+    new_data: {
+      username,
+      name: sr.name,
+      company_id: resolvedCompanyId,
+      company_name: resolvedCompanyName,
+    },
   });
 
   // ── 10. Return response with HttpOnly cookie ───────────────────────────────
@@ -322,7 +382,10 @@ export async function POST(req: NextRequest) {
       name: sr.name,
       phone: sr.phone,
       commission_rate: sr.commission_rate,
-      assigned_company_ids: sr.assigned_company_ids,
+      company_id: resolvedCompanyId,
+      company_name: resolvedCompanyName,
+      assigned_company_ids: sr.assigned_company_ids || [],
+      assigned_route_id: sr.assigned_route_id || null,
       owner_id: sr.owner_id,
     },
     // Also return token in body for mobile/API clients

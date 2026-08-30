@@ -16,6 +16,7 @@ import type {
   Product, ProductAttribute, ChallanItem, Procurement,
   StockAdjustment, ExpenseCategory, ExpenseRecord, SR, DeliveryMan,
   CompanyBrand, Category, UnitOfMeasure, Godown, Route, Claim, ClaimSettlement,
+  SRAttendance, SRCollection, SRTarget,
 } from '../types';
 
 import { db, srLogin as _srLogin } from './supabase-db';
@@ -48,6 +49,10 @@ function mapSR(row: Awaited<ReturnType<typeof db.srs.getAll>>[number]): SR {
     phone: row.phone,
     commissionRate: Number(row.commission_rate),
     assignedCompanyIds: row.assigned_company_ids ?? [],
+    companyId: (row as any).company_id ?? undefined,
+    assignedRouteId: (row as any).assigned_route_id ?? undefined,
+    employeeId: (row as any).employee_id ?? undefined,
+    isActive: (row as any).is_active ?? true,
     loginUsername: row.login_username ?? '',
     loginPassword: row.login_password ?? '',
   } as SR;
@@ -70,6 +75,7 @@ function mapCompany(row: Awaited<ReturnType<typeof db.companies.getAll>>[number]
     contactPerson: row.contact_person ?? '',
     phone: row.phone ?? '',
     address: row.address ?? '',
+    isActive: (row as any).is_active ?? true,
   } as CompanyBrand;
 }
 
@@ -101,6 +107,7 @@ function mapRoute(row: Awaited<ReturnType<typeof db.routes.getAll>>[number]): Ro
     name: row.name,
     area: row.area,
     territory: row.territory,
+    companyId: (row as any).company_id ?? undefined,
     assignedSRId: row.assigned_sr_id ?? '',
     assignedDeliveryManId: row.assigned_delivery_man_id ?? '',
   } as Route;
@@ -117,6 +124,20 @@ function mapAttribute(row: Awaited<ReturnType<typeof db.productAttributes.getAll
 }
 
 function mapProduct(row: Awaited<ReturnType<typeof db.products.getAll>>[number]): Product {
+  const primaryUnit = (row.primary_unit || 'Piece') as 'Piece' | 'Carton';
+  const cartonSize = Number(row.carton_size) > 0 ? Number(row.carton_size) : 24;
+  const defaultWSP = Number(row.default_wsp) || 0;
+  
+  let pricePerCarton = Number(row.price_per_carton);
+  let pricePerPiece = Number(row.price_per_piece);
+
+  if (!pricePerCarton || isNaN(pricePerCarton) || pricePerCarton <= 0) {
+    pricePerCarton = primaryUnit === 'Carton' ? defaultWSP : defaultWSP * cartonSize;
+  }
+  if (!pricePerPiece || isNaN(pricePerPiece) || pricePerPiece <= 0) {
+    pricePerPiece = primaryUnit === 'Piece' ? defaultWSP : (cartonSize > 0 ? defaultWSP / cartonSize : defaultWSP);
+  }
+
   return {
     id: row.id,
     name: row.name,
@@ -125,16 +146,16 @@ function mapProduct(row: Awaited<ReturnType<typeof db.products.getAll>>[number])
     createdAt: row.created_at ?? new Date().toISOString(),
     categoryId: row.category_id ?? '',
     defaultGodownId: row.default_godown_id ?? '',
-    defaultPP: Number(row.default_pp),
-    defaultMRP: Number(row.default_mrp),
-    defaultWSP: Number(row.default_wsp),
-    currentStock: Number(row.current_stock),
-    damagedStock: Number(row.damaged_stock),
-    cartonSize: Number(row.carton_size),
-    pricePerCarton: Number(row.price_per_carton),
-    pricePerPiece: Number(row.price_per_piece),
-    primaryUnit: (row.primary_unit || 'Piece') as 'Piece' | 'Carton',
-    stockAlertThreshold: Number(row.stock_alert_threshold),
+    defaultPP: Number(row.default_pp) || 0,
+    defaultMRP: Number(row.default_mrp) || 0,
+    defaultWSP,
+    currentStock: Number(row.current_stock) || 0,
+    damagedStock: Number(row.damaged_stock) || 0,
+    cartonSize,
+    pricePerCarton,
+    pricePerPiece,
+    primaryUnit,
+    stockAlertThreshold: Number(row.stock_alert_threshold) || 0,
     customUnits: (row.custom_units as any) ?? [],
     damageHistory: (row.damage_history as any) ?? [],
   } as unknown as Product;
@@ -230,11 +251,57 @@ function mapCustomer(row: Awaited<ReturnType<typeof db.customers.getAll>>[number
     address: row.address ?? '',
     market: row.market ?? '',
     assignedSR: row.assigned_sr ?? '',
+    assignedSRId: (row as any).assigned_sr_id ?? undefined,
+    companyId: (row as any).company_id ?? undefined,
     routeId: row.route_id ?? '',
     creditLimit: Number(row.credit_limit ?? 0),
     creditDays: Number(row.credit_days ?? 30),
     due: Number(row.due ?? 0),
+    isActive: (row as any).is_active ?? true,
   } as Customer;
+}
+
+function mapSRAttendance(row: Awaited<ReturnType<typeof db.srAttendance.getAll>>[number]): SRAttendance {
+  return {
+    id: row.id,
+    srId: row.sr_id,
+    srName: row.sr_name,
+    date: row.date,
+    dayStart: row.day_start ?? undefined,
+    dayEnd: row.day_end ?? undefined,
+    routeName: row.route_name ?? '',
+    notes: row.notes ?? '',
+    createdAt: row.created_at ?? '',
+  };
+}
+
+function mapSRCollection(row: Awaited<ReturnType<typeof db.srCollections.getAll>>[number]): SRCollection {
+  return {
+    id: row.id,
+    srId: row.sr_id,
+    srName: row.sr_name,
+    challanId: row.challan_id,
+    customerName: row.customer_name,
+    customerId: (row as any).customer_id ?? undefined,
+    companyId: (row as any).company_id ?? undefined,
+    amount: Number(row.amount),
+    paymentMethod: (row.payment_method || 'Cash') as any,
+    collectedAt: row.collected_at ?? '',
+    notes: row.notes ?? '',
+  };
+}
+
+function mapSRTarget(row: Awaited<ReturnType<typeof db.srTargets.getAll>>[number]): SRTarget {
+  return {
+    id: row.id,
+    srId: row.sr_id,
+    srName: row.sr_name,
+    month: row.month,
+    companyId: row.company_id ?? '',
+    companyName: row.company_name ?? '',
+    targetAmount: Number(row.target_amount),
+    createdAt: row.created_at ?? '',
+  };
 }
 
 // ── Settings ──────────────────────────────────────────────────────────────────
@@ -268,6 +335,10 @@ export async function upsertSR(sr: SR): Promise<void> {
     phone: sr.phone ?? '',
     commission_rate: sr.commissionRate ?? 5,
     assigned_company_ids: sr.assignedCompanyIds ?? [],
+    company_id: sr.companyId ?? (sr.assignedCompanyIds?.[0] || null),
+    assigned_route_id: sr.assignedRouteId ?? null,
+    employee_id: sr.employeeId ?? null,
+    is_active: sr.isActive ?? true,
     login_username: sr.loginUsername ?? null,
     login_password: sr.loginPassword ?? null,
     password_hash: null,
@@ -372,6 +443,7 @@ export async function upsertRoute(r: Route): Promise<void> {
     name: r.name,
     area: r.area ?? '',
     territory: r.territory ?? '',
+    company_id: r.companyId ?? null,
     assigned_sr_id: r.assignedSRId ?? null,
     assigned_delivery_man_id: r.assignedDeliveryManId ?? null,
   });
@@ -758,10 +830,13 @@ export async function upsertCustomer(c: Customer): Promise<void> {
     address: c.address ?? '',
     market: c.market ?? '',
     assigned_sr: c.assignedSR ?? '',
+    assigned_sr_id: c.assignedSRId ?? null,
+    company_id: c.companyId ?? null,
     route_id: c.routeId ?? null,
     credit_limit: c.creditLimit ?? 0,
     credit_days: c.creditDays ?? 30,
     due: c.due ?? 0,
+    is_active: c.isActive ?? true,
   });
 }
 export async function deleteCustomer(id: string): Promise<void> {
@@ -870,6 +945,97 @@ export async function deleteClaimSettlement(id: string): Promise<void> {
   await db.claimSettlements.delete(id);
 }
 
+// ── SR Attendance ────────────────────────────────────────────────────────────
+
+export async function upsertSRAttendance(att: SRAttendance): Promise<void> {
+  const ownerId = await getOwnerId();
+  await db.srAttendance.upsert({
+    id: att.id,
+    owner_id: ownerId,
+    sr_id: att.srId,
+    sr_name: att.srName,
+    date: att.date,
+    day_start: att.dayStart || null,
+    day_end: att.dayEnd || null,
+    route_name: att.routeName || '',
+    notes: att.notes || '',
+  });
+}
+
+export async function deleteSRAttendance(id: string): Promise<void> {
+  await db.srAttendance.delete(id);
+}
+
+// ── SR Collections ───────────────────────────────────────────────────────────
+
+export async function upsertSRCollection(col: SRCollection): Promise<void> {
+  const ownerId = await getOwnerId();
+  const rowPayload: any = {
+    id: col.id,
+    owner_id: ownerId,
+    sr_id: col.srId,
+    sr_name: col.srName,
+    challan_id: col.challanId,
+    customer_name: col.customerName,
+    amount: col.amount,
+    payment_method: col.paymentMethod,
+    collected_at: col.collectedAt || new Date().toISOString(),
+    notes: col.notes || '',
+  };
+
+  if (col.customerId) rowPayload.customer_id = col.customerId;
+  if (col.companyId) rowPayload.company_id = col.companyId;
+
+  const res = await db.srCollections.upsert(rowPayload);
+  if (res?.error) {
+    // If schema cache lacks customer_id/company_id column in older tables, retry with fallback payload
+    delete rowPayload.customer_id;
+    delete rowPayload.company_id;
+    await db.srCollections.upsert(rowPayload);
+  }
+
+  // Synchronize Customer Due Balance in master DMS customers table
+  try {
+    if (col.customerId) {
+      const cust = await db.customers.getById(col.customerId);
+      if (cust) {
+        const currentDue = Number(cust.due ?? 0);
+        const newDue = Math.max(0, currentDue - Number(col.amount || 0));
+        await db.customers.upsert({
+          ...cust,
+          due: newDue,
+        });
+      }
+    }
+  } catch (err) {
+    console.warn('[upsertSRCollection] Customer due sync warning:', err);
+  }
+}
+
+export async function deleteSRCollection(id: string): Promise<void> {
+  await db.srCollections.delete(id);
+}
+
+// ── SR Targets ───────────────────────────────────────────────────────────────
+
+export async function upsertSRTarget(tgt: SRTarget): Promise<void> {
+  const ownerId = await getOwnerId();
+  await db.srTargets.upsert({
+    id: tgt.id,
+    owner_id: ownerId,
+    sr_id: tgt.srId,
+    sr_name: tgt.srName,
+    month: tgt.month,
+    company_id: tgt.companyId || '',
+    company_name: tgt.companyName || '',
+    target_amount: tgt.targetAmount,
+  });
+}
+
+export async function deleteSRTarget(id: string): Promise<void> {
+  await db.srTargets.delete(id);
+}
+
 // ── Load all data ─────────────────────────────────────────────────────────────
 // Fetches everything from Supabase in parallel.
 
@@ -879,6 +1045,7 @@ export async function loadAllData(): Promise<AllErpData> {
     sbChallans, sbProcurements, sbAdjustments, sbExpCats, sbExpenses,
     sbCompanies, sbProdCats, sbUnits, sbGodowns, sbRoutes,
     sbClaims, sbClaimSettlements, sbClaimReasons,
+    sbSRAttendance, sbSRCollections, sbSRTargets,
   ] = await Promise.all([
     db.products.getAll(),
     db.srs.getAll(),
@@ -898,6 +1065,9 @@ export async function loadAllData(): Promise<AllErpData> {
     db.claims.getAll(),
     db.claimSettlements.getAll(),
     db.claimReasons.getAll(),
+    db.srAttendance.getAll().catch(() => []),
+    db.srCollections.getAll().catch(() => []),
+    db.srTargets.getAll().catch(() => []),
   ]);
 
   // Fetch settings (single row)
@@ -931,6 +1101,9 @@ export async function loadAllData(): Promise<AllErpData> {
     claims: sbClaims.map(mapClaim),
     claimSettlements: sbClaimSettlements.map(mapClaimSettlement),
     claimReasons: sbClaimReasons.map(mapClaimReason),
+    srAttendance: (sbSRAttendance || []).map(mapSRAttendance),
+    srCollections: (sbSRCollections || []).map(mapSRCollection),
+    srTargets: (sbSRTargets || []).map(mapSRTarget),
   };
 }
 

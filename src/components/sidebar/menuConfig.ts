@@ -3,7 +3,8 @@ import {
   Wallet, Building2, BoxesIcon, AlertTriangle, Settings,
   HelpCircle, ClipboardList, MapPin, Sliders, History,
   RotateCcw, Tv, List, Scale, Map, Users, Receipt,
-  PieChart, PackageCheck, ShoppingBag, DollarSign, Bell
+  PieChart, PackageCheck, ShoppingBag, DollarSign, Bell,
+  Calendar, Target, Banknote
 } from 'lucide-react';
 import type { TabID } from '../Sidebar';
 
@@ -122,6 +123,30 @@ export const ITEM_STYLES: Record<TabID, ItemStyle> = {
     bar:    'bg-orange-500',
     icon:   'text-orange-400',
   },
+  'sr-dashboard': {
+    active: 'bg-indigo-500/10 text-indigo-300 font-bold',
+    hover:  'hover:text-indigo-300 hover:bg-indigo-500/5',
+    bar:    'bg-indigo-500',
+    icon:   'text-indigo-400',
+  },
+  'sr-attendance': {
+    active: 'bg-emerald-500/10 text-emerald-300 font-bold',
+    hover:  'hover:text-emerald-300 hover:bg-emerald-500/5',
+    bar:    'bg-emerald-500',
+    icon:   'text-emerald-400',
+  },
+  'sr-collection': {
+    active: 'bg-amber-500/10 text-amber-300 font-bold',
+    hover:  'hover:text-amber-300 hover:bg-amber-500/5',
+    bar:    'bg-amber-500',
+    icon:   'text-amber-400',
+  },
+  'sr-targets': {
+    active: 'bg-rose-500/10 text-rose-300 font-bold',
+    hover:  'hover:text-rose-300 hover:bg-rose-500/5',
+    bar:    'bg-rose-500',
+    icon:   'text-rose-400',
+  },
 };
 
 // ── Menu section configs ──────────────────────────────────────────────────────
@@ -219,15 +244,35 @@ export const ADMIN_SECTIONS: MenuSection[] = [
 
 export const SR_SECTIONS: MenuSection[] = [
   {
-    label: 'OPERATIONS', labelBn: 'লেনদেন',
+    label: 'OVERVIEW', labelBn: 'ওভারভিউ',
     items: [
-      { id: 'sales',   icon: ShoppingCart },
+      { id: 'sr-dashboard', icon: LayoutDashboard },
+    ],
+  },
+  {
+    label: 'FIELD OPERATIONS', labelBn: 'মাঠ পর্যায়ের লেনদেন',
+    items: [
+      { id: 'sales', icon: ShoppingCart },
+      { id: 'delivery', icon: Truck },
+      { id: 'sr-collection', icon: Banknote },
+    ],
+  },
+  {
+    label: 'ATTENDANCE', labelBn: 'উপস্থিতি ও রুট',
+    items: [
+      { id: 'sr-attendance', icon: Calendar },
+    ],
+  },
+  {
+    label: 'PERFORMANCE', labelBn: 'পারফরম্যান্স ও রিপোর্ট',
+    items: [
+      { id: 'sr-targets', icon: Target },
       { id: 'reports', icon: ClipboardList },
     ],
   },
 ];
 
-// ── Label resolver ────────────────────────────────────────────────────────────
+// ── Label resolver ────────────────────────────────────────────────────
 
 export function getMenuItemName(
   id:       TabID,
@@ -236,8 +281,13 @@ export function getMenuItemName(
   s:        Record<string, string>,
 ): string {
   if (userRole === 'sr') {
-    if (id === 'sales')   return language === 'bn' ? 'বিক্রয় অপশন'   : 'Sales Report/Sales Option';
-    if (id === 'reports') return language === 'bn' ? 'স্টক রিপোর্ট'   : 'Stock Report/Stock Option';
+    if (id === 'sr-dashboard')  return language === 'bn' ? 'এসআর ড্যাশবোর্ড'    : 'SR Dashboard';
+    if (id === 'sales')         return language === 'bn' ? 'অর্ডার বুকিং (বিক্রয়)' : 'Order Booking / Sales';
+    if (id === 'delivery')      return language === 'bn' ? 'চালান ও ডেলিভারি'    : 'Challan & Deliveries';
+    if (id === 'sr-collection') return language === 'bn' ? 'টাকা কালেকশন'       : 'Collection & Dues';
+    if (id === 'sr-attendance') return language === 'bn' ? 'দৈনিক উপস্থিতি'      : 'Daily Attendance';
+    if (id === 'sr-targets')    return language === 'bn' ? 'টার্গেট ও অগ্রগতি'   : 'Targets & Progress';
+    if (id === 'reports')       return language === 'bn' ? 'স্টক ও বিক্রয় রিপোর্ট' : 'Stock & Sales Reports';
   }
   const nameMap: Partial<Record<TabID, string>> = {
     dashboard: s.dashboard,
@@ -253,6 +303,10 @@ export function getMenuItemName(
     reports:   language === 'bn' ? 'রিপোর্ট ও বিশ্লেষণ'     : 'Reports & Analytics',
     settings:  s.settings,
     claims:    language === 'bn' ? 'ক্লেম ও ডিসপ্লে'       : 'Claim & Display',
+    'sr-dashboard': language === 'bn' ? 'এসআর ড্যাশবোর্ড'    : 'SR Dashboard',
+    'sr-attendance': language === 'bn' ? 'দৈনিক উপস্থিতি'   : 'Daily Attendance',
+    'sr-collection': language === 'bn' ? 'টাকা কালেকশন'    : 'Collection & Dues',
+    'sr-targets':    language === 'bn' ? 'টার্গেট ও অগ্রগতি' : 'Targets & Progress',
   };
   return nameMap[id] ?? id;
 }

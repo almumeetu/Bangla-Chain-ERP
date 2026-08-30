@@ -65,6 +65,7 @@ interface DirectoryModuleProps {
   deliveryMen: DeliveryMan[];
   setDeliveryMen: React.Dispatch<React.SetStateAction<DeliveryMan[]>>;
   language: Language;
+  userRole?: 'admin' | 'sr';
   /** Which sub-tab to open by default when rendered */
   defaultTab?: DirectoryTab;
   onTabChange?: (tab: DirectoryTab) => void;
@@ -521,6 +522,7 @@ export default function DirectoryModule({
   deliveryMen,
   setDeliveryMen,
   language,
+  userRole = 'admin',
   defaultTab,
   onTabChange,
   visibleTabs,
@@ -932,14 +934,39 @@ export default function DirectoryModule({
       return;
     }
 
+    const primaryCompanyId = srAssignedCompanies[0] || undefined;
+    const primaryCompany = companies.find(c => c.id === primaryCompanyId || c.name === primaryCompanyId);
+
     if (editingSr) {
-      setSrs(prev => prev.map(s => s.id === editingSr.id ? { ...s, name: srName, phone: srPhone, commissionRate: srCommissionRate, assignedCompanyIds: srAssignedCompanies, loginUsername: srLoginUsername, loginPassword: srLoginPassword } : s));
+      setSrs(prev => prev.map(s => s.id === editingSr.id ? {
+        ...s,
+        name: srName,
+        phone: srPhone,
+        commissionRate: srCommissionRate,
+        assignedCompanyIds: srAssignedCompanies,
+        companyId: primaryCompanyId,
+        companyName: primaryCompany?.name || primaryCompanyId,
+        isActive: s.isActive ?? true,
+        loginUsername: srLoginUsername,
+        loginPassword: srLoginPassword
+      } : s));
       setEditingSr(null);
     } else {
-      setSrs(prev => [...prev, { id: `sr-${Date.now()}`, name: srName, phone: srPhone, commissionRate: srCommissionRate, assignedCompanyIds: srAssignedCompanies, loginUsername: srLoginUsername, loginPassword: srLoginPassword }]);
+      setSrs(prev => [...prev, {
+        id: `sr-${Date.now()}`,
+        name: srName,
+        phone: srPhone,
+        commissionRate: srCommissionRate,
+        assignedCompanyIds: srAssignedCompanies,
+        companyId: primaryCompanyId,
+        companyName: primaryCompany?.name || primaryCompanyId,
+        isActive: true,
+        loginUsername: srLoginUsername,
+        loginPassword: srLoginPassword
+      }]);
     }
     setShowSrModal(false);
-  }, [srName, srPhone, srCommissionRate, srAssignedCompanies, srLoginUsername, srLoginPassword, editingSr, srs, setSrs, language]);
+  }, [srName, srPhone, srCommissionRate, srAssignedCompanies, srLoginUsername, srLoginPassword, editingSr, srs, setSrs, companies, language]);
 
   // --- SUBMIT: Delivery Man ---
   const handleDmSubmit = useCallback((e: React.FormEvent) => {
@@ -1851,9 +1878,9 @@ export default function DirectoryModule({
                         <th className="px-5 py-4">{language === 'bn' ? 'কোম্পানি' : 'Company'}</th>
                         <th className="px-5 py-4">{language === 'bn' ? 'ক্যাটাগরি' : 'Category'}</th>
                         <th className="px-5 py-4">{language === 'bn' ? 'স্টক পরিমাণ' : 'Stock Quantity'}</th>
-                        <th className="px-5 py-4 text-right">{language === 'bn' ? 'ডিলার মূল্য (DP)' : 'Dealer Price (DP)'}</th>
+                        {userRole !== 'sr' && <th className="px-5 py-4 text-right">{language === 'bn' ? 'ডিলার মূল্য (DP)' : 'Dealer Price (DP)'}</th>}
                         <th className="px-5 py-4 text-right">{language === 'bn' ? 'পাইকারি মূল্য (TP)' : 'Trade Price (TP)'}</th>
-                        <th className="px-5 py-4 text-right">{language === 'bn' ? 'স্টক মূল্য (DP)' : 'Stock Value (DP)'}</th>
+                        {userRole !== 'sr' && <th className="px-5 py-4 text-right">{language === 'bn' ? 'স্টক মূল্য (DP)' : 'Stock Value (DP)'}</th>}
                         <th className="px-5 py-4 text-right">{language === 'bn' ? 'স্টক মূল্য (TP)' : 'Stock Value (TP)'}</th>
                       </tr>
                     </thead>
@@ -1897,15 +1924,19 @@ export default function DirectoryModule({
                                 </span>
                               </div>
                             </td>
-                            <td className="px-5 py-3.5 text-xs text-right font-semibold text-slate-600 whitespace-nowrap font-mono">
-                              {formatBDT(p.defaultPP)}/{p.primaryUnit === 'Carton' ? 'Ctn' : 'pc'}
-                            </td>
+                            {userRole !== 'sr' && (
+                              <td className="px-5 py-3.5 text-xs text-right font-semibold text-slate-600 whitespace-nowrap font-mono">
+                                {formatBDT(p.defaultPP)}/{p.primaryUnit === 'Carton' ? 'Ctn' : 'pc'}
+                              </td>
+                            )}
                             <td className="px-5 py-3.5 text-xs text-right text-indigo-600 font-semibold whitespace-nowrap font-mono">
                               {formatBDT(tp)}/{p.primaryUnit === 'Carton' ? 'Ctn' : 'pc'}
                             </td>
-                            <td className="px-5 py-3.5 text-xs text-right text-emerald-600 font-semibold whitespace-nowrap font-mono">
-                              {formatBDT(stockValDP)}
-                            </td>
+                            {userRole !== 'sr' && (
+                              <td className="px-5 py-3.5 text-xs text-right text-emerald-600 font-semibold whitespace-nowrap font-mono">
+                                {formatBDT(stockValDP)}
+                              </td>
+                            )}
                             <td className="px-5 py-3.5 text-xs text-right text-slate-900 font-semibold whitespace-nowrap font-mono">
                               {formatBDT(stockValTP)}
                             </td>
@@ -1992,8 +2023,8 @@ export default function DirectoryModule({
                         )}
                       </div>
 
-                      {/* Price strip — order: DP → TP → MRP → Margin */}
-                      <div className="mx-4 mb-3 border border-slate-100 divide-x divide-slate-100 grid grid-cols-4 bg-slate-50">
+                      {/* Price strip */}
+                      <div className={`mx-4 mb-3 border border-slate-100 divide-x divide-slate-100 grid ${userRole !== 'sr' ? 'grid-cols-4' : 'grid-cols-3'} bg-slate-50`}>
                         <div className="px-2 py-2.5 text-center">
                           <div className="text-[8px] text-slate-400 uppercase tracking-widest mb-0.5">DP/{p.primaryUnit === 'Carton' ? 'Ctn' : 'Pc'}</div>
                           <div className="font-mono text-xs font-bold text-amber-700">{formatBDT(p.defaultPP)}</div>
@@ -2006,12 +2037,14 @@ export default function DirectoryModule({
                           <div className="text-[8px] text-slate-400 uppercase tracking-widest mb-0.5">MRP</div>
                           <div className="font-mono text-xs font-bold text-teal-700">{formatBDT(p.defaultMRP)}</div>
                         </div>
-                        <div className="px-2 py-2.5 text-center">
-                          <div className="text-[8px] text-slate-400 uppercase tracking-widest mb-0.5">Margin</div>
-                          <div className={`font-mono text-xs font-black ${marginPct > 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
-                            {marginPct > 0 ? '+' : ''}{marginPct.toFixed(1)}%
+                        {userRole !== 'sr' && (
+                          <div className="px-2 py-2.5 text-center">
+                            <div className="text-[8px] text-slate-400 uppercase tracking-widest mb-0.5">Margin</div>
+                            <div className={`font-mono text-xs font-black ${marginPct > 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
+                              {marginPct > 0 ? '+' : ''}{marginPct.toFixed(1)}%
+                            </div>
                           </div>
-                        </div>
+                        )}
                       </div>
 
                       {/* Stock section */}

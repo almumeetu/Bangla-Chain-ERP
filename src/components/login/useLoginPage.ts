@@ -207,6 +207,15 @@ export function useLoginPage(onLogin: (role: 'admin' | 'sr') => void): UseLoginP
         sessionStorage.setItem('erp_sr_id', data.sr.id);
         sessionStorage.setItem('erp_sr_name', data.sr.name);
         sessionStorage.setItem('erp_sr_owner_id', data.sr.owner_id);
+        if (data.sr.company_id) {
+          sessionStorage.setItem('erp_sr_company_id', data.sr.company_id);
+        }
+        if (data.sr.company_name) {
+          sessionStorage.setItem('erp_sr_company_name', data.sr.company_name);
+        }
+        if (data.sr.assigned_route_id) {
+          sessionStorage.setItem('erp_sr_route_id', data.sr.assigned_route_id);
+        }
         if (data.sr.assigned_company_ids) {
           sessionStorage.setItem('erp_sr_companies', JSON.stringify(data.sr.assigned_company_ids));
         }

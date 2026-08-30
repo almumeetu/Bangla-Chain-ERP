@@ -35,10 +35,13 @@ export interface Customer {
   address?:string;
   market?: string;
   assignedSR?: string;
+  assignedSRId?: string;
+  companyId?: string;
   routeId?: string;
   creditLimit?: number;
   creditDays?: number;
   due?: number;
+  isActive?: boolean;
 }
 
 export interface AdminAccount {
@@ -363,6 +366,9 @@ export interface AllErpData {
   claims:            Claim[];
   claimReasons:      ClaimReason[];
   claimSettlements:  ClaimSettlement[];
+  srAttendance?:     import('../types').SRAttendance[];
+  srCollections?:    import('../types').SRCollection[];
+  srTargets?:        import('../types').SRTarget[];
 }
 
 export function loadAllData(): AllErpData {
@@ -386,6 +392,9 @@ export function loadAllData(): AllErpData {
     claims:            getClaims(),
     claimReasons:      getClaimReasons(),
     claimSettlements:  getClaimSettlements(),
+    srAttendance:      [],
+    srCollections:     [],
+    srTargets:         [],
   };
 }
 

@@ -23,9 +23,17 @@ function makeTable<TRow extends { id: string }, TInsert extends object>(
 
   return {
     /** Fetch all rows for the current user (RLS auto-filters by owner_id) */
-    async getAll(): Promise<TRow[]> {
+    async getAll(orderBy: string = 'created_at'): Promise<TRow[]> {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (table() as any).select('*').order('created_at', { ascending: false });
+      let { data, error } = await (table() as any).select('*').order(orderBy, { ascending: false });
+
+      // If ordering column does not exist on this table, fallback to unordered query
+      if (error && (error.message?.includes('does not exist') || error.code === '42703')) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const fallback = await (table() as any).select('*');
+        data = fallback.data;
+        error = fallback.error;
+      }
 
       if (error) {
         console.error(`[supabase-db] ${tableName}.getAll error:`, error.message);
@@ -199,6 +207,24 @@ export const db = {
     Tables['claim_reasons']['Row'],
     Tables['claim_reasons']['Insert']
   >('claim_reasons'),
+
+  /** SR Attendance */
+  srAttendance: makeTable<
+    Tables['sr_attendance']['Row'],
+    Tables['sr_attendance']['Insert']
+  >('sr_attendance'),
+
+  /** SR Collections */
+  srCollections: makeTable<
+    Tables['sr_collections']['Row'],
+    Tables['sr_collections']['Insert']
+  >('sr_collections'),
+
+  /** SR Targets */
+  srTargets: makeTable<
+    Tables['sr_targets']['Row'],
+    Tables['sr_targets']['Insert']
+  >('sr_targets'),
 };
 
 // ── SR Login (username/password — not Supabase Auth) ──────────────────────────

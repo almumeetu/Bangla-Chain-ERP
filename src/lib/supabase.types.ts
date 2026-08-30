@@ -51,6 +51,9 @@ export interface Database {
           phone: string;
           commission_rate: number;
           assigned_company_ids: string[];
+          company_id: string | null;
+          assigned_route_id: string | null;
+          employee_id: string | null;
           login_username: string | null;
           login_password: string | null;
           password_hash: string | null;
@@ -65,6 +68,9 @@ export interface Database {
           phone?: string;
           commission_rate?: number;
           assigned_company_ids?: string[];
+          company_id?: string | null;
+          assigned_route_id?: string | null;
+          employee_id?: string | null;
           login_username?: string | null;
           login_password?: string | null;
           password_hash?: string | null;
@@ -105,6 +111,7 @@ export interface Database {
           contact_person: string | null;
           phone: string | null;
           address: string | null;
+          is_active: boolean;
           created_at: string | null;
         };
         Insert: {
@@ -114,6 +121,7 @@ export interface Database {
           contact_person?: string | null;
           phone?: string | null;
           address?: string | null;
+          is_active?: boolean;
           created_at?: string | null;
         };
         Update: Partial<Database['public']['Tables']['companies']['Insert']>;
@@ -184,6 +192,7 @@ export interface Database {
           name: string;
           area: string;
           territory: string;
+          company_id: string | null;
           assigned_sr_id: string | null;
           assigned_delivery_man_id: string | null;
           created_at: string | null;
@@ -194,6 +203,7 @@ export interface Database {
           name: string;
           area?: string;
           territory?: string;
+          company_id?: string | null;
           assigned_sr_id?: string | null;
           assigned_delivery_man_id?: string | null;
           created_at?: string | null;
@@ -279,6 +289,7 @@ export interface Database {
           owner_id: string;
           product_name: string;
           company: string;
+          company_id: string | null;
           attribute: string;
           qty: number;
           bonus_qty: number;
@@ -310,6 +321,7 @@ export interface Database {
           owner_id: string;
           product_name?: string;
           company?: string;
+          company_id?: string | null;
           attribute?: string;
           qty?: number;
           bonus_qty?: number;
@@ -487,10 +499,13 @@ export interface Database {
           address: string | null;
           market: string | null;
           assigned_sr: string | null;
+          assigned_sr_id: string | null;
+          company_id: string | null;
           route_id: string | null;
           credit_limit: number | null;
           credit_days: number | null;
           due: number | null;
+          is_active: boolean;
           created_at: string | null;
         };
         Insert: {
@@ -502,10 +517,13 @@ export interface Database {
           address?: string | null;
           market?: string | null;
           assigned_sr?: string | null;
+          assigned_sr_id?: string | null;
+          company_id?: string | null;
           route_id?: string | null;
           credit_limit?: number | null;
           credit_days?: number | null;
           due?: number | null;
+          is_active?: boolean;
           created_at?: string | null;
         };
         Update: Partial<Database['public']['Tables']['customers']['Insert']>;
@@ -597,6 +615,94 @@ export interface Database {
           created_at?: string | null;
         };
         Update: Partial<Database['public']['Tables']['claim_reasons']['Insert']>;
+      };
+
+      sr_attendance: {
+        Row: {
+          id: string;
+          owner_id: string;
+          sr_id: string;
+          sr_name: string;
+          date: string;
+          day_start: string | null;
+          day_end: string | null;
+          route_name: string | null;
+          notes: string | null;
+          created_at: string | null;
+        };
+        Insert: {
+          id: string;
+          owner_id: string;
+          sr_id: string;
+          sr_name: string;
+          date: string;
+          day_start?: string | null;
+          day_end?: string | null;
+          route_name?: string | null;
+          notes?: string | null;
+          created_at?: string | null;
+        };
+        Update: Partial<Database['public']['Tables']['sr_attendance']['Insert']>;
+      };
+
+      sr_collections: {
+        Row: {
+          id: string;
+          owner_id: string;
+          sr_id: string;
+          sr_name: string;
+          challan_id: string;
+          customer_name: string;
+          customer_id: string | null;
+          company_id: string | null;
+          amount: number;
+          payment_method: string;
+          collected_at: string | null;
+          notes: string | null;
+          created_at: string | null;
+        };
+        Insert: {
+          id: string;
+          owner_id: string;
+          sr_id: string;
+          sr_name: string;
+          challan_id: string;
+          customer_name: string;
+          customer_id?: string | null;
+          company_id?: string | null;
+          amount: number;
+          payment_method?: string;
+          collected_at?: string | null;
+          notes?: string | null;
+          created_at?: string | null;
+        };
+        Update: Partial<Database['public']['Tables']['sr_collections']['Insert']>;
+      };
+
+      sr_targets: {
+        Row: {
+          id: string;
+          owner_id: string;
+          sr_id: string;
+          sr_name: string;
+          month: string;
+          company_id: string | null;
+          company_name: string | null;
+          target_amount: number;
+          created_at: string | null;
+        };
+        Insert: {
+          id: string;
+          owner_id: string;
+          sr_id: string;
+          sr_name: string;
+          month: string;
+          company_id?: string | null;
+          company_name?: string | null;
+          target_amount: number;
+          created_at?: string | null;
+        };
+        Update: Partial<Database['public']['Tables']['sr_targets']['Insert']>;
       };
 
       // ─── NEW PRODUCTION TABLES ───────────────────────────────────────────────
