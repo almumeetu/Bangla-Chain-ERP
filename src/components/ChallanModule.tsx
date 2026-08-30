@@ -113,18 +113,38 @@ export default function ChallanModule({
     if (typeof window !== 'undefined') {
       try {
         const storedList = sessionStorage.getItem('erp_sr_companies');
-        if (storedList) list = JSON.parse(storedList);
+        if (storedList) {
+          const parsed = JSON.parse(storedList);
+          if (Array.isArray(parsed)) {
+            parsed.forEach((cid: string) => {
+              const c = companies.find(comp => comp.id === cid || comp.name.toLowerCase() === cid.toLowerCase());
+              if (c && !list.includes(c.name)) list.push(c.name);
+              else if (!list.includes(cid)) list.push(cid);
+            });
+          }
+        }
       } catch {}
       const single = sessionStorage.getItem('erp_sr_company_name');
       if (single && !list.includes(single)) list.push(single);
+      const singleId = sessionStorage.getItem('erp_sr_company_id');
+      if (singleId) {
+        const c = companies.find(comp => comp.id === singleId || comp.name.toLowerCase() === singleId.toLowerCase());
+        if (c && !list.includes(c.name)) list.push(c.name);
+      }
     }
-    const currentSr = srs.find(s => s.name.trim().toLowerCase() === activeSrName.trim().toLowerCase());
+    const currentSr = srs.find(s => (s.name || '').trim().toLowerCase() === activeSrName.trim().toLowerCase());
     if (currentSr) {
       if (currentSr.companyName && !list.includes(currentSr.companyName)) list.push(currentSr.companyName);
+      if (currentSr.companyId) {
+        const c = companies.find(comp => comp.id === currentSr.companyId || comp.name.toLowerCase() === currentSr.companyId.toLowerCase());
+        if (c && !list.includes(c.name)) list.push(c.name);
+        else if (!list.includes(currentSr.companyId)) list.push(currentSr.companyId);
+      }
       if (currentSr.assignedCompanyIds) {
         currentSr.assignedCompanyIds.forEach(cid => {
           const c = companies.find(comp => comp.id === cid || comp.name.toLowerCase() === cid.toLowerCase());
           if (c && !list.includes(c.name)) list.push(c.name);
+          else if (!list.includes(cid)) list.push(cid);
         });
       }
     }
@@ -381,15 +401,16 @@ export default function ChallanModule({
         setFilterSR(activeSrName);
         setAppliedSR(activeSrName);
       }
-      if (srAssignedCompanyNames.length === 1) {
-        setFilterCompany(srAssignedCompanyNames[0]);
-        setAppliedCompany(srAssignedCompanyNames[0]);
+      if (srAssignedCompanyNames.length > 0) {
+        const defaultCompany = srAssignedCompanyNames[0];
+        setFilterCompany(prev => (prev && srAssignedCompanyNames.includes(prev) ? prev : defaultCompany));
+        setAppliedCompany(prev => (prev && srAssignedCompanyNames.includes(prev) ? prev : defaultCompany));
       }
     }
   }, [userRole, activeSrName, srAssignedCompanyNames]);
 
   const handleReset = () => {
-    const defaultSrCompany = userRole === 'sr' && srAssignedCompanyNames.length === 1 ? srAssignedCompanyNames[0] : '';
+    const defaultSrCompany = userRole === 'sr' && srAssignedCompanyNames.length > 0 ? srAssignedCompanyNames[0] : '';
     setSearchQuery('');
     setFilterCompany(defaultSrCompany);
     setFilterSR(userRole === 'sr' ? activeSrName : '');

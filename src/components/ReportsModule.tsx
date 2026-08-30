@@ -16,6 +16,8 @@ import {
   FileSpreadsheet,
   Printer,
   Award,
+  ChevronUp,
+  ChevronDown,
 } from 'lucide-react';
 import { Product, ChallanItem, SR, CompanyBrand, ExpenseRecord, DeliveryMan, UnitOfMeasure, ProductUnit, Claim, ClaimSettlement } from '../types';
 import { translations, Language } from '../translations';
@@ -290,7 +292,8 @@ export default function ReportsModule({
   
   // Sub-tabs for stock and sales reports
   const [stockSubTab, setStockSubTab] = useState<'company' | 'product'>('company');
-  const [salesSubTab, setSalesSubTab] = useState<'sr' | 'product' | 'company'>('sr');
+  const [salesSubTab, setSalesSubTab] = useState<'sr' | 'sr-products' | 'product' | 'company'>('sr');
+  const [expandedSrNames, setExpandedSrNames] = useState<Record<string, boolean>>({});
 
   // Pagination State for Stock Reports
   const [companyStockPage, setCompanyStockPage] = useState(1);
@@ -517,6 +520,40 @@ export default function ReportsModule({
       const returnsQtyObj = getAggregatedChallanQty(srChallans, products, 'returnedQty');
       const damagesQtyObj = getAggregatedChallanQty(srChallans, products, 'damagedQty');
 
+      // Product-wise breakdown for this specific SR
+      const productsHandled = products.map(p => {
+        const pChallans = srChallans.filter(ch => (ch.productName || '').trim().toLowerCase() === (p.name || '').trim().toLowerCase());
+        const pSold = pChallans.reduce((sum, ch) => sum + Math.max(0, ch.qty - (ch.returnedQty || 0) - (ch.damagedQty || 0)), 0);
+        const pRev = pChallans.reduce((sum, ch) => sum + (ch.totalAmount || 0), 0);
+        const pRet = pChallans.reduce((sum, ch) => sum + (ch.returnedQty || 0), 0);
+        const pDam = pChallans.reduce((sum, ch) => sum + (ch.damagedQty || 0), 0);
+        const pDpRate = p.defaultPP || 0;
+        const pTpRate = p.defaultMRP || 0;
+        const pDpTotal = pDpRate * pSold;
+        const pSoldQtyObj = getAggregatedChallanQty(pChallans, products, 'qty');
+        const pReturnsQtyObj = getAggregatedChallanQty(pChallans, products, 'returnedQty');
+        const pDamagesQtyObj = getAggregatedChallanQty(pChallans, products, 'damagedQty');
+
+        return {
+          productId: p.id,
+          productName: p.name,
+          sku: p.sku,
+          company: p.company,
+          cartonSize: p.cartonSize,
+          primaryUnit: p.primaryUnit,
+          unitsSold: pSold,
+          returns: pRet,
+          damages: pDam,
+          dpRate: pDpRate,
+          tpRate: pTpRate,
+          dpTotal: pDpTotal,
+          revenue: pRev,
+          soldQtyObj: pSoldQtyObj,
+          returnsQtyObj: pReturnsQtyObj,
+          damagesQtyObj: pDamagesQtyObj
+        };
+      }).filter(p => p.unitsSold > 0 || p.returns > 0 || (userRole !== 'sr' && p.damages > 0));
+
       return {
         srName: sr.name,
         phone: sr.phone,
@@ -527,7 +564,9 @@ export default function ReportsModule({
         dpTotal,
         soldQtyObj,
         returnsQtyObj,
-        damagesQtyObj
+        damagesQtyObj,
+        productsHandled,
+        distinctProductsCount: productsHandled.length
       };
     });
 
@@ -1477,7 +1516,18 @@ export default function ReportsModule({
                   : 'text-slate-500 hover:text-slate-900'
               }`}
             >
-              SR-wise Sales
+              {language === 'bn' ? 'এসআর লিডারবোর্ড' : 'SR Performance'}
+            </button>
+            <button
+              onClick={() => setSalesSubTab('sr-products')}
+              className={`px-4 py-2 rounded-none text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                salesSubTab === 'sr-products'
+                  ? 'bg-white text-slate-900 shadow-sm border border-slate-200/50'
+                  : 'text-slate-500 hover:text-slate-900'
+              }`}
+            >
+              <Package className="w-3.5 h-3.5 text-indigo-600" />
+              <span>{language === 'bn' ? 'এসআর ভিত্তিক পণ্য রিপোর্ট' : 'SR-wise Products'}</span>
             </button>
             <button
               onClick={() => setSalesSubTab('product')}
@@ -1639,11 +1689,12 @@ export default function ReportsModule({
 
                   {/* Excel Structured Table Grid */}
                   <div className="border border-slate-300 rounded-none overflow-x-auto shadow-sm">
-                    <table className="w-full text-left border-collapse min-w-[900px]">
+                    <table className="w-full text-left border-collapse min-w-[950px]">
                       <thead>
                         <tr className="bg-slate-200/90 text-slate-800 text-[10px] font-black uppercase tracking-wider border-b-2 border-slate-400 divide-x divide-slate-300">
                           <th className="px-3 py-3 w-14 text-center">SL</th>
                           <th className="px-4 py-3">{language === 'bn' ? 'সেলস অফিসার (SR Name)' : 'Sales Officer Name'}</th>
+                          <th className="px-4 py-3 text-center">{language === 'bn' ? 'পণ্যের বিবরণ' : 'Products Handled'}</th>
                           <th className="px-4 py-3 text-center">{language === 'bn' ? 'বিক্রিত ইউনিট (Carton + Pcs)' : 'Units Sold (Ctn + Pcs)'}</th>
                           <th className="px-4 py-3 text-center">{language === 'bn' ? 'ফেরত পরিমাণ (Returns)' : 'Return Qty (Ctn + Pcs)'}</th>
                           {userRole !== 'sr' && (
@@ -1659,96 +1710,190 @@ export default function ReportsModule({
                           const rank = idx + 1;
                           const isMe = userRole === 'sr' && loggedInSrName && row.srName.toLowerCase() === loggedInSrName.toLowerCase();
                           const sharePct = totalCompanySalesRevenue > 0 ? (row.revenue / totalCompanySalesRevenue) * 100 : 0;
+                          const isExpanded = !!expandedSrNames[row.srName];
 
                           return (
-                            <tr 
-                              key={idx} 
-                              className={`divide-x divide-slate-200 transition-colors ${
-                                isMe 
-                                  ? 'bg-indigo-100/70 font-bold border-l-4 border-l-indigo-600' 
-                                  : (idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/70')
-                              } hover:bg-emerald-50/50`}
-                            >
-                              {/* SL / Rank */}
-                              <td className="px-3 py-3 text-center font-bold text-slate-700 bg-slate-100/40">
-                                {rank === 1 ? (
-                                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-none bg-amber-100 text-amber-900 text-[10px] font-black border border-amber-400 shadow-xs">
-                                    🥇1
-                                  </span>
-                                ) : rank === 2 ? (
-                                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-none bg-slate-200 text-slate-900 text-[10px] font-black border border-slate-400 shadow-xs">
-                                    🥈2
-                                  </span>
-                                ) : rank === 3 ? (
-                                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-none bg-orange-100 text-orange-900 text-[10px] font-black border border-orange-400 shadow-xs">
-                                    🥉3
-                                  </span>
-                                ) : (
-                                  <span className="text-slate-600 font-bold text-xs">
-                                    {rank}
-                                  </span>
-                                )}
-                              </td>
-
-                              {/* SR Name */}
-                              <td className="px-4 py-3 font-sans font-bold text-slate-900">
-                                <div className="flex items-center gap-2">
-                                  <span className="truncate">{row.srName}</span>
-                                  {isMe && (
-                                    <span className="text-[8.5px] bg-indigo-600 text-white font-extrabold px-1.5 py-0.5 rounded-none tracking-widest uppercase">
-                                      {language === 'bn' ? 'আমার সেলস (You)' : 'My Sales (You)'}
+                            <React.Fragment key={idx}>
+                              <tr 
+                                className={`divide-x divide-slate-200 transition-colors ${
+                                  isMe 
+                                    ? 'bg-indigo-100/70 font-bold border-l-4 border-l-indigo-600' 
+                                    : (idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/70')
+                                } hover:bg-emerald-50/50`}
+                              >
+                                {/* SL / Rank */}
+                                <td className="px-3 py-3 text-center font-bold text-slate-700 bg-slate-100/40">
+                                  {rank === 1 ? (
+                                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-none bg-amber-100 text-amber-900 text-[10px] font-black border border-amber-400 shadow-xs">
+                                      🥇1
+                                    </span>
+                                  ) : rank === 2 ? (
+                                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-none bg-slate-200 text-slate-900 text-[10px] font-black border border-slate-400 shadow-xs">
+                                      🥈2
+                                    </span>
+                                  ) : rank === 3 ? (
+                                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-none bg-orange-100 text-orange-900 text-[10px] font-black border border-orange-400 shadow-xs">
+                                      🥉3
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-600 font-bold text-xs">
+                                      {rank}
                                     </span>
                                   )}
-                                </div>
-                                <div className="text-[9px] text-slate-400 font-mono mt-0.5">{row.phone || 'N/A'}</div>
-                              </td>
-
-                              {/* Sold Qty */}
-                              <td className="px-4 py-3 text-center font-bold text-slate-800">
-                                <CartonPcsDisplay qty={row.soldQtyObj.rawPcs} cartons={row.soldQtyObj.cartons} pcs={row.soldQtyObj.pcs} language={language} />
-                              </td>
-
-                              {/* Returns */}
-                              <td className="px-4 py-3 text-center font-bold text-amber-700">
-                                <CartonPcsDisplay qty={row.returnsQtyObj.rawPcs} cartons={row.returnsQtyObj.cartons} pcs={row.returnsQtyObj.pcs} language={language} />
-                              </td>
-
-                              {/* Damage (Admin) */}
-                              {userRole !== 'sr' && (
-                                <td className="px-4 py-3 text-center font-bold text-rose-600">
-                                  <CartonPcsDisplay qty={row.damagesQtyObj.rawPcs} cartons={row.damagesQtyObj.cartons} pcs={row.damagesQtyObj.pcs} language={language} />
                                 </td>
-                              )}
 
-                              {/* DP Total */}
-                              <td className="px-4 py-3 text-right font-bold text-indigo-700 bg-indigo-50/20">
-                                {formatBDT(row.dpTotal)}
-                              </td>
-
-                              {/* Revenue TP Total */}
-                              <td className="px-4 py-3 text-right font-extrabold text-emerald-700 bg-emerald-50/20 text-sm">
-                                {formatBDT(row.revenue)}
-                              </td>
-
-                              {/* Contribution Share */}
-                              <td className="px-4 py-3 text-center">
-                                <div className="flex flex-col items-center gap-1">
-                                  <span className="text-[11px] font-bold text-slate-700">{sharePct.toFixed(1)}%</span>
-                                  <div className="w-full bg-slate-200 h-1.5 rounded-none overflow-hidden max-w-[70px]">
-                                    <div
-                                      style={{ width: `${Math.min(100, sharePct)}%` }}
-                                      className="bg-emerald-600 h-full rounded-none"
-                                    />
+                                {/* SR Name */}
+                                <td className="px-4 py-3 font-sans font-bold text-slate-900">
+                                  <div className="flex items-center gap-2">
+                                    <span className="truncate">{row.srName}</span>
+                                    {isMe && (
+                                      <span className="text-[8.5px] bg-indigo-600 text-white font-extrabold px-1.5 py-0.5 rounded-none tracking-widest uppercase">
+                                        {language === 'bn' ? 'আমার সেলস (You)' : 'My Sales (You)'}
+                                      </span>
+                                    )}
                                   </div>
-                                </div>
-                              </td>
-                            </tr>
+                                  <div className="text-[9px] text-slate-400 font-mono mt-0.5">{row.phone || 'N/A'}</div>
+                                </td>
+
+                                {/* Products Handled Badge & Toggle */}
+                                <td className="px-4 py-3 text-center">
+                                  <button
+                                    type="button"
+                                    onClick={() => setExpandedSrNames(prev => ({ ...prev, [row.srName]: !prev[row.srName] }))}
+                                    className={`px-2.5 py-1 text-xs font-bold rounded-none border transition-all cursor-pointer inline-flex items-center gap-1.5 ${
+                                      isExpanded
+                                        ? 'bg-blue-600 text-white border-blue-700 shadow-xs'
+                                        : 'bg-white text-blue-700 border-blue-300 hover:bg-blue-50'
+                                    }`}
+                                  >
+                                    <Package className="w-3.5 h-3.5" />
+                                    <span>{row.distinctProductsCount} {language === 'bn' ? 'টি পণ্য' : 'Items'}</span>
+                                    {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                                  </button>
+                                </td>
+
+                                {/* Sold Qty */}
+                                <td className="px-4 py-3 text-center font-bold text-slate-800">
+                                  <CartonPcsDisplay qty={row.soldQtyObj.rawPcs} cartons={row.soldQtyObj.cartons} pcs={row.soldQtyObj.pcs} language={language} />
+                                </td>
+
+                                {/* Returns */}
+                                <td className="px-4 py-3 text-center font-bold text-amber-700">
+                                  <CartonPcsDisplay qty={row.returnsQtyObj.rawPcs} cartons={row.returnsQtyObj.cartons} pcs={row.returnsQtyObj.pcs} language={language} />
+                                </td>
+
+                                {/* Damage (Admin) */}
+                                {userRole !== 'sr' && (
+                                  <td className="px-4 py-3 text-center font-bold text-rose-600">
+                                    <CartonPcsDisplay qty={row.damagesQtyObj.rawPcs} cartons={row.damagesQtyObj.cartons} pcs={row.damagesQtyObj.pcs} language={language} />
+                                  </td>
+                                )}
+
+                                {/* DP Total */}
+                                <td className="px-4 py-3 text-right font-bold text-indigo-700 bg-indigo-50/20">
+                                  {formatBDT(row.dpTotal)}
+                                </td>
+
+                                {/* Revenue TP Total */}
+                                <td className="px-4 py-3 text-right font-extrabold text-emerald-700 bg-emerald-50/20 text-sm">
+                                  {formatBDT(row.revenue)}
+                                </td>
+
+                                {/* Contribution Share */}
+                                <td className="px-4 py-3 text-center">
+                                  <div className="flex flex-col items-center gap-1">
+                                    <span className="text-[11px] font-bold text-slate-700">{sharePct.toFixed(1)}%</span>
+                                    <div className="w-full bg-slate-200 h-1.5 rounded-none overflow-hidden max-w-[70px]">
+                                      <div
+                                        style={{ width: `${Math.min(100, sharePct)}%` }}
+                                        className="bg-emerald-600 h-full rounded-none"
+                                      />
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+
+                              {/* Nested Products Breakdown Drawer */}
+                              {isExpanded && (
+                                <tr className="bg-slate-100/90 border-y-2 border-indigo-200">
+                                  <td colSpan={userRole === 'sr' ? 8 : 9} className="p-4">
+                                    <div className="bg-white border border-slate-300 rounded-none p-4 shadow-sm space-y-3">
+                                      <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                                        <div className="flex items-center gap-2">
+                                          <Package className="w-4 h-4 text-indigo-600" />
+                                          <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">
+                                            {language === 'bn' ? `${row.srName}-এর বিক্রিত পণ্যের তালিকা ও হিসাব` : `Products Sold by ${row.srName}`}
+                                          </h4>
+                                          <span className="text-[10px] bg-indigo-100 text-indigo-800 font-bold px-2 py-0.5 rounded-none font-mono">
+                                            {row.distinctProductsCount} {language === 'bn' ? 'টি পণ্য' : 'Unique Items'}
+                                          </span>
+                                        </div>
+                                        <span className="text-xs font-mono font-extrabold text-emerald-700">
+                                          {language === 'bn' ? 'মোট বিক্রয়:' : 'Total:'} {formatBDT(row.revenue)}
+                                        </span>
+                                      </div>
+
+                                      {row.productsHandled.length === 0 ? (
+                                        <p className="text-xs text-slate-400 py-3 text-center">
+                                          {language === 'bn' ? 'এই এসআর কর্তৃক কোনো পণ্য বিক্রি হয়নি।' : 'No products sold by this SR in the selected period.'}
+                                        </p>
+                                      ) : (
+                                        <div className="overflow-x-auto border border-slate-200">
+                                          <table className="w-full text-left border-collapse text-xs font-mono">
+                                            <thead>
+                                              <tr className="bg-slate-200 text-slate-800 text-[10px] font-black uppercase tracking-wider divide-x divide-slate-300">
+                                                <th className="px-3 py-2 w-10 text-center">#</th>
+                                                <th className="px-3 py-2 font-sans">{language === 'bn' ? 'পণ্যের নাম ও বিবরণ' : 'Product Name'}</th>
+                                                <th className="px-3 py-2">{language === 'bn' ? 'কোম্পানি' : 'Brand / Company'}</th>
+                                                <th className="px-3 py-2 text-center">{language === 'bn' ? 'বিক্রিত পরিমাণ' : 'Sold Qty (Ctn+Pcs)'}</th>
+                                                <th className="px-3 py-2 text-center text-amber-800">{language === 'bn' ? 'ফেরত' : 'Returns'}</th>
+                                                <th className="px-3 py-2 text-right">{language === 'bn' ? 'ডিপি রেট' : 'DP Rate'}</th>
+                                                <th className="px-3 py-2 text-right">{language === 'bn' ? 'টিপি রেট' : 'TP Rate'}</th>
+                                                <th className="px-3 py-2 text-right bg-indigo-50 text-indigo-900">{language === 'bn' ? 'মোট ডিপি (৳)' : 'Total DP (৳)'}</th>
+                                                <th className="px-3 py-2 text-right bg-emerald-50 text-emerald-900">{language === 'bn' ? 'মোট টিপি (৳)' : 'Gross TP (৳)'}</th>
+                                                <th className="px-3 py-2 text-center">{language === 'bn' ? 'শেয়ার' : 'Share'}</th>
+                                              </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-200">
+                                              {row.productsHandled.map((prod, pIdx) => {
+                                                const prodShare = row.revenue > 0 ? (prod.revenue / row.revenue) * 100 : 0;
+                                                return (
+                                                  <tr key={prod.productId || pIdx} className="divide-x divide-slate-200 hover:bg-indigo-50/40">
+                                                    <td className="px-3 py-2 text-center text-slate-500 font-bold">{pIdx + 1}</td>
+                                                    <td className="px-3 py-2 font-sans font-bold text-slate-900">
+                                                      <div>{prod.productName}</div>
+                                                      {prod.sku && <div className="text-[9px] text-slate-400 font-mono">SKU: {prod.sku}</div>}
+                                                    </td>
+                                                    <td className="px-3 py-2 text-slate-700 font-sans">{prod.company || '-'}</td>
+                                                    <td className="px-3 py-2 text-center font-bold text-slate-800">
+                                                      <CartonPcsDisplay qty={prod.soldQtyObj.rawPcs} cartons={prod.soldQtyObj.cartons} pcs={prod.soldQtyObj.pcs} language={language} />
+                                                    </td>
+                                                    <td className="px-3 py-2 text-center font-bold text-amber-700">
+                                                      <CartonPcsDisplay qty={prod.returnsQtyObj.rawPcs} cartons={prod.returnsQtyObj.cartons} pcs={prod.returnsQtyObj.pcs} language={language} />
+                                                    </td>
+                                                    <td className="px-3 py-2 text-right font-mono text-slate-700">{formatBDT(prod.dpRate)}</td>
+                                                    <td className="px-3 py-2 text-right font-mono text-slate-700">{formatBDT(prod.tpRate)}</td>
+                                                    <td className="px-3 py-2 text-right font-mono font-bold text-indigo-700 bg-indigo-50/30">{formatBDT(prod.dpTotal)}</td>
+                                                    <td className="px-3 py-2 text-right font-mono font-extrabold text-emerald-700 bg-emerald-50/30">{formatBDT(prod.revenue)}</td>
+                                                    <td className="px-3 py-2 text-center font-bold text-slate-600">{prodShare.toFixed(1)}%</td>
+                                                  </tr>
+                                                );
+                                              })}
+                                            </tbody>
+                                          </table>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </React.Fragment>
                           );
                         })}
 
                         {sortedSrSales.length === 0 && (
                           <tr>
-                            <td colSpan={userRole === 'sr' ? 7 : 8} className="px-4 py-8 text-center text-slate-400 font-sans font-semibold">
+                            <td colSpan={userRole === 'sr' ? 8 : 9} className="px-4 py-8 text-center text-slate-400 font-sans font-semibold">
                               {language === 'bn' ? 'কোনো এসআর বিক্রির তথ্য পাওয়া যায়নি।' : 'No SR sales performance data available.'}
                             </td>
                           </tr>
@@ -1759,7 +1904,7 @@ export default function ReportsModule({
                       {sortedSrSales.length > 0 && (
                         <tfoot>
                           <tr className="bg-slate-900 text-white font-extrabold text-xs divide-x divide-slate-700 border-t-2 border-slate-800">
-                            <td colSpan={2} className="px-4 py-3.5 text-left uppercase tracking-wider font-sans text-amber-400">
+                            <td colSpan={3} className="px-4 py-3.5 text-left uppercase tracking-wider font-sans text-amber-400">
                               {language === 'bn' ? 'সর্বমোট (GRAND TOTAL)' : 'GRAND TOTAL'}
                             </td>
                             <td className="px-4 py-3.5 text-center font-mono">
@@ -1788,6 +1933,197 @@ export default function ReportsModule({
                     </table>
                   </div>
                 </div>
+              </div>
+            );
+          })()}
+
+          {/* DEDICATED SR-WISE PRODUCTS SUB-TAB */}
+          {salesSubTab === 'sr-products' && (() => {
+            const sortedSrSales = [...salesReportData.srSales].sort((a, b) => b.revenue - a.revenue);
+
+            return (
+              <div className="space-y-6">
+                <div className="bg-slate-900 text-white p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b-2 border-indigo-500">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-indigo-600 rounded-none text-white font-mono font-black text-xs shadow-sm">
+                      XLS
+                    </div>
+                    <div>
+                      <h3 className="font-extrabold text-white text-sm tracking-wide flex items-center gap-2 font-mono">
+                        <span>SR_Wise_Products_Matrix.xlsx</span>
+                        <span className="text-[10px] bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 px-2 py-0.5 font-sans font-bold">
+                          {language === 'bn' ? 'এসআর ভিত্তিক পণ্যের পূর্ণ বিবরণ' : 'SR × Product Breakdown'}
+                        </span>
+                      </h3>
+                      <p className="text-[11px] text-slate-400 font-mono mt-0.5">
+                        {language === 'bn' 
+                          ? `কোম্পানি: ${selectedCompanyFilter} • এসআর ফিল্টার: ${selectedSrFilter} • তারিখ: ${startDate} থেকে ${endDate}` 
+                          : `Company: ${selectedCompanyFilter} • SR: ${selectedSrFilter} • Range: ${startDate} to ${endDate}`}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-mono bg-slate-800 text-slate-300 px-2.5 py-1 border border-slate-700">
+                      {language === 'bn' ? 'মোট এসআর:' : 'Total SRs:'} {sortedSrSales.length}
+                    </span>
+                  </div>
+                </div>
+
+                {sortedSrSales.length === 0 ? (
+                  <div className="bg-white border border-slate-200 p-8 text-center text-slate-400 font-sans font-semibold">
+                    {language === 'bn' ? 'কোনো এসআর বা পণ্যের সেলস ডাটা পাওয়া যায়নি।' : 'No SR sales or product data found.'}
+                  </div>
+                ) : (
+                  sortedSrSales.map((srItem, sIdx) => {
+                    const isMe = userRole === 'sr' && loggedInSrName && srItem.srName.toLowerCase() === loggedInSrName.toLowerCase();
+
+                    return (
+                      <div key={srItem.srName || sIdx} className="bg-white border border-slate-300 rounded-none shadow-sm overflow-hidden">
+                        {/* SR Header Ribbon (Clean Executive Style) */}
+                        <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white p-4 border-b border-slate-300">
+                          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                            {/* Left: SR Info */}
+                            <div className="flex items-center gap-3.5">
+                              <div className="w-10 h-10 rounded-none bg-indigo-600 border border-indigo-400/40 text-white flex items-center justify-center font-mono font-black text-sm shadow-sm shrink-0">
+                                {String(sIdx + 1).padStart(2, '0')}
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2.5">
+                                  <h4 className="font-black text-base text-white tracking-wide">
+                                    {srItem.srName}
+                                  </h4>
+                                  {isMe && (
+                                    <span className="text-[10px] bg-emerald-500 text-slate-950 font-black px-2 py-0.5 rounded-none uppercase tracking-wider shadow-xs">
+                                      {language === 'bn' ? 'আমার প্রোফাইল (You)' : 'Your Sales'}
+                                    </span>
+                                  )}
+                                  <span className="text-[11px] bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 px-2 py-0.5 font-mono font-bold">
+                                    📦 {srItem.distinctProductsCount} {language === 'bn' ? 'টি পণ্য' : 'Items'}
+                                  </span>
+                                </div>
+                                <div className="text-xs text-slate-300 font-mono mt-1 flex items-center gap-2">
+                                  <span>📞 {srItem.phone || 'N/A'}</span>
+                                  <span>•</span>
+                                  <span className="text-slate-400">{language === 'bn' ? 'বিক্রয় কর্মক্ষমতা রিপোর্ট' : 'Sales Performance Matrix'}</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Right: Modern Stat Cards */}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                              {/* Sold Units Card */}
+                              <div className="bg-white text-slate-900 px-3.5 py-2 rounded-none border border-slate-200 shadow-xs flex flex-col justify-between min-w-[140px]">
+                                <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider block">
+                                  {language === 'bn' ? 'মোট বিক্রিত ইউনিট' : 'Sold Units'}
+                                </span>
+                                <div className="mt-1">
+                                  <CartonPcsDisplay qty={srItem.soldQtyObj.rawPcs} cartons={srItem.soldQtyObj.cartons} pcs={srItem.soldQtyObj.pcs} language={language} />
+                                </div>
+                              </div>
+
+                              {/* DP Total Card */}
+                              <div className="bg-white text-slate-900 px-3.5 py-2 rounded-none border border-indigo-100 shadow-xs flex flex-col justify-between min-w-[130px]">
+                                <span className="text-[10px] font-black uppercase text-indigo-700 tracking-wider block">
+                                  {language === 'bn' ? 'ডিপি মোট' : 'DP Total'}
+                                </span>
+                                <div className="text-sm font-black text-indigo-900 font-mono mt-1">
+                                  {formatBDT(srItem.dpTotal)}
+                                </div>
+                                <span className="text-[9px] text-slate-400 font-sans mt-0.5">
+                                  {language === 'bn' ? 'ক্রয়মূল্যভিত্তিক' : 'Purchase Cost'}
+                                </span>
+                              </div>
+
+                              {/* Gross TP Revenue Card */}
+                              <div className="bg-emerald-50 text-slate-900 px-3.5 py-2 rounded-none border border-emerald-300 shadow-xs flex flex-col justify-between min-w-[140px]">
+                                <span className="text-[10px] font-black uppercase text-emerald-800 tracking-wider block">
+                                  {language === 'bn' ? 'মোট বিক্রয়' : 'Gross TP Revenue'}
+                                </span>
+                                <div className="text-base font-black text-emerald-700 font-mono mt-1">
+                                  {formatBDT(srItem.revenue)}
+                                </div>
+                                <span className="text-[9px] text-emerald-600 font-sans font-semibold mt-0.5">
+                                  {language === 'bn' ? 'মোট রাজস্ব আয়' : 'Gross Turnover'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Product Table for this SR */}
+                        {srItem.productsHandled.length === 0 ? (
+                          <div className="p-6 text-center text-slate-400 text-xs font-medium">
+                            {language === 'bn' ? 'এই এসআর এই ফিল্টার মেয়াদে কোনো পণ্য বিক্রি করেননি।' : 'No products sold by this SR during the selected period.'}
+                          </div>
+                        ) : (
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse text-xs font-mono min-w-[850px]">
+                              <thead>
+                                <tr className="bg-slate-100 text-slate-800 text-[10px] font-black uppercase tracking-wider border-b border-slate-300 divide-x divide-slate-200">
+                                  <th className="px-3 py-2.5 w-12 text-center">#</th>
+                                  <th className="px-4 py-2.5 font-sans">{language === 'bn' ? 'পণ্যের নাম' : 'Product Name'}</th>
+                                  <th className="px-3 py-2.5">{language === 'bn' ? 'কোম্পানি' : 'Brand / Company'}</th>
+                                  <th className="px-3 py-2.5 text-center">{language === 'bn' ? 'বিক্রিত পরিমাণ' : 'Sold Qty (Ctn+Pcs)'}</th>
+                                  <th className="px-3 py-2.5 text-center text-amber-700">{language === 'bn' ? 'ফেরত' : 'Returns'}</th>
+                                  <th className="px-3 py-2.5 text-right">{language === 'bn' ? 'ডিপি দর' : 'DP Rate'}</th>
+                                  <th className="px-3 py-2.5 text-right">{language === 'bn' ? 'টিপি দর' : 'TP Rate'}</th>
+                                  <th className="px-3 py-2.5 text-right bg-indigo-50 text-indigo-900">{language === 'bn' ? 'ডিপি মোট (৳)' : 'Total DP (৳)'}</th>
+                                  <th className="px-3 py-2.5 text-right bg-emerald-50 text-emerald-900">{language === 'bn' ? 'মোট বিক্রয় (৳)' : 'Gross TP (৳)'}</th>
+                                  <th className="px-3 py-2.5 text-center">{language === 'bn' ? 'শেয়ার' : 'Share'}</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-200">
+                                {srItem.productsHandled.map((prod, pIdx) => {
+                                  const prodShare = srItem.revenue > 0 ? (prod.revenue / srItem.revenue) * 100 : 0;
+                                  return (
+                                    <tr key={prod.productId || pIdx} className="divide-x divide-slate-200 hover:bg-indigo-50/30">
+                                      <td className="px-3 py-2.5 text-center text-slate-500 font-bold">{pIdx + 1}</td>
+                                      <td className="px-4 py-2.5 font-sans font-bold text-slate-900">
+                                        <div>{prod.productName}</div>
+                                        {prod.sku && <div className="text-[9px] text-slate-400 font-mono">SKU: {prod.sku}</div>}
+                                      </td>
+                                      <td className="px-3 py-2.5 text-slate-700 font-sans">{prod.company || '-'}</td>
+                                      <td className="px-3 py-2.5 text-center font-bold text-slate-800">
+                                        <CartonPcsDisplay qty={prod.soldQtyObj.rawPcs} cartons={prod.soldQtyObj.cartons} pcs={prod.soldQtyObj.pcs} language={language} />
+                                      </td>
+                                      <td className="px-3 py-2.5 text-center font-bold text-amber-700">
+                                        <CartonPcsDisplay qty={prod.returnsQtyObj.rawPcs} cartons={prod.returnsQtyObj.cartons} pcs={prod.returnsQtyObj.pcs} language={language} />
+                                      </td>
+                                      <td className="px-3 py-2.5 text-right font-mono text-slate-700">{formatBDT(prod.dpRate)}</td>
+                                      <td className="px-3 py-2.5 text-right font-mono text-slate-700">{formatBDT(prod.tpRate)}</td>
+                                      <td className="px-3 py-2.5 text-right font-mono font-bold text-indigo-700 bg-indigo-50/20">{formatBDT(prod.dpTotal)}</td>
+                                      <td className="px-3 py-2.5 text-right font-mono font-extrabold text-emerald-700 bg-emerald-50/20">{formatBDT(prod.revenue)}</td>
+                                      <td className="px-3 py-2.5 text-center font-bold text-slate-600">{prodShare.toFixed(1)}%</td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                              <tfoot>
+                                <tr className="bg-slate-100 font-bold text-xs divide-x divide-slate-300 border-t-2 border-slate-300">
+                                  <td colSpan={3} className="px-4 py-2.5 text-left font-sans text-slate-800 uppercase">
+                                    {language === 'bn' ? `${srItem.srName}-এর সাবটোটাল:` : `${srItem.srName} Subtotal:`}
+                                  </td>
+                                  <td className="px-3 py-2.5 text-center font-mono text-slate-900">
+                                    <CartonPcsDisplay qty={srItem.soldQtyObj.rawPcs} cartons={srItem.soldQtyObj.cartons} pcs={srItem.soldQtyObj.pcs} language={language} />
+                                  </td>
+                                  <td className="px-3 py-2.5 text-center font-mono text-amber-700">
+                                    <CartonPcsDisplay qty={srItem.returnsQtyObj.rawPcs} cartons={srItem.returnsQtyObj.cartons} pcs={srItem.returnsQtyObj.pcs} language={language} />
+                                  </td>
+                                  <td colSpan={2} className="px-3 py-2.5 text-right text-slate-500 font-sans text-[10px]">
+                                    {language === 'bn' ? 'মোট মূল্যায়ন:' : 'Total:'}
+                                  </td>
+                                  <td className="px-3 py-2.5 text-right font-mono font-bold text-indigo-800 bg-indigo-50/50">{formatBDT(srItem.dpTotal)}</td>
+                                  <td className="px-3 py-2.5 text-right font-mono font-black text-emerald-800 bg-emerald-50/50 text-sm">{formatBDT(srItem.revenue)}</td>
+                                  <td className="px-3 py-2.5 text-center font-mono text-slate-700">100.0%</td>
+                                </tr>
+                              </tfoot>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
               </div>
             );
           })()}
