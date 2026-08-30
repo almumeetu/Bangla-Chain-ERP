@@ -328,20 +328,24 @@ export async function POST(request: NextRequest) {
             
             <!-- Table Header Row -->
             <tr style="background-color: #0f172a; color: #ffffff;">
-              <th align="center" style="border: 1px solid #334155; padding: 9px 4px; font-size: 10px; font-weight: 800; text-transform: uppercase; width: 6%;">SL</th>
-              <th align="left" style="border: 1px solid #334155; padding: 9px 8px; font-size: 10px; font-weight: 800; text-transform: uppercase; width: 38%;">Product & Specification</th>
-              <th align="center" style="border: 1px solid #334155; padding: 9px 4px; font-size: 10px; font-weight: 800; text-transform: uppercase; width: 8%;">Unit</th>
-              <th align="center" style="border: 1px solid #334155; padding: 9px 4px; font-size: 10px; font-weight: 800; text-transform: uppercase; width: 9%;">Qty</th>
-              <th align="center" style="border: 1px solid #334155; padding: 9px 4px; font-size: 10px; font-weight: 800; text-transform: uppercase; width: 8%;">Bonus</th>
-              <th align="center" style="border: 1px solid #334155; padding: 9px 4px; font-size: 10px; font-weight: 800; text-transform: uppercase; width: 9%;">Total Qty</th>
+              <th align="center" style="border: 1px solid #334155; padding: 9px 4px; font-size: 10px; font-weight: 800; text-transform: uppercase; width: 5%;">SL</th>
+              <th align="left" style="border: 1px solid #334155; padding: 9px 8px; font-size: 10px; font-weight: 800; text-transform: uppercase; width: 31%;">Product & Specification</th>
+              <th align="center" style="border: 1px solid #334155; padding: 9px 4px; font-size: 10px; font-weight: 800; text-transform: uppercase; width: 6%;">Unit</th>
+              <th align="center" style="border: 1px solid #334155; padding: 9px 4px; font-size: 10px; font-weight: 800; text-transform: uppercase; width: 7%;">Order Qty</th>
+              <th align="center" style="border: 1px solid #334155; padding: 9px 4px; font-size: 10px; font-weight: 800; text-transform: uppercase; width: 6%;">Bonus</th>
+              <th align="center" style="border: 1px solid #334155; padding: 9px 4px; font-size: 10px; font-weight: 800; text-transform: uppercase; width: 7%;">Return</th>
+              <th align="center" style="border: 1px solid #334155; padding: 9px 4px; font-size: 10px; font-weight: 800; text-transform: uppercase; width: 7%;">Damage</th>
+              <th align="center" style="border: 1px solid #334155; padding: 9px 4px; font-size: 10px; font-weight: 800; text-transform: uppercase; width: 7%;">Net Qty</th>
               <th align="right" style="border: 1px solid #334155; padding: 9px 6px; font-size: 10px; font-weight: 800; text-transform: uppercase; width: 11%;">Rate (৳)</th>
-              <th align="right" style="border: 1px solid #334155; padding: 9px 8px; font-size: 10px; font-weight: 800; text-transform: uppercase; width: 13%;">Amount (৳)</th>
+              <th align="right" style="border: 1px solid #334155; padding: 9px 8px; font-size: 10px; font-weight: 800; text-transform: uppercase; width: 13%;">Net Amount (৳)</th>
             </tr>
 
             <!-- Line Item Rows -->
             ${productItems.map((item, idx) => {
               const rowBg = idx % 2 === 0 ? '#ffffff' : '#f8fafc';
-              const isZeroQtyDamage = item.qty === 0 && item.damagedQty > 0;
+              const netQty = Math.max(0, item.qty - (item.returnedQty || 0) - (item.damagedQty || 0));
+              const hasReturns = (item.returnedQty || 0) > 0;
+              const hasDamages = (item.damagedQty || 0) > 0;
               return `
               <tr style="background-color: ${rowBg};">
                 <td align="center" style="border: 1px solid #cbd5e1; padding: 8px 4px; font-size: 11px; font-family: monospace; font-weight: 700; color: #64748b;">
@@ -355,9 +359,13 @@ export async function POST(request: NextRequest) {
                     ${item.company ? `<span style="font-weight: 600; color: #2563eb;">${item.company}</span>` : ''}
                     ${item.attribute && item.attribute !== 'None' && item.attribute !== 'Default' ? ` • ${item.attribute}` : ''}
                   </div>
-                  ${isZeroQtyDamage ? `
+                  ${hasReturns ? `
                     <div style="font-size: 10px; color: #dc2626; font-weight: 700; margin-top: 2px;">
-                      ⚠️ Damage Record: ${item.damagedQty} pcs (Claim: ৳${(item.damagedQty * item.rate).toFixed(2)})
+                      🔄 Returned: ${item.returnedQty} ${item.selectedUnitName} (−৳${(item.returnedQty * item.rate).toFixed(2)})
+                    </div>` : ''}
+                  ${hasDamages ? `
+                    <div style="font-size: 10px; color: #d97706; font-weight: 700; margin-top: 2px;">
+                      ⚠️ Damaged: ${item.damagedQty} ${item.selectedUnitName} (−৳${(item.damagedQty * item.rate).toFixed(2)})
                     </div>` : ''}
                 </td>
                 <td align="center" style="border: 1px solid #cbd5e1; padding: 8px 4px; font-size: 11px; font-weight: 600; color: #475569;">
@@ -369,8 +377,14 @@ export async function POST(request: NextRequest) {
                 <td align="center" style="border: 1px solid #cbd5e1; padding: 8px 4px; font-size: 11px; font-family: monospace; color: #2563eb;">
                   ${item.bonusQty > 0 ? `+${item.bonusQty}` : '—'}
                 </td>
-                <td align="center" style="border: 1px solid #cbd5e1; padding: 8px 4px; font-size: 11px; font-family: monospace; font-weight: 700; color: #0f172a;">
-                  ${item.totalQty}
+                <td align="center" style="border: 1px solid #cbd5e1; padding: 8px 4px; font-size: 11px; font-family: monospace; font-weight: 700; color: ${hasReturns ? '#dc2626' : '#94a3b8'}; ${hasReturns ? 'background-color: #fef2f2;' : ''}">
+                  ${hasReturns ? `−${item.returnedQty}` : '0'}
+                </td>
+                <td align="center" style="border: 1px solid #cbd5e1; padding: 8px 4px; font-size: 11px; font-family: monospace; font-weight: 700; color: ${hasDamages ? '#d97706' : '#94a3b8'}; ${hasDamages ? 'background-color: #fffbeb;' : ''}">
+                  ${hasDamages ? `−${item.damagedQty}` : '0'}
+                </td>
+                <td align="center" style="border: 1px solid #cbd5e1; padding: 8px 4px; font-size: 11px; font-family: monospace; font-weight: 800; color: #166534; background-color: #f0fdf4;">
+                  ${netQty}
                 </td>
                 <td align="right" style="border: 1px solid #cbd5e1; padding: 8px 6px; font-size: 11px; font-family: monospace; color: #334155;">
                   ${Number(item.rate).toFixed(2)}
@@ -392,8 +406,14 @@ export async function POST(request: NextRequest) {
               <td align="center" style="border: 1px solid #cbd5e1; padding: 8px 4px; font-size: 11px; font-family: monospace; color: #059669;">
                 +${totalBonusUnits}
               </td>
-              <td align="center" style="border: 1px solid #cbd5e1; padding: 8px 4px; font-size: 11px; font-family: monospace; color: #0f172a;">
-                ${totalSentUnits + totalBonusUnits}
+              <td align="center" style="border: 1px solid #cbd5e1; padding: 8px 4px; font-size: 11px; font-family: monospace; color: ${totalReturnedUnits > 0 ? '#dc2626' : '#64748b'};">
+                ${totalReturnedUnits > 0 ? `−${totalReturnedUnits}` : '0'}
+              </td>
+              <td align="center" style="border: 1px solid #cbd5e1; padding: 8px 4px; font-size: 11px; font-family: monospace; color: ${totalDamagedUnits > 0 ? '#d97706' : '#64748b'};">
+                ${totalDamagedUnits > 0 ? `−${totalDamagedUnits}` : '0'}
+              </td>
+              <td align="center" style="border: 1px solid #cbd5e1; padding: 8px 4px; font-size: 11px; font-family: monospace; color: #166534; background-color: #dcfce7;">
+                ${totalNetDeliveredUnits}
               </td>
               <td align="right" style="border: 1px solid #cbd5e1; padding: 8px 6px; font-size: 10px; text-transform: uppercase; color: #475569;">
                 Gross Total:
@@ -406,7 +426,7 @@ export async function POST(request: NextRequest) {
             <!-- Summary Row 2: Commission (if any) -->
             ${(commissionAmount && commissionAmount > 0) ? `
             <tr style="background-color: #ffffff;">
-              <td colspan="7" align="right" style="border: 1px solid #cbd5e1; padding: 6px 8px; font-size: 11px; font-weight: 600; color: #4338ca;">
+              <td colspan="9" align="right" style="border: 1px solid #cbd5e1; padding: 6px 8px; font-size: 11px; font-weight: 600; color: #4338ca;">
                 Special Trade Discount / Commission (কমিশন / ছাড়):
               </td>
               <td align="right" style="border: 1px solid #cbd5e1; padding: 6px 8px; font-size: 11px; font-family: monospace; font-weight: 800; color: #4338ca;">
@@ -417,8 +437,8 @@ export async function POST(request: NextRequest) {
             <!-- Summary Row 3: Returns & Damages (if any) -->
             ${(totalDamagedValue > 0 || totalReturnedUnits > 0) ? `
             <tr style="background-color: #ffffff;">
-              <td colspan="7" align="right" style="border: 1px solid #cbd5e1; padding: 6px 8px; font-size: 11px; font-weight: 600; color: #dc2626;">
-                Market Damage & Return Adjustment (ড্যামেজ ও ফেরত সমন্বয়: ${totalReturnedUnits} ret, ${totalDamagedUnits} dmg):
+              <td colspan="9" align="right" style="border: 1px solid #cbd5e1; padding: 6px 8px; font-size: 11px; font-weight: 600; color: #dc2626;">
+                Market Damage & Return Deduction (ড্যামেজ ও ফেরত সমন্বয়: ${totalReturnedUnits} ret, ${totalDamagedUnits} dmg):
               </td>
               <td align="right" style="border: 1px solid #cbd5e1; padding: 6px 8px; font-size: 11px; font-family: monospace; font-weight: 800; color: #dc2626;">
                 - ৳${Number(totalDamagedValue + totalReturnedValue).toFixed(2)}
@@ -427,8 +447,8 @@ export async function POST(request: NextRequest) {
 
             <!-- Summary Row 3b: Net Delivered Breakdown -->
             <tr style="background-color: #f0fdf4; font-weight: 700;">
-              <td colspan="7" align="right" style="border: 1px solid #86efac; padding: 6px 8px; font-size: 11px; color: #166534;">
-                Net Delivered Qty & Gross Value (প্রকৃত ডেলিভারি পরিমাণ ও মূল্য: ${totalNetDeliveredUnits} units):
+              <td colspan="9" align="right" style="border: 1px solid #86efac; padding: 6px 8px; font-size: 11px; color: #166534;">
+                Net Delivered Qty & Value (প্রকৃত ডেলিভারি পরিমাণ ও মূল্য: ${totalNetDeliveredUnits} units):
               </td>
               <td align="right" style="border: 1px solid #86efac; padding: 6px 8px; font-size: 11px; font-family: monospace; font-weight: 800; color: #166534;">
                 ৳${Number(totalNetDeliveredGross).toFixed(2)}
@@ -438,7 +458,7 @@ export async function POST(request: NextRequest) {
             <!-- Summary Row 4: Extra Profit (if any) -->
             ${(extraProfitAmount && extraProfitAmount > 0) ? `
             <tr style="background-color: #ffffff;">
-              <td colspan="7" align="right" style="border: 1px solid #cbd5e1; padding: 6px 8px; font-size: 11px; font-weight: 600; color: #047857;">
+              <td colspan="9" align="right" style="border: 1px solid #cbd5e1; padding: 6px 8px; font-size: 11px; font-weight: 600; color: #047857;">
                 Additional Value Add (অতিরিক্ত লাভ):
               </td>
               <td align="right" style="border: 1px solid #cbd5e1; padding: 6px 8px; font-size: 11px; font-family: monospace; font-weight: 800; color: #047857;">
@@ -448,7 +468,7 @@ export async function POST(request: NextRequest) {
 
             <!-- Summary Final Row: Net Total Payable -->
             <tr style="background-color: #0f172a; color: #ffffff;">
-              <td colspan="6" align="right" style="border: 1px solid #0f172a; padding: 10px 12px; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px; color: #e2e8f0;">
+              <td colspan="8" align="right" style="border: 1px solid #0f172a; padding: 10px 12px; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px; color: #e2e8f0;">
                 NET TOTAL PAYABLE / সর্বমোট প্রদেয় বিল:
               </td>
               <td colspan="2" align="right" style="border: 1px solid #0f172a; padding: 10px 12px; font-size: 14px; font-weight: 900; font-family: monospace; color: #34d399;">

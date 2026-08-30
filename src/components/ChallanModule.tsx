@@ -2451,24 +2451,29 @@ export default function ChallanModule({
               <div className="space-y-2">
                 <p className="font-bold text-slate-800 text-sm border-b border-slate-200 pb-2">Products in Order ({viewingOrder.itemCount})</p>
                 <div className="overflow-x-auto border border-slate-200 rounded-none">
-                  <table className="w-full text-left text-xs border-collapse min-w-[600px]">
+                  <table className="w-full text-left text-xs border-collapse min-w-[700px]">
                     <thead className="bg-slate-100 text-slate-700">
                       <tr>
-                        <th className="px-4 py-3 font-semibold">Product</th>
-                        <th className="px-4 py-3 font-semibold text-right text-indigo-600">DP (৳)</th>
-                        <th className="px-4 py-3 font-semibold text-right text-emerald-600">TP (৳)</th>
-                        <th className="px-4 py-3 font-semibold text-center">Qty</th>
-                        <th className="px-4 py-3 font-semibold text-center">Bonus</th>
-                        <th className="px-4 py-3 font-semibold text-center">Total</th>
-                        <th className="px-4 py-3 font-semibold text-right">Amount (৳)</th>
+                        <th className="px-3 py-2.5 font-semibold">Product</th>
+                        <th className="px-3 py-2.5 font-semibold text-right text-indigo-600">DP (৳)</th>
+                        <th className="px-3 py-2.5 font-semibold text-right text-emerald-600">TP (৳)</th>
+                        <th className="px-3 py-2.5 font-semibold text-center">Order Qty</th>
+                        <th className="px-3 py-2.5 font-semibold text-center text-blue-600">Bonus</th>
+                        <th className="px-3 py-2.5 font-semibold text-center text-rose-600">Return</th>
+                        <th className="px-3 py-2.5 font-semibold text-center text-amber-600">Damage</th>
+                        <th className="px-3 py-2.5 font-semibold text-center text-emerald-700">Net Qty</th>
+                        <th className="px-3 py-2.5 font-semibold text-right">Amount (৳)</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200 bg-white">
                       {viewingOrder.items.map((item, idx) => {
                         const prod = products.find(p => p.name === item.productName);
+                        const netQty = Math.max(0, item.qty - (item.returnedQty || 0) - (item.damagedQty || 0));
+                        const hasRet = (item.returnedQty || 0) > 0;
+                        const hasDmg = (item.damagedQty || 0) > 0;
                         return (
                         <tr key={idx} className="hover:bg-slate-50">
-                          <td className="px-4 py-3">
+                          <td className="px-3 py-2.5">
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <p className="font-bold text-slate-800">{item.productName}</p>
                               {(item.company || prod?.company) && (
@@ -2478,21 +2483,39 @@ export default function ChallanModule({
                               )}
                             </div>
                             <p className="text-[10px] text-slate-500">{item.attribute}</p>
+                            {hasRet && (
+                              <p className="text-[9.5px] font-bold text-rose-600 mt-0.5">
+                                🔄 Returned: {item.returnedQty} {item.selectedUnitName || 'Pcs'} (−৳{((item.returnedQty || 0) * item.rate).toFixed(2)})
+                              </p>
+                            )}
+                            {hasDmg && (
+                              <p className="text-[9.5px] font-bold text-amber-600 mt-0.5">
+                                ⚠️ Damaged: {item.damagedQty} {item.selectedUnitName || 'Pcs'} (−৳{((item.damagedQty || 0) * item.rate).toFixed(2)})
+                              </p>
+                            )}
                           </td>
-                          <td className="px-4 py-3 text-right">
+                          <td className="px-3 py-2.5 text-right">
                             <span className="font-mono font-bold text-indigo-700 text-xs">
                               {prod ? prod.defaultPP.toLocaleString('en-BD') : '—'}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-right">
+                          <td className="px-3 py-2.5 text-right">
                             <span className="font-mono font-bold text-emerald-700 text-xs">
                               {prod ? prod.defaultWSP.toLocaleString('en-BD') : '—'}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-center font-mono">{item.qty}</td>
-                          <td className="px-4 py-3 text-center font-mono text-slate-500">+{item.bonusQty}</td>
-                          <td className="px-4 py-3 text-center font-mono font-bold bg-slate-50/50">{item.totalQty}</td>
-                          <td className="px-4 py-3 text-right font-mono font-bold">{(item.totalAmount).toLocaleString('en-BD')}</td>
+                          <td className="px-3 py-2.5 text-center font-mono font-bold text-slate-800">{item.qty}</td>
+                          <td className="px-3 py-2.5 text-center font-mono text-blue-600">+{item.bonusQty}</td>
+                          <td className={`px-3 py-2.5 text-center font-mono font-bold ${hasRet ? 'bg-rose-50 text-rose-600' : 'text-slate-400'}`}>
+                            {hasRet ? `−${item.returnedQty}` : '0'}
+                          </td>
+                          <td className={`px-3 py-2.5 text-center font-mono font-bold ${hasDmg ? 'bg-amber-50 text-amber-600' : 'text-slate-400'}`}>
+                            {hasDmg ? `−${item.damagedQty}` : '0'}
+                          </td>
+                          <td className="px-3 py-2.5 text-center font-mono font-black bg-emerald-50 text-emerald-800">
+                            {netQty}
+                          </td>
+                          <td className="px-3 py-2.5 text-right font-mono font-bold text-slate-900">{(item.totalAmount).toLocaleString('en-BD')}</td>
                         </tr>
                         );
                       })}

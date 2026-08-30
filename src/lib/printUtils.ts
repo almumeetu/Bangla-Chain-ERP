@@ -141,18 +141,22 @@ export function printChallanInvoice(items: ChallanItem[]): void {
     const rows = coItems.map((item) => {
       const netQty = Math.max(0, item.qty - (item.returnedQty || 0) - (item.damagedQty || 0));
       const itemGross = item.qty * item.rate;
+      const hasRet = (item.returnedQty || 0) > 0;
+      const hasDmg = (item.damagedQty || 0) > 0;
       return `
         <tr>
           <td class="text-center" style="color:#64748b;font-weight:600">${slNo++}</td>
           <td>
             <b>${item.productName}</b>
             ${item.attribute && item.attribute !== 'None' && item.attribute !== 'Default' ? `<br><span style="font-size:10px;color:#64748b">${item.attribute}</span>` : ''}
+            ${hasRet ? `<br><span style="font-size:9.5px;color:#dc2626;font-weight:700">🔄 Returned: ${item.returnedQty} ${item.selectedUnitName || 'Pcs'} (−৳${((item.returnedQty || 0) * item.rate).toFixed(2)})</span>` : ''}
+            ${hasDmg ? `<br><span style="font-size:9.5px;color:#d97706;font-weight:700">⚠️ Damaged: ${item.damagedQty} ${item.selectedUnitName || 'Pcs'} (−৳${((item.damagedQty || 0) * item.rate).toFixed(2)})</span>` : ''}
           </td>
           <td class="text-center" style="font-size:10px;color:#475569">${item.selectedUnitName || 'Pcs'}</td>
           <td class="text-center"><b>${item.qty}</b></td>
           <td class="text-center" style="color:#2563eb">${item.bonusQty || 0}</td>
-          <td class="text-center" style="color:${item.returnedQty ? '#dc2626' : '#94a3b8'}">${item.returnedQty || 0}</td>
-          <td class="text-center" style="color:${item.damagedQty ? '#dc2626' : '#94a3b8'}">${item.damagedQty || 0}</td>
+          <td class="text-center" style="color:${hasRet ? '#dc2626' : '#94a3b8'};${hasRet ? 'background:#fef2f2;font-weight:700' : ''}">${hasRet ? `−${item.returnedQty}` : '0'}</td>
+          <td class="text-center" style="color:${hasDmg ? '#d97706' : '#94a3b8'};${hasDmg ? 'background:#fffbeb;font-weight:700' : ''}">${hasDmg ? `−${item.damagedQty}` : '0'}</td>
           <td class="text-center" style="background:#f0fdf4;font-weight:800;color:#166534">${netQty}</td>
           <td class="text-right">৳${item.rate.toFixed(0)}</td>
           <td class="text-right" style="color:#64748b">৳${itemGross.toLocaleString('en-BD')}</td>
