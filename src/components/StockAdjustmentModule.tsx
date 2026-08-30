@@ -10,6 +10,7 @@ import ProductPicker           from './stock/ProductPicker';
 import AdjustmentForm          from './stock/AdjustmentForm';
 import AdjustmentAuditLog      from './stock/AdjustmentAuditLog';
 import { printInventoryValuation } from '../lib/printUtils';
+import Pagination from './ui/Pagination';
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -648,84 +649,15 @@ export default function StockAdjustmentModule({
               const itemsPerPage = 24;
               const totalPages = Math.ceil(filteredHistoric.length / itemsPerPage);
 
-              if (totalPages <= 1) return null;
-
               return (
-                <div className="flex items-center justify-between border-t border-slate-200 bg-white px-4 py-3 sm:px-6 rounded-none shadow-sm mt-4">
-                  <div className="flex flex-1 justify-between sm:hidden">
-                    <button
-                      onClick={() => setHistoryPage(prev => Math.max(prev - 1, 1))}
-                      disabled={historyPage === 1}
-                      className="relative inline-flex items-center rounded-none border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                    >
-                      {bn ? 'পূর্ববর্তী' : 'Previous'}
-                    </button>
-                    <button
-                      onClick={() => setHistoryPage(prev => Math.min(prev + 1, totalPages))}
-                      disabled={historyPage === totalPages}
-                      className="relative ml-3 inline-flex items-center rounded-none border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                    >
-                      {bn ? 'পরবর্তী' : 'Next'}
-                    </button>
-                  </div>
-                  <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-xs text-slate-700">
-                        {bn ? 'দেখানো হচ্ছে' : 'Showing'}{' '}
-                        <span className="font-medium font-mono">{(historyPage - 1) * itemsPerPage + 1}</span>{' '}
-                        {bn ? 'থেকে' : 'to'}{' '}
-                        <span className="font-medium font-mono">{Math.min(historyPage * itemsPerPage, filteredHistoric.length)}</span>{' '}
-                        {bn ? 'মোট' : 'of'}{' '}
-                        <span className="font-medium font-mono">{filteredHistoric.length}</span>{' '}
-                        {bn ? 'ফলাফল' : 'results'}
-                      </p>
-                    </div>
-                    <div>
-                      <nav className="isolate inline-flex -space-x-px rounded-none shadow-sm" aria-label="Pagination">
-                        <button
-                          onClick={() => setHistoryPage(prev => Math.max(prev - 1, 1))}
-                          disabled={historyPage === 1}
-                          className="relative inline-flex items-center rounded-none border border-slate-300 bg-white px-2 py-2 text-sm font-medium text-slate-500 hover:bg-slate-50 focus:z-20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                        >
-                          <span className="sr-only">Previous</span>
-                          <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                            <path fillRule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clipRule="evenodd" />
-                          </svg>
-                        </button>
-                        
-                        {Array.from({ length: totalPages }, (_, i) => i + 1)
-                          .filter(page => page === 1 || page === totalPages || Math.abs(page - historyPage) <= 1)
-                          .map((page, index, array) => {
-                            if (index > 0 && page - array[index - 1] > 1) {
-                              return (
-                                <React.Fragment key={`ellipsis-${page}`}>
-                                  <span className="relative inline-flex items-center border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700">...</span>
-                                  <button onClick={() => setHistoryPage(page)} className={`relative inline-flex items-center border px-4 py-2 text-sm font-bold cursor-pointer ${page === historyPage ? 'z-10 bg-indigo-50 border-indigo-500 text-indigo-600' : 'bg-white border-slate-300 text-slate-500 hover:bg-slate-50'}`}>
-                                    {page}
-                                  </button>
-                                </React.Fragment>
-                              );
-                            }
-                            return (
-                              <button key={page} onClick={() => setHistoryPage(page)} className={`relative inline-flex items-center border px-4 py-2 text-sm font-bold cursor-pointer ${page === historyPage ? 'z-10 bg-indigo-50 border-indigo-500 text-indigo-600' : 'bg-white border-slate-300 text-slate-500 hover:bg-slate-50'}`}>
-                                {page}
-                              </button>
-                            );
-                        })}
-                        
-                        <button
-                          onClick={() => setHistoryPage(prev => Math.min(prev + 1, totalPages))}
-                          disabled={historyPage === totalPages}
-                          className="relative inline-flex items-center rounded-none border border-slate-300 bg-white px-2 py-2 text-sm font-medium text-slate-500 hover:bg-slate-50 focus:z-20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                        >
-                          <span className="sr-only">Next</span>
-                          <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                            <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
-                          </svg>
-                        </button>
-                      </nav>
-                    </div>
-                  </div>
+                <div className="mt-4">
+                  <Pagination
+                    currentPage={Math.max(1, Math.min(historyPage, totalPages))}
+                    totalPages={totalPages}
+                    onPageChange={setHistoryPage}
+                    totalItems={filteredHistoric.length}
+                    language={language}
+                  />
                 </div>
               );
             })()}

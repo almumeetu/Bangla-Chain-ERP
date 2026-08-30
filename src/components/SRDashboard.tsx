@@ -228,11 +228,11 @@ export default function SRDashboard({
             </button>
             <button
               type="button"
-              onClick={() => onNavigate('sr-collection')}
+              onClick={() => onNavigate('delivery')}
               className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold text-sm transition-all cursor-pointer"
             >
-              <Wallet className="w-4 h-4 text-emerald-400" />
-              {isBn ? 'টাকা কালেকশন' : 'Collect Payment'}
+              <Truck className="w-4 h-4 text-emerald-400" />
+              {isBn ? 'ডেলিভারি চালান' : 'Delivery Challans'}
             </button>
           </div>
         </div>

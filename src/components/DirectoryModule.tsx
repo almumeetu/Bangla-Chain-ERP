@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useCallback, useEffect } from 'react';
+import Pagination from './ui/Pagination';
 import {
   Plus,
   Trash2,
@@ -586,6 +587,7 @@ export default function DirectoryModule({
   const [unitSearch, setUnitSearch] = useState('');
   const [compSearch, setCompSearch] = useState('');
   const [productPage, setProductPage] = useState(1);
+  const [productItemsPerPage, setProductItemsPerPage] = useState(10);
 
   React.useEffect(() => {
     setProductPage(1);
@@ -1542,7 +1544,7 @@ export default function DirectoryModule({
               { id: 'routes', label: tDir.tabRoutes, icon: Compass },
               { id: 'deliveryMen', label: language === 'bn' ? 'ডেলিভারি ম্যান' : 'Delivery Men', icon: Truck }
             ]
-              .filter(tab => !visibleTabs || visibleTabs.includes(tab.id as DirectoryTab))
+              .filter(tab => (!visibleTabs || visibleTabs.includes(tab.id as DirectoryTab)) && (userRole !== 'sr' || tab.id !== 'damage'))
               .map(tab => {
                 const Icon = tab.icon;
                 const isActive = activeSubTab === tab.id;
@@ -1621,7 +1623,7 @@ export default function DirectoryModule({
           return matchesSearch && matchesCompany && matchesCategory && matchesStock && matchesDate && matchesSr;
         });
 
-        const itemsPerPage = 24;
+        const itemsPerPage = productItemsPerPage;
         const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
         const validPage = Math.max(1, Math.min(productPage, totalPages));
         const paginatedProducts = filteredProducts.slice((validPage - 1) * itemsPerPage, validPage * itemsPerPage);
@@ -2359,104 +2361,18 @@ export default function DirectoryModule({
             )}
 
             {/* Pagination Controls */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between border-t border-slate-200 bg-white px-4 py-3 sm:px-6 rounded-none shadow-sm mt-4">
-                <div className="flex flex-1 justify-between sm:hidden">
-                  <button
-                    onClick={() => setProductPage(prev => Math.max(prev - 1, 1))}
-                    disabled={productPage === 1}
-                    className="relative inline-flex items-center rounded-none border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                  >
-                    {language === 'bn' ? 'পূর্ববর্তী' : 'Previous'}
-                  </button>
-                  <button
-                    onClick={() => setProductPage(prev => Math.min(prev + 1, totalPages))}
-                    disabled={productPage === totalPages}
-                    className="relative ml-3 inline-flex items-center rounded-none border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                  >
-                    {language === 'bn' ? 'পরবর্তী' : 'Next'}
-                  </button>
-                </div>
-                <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-xs text-slate-700">
-                      {language === 'bn' ? 'দেখানো হচ্ছে' : 'Showing'}{' '}
-                      <span className="font-medium font-mono">{(productPage - 1) * itemsPerPage + 1}</span>{' '}
-                      {language === 'bn' ? 'থেকে' : 'to'}{' '}
-                      <span className="font-medium font-mono">{Math.min(productPage * itemsPerPage, filteredProducts.length)}</span>{' '}
-                      {language === 'bn' ? 'মোট' : 'of'}{' '}
-                      <span className="font-medium font-mono">{filteredProducts.length}</span>{' '}
-                      {language === 'bn' ? 'ফলাফল' : 'results'}
-                    </p>
-                  </div>
-                  <div>
-                    <nav className="isolate inline-flex -space-x-px rounded-none shadow-sm" aria-label="Pagination">
-                      <button
-                        onClick={() => setProductPage(prev => Math.max(prev - 1, 1))}
-                        disabled={productPage === 1}
-                        className="relative inline-flex items-center rounded-none border border-slate-300 bg-white px-2 py-2 text-sm font-medium text-slate-500 hover:bg-slate-50 focus:z-20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                      >
-                        <span className="sr-only">Previous</span>
-                        <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                          <path fillRule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clipRule="evenodd" />
-                        </svg>
-                      </button>
-                      
-                      {Array.from({ length: totalPages }, (_, i) => i + 1)
-                        .filter(page => {
-                           return page === 1 || page === totalPages || Math.abs(page - productPage) <= 1;
-                        })
-                        .map((page, index, array) => {
-                          if (index > 0 && page - array[index - 1] > 1) {
-                            return (
-                              <React.Fragment key={`ellipsis-${page}`}>
-                                <span className="relative inline-flex items-center border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700">
-                                  ...
-                                </span>
-                                <button
-                                  onClick={() => setProductPage(page)}
-                                  className={`relative inline-flex items-center border px-4 py-2 text-sm font-bold cursor-pointer ${
-                                    page === productPage
-                                      ? 'z-10 bg-indigo-50 border-indigo-500 text-indigo-600'
-                                      : 'bg-white border-slate-300 text-slate-500 hover:bg-slate-50'
-                                  }`}
-                                >
-                                  {page}
-                                </button>
-                              </React.Fragment>
-                            );
-                          }
-                          
-                          return (
-                            <button
-                              key={page}
-                              onClick={() => setProductPage(page)}
-                              className={`relative inline-flex items-center border px-4 py-2 text-sm font-bold cursor-pointer ${
-                                page === productPage
-                                  ? 'z-10 bg-indigo-50 border-indigo-500 text-indigo-600'
-                                  : 'bg-white border-slate-300 text-slate-500 hover:bg-slate-50'
-                              }`}
-                            >
-                              {page}
-                            </button>
-                          );
-                      })}
-                      
-                      <button
-                        onClick={() => setProductPage(prev => Math.min(prev + 1, totalPages))}
-                        disabled={productPage === totalPages}
-                        className="relative inline-flex items-center rounded-none border border-slate-300 bg-white px-2 py-2 text-sm font-medium text-slate-500 hover:bg-slate-50 focus:z-20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                      >
-                        <span className="sr-only">Next</span>
-                        <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                          <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
-                        </svg>
-                      </button>
-                    </nav>
-                  </div>
-                </div>
-              </div>
-            )}
+            <div className="mt-4">
+              <Pagination
+                currentPage={validPage}
+                totalPages={totalPages}
+                onPageChange={setProductPage}
+                itemsPerPage={productItemsPerPage}
+                onItemsPerPageChange={setProductItemsPerPage}
+                pageSizeOptions={[10, 24, 50, 100]}
+                totalItems={filteredProducts.length}
+                language={language}
+              />
+            </div>
           </div>
         );
       })()}
@@ -3002,84 +2918,18 @@ export default function DirectoryModule({
                   )}
 
                   {/* Pagination Controls */}
-                  {totalPages > 1 && (
-                    <div className="flex items-center justify-between border-t border-slate-200 bg-white px-4 py-3 sm:px-6 rounded-none shadow-sm">
-                      <div className="flex flex-1 justify-between sm:hidden">
-                        <button
-                          onClick={() => setProductPage(prev => Math.max(prev - 1, 1))}
-                          disabled={productPage === 1}
-                          className="relative inline-flex items-center rounded-none border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                        >
-                          {language === 'bn' ? 'পূর্ববর্তী' : 'Previous'}
-                        </button>
-                        <button
-                          onClick={() => setProductPage(prev => Math.min(prev + 1, totalPages))}
-                          disabled={productPage === totalPages}
-                          className="relative ml-3 inline-flex items-center rounded-none border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                        >
-                          {language === 'bn' ? 'পরবর্তী' : 'Next'}
-                        </button>
-                      </div>
-                      <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-                        <div>
-                          <p className="text-xs text-slate-700">
-                            {language === 'bn' ? 'দেখানো হচ্ছে' : 'Showing'}{' '}
-                            <span className="font-medium font-mono">{(productPage - 1) * itemsPerPage + 1}</span>{' '}
-                            {language === 'bn' ? 'থেকে' : 'to'}{' '}
-                            <span className="font-medium font-mono">{Math.min(productPage * itemsPerPage, filteredCount)}</span>{' '}
-                            {language === 'bn' ? 'মোট' : 'of'}{' '}
-                            <span className="font-medium font-mono">{filteredCount}</span>{' '}
-                            {language === 'bn' ? 'ফলাফল' : 'results'}
-                          </p>
-                        </div>
-                        <div>
-                          <nav className="isolate inline-flex -space-x-px rounded-none shadow-sm" aria-label="Pagination">
-                            <button
-                              onClick={() => setProductPage(prev => Math.max(prev - 1, 1))}
-                              disabled={productPage === 1}
-                              className="relative inline-flex items-center rounded-none border border-slate-300 bg-white px-2 py-2 text-sm font-medium text-slate-500 hover:bg-slate-50 focus:z-20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                            >
-                              <span className="sr-only">Previous</span>
-                              <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                <path fillRule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clipRule="evenodd" />
-                              </svg>
-                            </button>
-                            
-                            {Array.from({ length: totalPages }, (_, i) => i + 1)
-                              .filter(page => page === 1 || page === totalPages || Math.abs(page - productPage) <= 1)
-                              .map((page, index, array) => {
-                                if (index > 0 && page - array[index - 1] > 1) {
-                                  return (
-                                    <React.Fragment key={`ellipsis-${page}`}>
-                                      <span className="relative inline-flex items-center border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700">...</span>
-                                      <button onClick={() => setProductPage(page)} className={`relative inline-flex items-center border px-4 py-2 text-sm font-bold cursor-pointer ${page === productPage ? 'z-10 bg-indigo-50 border-indigo-500 text-indigo-600' : 'bg-white border-slate-300 text-slate-500 hover:bg-slate-50'}`}>
-                                        {page}
-                                      </button>
-                                    </React.Fragment>
-                                  );
-                                }
-                                return (
-                                  <button key={page} onClick={() => setProductPage(page)} className={`relative inline-flex items-center border px-4 py-2 text-sm font-bold cursor-pointer ${page === productPage ? 'z-10 bg-indigo-50 border-indigo-500 text-indigo-600' : 'bg-white border-slate-300 text-slate-500 hover:bg-slate-50'}`}>
-                                    {page}
-                                  </button>
-                                );
-                            })}
-                            
-                            <button
-                              onClick={() => setProductPage(prev => Math.min(prev + 1, totalPages))}
-                              disabled={productPage === totalPages}
-                              className="relative inline-flex items-center rounded-none border border-slate-300 bg-white px-2 py-2 text-sm font-medium text-slate-500 hover:bg-slate-50 focus:z-20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                            >
-                              <span className="sr-only">Next</span>
-                              <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
-                              </svg>
-                            </button>
-                          </nav>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                  <div className="mt-4">
+                    <Pagination
+                      currentPage={Math.max(1, Math.min(productPage, totalPages))}
+                      totalPages={totalPages}
+                      onPageChange={setProductPage}
+                      itemsPerPage={productItemsPerPage}
+                      onItemsPerPageChange={setProductItemsPerPage}
+                      pageSizeOptions={[10, 24, 50, 100]}
+                      totalItems={filteredCount}
+                      language={language}
+                    />
+                  </div>
                 </React.Fragment>
               );
             })()}

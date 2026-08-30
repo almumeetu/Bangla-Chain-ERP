@@ -281,7 +281,7 @@ export default function App() {
 
     // If SR is logged in, restrict access strictly to SR modules only
     if (userRole === 'sr') {
-      const allowedSRTabs = ['sr-dashboard', 'sales', 'delivery', 'sr-collection', 'sr-attendance', 'sr-targets', 'reports'];
+      const allowedSRTabs = ['sr-dashboard', 'sales', 'delivery', 'reports'];
       if (!allowedSRTabs.includes(activeTab)) {
         return renderSRDashboard();
       }

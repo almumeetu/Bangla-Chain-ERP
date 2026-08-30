@@ -15,11 +15,13 @@ import {
   ClipboardList,
   FileSpreadsheet,
   Printer,
+  Award,
 } from 'lucide-react';
 import { Product, ChallanItem, SR, CompanyBrand, ExpenseRecord, DeliveryMan, UnitOfMeasure, ProductUnit, Claim, ClaimSettlement } from '../types';
 import { translations, Language } from '../translations';
 import { getStockValueDP, getStockValueTP, getDP, getTP } from '../lib/productUtils';
 import { exportReportPDF, exportReportExcel, printReport, type ReportType } from '../lib/reportEngine';
+import Pagination from './ui/Pagination';
 
 function CartonPcsDisplay({ 
   qty, 
@@ -232,15 +234,42 @@ export default function ReportsModule({
   }, [propProducts, userRole, srAssignedCompanyNames]);
 
   const challans = useMemo(() => {
-    if (userRole === 'sr' && loggedInSrName) {
+    if (userRole === 'sr') {
       return propChallans.filter(ch => {
-        const matchSR = (ch.srName || '').toLowerCase() === loggedInSrName.toLowerCase();
-        const matchComp = srAssignedCompanyNames.length === 0 || srAssignedCompanyNames.some(cn => cn.toLowerCase() === (ch.company || '').toLowerCase());
-        return matchSR && matchComp;
+        const itemCo = ch.company || propProducts.find(p => p.name.trim().toLowerCase() === (ch.productName || '').trim().toLowerCase())?.company || '';
+        const matchComp = srAssignedCompanyNames.length === 0 || !itemCo || srAssignedCompanyNames.some(cn => cn.toLowerCase() === itemCo.toLowerCase());
+        return matchComp;
       });
     }
     return propChallans;
-  }, [propChallans, userRole, loggedInSrName, srAssignedCompanyNames]);
+  }, [propChallans, propProducts, userRole, srAssignedCompanyNames]);
+
+  const dedupedSrs = useMemo(() => {
+    const map = new Map<string, SR>();
+    srs.forEach(s => {
+      const key = (s.name || '').trim().toLowerCase();
+      if (key && !map.has(key)) map.set(key, s);
+    });
+    return Array.from(map.values());
+  }, [srs]);
+
+  const dedupedCompanies = useMemo(() => {
+    const map = new Map<string, CompanyBrand>();
+    companies.forEach(c => {
+      const key = (c.name || '').trim().toLowerCase();
+      if (key && !map.has(key)) map.set(key, c);
+    });
+    return Array.from(map.values());
+  }, [companies]);
+
+  const dedupedDeliveryMen = useMemo(() => {
+    const map = new Map<string, DeliveryMan>();
+    deliveryMen.forEach(d => {
+      const key = (d.name || '').trim().toLowerCase();
+      if (key && !map.has(key)) map.set(key, d);
+    });
+    return Array.from(map.values());
+  }, [deliveryMen]);
 
   const t = translations[language].reports;
   const tCommon = translations[language].common;
@@ -261,7 +290,14 @@ export default function ReportsModule({
   
   // Sub-tabs for stock and sales reports
   const [stockSubTab, setStockSubTab] = useState<'company' | 'product'>('company');
-  const [salesSubTab, setSalesSubTab] = useState<'company' | 'sr' | 'dm' | 'product' | 'unit'>('company');
+  const [salesSubTab, setSalesSubTab] = useState<'sr' | 'product' | 'company'>('sr');
+
+  // Pagination State for Stock Reports
+  const [companyStockPage, setCompanyStockPage] = useState(1);
+  const [companyStockItemsPerPage, setCompanyStockItemsPerPage] = useState(10);
+
+  const [productStockPage, setProductStockPage] = useState(1);
+  const [productStockItemsPerPage, setProductStockItemsPerPage] = useState(10);
 
   // Date Presets State
   const [preset, setPreset] = useState('custom');
@@ -276,24 +312,37 @@ export default function ReportsModule({
 
   // Global filters
   const [selectedCompanyFilter, setSelectedCompanyFilter] = useState('All');
-  const [selectedSrFilter, setSelectedSrFilter] = useState(() => {
-    if (userRole === 'sr' && loggedInSrName) {
-      return loggedInSrName;
-    }
-    return 'All';
-  });
+  const [selectedSrFilter, setSelectedSrFilter] = useState('All');
   const [selectedDeliveryManFilter, setSelectedDeliveryManFilter] = useState('All');
+
+  const companyScopedSrsGlobal = useMemo(() => {
+    if (userRole === 'sr' && srAssignedCompanyNames.length > 0) {
+      return dedupedSrs.filter(sr => {
+        const srComps: string[] = [];
+        if (sr.companyName) srComps.push(sr.companyName);
+        if (sr.assignedCompanyIds) {
+          sr.assignedCompanyIds.forEach(cid => {
+            const comp = companies.find(c => c.id === cid || c.name.toLowerCase() === cid.toLowerCase());
+            if (comp) srComps.push(comp.name);
+            else srComps.push(cid);
+          });
+        }
+        return srComps.some(cn => srAssignedCompanyNames.some(acn => acn.toLowerCase() === cn.toLowerCase()));
+      });
+    }
+    return dedupedSrs;
+  }, [userRole, srAssignedCompanyNames, dedupedSrs, companies]);
 
   // Filter SRs by selected company
   const filteredSrsForFilter = useMemo(() => {
-    if (selectedCompanyFilter === 'All') return srs;
-    const comp = companies.find(c => 
+    if (selectedCompanyFilter === 'All') return companyScopedSrsGlobal;
+    const comp = dedupedCompanies.find(c => 
       c.name.toLowerCase().includes(selectedCompanyFilter.toLowerCase()) ||
       selectedCompanyFilter.toLowerCase().includes(c.name.toLowerCase())
     );
-    if (!comp) return srs;
-    return srs.filter(sr => (sr.assignedCompanyIds || []).some(cid => cid === comp.id || cid.toLowerCase() === comp.name.toLowerCase()));
-  }, [selectedCompanyFilter, companies, srs]);
+    if (!comp) return companyScopedSrsGlobal;
+    return companyScopedSrsGlobal.filter(sr => (sr.assignedCompanyIds || []).some(cid => cid === comp.id || cid.toLowerCase() === comp.name.toLowerCase()));
+  }, [selectedCompanyFilter, dedupedCompanies, companyScopedSrsGlobal]);
 
   // Auto reset SR filter if selected SR is not in company's SR list
   React.useEffect(() => {
@@ -348,18 +397,42 @@ export default function ReportsModule({
     });
   }, [challans, startDate, endDate, selectedCompanyFilter, selectedSrFilter, selectedDeliveryManFilter]);
 
+  const filteredStockProducts = useMemo(() => {
+    return products.filter(p => {
+      if (selectedCompanyFilter !== 'All') {
+        const matchesComp = (p.company || '').trim().toLowerCase() === selectedCompanyFilter.trim().toLowerCase();
+        if (!matchesComp) return false;
+      }
+      if (selectedSrFilter !== 'All') {
+        const srObj = srs.find(s => (s.name || '').trim().toLowerCase() === selectedSrFilter.trim().toLowerCase());
+        if (srObj) {
+          const srCompanies: string[] = [];
+          if (srObj.companyName) srCompanies.push(srObj.companyName);
+          if (srObj.assignedCompanyIds) {
+            srObj.assignedCompanyIds.forEach(cid => {
+              const comp = companies.find(c => c.id === cid || c.name.toLowerCase() === cid.toLowerCase());
+              if (comp) srCompanies.push(comp.name);
+              else srCompanies.push(cid);
+            });
+          }
+          const matchesSrComp = srCompanies.some(cn => cn.toLowerCase() === (p.company || '').toLowerCase());
+          if (!matchesSrComp) return false;
+        }
+      }
+      return true;
+    });
+  }, [products, selectedCompanyFilter, selectedSrFilter, srs, companies]);
+
   // ═══════════════════════════════════════════════════════════════
   // 1. STOCK REPORT DATA CALCULATION (with DP & TP)
   // ═══════════════════════════════════════════════════════════════
   const stockReportData = useMemo(() => {
-    const brandList = selectedCompanyFilter === 'All'
-      ? Array.from(new Set(products.map(p => p.company).filter(Boolean)))
-      : [selectedCompanyFilter];
+    const brandList = Array.from(new Set(filteredStockProducts.map(p => p.company).filter(Boolean)));
     let grandValueDP = 0;
     let grandValueTP = 0;
 
     const rows = brandList.map(brandName => {
-      const brandProducts = products.filter(p => p.company === brandName);
+      const brandProducts = filteredStockProducts.filter(p => p.company === brandName);
       const totalValueDP = brandProducts.reduce((sum, p) => sum + getStockValueDP(p), 0);
       const totalValueTP = brandProducts.reduce((sum, p) => sum + getStockValueTP(p), 0);
       const stockQtyObj = getAggregatedStockQty(brandProducts, 'currentStock');
@@ -376,10 +449,7 @@ export default function ReportsModule({
       };
     });
 
-    const grandStockQtyObj = getAggregatedStockQty(
-      selectedCompanyFilter === 'All' ? products : products.filter(p => p.company === selectedCompanyFilter),
-      'currentStock'
-    );
+    const grandStockQtyObj = getAggregatedStockQty(filteredStockProducts, 'currentStock');
 
     return {
       rows,
@@ -388,7 +458,7 @@ export default function ReportsModule({
       grandValueTP,
       grandPotentialMargin: Math.max(0, grandValueTP - grandValueDP)
     };
-  }, [products, selectedCompanyFilter]);
+  }, [filteredStockProducts]);
 
   // ═══════════════════════════════════════════════════════════════
   // 2. SALES REPORT DATA CALCULATION
@@ -429,8 +499,8 @@ export default function ReportsModule({
 
     // B. SR-wise Sales
     const activeSrs = selectedSrFilter === 'All'
-      ? srs
-      : srs.filter(s => (s.name || '').toLowerCase() === selectedSrFilter.toLowerCase());
+      ? companyScopedSrsGlobal
+      : companyScopedSrsGlobal.filter(s => (s.name || '').toLowerCase() === selectedSrFilter.toLowerCase());
     const srSales = activeSrs.map(sr => {
       const srChallans = filteredChallans.filter(ch => (ch.srName || '').toLowerCase() === (sr.name || '').toLowerCase());
       const unitsSold = srChallans.reduce((sum, ch) => sum + Math.max(0, ch.qty - (ch.returnedQty || 0) - (ch.damagedQty || 0)), 0);
@@ -568,6 +638,8 @@ export default function ReportsModule({
       productSales, 
       unitSales,
       grandSoldQtyObj,
+      grandReturnsQtyObj,
+      grandDamagesQtyObj,
       grandReturnsAndDamagesQtyObj
     };
   }, [filteredChallans, products, srs, deliveryMen, selectedCompanyFilter, selectedSrFilter, selectedDeliveryManFilter]);
@@ -879,7 +951,7 @@ export default function ReportsModule({
           }`}
         >
           <Package className="w-4 h-4" />
-          <span>{language === 'bn' ? 'স্টক রিপোর্ট (DP ও TP)' : 'Stock Report (DP & TP)'}</span>
+          <span>Stock Report (DP & TP)</span>
         </button>
 
         <button
@@ -892,21 +964,23 @@ export default function ReportsModule({
           }`}
         >
           <TrendingUp className="w-4 h-4" />
-          <span>{language === 'bn' ? 'বিক্রয় রিপোর্ট' : 'Sales Report'}</span>
+          <span>Sales Report</span>
         </button>
 
-        <button
-          type="button"
-          onClick={() => handleTabSelect('damage')}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-none text-xs font-bold transition-all cursor-pointer border ${
-            activeTab === 'damage'
-              ? 'bg-rose-800 text-white border-rose-800 shadow-sm'
-              : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-          }`}
-        >
-          <ShieldAlert className="w-4 h-4" />
-          <span>{language === 'bn' ? 'ড্যামেজ রিপোর্ট' : 'Damage Report'}</span>
-        </button>
+        {userRole !== 'sr' && (
+          <button
+            type="button"
+            onClick={() => handleTabSelect('damage')}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-none text-xs font-bold transition-all cursor-pointer border ${
+              activeTab === 'damage'
+                ? 'bg-rose-800 text-white border-rose-800 shadow-sm'
+                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            <ShieldAlert className="w-4 h-4" />
+            <span>Damage Report</span>
+          </button>
+        )}
 
         {userRole !== 'sr' && (
           <>
@@ -920,7 +994,7 @@ export default function ReportsModule({
               }`}
             >
               <DollarSign className="w-4 h-4" />
-              <span>{language === 'bn' ? 'লাভ-ক্ষতি রিপোর্ট' : 'Profit & Loss'}</span>
+              <span>Profit & Loss</span>
             </button>
 
             <button
@@ -933,7 +1007,7 @@ export default function ReportsModule({
               }`}
             >
               <ClipboardList className="w-4 h-4" />
-              <span>{language === 'bn' ? 'কোম্পানি ক্লেইমস' : 'Company Claims'}</span>
+              <span>Company Claims</span>
             </button>
           </>
         )}
@@ -944,22 +1018,22 @@ export default function ReportsModule({
         <div className="flex items-center gap-4.5 w-full md:w-auto">
           <div className="flex items-center gap-2 text-slate-850 font-bold text-xs shrink-0">
             <Calendar className="w-4 h-4 text-indigo-500 animate-pulse" />
-            <span className="text-indigo-900">{language === 'bn' ? 'সময়কাল:' : 'Period Preset:'}</span>
+            <span className="text-indigo-900">Period Preset:</span>
           </div>
           <select
             value={preset}
             onChange={e => handlePresetChange(e.target.value)}
             className="h-9 rounded-none border border-indigo-200 bg-white px-3 text-xs font-bold text-indigo-850 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all cursor-pointer shadow-sm"
           >
-            <option value="today">{language === 'bn' ? 'আজকের' : 'Today'}</option>
-            <option value="month">{language === 'bn' ? 'এই মাস' : 'This Month'}</option>
-            <option value="year">{language === 'bn' ? 'এই বছর' : 'This Year'}</option>
-            <option value="custom">{language === 'bn' ? 'কাস্টম রেঞ্জ' : 'Custom Range'}</option>
+            <option value="today">Today</option>
+            <option value="month">This Month</option>
+            <option value="year">This Year</option>
+            <option value="custom">Custom Range</option>
           </select>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-bold text-slate-400 uppercase">{language === 'bn' ? 'শুরু:' : 'From:'}</span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase">From:</span>
             <div className="relative flex items-center">
               <div className="absolute left-2.5 w-6 h-6 rounded-none bg-indigo-50 border border-indigo-200/60 flex items-center justify-center pointer-events-none z-10">
                 <Calendar className="w-3.5 h-3.5 text-indigo-500" />
@@ -974,7 +1048,7 @@ export default function ReportsModule({
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-bold text-slate-400 uppercase">{language === 'bn' ? 'শেষ:' : 'To:'}</span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase">To:</span>
             <div className="relative flex items-center">
               <div className="absolute left-2.5 w-6 h-6 rounded-none bg-rose-50 border border-rose-200/60 flex items-center justify-center pointer-events-none z-10">
                 <Calendar className="w-3.5 h-3.5 text-rose-500" />
@@ -997,7 +1071,7 @@ export default function ReportsModule({
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-none bg-indigo-500 animate-ping shrink-0" />
             <span className="text-[10px] bg-indigo-100 text-indigo-700 font-extrabold px-2.5 py-0.5 rounded-none uppercase tracking-wider font-mono">
-              {language === 'bn' ? 'রিপোর্ট ফিল্টার কন্ট্রোল' : 'Report Filters Control'}
+              Report Filters Control
             </span>
           </div>
           {(selectedCompanyFilter !== 'All' || (userRole !== 'sr' && selectedSrFilter !== 'All') || selectedDeliveryManFilter !== 'All') && (
@@ -1011,7 +1085,7 @@ export default function ReportsModule({
               }}
               className="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold underline transition-colors cursor-pointer"
             >
-              {language === 'bn' ? 'ফিল্টার রিসেট করুন' : 'Reset Filters'}
+              Reset Filters
             </button>
           )}
         </div>
@@ -1020,14 +1094,14 @@ export default function ReportsModule({
           {/* Company Filter */}
           <div className="space-y-1.5">
             <label className="text-[10px] font-bold text-orange-600 uppercase tracking-wider block">
-              {language === 'bn' ? 'কোম্পানি ফিল্টার:' : 'Filter by Company:'}
+              Filter by Company:
             </label>
             <select
               value={selectedCompanyFilter}
               onChange={e => setSelectedCompanyFilter(e.target.value)}
               className="h-10 w-full rounded-none border border-orange-200 bg-orange-50/10 px-3 text-xs font-bold text-orange-850 outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 transition-all cursor-pointer shadow-sm"
             >
-              <option value="All">{language === 'bn' ? 'সকল কোম্পানি' : 'All Companies'}</option>
+              <option value="All">All Companies</option>
               {companiesList.map(c => (
                 <option key={c} value={c}>{c}</option>
               ))}
@@ -1037,7 +1111,7 @@ export default function ReportsModule({
           {/* SR Filter */}
           <div className="space-y-1.5">
             <label className="text-[10px] font-bold text-purple-600 uppercase tracking-wider block">
-              {language === 'bn' ? 'এসআর ফিল্টার:' : 'Filter by SR:'}
+              Filter by SR:
             </label>
             <select
               value={selectedSrFilter}
@@ -1049,7 +1123,7 @@ export default function ReportsModule({
                 <option value={loggedInSrName}>{loggedInSrName}</option>
               ) : (
                 <>
-                  <option value="All">{language === 'bn' ? 'সকল এসআর (SR)' : 'All SRs'}</option>
+                  <option value="All">All SRs</option>
                   {filteredSrsForFilter.map(sr => (
                     <option key={sr.id} value={sr.name}>{sr.name}</option>
                   ))}
@@ -1061,14 +1135,14 @@ export default function ReportsModule({
           {/* Delivery Man Filter */}
           <div className="space-y-1.5">
             <label className="text-[10px] font-bold text-rose-600 uppercase tracking-wider block">
-              {language === 'bn' ? 'ডেলিভারি ম্যান ফিল্টার:' : 'Filter by Delivery Man:'}
+              Filter by Delivery Man:
             </label>
             <select
               value={selectedDeliveryManFilter}
               onChange={e => setSelectedDeliveryManFilter(e.target.value)}
               className="h-10 w-full rounded-none border border-rose-200 bg-rose-50/10 px-3 text-xs font-bold text-rose-855 outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100 transition-all cursor-pointer shadow-sm"
             >
-              <option value="All">{language === 'bn' ? 'সকল ডেলিভারি ম্যান' : 'All Delivery Men'}</option>
+              <option value="All">All Delivery Men</option>
               {deliveryMen.map(dm => (
                 <option key={dm.id} value={dm.name}>{dm.name}</option>
               ))}
@@ -1084,7 +1158,7 @@ export default function ReportsModule({
           <div className={`grid grid-cols-1 sm:grid-cols-2 ${userRole !== 'sr' ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-4`}>
             <div className="bg-white border border-slate-200 rounded-none p-5 shadow-sm">
               <p className="text-[10px] font-bold uppercase text-slate-400 tracking-wider mb-2">
-                {language === 'bn' ? 'মোট বর্তমান স্টক' : 'Total Current Stock'}
+                Total Current Stock
               </p>
               <CartonPcsDisplay
                 cartons={stockReportData.grandStockQtyObj.cartons}
@@ -1095,7 +1169,7 @@ export default function ReportsModule({
             </div>
             <div className="bg-white border border-slate-200 rounded-none p-5 shadow-sm">
               <p className="text-[10px] font-bold uppercase text-indigo-600 tracking-wider mb-2">
-                {language === 'bn' ? 'মোট স্টক মূল্য (DP / ডিলার দর)' : 'Stock Valuation (DP)'}
+                Stock Valuation (DP)
               </p>
               <p className="text-2xl font-black text-indigo-700 font-mono">
                 {formatBDT(stockReportData.grandValueDP)}
@@ -1103,7 +1177,7 @@ export default function ReportsModule({
             </div>
             <div className="bg-white border border-slate-200 rounded-none p-5 shadow-sm">
               <p className="text-[10px] font-bold uppercase text-emerald-600 tracking-wider mb-2">
-                {language === 'bn' ? 'মোট স্টক মূল্য (TP / ট্রেড দর)' : 'Stock Valuation (TP)'}
+                Stock Valuation (TP)
               </p>
               <p className="text-2xl font-black text-emerald-700 font-mono">
                 {formatBDT(stockReportData.grandValueTP)}
@@ -1112,7 +1186,7 @@ export default function ReportsModule({
             {userRole !== 'sr' && (
               <div className="bg-white border border-slate-200 rounded-none p-5 shadow-sm">
                 <p className="text-[10px] font-bold uppercase text-amber-600 tracking-wider mb-2">
-                  {language === 'bn' ? 'সম্ভাব্য মোট গ্রস লাভ (TP - DP)' : 'Potential Gross Margin'}
+                  Potential Gross Margin
                 </p>
                 <p className="text-2xl font-black text-amber-700 font-mono">
                   {formatBDT(stockReportData.grandPotentialMargin)}
@@ -1131,7 +1205,7 @@ export default function ReportsModule({
                   : 'text-slate-500 hover:text-slate-900'
               }`}
             >
-              {language === 'bn' ? 'কোম্পানি ভিত্তিক' : 'Company Summary'}
+              Company Summary
             </button>
             <button
               onClick={() => setStockSubTab('product')}
@@ -1141,108 +1215,148 @@ export default function ReportsModule({
                   : 'text-slate-500 hover:text-slate-900'
               }`}
             >
-              {language === 'bn' ? 'পণ্য ভিত্তিক' : 'Product Details'}
+              Product Details
             </button>
           </div>
 
           {/* Stock report sub-tab content */}
-          {stockSubTab === 'company' && (
-            <div className="bg-white border border-slate-200 rounded-none p-6 shadow-sm space-y-6">
-              <div className="border-b border-slate-100 pb-3">
-                <h3 className="font-bold text-slate-800 text-sm">{t.companyStockTitle}</h3>
-              </div>
+          {stockSubTab === 'company' && (() => {
+            const totalCompanyRows = stockReportData.rows.length;
+            const startIdx = (companyStockPage - 1) * companyStockItemsPerPage;
+            const pagedCompanyRows = stockReportData.rows.slice(startIdx, startIdx + companyStockItemsPerPage);
+            const totalPages = Math.ceil(totalCompanyRows / companyStockItemsPerPage) || 1;
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse min-w-[800px]">
-                  <thead>
-                    <tr className="border-b border-slate-200 text-[10px] font-bold text-slate-450 uppercase tracking-wider bg-slate-50/50">
-                      <th className="px-4 py-3">{language === 'bn' ? 'কোম্পানি' : 'Company'}</th>
-                      <th className="px-4 py-3 text-center">{language === 'bn' ? 'স্টক পরিমাণ' : 'Total Units'}</th>
-                      <th className="px-4 py-3 text-right text-indigo-600">{language === 'bn' ? 'স্টক মূল্য (DP)' : 'Stock Valuation (DP)'}</th>
-                      <th className="px-4 py-3 text-right text-emerald-600">{language === 'bn' ? 'স্টক মূল্য (TP)' : 'Stock Valuation (TP)'}</th>
-                      {userRole !== 'sr' && <th className="px-4 py-3 text-right text-amber-600">{language === 'bn' ? 'সম্ভাব্য লাভ (TP - DP)' : 'Potential Margin'}</th>}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 text-xs">
-                    {stockReportData.rows.map((row, idx) => (
-                      <tr key={idx} className="hover:bg-slate-50/40 transition-colors">
-                        <td className="px-4 py-3.5 font-bold text-slate-850">{row.companyName}</td>
-                        <td className="px-4 py-3.5 text-center">
-                          <CartonPcsDisplay qty={row.stockQtyObj.rawPcs} cartons={row.stockQtyObj.cartons} pcs={row.stockQtyObj.pcs} language={language} />
-                        </td>
-                        <td className="px-4 py-3.5 text-right font-mono font-bold text-indigo-700">{formatBDT(row.totalValueDP)}</td>
-                        <td className="px-4 py-3.5 text-right font-mono font-bold text-emerald-700">{formatBDT(row.totalValueTP)}</td>
-                        {userRole !== 'sr' && <td className="px-4 py-3.5 text-right font-mono font-bold text-amber-700">{formatBDT(row.potentialMargin)}</td>}
+            return (
+              <div className="bg-white border border-slate-200 rounded-none p-6 shadow-sm space-y-6">
+                <div className="border-b border-slate-100 pb-3">
+                  <h3 className="font-bold text-slate-800 text-sm">{t.companyStockTitle}</h3>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse min-w-[800px]">
+                    <thead>
+                      <tr className="border-b border-slate-200 text-[10px] font-bold text-slate-450 uppercase tracking-wider bg-slate-50/50">
+                        <th className="px-4 py-3">Company</th>
+                        <th className="px-4 py-3 text-center">Total Units</th>
+                        <th className="px-4 py-3 text-right text-indigo-600">Stock Valuation (DP)</th>
+                        <th className="px-4 py-3 text-right text-emerald-600">Stock Valuation (TP)</th>
+                        {userRole !== 'sr' && <th className="px-4 py-3 text-right text-amber-600">Potential Margin</th>}
                       </tr>
-                    ))}
-                    <tr className="bg-slate-50 border-t-2 border-slate-200 font-extrabold text-slate-900">
-                      <td className="px-4 py-4">{language === 'bn' ? 'সর্বমোট স্টক' : 'GRAND TOTAL STOCK'}</td>
-                      <td className="px-4 py-4 text-center">
-                        <CartonPcsDisplay qty={stockReportData.grandStockQtyObj.rawPcs} cartons={stockReportData.grandStockQtyObj.cartons} pcs={stockReportData.grandStockQtyObj.pcs} language={language} />
-                      </td>
-                      <td className="px-4 py-4 text-right font-mono text-indigo-700">{formatBDT(stockReportData.grandValueDP)}</td>
-                      <td className="px-4 py-4 text-right font-mono text-emerald-700">{formatBDT(stockReportData.grandValueTP)}</td>
-                      {userRole !== 'sr' && <td className="px-4 py-4 text-right font-mono text-amber-700">{formatBDT(stockReportData.grandPotentialMargin)}</td>}
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {stockSubTab === 'product' && (
-            <div className="bg-white border border-slate-200 rounded-none p-6 shadow-sm space-y-6">
-              <div className="border-b border-slate-100 pb-3">
-                <h3 className="font-bold text-slate-800 text-sm">
-                  {language === 'bn' ? 'পণ্যভিত্তিক স্টক বিস্তারিত (DP ও TP রেট সহ)' : 'Product-wise Stock Details (with DP & TP)'}
-                </h3>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse min-w-[950px]">
-                  <thead>
-                    <tr className="border-b border-slate-200 text-[10px] font-bold text-slate-450 uppercase tracking-wider bg-slate-50/50">
-                      <th className="px-4 py-3">{language === 'bn' ? 'পণ্যের নাম' : 'Product Name'}</th>
-                      <th className="px-4 py-3">{language === 'bn' ? 'কোম্পানি' : 'Company'}</th>
-                      <th className="px-4 py-3">{language === 'bn' ? 'SKU' : 'SKU'}</th>
-                      <th className="px-4 py-3 text-center">{language === 'bn' ? 'বর্তমান স্টক' : 'Current Stock'}</th>
-                      <th className="px-4 py-3 text-center">{language === 'bn' ? 'ক্ষতিগ্রস্ত স্টক' : 'Damaged'}</th>
-                      <th className="px-4 py-3 text-right text-indigo-600">{language === 'bn' ? 'DP দর' : 'DP Rate'}</th>
-                      <th className="px-4 py-3 text-right text-emerald-600">{language === 'bn' ? 'TP দর' : 'TP Rate'}</th>
-                      <th className="px-4 py-3 text-right text-indigo-700">{language === 'bn' ? 'মোট DP মূল্য' : 'Valuation (DP)'}</th>
-                      <th className="px-4 py-3 text-right text-emerald-700">{language === 'bn' ? 'মোট TP মূল্য' : 'Valuation (TP)'}</th>
-                      {userRole !== 'sr' && <th className="px-4 py-3 text-right text-amber-700">{language === 'bn' ? 'সম্ভাব্য লাভ' : 'Margin'}</th>}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 text-xs">
-                    {products.map((product, idx) => {
-                      const valDP = getStockValueDP(product);
-                      const valTP = getStockValueTP(product);
-                      const margin = Math.max(0, valTP - valDP);
-                      return (
-                        <tr key={product.id} className="hover:bg-slate-50/40 transition-colors">
-                          <td className="px-4 py-3.5 font-bold text-slate-850">{product.name}</td>
-                          <td className="px-4 py-3.5 text-slate-600">{product.company}</td>
-                          <td className="px-4 py-3.5 text-slate-500 font-mono text-[10px]">{product.sku}</td>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-xs">
+                      {pagedCompanyRows.map((row, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50/40 transition-colors">
+                          <td className="px-4 py-3.5 font-bold text-slate-850">{row.companyName}</td>
                           <td className="px-4 py-3.5 text-center">
-                            <CartonPcsDisplay qty={product.currentStock} cartonSize={product.cartonSize} primaryUnit={product.primaryUnit} language={language} />
+                            <CartonPcsDisplay qty={row.stockQtyObj.rawPcs} cartons={row.stockQtyObj.cartons} pcs={row.stockQtyObj.pcs} language={language} />
                           </td>
-                          <td className="px-4 py-3.5 text-center">
-                            <CartonPcsDisplay qty={product.damagedStock || 0} cartonSize={product.cartonSize} primaryUnit={product.primaryUnit} language={language} />
-                          </td>
-                          <td className="px-4 py-3.5 text-right font-mono text-indigo-600">{formatBDT(getDP(product))}</td>
-                          <td className="px-4 py-3.5 text-right font-mono text-emerald-600">{formatBDT(getTP(product))}</td>
-                          <td className="px-4 py-3.5 text-right font-mono font-bold text-indigo-700">{formatBDT(valDP)}</td>
-                          <td className="px-4 py-3.5 text-right font-mono font-bold text-emerald-700">{formatBDT(valTP)}</td>
-                          {userRole !== 'sr' && <td className="px-4 py-3.5 text-right font-mono font-bold text-amber-700">{formatBDT(margin)}</td>}
+                          <td className="px-4 py-3.5 text-right font-mono font-bold text-indigo-700">{formatBDT(row.totalValueDP)}</td>
+                          <td className="px-4 py-3.5 text-right font-mono font-bold text-emerald-700">{formatBDT(row.totalValueTP)}</td>
+                          {userRole !== 'sr' && <td className="px-4 py-3.5 text-right font-mono font-bold text-amber-700">{formatBDT(row.potentialMargin)}</td>}
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                      ))}
+                      <tr className="bg-slate-50 border-t-2 border-slate-200 font-extrabold text-slate-900">
+                        <td className="px-4 py-4">GRAND TOTAL STOCK</td>
+                        <td className="px-4 py-4 text-center">
+                          <CartonPcsDisplay qty={stockReportData.grandStockQtyObj.rawPcs} cartons={stockReportData.grandStockQtyObj.cartons} pcs={stockReportData.grandStockQtyObj.pcs} language={language} />
+                        </td>
+                        <td className="px-4 py-4 text-right font-mono text-indigo-700">{formatBDT(stockReportData.grandValueDP)}</td>
+                        <td className="px-4 py-4 text-right font-mono text-emerald-700">{formatBDT(stockReportData.grandValueTP)}</td>
+                        {userRole !== 'sr' && <td className="px-4 py-4 text-right font-mono text-amber-700">{formatBDT(stockReportData.grandPotentialMargin)}</td>}
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <Pagination
+                  currentPage={companyStockPage}
+                  totalPages={totalPages}
+                  totalItems={totalCompanyRows}
+                  itemsPerPage={companyStockItemsPerPage}
+                  onPageChange={setCompanyStockPage}
+                  onItemsPerPageChange={(num) => {
+                    setCompanyStockItemsPerPage(num);
+                    setCompanyStockPage(1);
+                  }}
+                />
               </div>
-            </div>
-          )}
+            );
+          })()}
+
+          {stockSubTab === 'product' && (() => {
+            const totalProductRows = filteredStockProducts.length;
+            const startIdx = (productStockPage - 1) * productStockItemsPerPage;
+            const pagedProductRows = filteredStockProducts.slice(startIdx, startIdx + productStockItemsPerPage);
+            const totalPages = Math.ceil(totalProductRows / productStockItemsPerPage) || 1;
+
+            return (
+              <div className="bg-white border border-slate-200 rounded-none p-6 shadow-sm space-y-6">
+                <div className="border-b border-slate-100 pb-3">
+                  <h3 className="font-bold text-slate-800 text-sm">
+                    Product-wise Stock Details (with DP & TP)
+                  </h3>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse min-w-[950px]">
+                    <thead>
+                      <tr className="border-b border-slate-200 text-[10px] font-bold text-slate-450 uppercase tracking-wider bg-slate-50/50">
+                        <th className="px-4 py-3">Product Name</th>
+                        <th className="px-4 py-3">Company</th>
+                        <th className="px-4 py-3">SKU</th>
+                        <th className="px-4 py-3 text-center">Current Stock</th>
+                        {userRole !== 'sr' && <th className="px-4 py-3 text-center">Damaged</th>}
+                        <th className="px-4 py-3 text-right text-indigo-600">DP Rate</th>
+                        <th className="px-4 py-3 text-right text-emerald-600">TP Rate</th>
+                        <th className="px-4 py-3 text-right text-indigo-700">Valuation (DP)</th>
+                        <th className="px-4 py-3 text-right text-emerald-700">Valuation (TP)</th>
+                        {userRole !== 'sr' && <th className="px-4 py-3 text-right text-amber-700">Margin</th>}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-xs">
+                      {pagedProductRows.map((product) => {
+                        const valDP = getStockValueDP(product);
+                        const valTP = getStockValueTP(product);
+                        const margin = Math.max(0, valTP - valDP);
+                        return (
+                          <tr key={product.id} className="hover:bg-slate-50/40 transition-colors">
+                            <td className="px-4 py-3.5 font-bold text-slate-850">{product.name}</td>
+                            <td className="px-4 py-3.5 text-slate-600">{product.company}</td>
+                            <td className="px-4 py-3.5 text-slate-500 font-mono text-[10px]">{product.sku}</td>
+                            <td className="px-4 py-3.5 text-center">
+                              <CartonPcsDisplay qty={product.currentStock} cartonSize={product.cartonSize} primaryUnit={product.primaryUnit} language={language} />
+                            </td>
+                            {userRole !== 'sr' && (
+                              <td className="px-4 py-3.5 text-center">
+                                <CartonPcsDisplay qty={product.damagedStock || 0} cartonSize={product.cartonSize} primaryUnit={product.primaryUnit} language={language} />
+                              </td>
+                            )}
+                            <td className="px-4 py-3.5 text-right font-mono text-indigo-600">{formatBDT(getDP(product))}</td>
+                            <td className="px-4 py-3.5 text-right font-mono text-emerald-600">{formatBDT(getTP(product))}</td>
+                            <td className="px-4 py-3.5 text-right font-mono font-bold text-indigo-700">{formatBDT(valDP)}</td>
+                            <td className="px-4 py-3.5 text-right font-mono font-bold text-emerald-700">{formatBDT(valTP)}</td>
+                            {userRole !== 'sr' && <td className="px-4 py-3.5 text-right font-mono font-bold text-amber-700">{formatBDT(margin)}</td>}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                <Pagination
+                  currentPage={productStockPage}
+                  totalPages={totalPages}
+                  totalItems={totalProductRows}
+                  itemsPerPage={productStockItemsPerPage}
+                  onPageChange={setProductStockPage}
+                  onItemsPerPageChange={(num) => {
+                    setProductStockItemsPerPage(num);
+                    setProductStockPage(1);
+                  }}
+                />
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -1325,39 +1439,36 @@ export default function ReportsModule({
           {/* Sales Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-white border border-slate-200 rounded-none p-5 shadow-sm">
-              <p className="text-[10px] font-bold uppercase text-slate-400 tracking-wider mb-2">{language === 'bn' ? 'মোট বিক্রয় (TP)' : 'Total Sales (TP)'}</p>
+              <p className="text-[10px] font-bold uppercase text-slate-400 tracking-wider mb-2">Total Sales (TP)</p>
               <p className="text-2xl font-black text-slate-800 font-mono">
                 {formatBDT(salesReportData.companySales.reduce((sum, row) => sum + row.revenue, 0))}
               </p>
             </div>
             <div className="bg-white border border-slate-200 rounded-none p-5 shadow-sm">
-              <p className="text-[10px] font-bold uppercase text-indigo-500 tracking-wider mb-2">{language === 'bn' ? 'মোট বিক্রয় (DP)' : 'Total Sales (DP)'}</p>
+              <p className="text-[10px] font-bold uppercase text-indigo-500 tracking-wider mb-2">Total Sales (DP)</p>
               <p className="text-2xl font-black text-indigo-700 font-mono">
                 {formatBDT(salesReportData.companySales.reduce((sum, row) => sum + row.dpTotal, 0))}
               </p>
             </div>
             <div className="bg-white border border-slate-200 rounded-none p-5 shadow-sm">
-              <p className="text-[10px] font-bold uppercase text-slate-400 tracking-wider mb-2">{language === 'bn' ? 'মোট বিক্রিত ইউনিট' : 'Total Units Sold'}</p>
+              <p className="text-[10px] font-bold uppercase text-slate-400 tracking-wider mb-2">Total Units Sold</p>
               <CartonPcsDisplay cartons={salesReportData.grandSoldQtyObj.cartons} pcs={salesReportData.grandSoldQtyObj.pcs} qty={salesReportData.grandSoldQtyObj.rawPcs} language={language} />
             </div>
             <div className="bg-white border border-slate-200 rounded-none p-5 shadow-sm">
-              <p className="text-[10px] font-bold uppercase text-rose-500 tracking-wider mb-2">{language === 'bn' ? 'মোট রিটার্ন/ড্যামেজ' : 'Total Returns/Damages'}</p>
-              <CartonPcsDisplay cartons={salesReportData.grandReturnsAndDamagesQtyObj.cartons} pcs={salesReportData.grandReturnsAndDamagesQtyObj.pcs} qty={salesReportData.grandReturnsAndDamagesQtyObj.rawPcs} language={language} />
+              <p className="text-[10px] font-bold uppercase text-rose-500 tracking-wider mb-2">
+                {userRole === 'sr' ? 'Total Returns' : 'Total Returns/Damages'}
+              </p>
+              <CartonPcsDisplay 
+                cartons={userRole === 'sr' ? salesReportData.grandReturnsQtyObj.cartons : salesReportData.grandReturnsAndDamagesQtyObj.cartons} 
+                pcs={userRole === 'sr' ? salesReportData.grandReturnsQtyObj.pcs : salesReportData.grandReturnsAndDamagesQtyObj.pcs} 
+                qty={userRole === 'sr' ? salesReportData.grandReturnsQtyObj.rawPcs : salesReportData.grandReturnsAndDamagesQtyObj.rawPcs} 
+                language={language} 
+              />
             </div>
           </div>
 
           {/* Sales report sub-tabs */}
           <div className="flex flex-wrap items-center gap-2 bg-slate-100 p-1 rounded-none w-fit">
-            <button
-              onClick={() => setSalesSubTab('company')}
-              className={`px-4 py-2 rounded-none text-xs font-bold transition-all cursor-pointer ${
-                salesSubTab === 'company'
-                  ? 'bg-white text-slate-900 shadow-sm border border-slate-200/50'
-                  : 'text-slate-500 hover:text-slate-900'
-              }`}
-            >
-              {language === 'bn' ? 'কোম্পানি ভিত্তিক' : 'Company-wise'}
-            </button>
             <button
               onClick={() => setSalesSubTab('sr')}
               className={`px-4 py-2 rounded-none text-xs font-bold transition-all cursor-pointer ${
@@ -1366,17 +1477,7 @@ export default function ReportsModule({
                   : 'text-slate-500 hover:text-slate-900'
               }`}
             >
-              {language === 'bn' ? 'SR ভিত্তিক' : 'SR-wise'}
-            </button>
-            <button
-              onClick={() => setSalesSubTab('dm')}
-              className={`px-4 py-2 rounded-none text-xs font-bold transition-all cursor-pointer ${
-                salesSubTab === 'dm'
-                  ? 'bg-white text-slate-900 shadow-sm border border-slate-200/50'
-                  : 'text-slate-500 hover:text-slate-900'
-              }`}
-            >
-              {language === 'bn' ? 'ডেলিভারি ম্যান' : 'Delivery Man'}
+              SR-wise Sales
             </button>
             <button
               onClick={() => setSalesSubTab('product')}
@@ -1386,17 +1487,17 @@ export default function ReportsModule({
                   : 'text-slate-500 hover:text-slate-900'
               }`}
             >
-              {language === 'bn' ? 'পণ্য ভিত্তিক' : 'Product-wise'}
+              Product-wise Sales
             </button>
             <button
-              onClick={() => setSalesSubTab('unit')}
+              onClick={() => setSalesSubTab('company')}
               className={`px-4 py-2 rounded-none text-xs font-bold transition-all cursor-pointer ${
-                salesSubTab === 'unit'
+                salesSubTab === 'company'
                   ? 'bg-white text-slate-900 shadow-sm border border-slate-200/50'
                   : 'text-slate-500 hover:text-slate-900'
               }`}
             >
-              {language === 'bn' ? 'ইউনিট ভিত্তিক' : 'Unit-wise'}
+              Company-wise Sales
             </button>
           </div>
 
@@ -1410,12 +1511,14 @@ export default function ReportsModule({
                 <table className="w-full text-left border-collapse min-w-[800px]">
                   <thead>
                     <tr className="border-b border-slate-200 text-[10px] font-bold text-slate-450 uppercase tracking-wider bg-slate-50/50">
-                      <th className="px-4 py-3">{language === 'bn' ? 'কোম্পানি' : 'Company'}</th>
-                      <th className="px-4 py-3 text-center">{language === 'bn' ? 'বিক্রিত ইউনিট' : 'Units Sold'}</th>
-                      <th className="px-4 py-3 text-center">{language === 'bn' ? 'ফেরত পরিমাণ' : 'Return Qty'}</th>
-                      <th className="px-4 py-3 text-center">{language === 'bn' ? 'ক্ষতিগ্রস্ত পরিমাণ' : 'Damage Qty'}</th>
-                      <th className="px-4 py-3 text-right text-indigo-600">{language === 'bn' ? 'মোট বিক্রয় (DP)' : 'Total Sales (DP)'}</th>
-                      <th className="px-4 py-3 text-right text-emerald-600">{language === 'bn' ? 'মোট বিক্রয় (TP)' : 'Total Sales (TP)'}</th>
+                      <th className="px-4 py-3">Company</th>
+                      <th className="px-4 py-3 text-center">Units Sold</th>
+                      <th className="px-4 py-3 text-center">Return Qty</th>
+                      {userRole !== 'sr' && (
+                        <th className="px-4 py-3 text-center">Damage Qty</th>
+                      )}
+                      <th className="px-4 py-3 text-right text-indigo-600">Total Sales (DP)</th>
+                      <th className="px-4 py-3 text-right text-emerald-600">Total Sales (TP)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-xs">
@@ -1428,9 +1531,11 @@ export default function ReportsModule({
                         <td className="px-4 py-3.5 text-center font-mono font-bold text-amber-600">
                           <CartonPcsDisplay qty={row.returnsQtyObj.rawPcs} cartons={row.returnsQtyObj.cartons} pcs={row.returnsQtyObj.pcs} language={language} />
                         </td>
-                        <td className="px-4 py-3.5 text-center font-mono font-bold text-rose-600">
-                          <CartonPcsDisplay qty={row.damagesQtyObj.rawPcs} cartons={row.damagesQtyObj.cartons} pcs={row.damagesQtyObj.pcs} language={language} />
-                        </td>
+                        {userRole !== 'sr' && (
+                          <td className="px-4 py-3.5 text-center font-mono font-bold text-rose-600">
+                            <CartonPcsDisplay qty={row.damagesQtyObj.rawPcs} cartons={row.damagesQtyObj.cartons} pcs={row.damagesQtyObj.pcs} language={language} />
+                          </td>
+                        )}
                         <td className="px-4 py-3.5 text-right font-mono font-bold text-indigo-700">{formatBDT(row.dpTotal)}</td>
                         <td className="px-4 py-3.5 text-right font-mono font-bold text-emerald-700">{formatBDT(row.revenue)}</td>
                       </tr>
@@ -1441,123 +1546,276 @@ export default function ReportsModule({
             </div>
           )}
 
-          {salesSubTab === 'sr' && (
-            <div className="bg-white border border-slate-200 rounded-none p-6 shadow-sm space-y-6">
-              <div className="border-b border-slate-100 pb-3">
-                <h3 className="font-bold text-slate-800 text-sm">{t.srSalesTitle}</h3>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse min-w-[800px]">
-                  <thead>
-                    <tr className="border-b border-slate-200 text-[10px] font-bold text-slate-450 uppercase tracking-wider bg-slate-50/50">
-                      <th className="px-4 py-3">{language === 'bn' ? 'সেলস অফিসার (SR)' : 'Sales Officer (SR)'}</th>
-                      <th className="px-4 py-3 text-center">{language === 'bn' ? 'বিক্রিত ইউনিট' : 'Units Sold'}</th>
-                      <th className="px-4 py-3 text-center">{language === 'bn' ? 'ফেরত পরিমাণ' : 'Return Qty'}</th>
-                      <th className="px-4 py-3 text-center">{language === 'bn' ? 'ক্ষতিগ্রস্ত পরিমাণ' : 'Damage Qty'}</th>
-                      <th className="px-4 py-3 text-right text-indigo-600">{language === 'bn' ? 'মোট বিক্রয় (DP)' : 'Total Sales (DP)'}</th>
-                      <th className="px-4 py-3 text-right text-emerald-600">{language === 'bn' ? 'মোট বিক্রয় (TP)' : 'Total Sales (TP)'}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 text-xs">
-                    {salesReportData.srSales.map((row, idx) => (
-                      <tr key={idx} className="hover:bg-slate-50/40 transition-colors">
-                        <td className="px-4 py-3.5 font-bold text-slate-850">
-                          <div>{row.srName}</div>
-                          <div className="text-[9px] text-slate-400 font-mono mt-0.5">{row.phone}</div>
-                        </td>
-                        <td className="px-4 py-3.5 text-center font-mono font-bold text-slate-700">
-                          <CartonPcsDisplay qty={row.soldQtyObj.rawPcs} cartons={row.soldQtyObj.cartons} pcs={row.soldQtyObj.pcs} language={language} />
-                        </td>
-                        <td className="px-4 py-3.5 text-center font-mono font-bold text-amber-600">
-                          <CartonPcsDisplay qty={row.returnsQtyObj.rawPcs} cartons={row.returnsQtyObj.cartons} pcs={row.returnsQtyObj.pcs} language={language} />
-                        </td>
-                        <td className="px-4 py-3.5 text-center font-mono font-bold text-rose-600">
-                          <CartonPcsDisplay qty={row.damagesQtyObj.rawPcs} cartons={row.damagesQtyObj.cartons} pcs={row.damagesQtyObj.pcs} language={language} />
-                        </td>
-                        <td className="px-4 py-3.5 text-right font-mono font-bold text-indigo-700">{formatBDT(row.dpTotal)}</td>
-                        <td className="px-4 py-3.5 text-right font-mono font-bold text-emerald-700">{formatBDT(row.revenue)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
+          {salesSubTab === 'sr' && (() => {
+            const sortedSrSales = [...salesReportData.srSales].sort((a, b) => b.revenue - a.revenue);
+            const totalCompanySalesRevenue = sortedSrSales.reduce((sum, r) => sum + r.revenue, 0);
+            const topSr = sortedSrSales[0];
+            const avgSalesPerSr = sortedSrSales.length > 0 ? totalCompanySalesRevenue / sortedSrSales.length : 0;
 
-          {salesSubTab === 'dm' && (
-            <div className="bg-white border border-slate-200 rounded-none p-6 shadow-sm space-y-6">
-              <div className="border-b border-slate-100 pb-3">
-                <h3 className="font-bold text-slate-800 text-sm">
-                  {language === 'bn' ? 'ডেলিভারি ম্যানভিত্তিক বিক্রয় বিবরণী' : 'Delivery Man-wise Sales Breakdown'}
-                </h3>
+            const grandSoldObj = salesReportData.grandSoldQtyObj;
+            const grandReturnObj = getAggregatedChallanQty(filteredChallans, products, 'returnedQty');
+            const grandDamageObj = getAggregatedChallanQty(filteredChallans, products, 'damagedQty');
+            const grandDpTotal = sortedSrSales.reduce((sum, r) => sum + r.dpTotal, 0);
+            const grandTpTotal = sortedSrSales.reduce((sum, r) => sum + r.revenue, 0);
+
+            return (
+              <div className="bg-white border border-slate-300 rounded-none shadow-md space-y-6 overflow-hidden">
+                
+                {/* Excel Ribbon Top Bar */}
+                <div className="bg-slate-900 text-white p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b-2 border-emerald-500">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-emerald-600 rounded-none text-white font-mono font-black text-xs shadow-sm">
+                      XLS
+                    </div>
+                    <div>
+                      <h3 className="font-extrabold text-white text-sm tracking-wide flex items-center gap-2 font-mono">
+                        <span>SR_Performance_Leaderboard.xlsx</span>
+                        <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 font-sans font-bold">
+                          {language === 'bn' ? 'অর্গানাইজড গ্রিড ভিউ' : 'Excel Grid View'}
+                        </span>
+                      </h3>
+                      <p className="text-[11px] text-slate-400 font-mono mt-0.5">
+                        {language === 'bn' 
+                          ? `কোম্পানি: ${selectedCompanyFilter} • ফিল্টার মেয়াদ: ${startDate} থেকে ${endDate}` 
+                          : `Company: ${selectedCompanyFilter} • Range: ${startDate} to ${endDate}`}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-mono bg-slate-800 text-slate-300 px-2.5 py-1 border border-slate-700">
+                      {language === 'bn' ? 'মোট সেলস রেকর্ড:' : 'Rows:'} {sortedSrSales.length}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="p-6 space-y-6">
+                  {/* Summary Stat Cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="p-4 bg-amber-50/70 border border-amber-300 rounded-none shadow-sm flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] font-black uppercase text-amber-700 tracking-wider block">
+                          {language === 'bn' ? '👑 শীর্ষ পারফরমার (Top SR)' : '👑 Top Performer (Top SR)'}
+                        </span>
+                        <div className="mt-1 text-base font-black text-slate-900 truncate max-w-[200px]">
+                          {topSr ? topSr.srName : '-'}
+                        </div>
+                        <div className="text-xs font-mono font-black text-amber-800 mt-0.5">
+                          {topSr ? formatBDT(topSr.revenue) : '৳0'}
+                        </div>
+                      </div>
+                      <Award className="w-8 h-8 text-amber-500 shrink-0 opacity-80" />
+                    </div>
+
+                    <div className="p-4 bg-indigo-50/70 border border-indigo-300 rounded-none shadow-sm flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] font-black uppercase text-indigo-700 tracking-wider block">
+                          {language === 'bn' ? '👥 মোট সেলস অফিসার' : '👥 Total SR Count'}
+                        </span>
+                        <div className="mt-1 text-lg font-black text-slate-900 font-mono">
+                          {sortedSrSales.length} {language === 'bn' ? 'জন' : 'Officers'}
+                        </div>
+                        <div className="text-[10px] text-slate-500 font-semibold mt-0.5">
+                          {language === 'bn' ? 'সক্রিয় টিম সদস্য' : 'Active team members'}
+                        </div>
+                      </div>
+                      <Users className="w-8 h-8 text-indigo-500 shrink-0 opacity-80" />
+                    </div>
+
+                    <div className="p-4 bg-emerald-50/70 border border-emerald-300 rounded-none shadow-sm flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] font-black uppercase text-emerald-700 tracking-wider block">
+                          {language === 'bn' ? '📊 গড় বিক্রয় (Per SR)' : '📊 Avg Sales (Per SR)'}
+                        </span>
+                        <div className="mt-1 text-lg font-black text-slate-900 font-mono">
+                          {formatBDT(avgSalesPerSr)}
+                        </div>
+                        <div className="text-[10px] text-slate-500 font-semibold mt-0.5">
+                          {language === 'bn' ? 'গড় উৎপন্ন রাজস্ব' : 'Average revenue per SR'}
+                        </div>
+                      </div>
+                      <TrendingUp className="w-8 h-8 text-emerald-500 shrink-0 opacity-80" />
+                    </div>
+                  </div>
+
+                  {/* Excel Structured Table Grid */}
+                  <div className="border border-slate-300 rounded-none overflow-x-auto shadow-sm">
+                    <table className="w-full text-left border-collapse min-w-[900px]">
+                      <thead>
+                        <tr className="bg-slate-200/90 text-slate-800 text-[10px] font-black uppercase tracking-wider border-b-2 border-slate-400 divide-x divide-slate-300">
+                          <th className="px-3 py-3 w-14 text-center">SL</th>
+                          <th className="px-4 py-3">{language === 'bn' ? 'সেলস অফিসার (SR Name)' : 'Sales Officer Name'}</th>
+                          <th className="px-4 py-3 text-center">{language === 'bn' ? 'বিক্রিত ইউনিট (Carton + Pcs)' : 'Units Sold (Ctn + Pcs)'}</th>
+                          <th className="px-4 py-3 text-center">{language === 'bn' ? 'ফেরত পরিমাণ (Returns)' : 'Return Qty (Ctn + Pcs)'}</th>
+                          {userRole !== 'sr' && (
+                            <th className="px-4 py-3 text-center">{language === 'bn' ? 'ক্ষতিগ্রস্ত পরিমাণ' : 'Damage Qty'}</th>
+                          )}
+                          <th className="px-4 py-3 text-right bg-indigo-100/60 text-indigo-900">{language === 'bn' ? 'মূল্যায়ন (DP Value)' : 'DP Valuation (৳)'}</th>
+                          <th className="px-4 py-3 text-right bg-emerald-100/60 text-emerald-900">{language === 'bn' ? 'মোট বিক্রয় (TP Revenue)' : 'Gross Revenue (TP ৳)'}</th>
+                          <th className="px-4 py-3 text-center w-32">{language === 'bn' ? 'সেলস শেয়ার' : 'Share (%)'}</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200 text-xs font-mono">
+                        {sortedSrSales.map((row, idx) => {
+                          const rank = idx + 1;
+                          const isMe = userRole === 'sr' && loggedInSrName && row.srName.toLowerCase() === loggedInSrName.toLowerCase();
+                          const sharePct = totalCompanySalesRevenue > 0 ? (row.revenue / totalCompanySalesRevenue) * 100 : 0;
+
+                          return (
+                            <tr 
+                              key={idx} 
+                              className={`divide-x divide-slate-200 transition-colors ${
+                                isMe 
+                                  ? 'bg-indigo-100/70 font-bold border-l-4 border-l-indigo-600' 
+                                  : (idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/70')
+                              } hover:bg-emerald-50/50`}
+                            >
+                              {/* SL / Rank */}
+                              <td className="px-3 py-3 text-center font-bold text-slate-700 bg-slate-100/40">
+                                {rank === 1 ? (
+                                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-none bg-amber-100 text-amber-900 text-[10px] font-black border border-amber-400 shadow-xs">
+                                    🥇1
+                                  </span>
+                                ) : rank === 2 ? (
+                                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-none bg-slate-200 text-slate-900 text-[10px] font-black border border-slate-400 shadow-xs">
+                                    🥈2
+                                  </span>
+                                ) : rank === 3 ? (
+                                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-none bg-orange-100 text-orange-900 text-[10px] font-black border border-orange-400 shadow-xs">
+                                    🥉3
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-600 font-bold text-xs">
+                                    {rank}
+                                  </span>
+                                )}
+                              </td>
+
+                              {/* SR Name */}
+                              <td className="px-4 py-3 font-sans font-bold text-slate-900">
+                                <div className="flex items-center gap-2">
+                                  <span className="truncate">{row.srName}</span>
+                                  {isMe && (
+                                    <span className="text-[8.5px] bg-indigo-600 text-white font-extrabold px-1.5 py-0.5 rounded-none tracking-widest uppercase">
+                                      {language === 'bn' ? 'আমার সেলস (You)' : 'My Sales (You)'}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-[9px] text-slate-400 font-mono mt-0.5">{row.phone || 'N/A'}</div>
+                              </td>
+
+                              {/* Sold Qty */}
+                              <td className="px-4 py-3 text-center font-bold text-slate-800">
+                                <CartonPcsDisplay qty={row.soldQtyObj.rawPcs} cartons={row.soldQtyObj.cartons} pcs={row.soldQtyObj.pcs} language={language} />
+                              </td>
+
+                              {/* Returns */}
+                              <td className="px-4 py-3 text-center font-bold text-amber-700">
+                                <CartonPcsDisplay qty={row.returnsQtyObj.rawPcs} cartons={row.returnsQtyObj.cartons} pcs={row.returnsQtyObj.pcs} language={language} />
+                              </td>
+
+                              {/* Damage (Admin) */}
+                              {userRole !== 'sr' && (
+                                <td className="px-4 py-3 text-center font-bold text-rose-600">
+                                  <CartonPcsDisplay qty={row.damagesQtyObj.rawPcs} cartons={row.damagesQtyObj.cartons} pcs={row.damagesQtyObj.pcs} language={language} />
+                                </td>
+                              )}
+
+                              {/* DP Total */}
+                              <td className="px-4 py-3 text-right font-bold text-indigo-700 bg-indigo-50/20">
+                                {formatBDT(row.dpTotal)}
+                              </td>
+
+                              {/* Revenue TP Total */}
+                              <td className="px-4 py-3 text-right font-extrabold text-emerald-700 bg-emerald-50/20 text-sm">
+                                {formatBDT(row.revenue)}
+                              </td>
+
+                              {/* Contribution Share */}
+                              <td className="px-4 py-3 text-center">
+                                <div className="flex flex-col items-center gap-1">
+                                  <span className="text-[11px] font-bold text-slate-700">{sharePct.toFixed(1)}%</span>
+                                  <div className="w-full bg-slate-200 h-1.5 rounded-none overflow-hidden max-w-[70px]">
+                                    <div
+                                      style={{ width: `${Math.min(100, sharePct)}%` }}
+                                      className="bg-emerald-600 h-full rounded-none"
+                                    />
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+
+                        {sortedSrSales.length === 0 && (
+                          <tr>
+                            <td colSpan={userRole === 'sr' ? 7 : 8} className="px-4 py-8 text-center text-slate-400 font-sans font-semibold">
+                              {language === 'bn' ? 'কোনো এসআর বিক্রির তথ্য পাওয়া যায়নি।' : 'No SR sales performance data available.'}
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+
+                      {/* Excel Sheet Grand Total Summary Row */}
+                      {sortedSrSales.length > 0 && (
+                        <tfoot>
+                          <tr className="bg-slate-900 text-white font-extrabold text-xs divide-x divide-slate-700 border-t-2 border-slate-800">
+                            <td colSpan={2} className="px-4 py-3.5 text-left uppercase tracking-wider font-sans text-amber-400">
+                              {language === 'bn' ? 'সর্বমোট (GRAND TOTAL)' : 'GRAND TOTAL'}
+                            </td>
+                            <td className="px-4 py-3.5 text-center font-mono">
+                              <CartonPcsDisplay qty={grandSoldObj.rawPcs} cartons={grandSoldObj.cartons} pcs={grandSoldObj.pcs} language={language} />
+                            </td>
+                            <td className="px-4 py-3.5 text-center font-mono text-amber-300">
+                              <CartonPcsDisplay qty={grandReturnObj.rawPcs} cartons={grandReturnObj.cartons} pcs={grandReturnObj.pcs} language={language} />
+                            </td>
+                            {userRole !== 'sr' && (
+                              <td className="px-4 py-3.5 text-center font-mono text-rose-300">
+                                <CartonPcsDisplay qty={grandDamageObj.rawPcs} cartons={grandDamageObj.cartons} pcs={grandDamageObj.pcs} language={language} />
+                              </td>
+                            )}
+                            <td className="px-4 py-3.5 text-right font-mono text-indigo-300">
+                              {formatBDT(grandDpTotal)}
+                            </td>
+                            <td className="px-4 py-3.5 text-right font-mono text-emerald-400 text-sm">
+                              {formatBDT(grandTpTotal)}
+                            </td>
+                            <td className="px-4 py-3.5 text-center font-mono text-slate-300">
+                              100.0%
+                            </td>
+                          </tr>
+                        </tfoot>
+                      )}
+                    </table>
+                  </div>
+                </div>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse min-w-[800px]">
-                  <thead>
-                    <tr className="border-b border-slate-200 text-[10px] font-bold text-slate-450 uppercase tracking-wider bg-slate-50/50">
-                      <th className="px-4 py-3">{language === 'bn' ? 'ডেলিভারি ম্যান' : 'Delivery Officer / Man'}</th>
-                      <th className="px-4 py-3 text-center">{language === 'bn' ? 'মোট চালান' : 'Total Challans'}</th>
-                      <th className="px-4 py-3 text-center">{language === 'bn' ? 'ডেলিভারি ইউনিট' : 'Delivered Units'}</th>
-                      <th className="px-4 py-3 text-center">{language === 'bn' ? 'ফেরত পরিমাণ' : 'Return Qty'}</th>
-                      <th className="px-4 py-3 text-center">{language === 'bn' ? 'ক্ষতিগ্রস্ত পরিমাণ' : 'Damage Qty'}</th>
-                      <th className="px-4 py-3 text-right text-indigo-600">{language === 'bn' ? 'মোট বিক্রয় (DP)' : 'Total Sales (DP)'}</th>
-                      <th className="px-4 py-3 text-right text-emerald-600">{language === 'bn' ? 'মোট বিক্রয় (TP)' : 'Total Sales (TP)'}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 text-xs">
-                    {salesReportData.dmSales.map((row, idx) => (
-                      <tr key={idx} className="hover:bg-slate-50/40 transition-colors">
-                        <td className="px-4 py-3.5 font-bold text-slate-850">
-                          <div>{row.dmName}</div>
-                          <div className="text-[9px] text-slate-400 font-mono mt-0.5">{row.vehicle}</div>
-                        </td>
-                        <td className="px-4 py-3.5 text-center font-mono font-bold text-slate-600">{row.totalChallans}</td>
-                        <td className="px-4 py-3.5 text-center font-mono font-bold text-slate-700">
-                          <CartonPcsDisplay qty={row.soldQtyObj.rawPcs} cartons={row.soldQtyObj.cartons} pcs={row.soldQtyObj.pcs} language={language} />
-                        </td>
-                        <td className="px-4 py-3.5 text-center font-mono font-bold text-amber-600">
-                          <CartonPcsDisplay qty={row.returnsQtyObj.rawPcs} cartons={row.returnsQtyObj.cartons} pcs={row.returnsQtyObj.pcs} language={language} />
-                        </td>
-                        <td className="px-4 py-3.5 text-center font-mono font-bold text-rose-600">
-                          <CartonPcsDisplay qty={row.damagesQtyObj.rawPcs} cartons={row.damagesQtyObj.cartons} pcs={row.damagesQtyObj.pcs} language={language} />
-                        </td>
-                        <td className="px-4 py-3.5 text-right font-mono font-bold text-indigo-700">{formatBDT(row.dpTotal)}</td>
-                        <td className="px-4 py-3.5 text-right font-mono font-bold text-emerald-700">{formatBDT(row.revenue)}</td>
-                      </tr>
-                    ))}
-                    {salesReportData.dmSales.length === 0 && (
-                      <tr>
-                        <td colSpan={7} className="px-4 py-8 text-center text-slate-400 font-semibold">
-                          {language === 'bn' ? 'কোনো ডেলিভারি ডেটা পাওয়া যায়নি।' : 'No delivery data available.'}
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
+            );
+          })()}
 
           {salesSubTab === 'product' && (
             <div className="bg-white border border-slate-200 rounded-none p-6 shadow-sm space-y-6">
               <div className="border-b border-slate-100 pb-3">
                 <h3 className="font-bold text-slate-800 text-sm">
-                  {language === 'bn' ? 'পণ্যভিত্তিক বিক্রয় বিবরণী (DP ও TP রেট সহ)' : 'Product-wise Sales Breakdown (with DP & TP)'}
+                  Product-wise Sales Breakdown (with DP & TP)
                 </h3>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse min-w-[950px]">
                   <thead>
                     <tr className="border-b border-slate-200 text-[10px] font-bold text-slate-450 uppercase tracking-wider bg-slate-50/50">
-                      <th className="px-4 py-3">{language === 'bn' ? 'পণ্যের নাম ও কোম্পানি' : 'Product Name & Brand'}</th>
-                      <th className="px-4 py-3 text-center">{language === 'bn' ? 'বিক্রিত ইউনিট' : 'Units Sold'}</th>
-                      <th className="px-4 py-3 text-center">{language === 'bn' ? 'ফেরত পরিমাণ' : 'Return Qty'}</th>
-                      <th className="px-4 py-3 text-center">{language === 'bn' ? 'ক্ষতিগ্রস্ত পরিমাণ' : 'Damage Qty'}</th>
-                      <th className="px-4 py-3 text-right text-indigo-600">{language === 'bn' ? 'DP দর' : 'DP Rate'}</th>
-                      <th className="px-4 py-3 text-right text-emerald-600">{language === 'bn' ? 'TP দর' : 'TP Rate'}</th>
-                      <th className="px-4 py-3 text-right text-indigo-700">{language === 'bn' ? 'মোট DP খরচ' : 'Total DP'}</th>
-                      <th className="px-4 py-3 text-right text-emerald-700">{language === 'bn' ? 'মোট TP বিক্রয়' : 'Total TP'}</th>
-                      <th className="px-4 py-3 text-right text-amber-700">{language === 'bn' ? 'মোট লাভ' : 'Gross Profit'}</th>
+                      <th className="px-4 py-3">Product Name & Brand</th>
+                      <th className="px-4 py-3 text-center">Units Sold</th>
+                      <th className="px-4 py-3 text-center">Return Qty</th>
+                      {userRole !== 'sr' && (
+                        <th className="px-4 py-3 text-center">Damage Qty</th>
+                      )}
+                      <th className="px-4 py-3 text-right text-indigo-600">DP Rate</th>
+                      <th className="px-4 py-3 text-right text-emerald-600">TP Rate</th>
+                      <th className="px-4 py-3 text-right text-indigo-700">Total DP</th>
+                      <th className="px-4 py-3 text-right text-emerald-700">Total TP</th>
+                      {userRole !== 'sr' && (
+                        <th className="px-4 py-3 text-right text-amber-700">Gross Profit</th>
+                      )}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-xs">
@@ -1573,20 +1831,24 @@ export default function ReportsModule({
                         <td className="px-4 py-3.5 text-center font-mono font-bold text-amber-600">
                           <CartonPcsDisplay qty={row.returns} cartonSize={row.cartonSize} primaryUnit={row.primaryUnit} language={language} />
                         </td>
-                        <td className="px-4 py-3.5 text-center font-mono font-bold text-rose-600">
-                          <CartonPcsDisplay qty={row.damages} cartonSize={row.cartonSize} primaryUnit={row.primaryUnit} language={language} />
-                        </td>
+                        {userRole !== 'sr' && (
+                          <td className="px-4 py-3.5 text-center font-mono font-bold text-rose-600">
+                            <CartonPcsDisplay qty={row.damages} cartonSize={row.cartonSize} primaryUnit={row.primaryUnit} language={language} />
+                          </td>
+                        )}
                         <td className="px-4 py-3.5 text-right font-mono text-indigo-600">{formatBDT(row.dpRate)}</td>
                         <td className="px-4 py-3.5 text-right font-mono text-emerald-600">{formatBDT(row.tpRate)}</td>
                         <td className="px-4 py-3.5 text-right font-mono font-bold text-indigo-700">{formatBDT(row.dpTotal)}</td>
                         <td className="px-4 py-3.5 text-right font-mono font-bold text-emerald-700">{formatBDT(row.revenue)}</td>
-                        <td className="px-4 py-3.5 text-right font-mono font-bold text-amber-700">{formatBDT(row.profit)}</td>
+                        {userRole !== 'sr' && (
+                          <td className="px-4 py-3.5 text-right font-mono font-bold text-amber-700">{formatBDT(row.profit)}</td>
+                        )}
                       </tr>
                     ))}
                     {salesReportData.productSales.length === 0 && (
                       <tr>
-                        <td colSpan={9} className="px-4 py-8 text-center text-slate-400 font-semibold">
-                          {language === 'bn' ? 'কোনো পণ্য বিক্রির ডেটা পাওয়া যায়নি।' : 'No product sales data available.'}
+                        <td colSpan={userRole === 'sr' ? 7 : 9} className="px-4 py-8 text-center text-slate-400 font-semibold">
+                          No product sales data available.
                         </td>
                       </tr>
                     )}
@@ -1596,52 +1858,7 @@ export default function ReportsModule({
             </div>
           )}
 
-          {salesSubTab === 'unit' && (
-            <div className="bg-white border border-slate-200 rounded-none p-6 shadow-sm space-y-6">
-              <div className="border-b border-slate-100 pb-3">
-                <h3 className="font-bold text-slate-800 text-sm">
-                  {language === 'bn' ? 'ইউনিট ভিত্তিক বিক্রয় বিবরণী' : 'Unit-wise Sales Breakdown (UOM)'}
-                </h3>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse min-w-[800px]">
-                  <thead>
-                    <tr className="border-b border-slate-200 text-[10px] font-bold text-slate-450 uppercase tracking-wider bg-slate-50/50">
-                      <th className="px-4 py-3">{language === 'bn' ? 'ইউনিটের নাম' : 'Unit Name / UOM'}</th>
-                      <th className="px-4 py-3 text-center">{language === 'bn' ? 'মোট বিক্রিত পিস' : 'Total Pieces Sold'}</th>
-                      <th className="px-4 py-3 text-center">{language === 'bn' ? 'মোট ফেরত পিস' : 'Total Returns (Pcs)'}</th>
-                      <th className="px-4 py-3 text-center">{language === 'bn' ? 'মোট ক্ষতিগ্রস্ত পিস' : 'Total Damages (Pcs)'}</th>
-                      <th className="px-4 py-3 text-right text-indigo-600">{language === 'bn' ? 'মোট বিক্রয় মূল্য (DP)' : 'Total Sales (DP)'}</th>
-                      <th className="px-4 py-3 text-right text-emerald-600">{language === 'bn' ? 'মোট বিক্রয় মূল্য (TP)' : 'Total Sales (TP)'}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 text-xs">
-                    {salesReportData.unitSales.map((row, idx) => (
-                      <tr key={idx} className="hover:bg-slate-50/40 transition-colors">
-                        <td className="px-4 py-3.5 font-bold text-slate-850">
-                          <span className="inline-block px-2.5 py-1 bg-indigo-50 border border-indigo-100 text-indigo-750 font-bold rounded-none uppercase tracking-wide">
-                            {row.unitName}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3.5 text-center font-mono text-slate-650">{row.unitsSold.toLocaleString()} pcs</td>
-                        <td className="px-4 py-3.5 text-center font-mono text-amber-600">{row.returns.toLocaleString()} pcs</td>
-                        <td className="px-4 py-3.5 text-center font-mono text-rose-600">{row.damages.toLocaleString()} pcs</td>
-                        <td className="px-4 py-3.5 text-right font-mono font-bold text-indigo-700">{formatBDT(row.dpTotal)}</td>
-                        <td className="px-4 py-3.5 text-right font-mono font-bold text-emerald-700">{formatBDT(row.revenue)}</td>
-                      </tr>
-                    ))}
-                    {salesReportData.unitSales.length === 0 && (
-                      <tr>
-                        <td colSpan={6} className="px-4 py-8 text-center text-slate-400 font-semibold">
-                          {language === 'bn' ? 'কোনো ইউনিট ভিত্তিক বিক্রির ডেটা পাওয়া যায়নি।' : 'No unit-wise sales data available.'}
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
+
 
 
         </div>

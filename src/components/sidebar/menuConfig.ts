@@ -254,19 +254,11 @@ export const SR_SECTIONS: MenuSection[] = [
     items: [
       { id: 'sales', icon: ShoppingCart },
       { id: 'delivery', icon: Truck },
-      { id: 'sr-collection', icon: Banknote },
     ],
   },
   {
-    label: 'ATTENDANCE', labelBn: 'উপস্থিতি ও রুট',
+    label: 'REPORTS', labelBn: 'রিপোর্ট ও বিবরণী',
     items: [
-      { id: 'sr-attendance', icon: Calendar },
-    ],
-  },
-  {
-    label: 'PERFORMANCE', labelBn: 'পারফরম্যান্স ও রিপোর্ট',
-    items: [
-      { id: 'sr-targets', icon: Target },
       { id: 'reports', icon: ClipboardList },
     ],
   },

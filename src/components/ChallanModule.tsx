@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Pagination from './ui/Pagination';
 import { 
   FileText, 
   Calendar,
@@ -146,7 +147,7 @@ export default function ChallanModule({
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   // Status Tab selection
   const [selectedStatusTab, setSelectedStatusTab] = useState<'All' | 'Pending' | 'Shipped' | 'Delivered'>('Pending');
@@ -282,6 +283,60 @@ export default function ChallanModule({
   const [editStatus, setEditStatus] = useState<'Pending' | 'Shipped' | 'Delivered'>('Pending');
   const [editModeEnabled, setEditModeEnabled] = useState(false);
 
+  const dedupedSrs = React.useMemo(() => {
+    const map = new Map<string, SR>();
+    srs.forEach(s => {
+      const key = (s.name || '').trim().toLowerCase();
+      if (key && !map.has(key)) map.set(key, s);
+    });
+    return Array.from(map.values());
+  }, [srs]);
+
+  const dedupedCompanies = React.useMemo(() => {
+    const map = new Map<string, CompanyBrand>();
+    companies.forEach(c => {
+      const key = (c.name || '').trim().toLowerCase();
+      if (key && !map.has(key)) map.set(key, c);
+    });
+    return Array.from(map.values());
+  }, [companies]);
+
+  const dedupedDeliveryMen = React.useMemo(() => {
+    const map = new Map<string, DeliveryMan>();
+    deliveryMen.forEach(d => {
+      const key = (d.name || '').trim().toLowerCase();
+      if (key && !map.has(key)) map.set(key, d);
+    });
+    return Array.from(map.values());
+  }, [deliveryMen]);
+
+  const dedupedRoutes = React.useMemo(() => {
+    const map = new Map<string, Route>();
+    routes.forEach(r => {
+      const key = (r.name || '').trim().toLowerCase();
+      if (key && !map.has(key)) map.set(key, r);
+    });
+    return Array.from(map.values());
+  }, [routes]);
+
+  const companyScopedSrs = React.useMemo(() => {
+    if (userRole === 'sr' && srAssignedCompanyNames.length > 0) {
+      return dedupedSrs.filter(sr => {
+        const srComps: string[] = [];
+        if (sr.companyName) srComps.push(sr.companyName);
+        if (sr.assignedCompanyIds) {
+          sr.assignedCompanyIds.forEach(cid => {
+            const comp = companies.find(c => c.id === cid || c.name.toLowerCase() === cid.toLowerCase());
+            if (comp) srComps.push(comp.name);
+            else srComps.push(cid);
+          });
+        }
+        return srComps.some(cn => srAssignedCompanyNames.some(acn => acn.toLowerCase() === cn.toLowerCase()));
+      });
+    }
+    return dedupedSrs;
+  }, [userRole, srAssignedCompanyNames, dedupedSrs, companies]);
+
   // Filter SRs for the edit modal based on the company of the order's products
   const filteredSrsForEdit = React.useMemo(() => {
     const orderCompany = (editingOrder && editOrderItems.length > 0)
@@ -402,13 +457,7 @@ export default function ChallanModule({
             })
           : true);
 
-    const matchesSR = userRole === 'sr'
-      ? (!activeSrName || 
-         !group.srName ||
-         group.srName.trim().toLowerCase() === activeSrName.trim().toLowerCase() ||
-         group.srName.toLowerCase().includes(activeSrName.toLowerCase()) ||
-         activeSrName.toLowerCase().includes(group.srName.toLowerCase()))
-      : (appliedSR ? group.srName === appliedSR : true);
+    const matchesSR = appliedSR ? group.srName === appliedSR : true;
 
     const matchesRoute = appliedRoute ? group.routeName === appliedRoute : true;
     const matchesDeliveryMan = appliedDeliveryMan ? group.deliveryManName === appliedDeliveryMan : true;
@@ -1539,23 +1588,21 @@ export default function ChallanModule({
             </div>
           )}
 
-          {/* SR Dropdown (Admin only) */}
-          {userRole !== 'sr' && (
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-purple-600 uppercase tracking-wider block">{tChallan.srLabel}</label>
-              <select
-                id="filter-sr-select"
-                value={filterSR}
-                onChange={(e) => setFilterSR(e.target.value)}
-                className="h-10 w-full rounded-none border border-purple-200 bg-purple-50/10 px-3 text-xs font-bold text-purple-855 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100 transition-all cursor-pointer shadow-sm"
-              >
-                <option value="">{tChallan.allSr}</option>
-                {srs.map(sr => (
-                  <option key={sr.id} value={sr.name}>{sr.name}</option>
-                ))}
-              </select>
-            </div>
-          )}
+          {/* SR Dropdown */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-purple-600 uppercase tracking-wider block">{tChallan.srLabel}</label>
+            <select
+              id="filter-sr-select"
+              value={filterSR}
+              onChange={(e) => setFilterSR(e.target.value)}
+              className="h-10 w-full rounded-none border border-purple-200 bg-purple-50/10 px-3 text-xs font-bold text-purple-855 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100 transition-all cursor-pointer shadow-sm"
+            >
+              <option value="">{tChallan.allSr}</option>
+              {companyScopedSrs.map(sr => (
+                <option key={sr.id} value={sr.name}>{sr.name}</option>
+              ))}
+            </select>
+          </div>
 
           {/* Route Beat Dropdown */}
           <div className="space-y-1.5">
@@ -1567,7 +1614,7 @@ export default function ChallanModule({
               className="h-10 w-full rounded-none border border-blue-200 bg-blue-50/10 px-3 text-xs font-bold text-blue-855 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all cursor-pointer shadow-sm"
             >
               <option value="">{language === 'bn' ? 'সব মার্কেট' : 'All Markets'}</option>
-              {routes.map(r => (
+              {dedupedRoutes.map(r => (
                 <option key={r.id} value={r.name}>{r.name}</option>
               ))}
             </select>
@@ -1583,7 +1630,7 @@ export default function ChallanModule({
               className="h-10 w-full rounded-none border border-rose-200 bg-rose-50/10 px-3 text-xs font-bold text-rose-855 outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100 transition-all cursor-pointer shadow-sm"
             >
               <option value="">{tChallan.allDelivery}</option>
-              {deliveryMen.map(dm => (
+              {dedupedDeliveryMen.map(dm => (
                 <option key={dm.id} value={dm.name}>{dm.name}</option>
               ))}
             </select>
@@ -1918,50 +1965,18 @@ export default function ChallanModule({
         </div>
 
         {/* Pagination Footer */}
-        {totalPages > 1 && (
-          <div className="px-5 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 text-xs">
-            <span className="text-slate-500 font-semibold">
-              {tChallan.showingLabel
-                .replace('{start}', String(startIndex + 1))
-                .replace('{end}', String(Math.min(startIndex + itemsPerPage, totalItems)))
-                .replace('{total}', String(totalItems))}
-            </span>
-            <div className="flex items-center gap-1.5">
-              <button
-                id="challan-page-prev"
-                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                disabled={currentPage === 1}
-                className="p-1.5 rounded-none border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-transparent transition-all cursor-pointer"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                <button
-                  id={`challan-page-num-${page}`}
-                  key={page}
-                  onClick={() => setCurrentPage(page)}
-                  className={`px-3 py-1.5 rounded-none border font-semibold transition-all cursor-pointer ${
-                    currentPage === page 
-                      ? 'bg-slate-900 text-white border-slate-900 shadow-sm' 
-                      : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                  }`}
-                >
-                  {page}
-                </button>
-              ))}
-
-              <button
-                id="challan-page-next"
-                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                disabled={currentPage === totalPages}
-                className="p-1.5 rounded-none border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-transparent transition-all cursor-pointer"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
+        <div className="p-4 border-t border-slate-100 bg-slate-50/50">
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            itemsPerPage={itemsPerPage}
+            onItemsPerPageChange={setItemsPerPage}
+            pageSizeOptions={[5, 10, 20, 50, 100]}
+            totalItems={totalItems}
+            language={language}
+          />
+        </div>
       </div>
 
       {showAddModal && (
@@ -2658,26 +2673,26 @@ export default function ChallanModule({
               </div>
             </div>
  
-            <div className="border-t border-slate-200 px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50 shrink-0 rounded-none-b-xl">
-              {/* Left Side: Document actions + Edit */}
-              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+            <div className="bg-slate-50 border-t border-slate-200 p-4 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 shrink-0">
+              {/* Left Side: Document Actions */}
+              <div className="flex flex-wrap items-center gap-2">
                 <button
                   id="viewing-challan-btn-print-sheet"
                   type="button"
                   onClick={() => printChallanSheet(viewingOrder.items)}
-                  className="px-4 py-2.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold rounded-none text-xs transition-all active:scale-95 text-center shadow-sm cursor-pointer flex items-center gap-1.5"
+                  className="h-10 px-3.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold rounded-none text-xs transition-all active:scale-95 text-center shadow-xs cursor-pointer inline-flex items-center justify-center gap-1.5 whitespace-nowrap"
                 >
-                  <Printer className="w-3.5 h-3.5" />
-                  {language === 'bn' ? 'চালান শিট' : 'Challan Sheet'}
+                  <Printer className="w-3.5 h-3.5 text-slate-500" />
+                  <span>{language === 'bn' ? 'চালান শিট' : 'Challan Sheet'}</span>
                 </button>
                 <button
                   id="viewing-challan-btn-print"
                   type="button"
                   onClick={() => printChallanInvoice(viewingOrder.items)}
-                  className="px-4 py-2.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold rounded-none text-xs transition-all active:scale-95 text-center shadow-sm cursor-pointer flex items-center gap-1.5"
+                  className="h-10 px-3.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold rounded-none text-xs transition-all active:scale-95 text-center shadow-xs cursor-pointer inline-flex items-center justify-center gap-1.5 whitespace-nowrap"
                 >
-                  <Download className="w-3.5 h-3.5" />
-                  {language === 'bn' ? 'পিডিএফ ডাউনলোড' : 'Download PDF'}
+                  <Download className="w-3.5 h-3.5 text-slate-500" />
+                  <span>{language === 'bn' ? 'পিডিএফ ডাউনলোড' : 'Download PDF'}</span>
                 </button>
                 <button
                   id="viewing-challan-btn-email"
@@ -2692,11 +2707,11 @@ export default function ChallanModule({
                       showToast(res.message || (language === 'bn' ? 'ইমেইল পাঠানো ব্যর্থ হয়েছে।' : 'Failed to send invoice email.'), 'error');
                     }
                   }}
-                  className="px-4 py-2.5 bg-emerald-50 border border-emerald-300 hover:bg-emerald-100 text-emerald-800 font-semibold rounded-none text-xs transition-all active:scale-95 text-center shadow-sm cursor-pointer flex items-center gap-1.5"
+                  className="h-10 px-3.5 bg-emerald-50 border border-emerald-300 hover:bg-emerald-100 text-emerald-800 font-bold rounded-none text-xs transition-all active:scale-95 text-center shadow-xs cursor-pointer inline-flex items-center justify-center gap-1.5 whitespace-nowrap"
                   title="Send invoice copy via Resend"
                 >
                   <Mail className="w-3.5 h-3.5 text-emerald-600" />
-                  {language === 'bn' ? 'ইমেইল ইনভয়েস' : 'Email Invoice'}
+                  <span>{language === 'bn' ? 'ইমেইল ইনভয়েস' : 'Email Invoice'}</span>
                 </button>
                 {viewingOrder.status !== 'Delivered' && (
                   <button
@@ -2705,23 +2720,23 @@ export default function ChallanModule({
                       setViewingOrder(null);
                       handleOpenEditOrderModal(viewingOrder);
                     }}
-                    className="px-4 py-2.5 bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-700 font-semibold rounded-none text-xs transition-all active:scale-95 text-center shadow-sm cursor-pointer flex items-center gap-1.5"
+                    className="h-10 px-3.5 bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-700 font-bold rounded-none text-xs transition-all active:scale-95 text-center shadow-xs cursor-pointer inline-flex items-center justify-center gap-1.5 whitespace-nowrap"
                   >
-                    <Pencil className="w-3.5 h-3.5" />
-                    {language === 'bn' ? 'এডিট করুন' : 'Edit Order'}
+                    <Pencil className="w-3.5 h-3.5 text-blue-600" />
+                    <span>{language === 'bn' ? 'এডিট করুন' : 'Edit Order'}</span>
                   </button>
                 )}
               </div>
 
               {/* Right Side: Status transitions + Close */}
-              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+              <div className="flex flex-wrap items-center gap-2 justify-end">
                 {viewingOrder.status === 'Shipped' && (
                   <button
                     type="button"
                     onClick={() => handleGroupStatusChange(viewingOrder.id, 'Pending')}
-                    className="px-4 py-2.5 bg-rose-50 border border-rose-250 hover:bg-rose-100 text-rose-700 font-semibold rounded-none text-xs transition-all active:scale-95 text-center shadow-sm cursor-pointer"
+                    className="h-10 px-4 bg-rose-50 border border-rose-250 hover:bg-rose-100 text-rose-700 font-bold rounded-none text-xs transition-all active:scale-95 text-center shadow-xs cursor-pointer inline-flex items-center justify-center whitespace-nowrap"
                   >
-                    {language === 'bn' ? 'পেন্ডিং এ ফেরত' : 'Revert to Pending'}
+                    <span>{language === 'bn' ? 'পেন্ডিং এ ফেরত' : 'Revert to Pending'}</span>
                   </button>
                 )}
                 
@@ -2730,17 +2745,17 @@ export default function ChallanModule({
                     <button
                       type="button"
                       onClick={() => handleGroupStatusChange(viewingOrder.id, 'Shipped')}
-                      className="px-4 py-2.5 bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-700 font-bold rounded-none text-xs transition-all active:scale-95 text-center shadow-sm cursor-pointer"
+                      className="h-10 px-4 bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-700 font-bold rounded-none text-xs transition-all active:scale-95 text-center shadow-xs cursor-pointer inline-flex items-center justify-center whitespace-nowrap"
                     >
-                      {language === 'bn' ? 'চালান প্রেরণ করুন' : 'Ship Order'}
+                      <span>{language === 'bn' ? 'চালান প্রেরণ করুন' : 'Ship Order'}</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => handleGroupStatusChange(viewingOrder.id, 'Delivered')}
-                      className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white hover:from-emerald-700 hover:to-emerald-800 font-bold rounded-none text-xs transition-all active:scale-95 text-center shadow-md cursor-pointer flex items-center gap-1.5"
+                      className="h-10 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-none text-xs transition-all active:scale-95 text-center shadow-sm cursor-pointer inline-flex items-center justify-center gap-1.5 whitespace-nowrap"
                     >
-                      <Truck className="w-3.5 h-3.5 stroke-[2.5]" />
-                      {language === 'bn' ? 'ডেলিভারি সেটেল করুন' : 'Settle Delivery'}
+                      <Truck className="w-4 h-4 stroke-[2.5]" />
+                      <span>{language === 'bn' ? 'ডেলিভারি সেটেল করুন' : 'Settle Delivery'}</span>
                     </button>
                   </>
                 )}
@@ -2749,10 +2764,10 @@ export default function ChallanModule({
                   <button
                     type="button"
                     onClick={() => handleGroupStatusChange(viewingOrder.id, 'Delivered')}
-                    className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white hover:from-emerald-700 hover:to-emerald-800 font-bold rounded-none text-xs transition-all active:scale-95 text-center shadow-md cursor-pointer flex items-center gap-1.5"
+                    className="h-10 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-none text-xs transition-all active:scale-95 text-center shadow-sm cursor-pointer inline-flex items-center justify-center gap-1.5 whitespace-nowrap"
                   >
-                    <Truck className="w-3.5 h-3.5 stroke-[2.5]" />
-                    {language === 'bn' ? 'ডেলিভারি সেটেল করুন' : 'Settle Delivery'}
+                    <Truck className="w-4 h-4 stroke-[2.5]" />
+                    <span>{language === 'bn' ? 'ডেলিভারি সেটেল করুন' : 'Settle Delivery'}</span>
                   </button>
                 )}
 
@@ -2760,9 +2775,9 @@ export default function ChallanModule({
                   id="viewing-challan-btn-close"
                   type="button"
                   onClick={() => setViewingOrder(null)}
-                  className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-none text-xs transition-all active:scale-95 text-center shadow-md cursor-pointer"
+                  className="h-10 px-5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-none text-xs transition-all active:scale-95 text-center shadow-sm cursor-pointer inline-flex items-center justify-center whitespace-nowrap"
                 >
-                  {tChallan.closeVoucher}
+                  <span>{tChallan.closeVoucher}</span>
                 </button>
               </div>
             </div>
@@ -2842,9 +2857,11 @@ export default function ChallanModule({
                         <th className="px-4 py-3 font-semibold text-center">
                           {language === 'bn' ? 'ফেরত (কার্টন + পিস)' : 'Return (Ctn + Pcs)'}
                         </th>
-                        <th className="px-4 py-3 font-semibold text-center">
-                          {language === 'bn' ? 'ড্যামেজ (কার্টন + পিস)' : 'Damage (Ctn + Pcs)'}
-                        </th>
+                        {userRole !== 'sr' && (
+                          <th className="px-4 py-3 font-semibold text-center">
+                            {language === 'bn' ? 'ড্যামেজ (কার্টন + পিস)' : 'Damage (Ctn + Pcs)'}
+                          </th>
+                        )}
                         <th className="px-4 py-3 font-semibold text-center w-24">Sold Qty</th>
                         <th className="px-4 py-3 font-semibold text-right w-28">Net Amount (৳)</th>
                       </tr>
@@ -2917,30 +2934,32 @@ export default function ChallanModule({
                               {returned > 0 && <p className="text-[9px] text-amber-600 text-center mt-1 font-mono font-bold">= {returned} pcs</p>}
                             </td>
                             {/* Damage column */}
-                            <td className="px-4 py-3">
-                              <div className="flex items-center gap-1 justify-center">
-                                <div className="text-center">
-                                  <p className="text-[9px] text-slate-400 font-bold uppercase mb-0.5">Ctn</p>
-                                  <input type="number" min="0"
-                                    value={qUpdates.damagedCartons}
-                                    onChange={e => updateSplitQty('damagedCartons', Number(e.target.value))}
-                                    className="h-8 w-14 text-center font-mono font-semibold rounded-none border border-rose-200 focus:border-rose-500 outline-none bg-rose-50" />
+                            {userRole !== 'sr' && (
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-1 justify-center">
+                                  <div className="text-center">
+                                    <p className="text-[9px] text-slate-400 font-bold uppercase mb-0.5">Ctn</p>
+                                    <input type="number" min="0"
+                                      value={qUpdates.damagedCartons}
+                                      onChange={e => updateSplitQty('damagedCartons', Number(e.target.value))}
+                                      className="h-8 w-14 text-center font-mono font-semibold rounded-none border border-rose-200 focus:border-rose-500 outline-none bg-rose-50" />
+                                  </div>
+                                  <span className="text-slate-300 text-xs mt-3">+</span>
+                                  <div className="text-center">
+                                    <p className="text-[9px] text-slate-400 font-bold uppercase mb-0.5">Pcs</p>
+                                    <input type="number" min="0"
+                                      value={qUpdates.damagedPcs}
+                                      onChange={e => updateSplitQty('damagedPcs', Number(e.target.value))}
+                                      className="h-8 w-14 text-center font-mono font-semibold rounded-none border border-rose-200 focus:border-rose-500 outline-none bg-rose-50" />
+                                  </div>
                                 </div>
-                                <span className="text-slate-300 text-xs mt-3">+</span>
-                                <div className="text-center">
-                                  <p className="text-[9px] text-slate-400 font-bold uppercase mb-0.5">Pcs</p>
-                                  <input type="number" min="0"
-                                    value={qUpdates.damagedPcs}
-                                    onChange={e => updateSplitQty('damagedPcs', Number(e.target.value))}
-                                    className="h-8 w-14 text-center font-mono font-semibold rounded-none border border-rose-200 focus:border-rose-500 outline-none bg-rose-50" />
-                                </div>
-                              </div>
-                              {damaged > 0 && (
-                                <p className="text-[9px] text-rose-600 text-center mt-1 font-mono font-bold">
-                                  = {damaged} pcs (৳{(damaged * item.rate).toLocaleString('en-BD')})
-                                </p>
-                              )}
-                            </td>
+                                {damaged > 0 && (
+                                  <p className="text-[9px] text-rose-600 text-center mt-1 font-mono font-bold">
+                                    = {damaged} pcs (৳{(damaged * item.rate).toLocaleString('en-BD')})
+                                  </p>
+                                )}
+                              </td>
+                            )}
                             <td className="px-4 py-3 text-center font-mono font-bold text-blue-700 bg-blue-50/20">
                               {sold > 0 ? (
                                 <>

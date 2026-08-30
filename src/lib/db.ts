@@ -1037,6 +1037,18 @@ export async function deleteSRTarget(id: string): Promise<void> {
 }
 
 // ── Load all data ─────────────────────────────────────────────────────────────
+function dedupeByName<T extends { id?: string; name?: string }>(items: T[]): T[] {
+  const seen = new Set<string>();
+  return items.filter(item => {
+    const nameKey = (item.name || '').trim().toLowerCase();
+    const key = nameKey || item.id || '';
+    if (!key) return true;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 // Fetches everything from Supabase in parallel.
 
 export async function loadAllData(): Promise<AllErpData> {
@@ -1074,21 +1086,21 @@ export async function loadAllData(): Promise<AllErpData> {
   const sbSettings = await db.settings.get();
 
   return {
-    products: sbProducts.map(mapProduct),
-    srs: sbSRs.map(mapSR),
-    deliveryMen: sbDeliveryMen.map(mapDeliveryMan),
-    customers: sbCustomers.map(mapCustomer),
+    products: dedupeByName(sbProducts.map(mapProduct)),
+    srs: dedupeByName(sbSRs.map(mapSR)),
+    deliveryMen: dedupeByName(sbDeliveryMen.map(mapDeliveryMan)),
+    customers: dedupeByName(sbCustomers.map(mapCustomer)),
     attributes: sbAttributes.map(mapAttribute),
     challans: sbChallans.map(mapChallan),
     procurements: sbProcurements.map(mapProcurement),
     adjustments: sbAdjustments.map(mapStockAdjustment),
     categories: sbExpCats.map(mapExpenseCategory),
     expenses: sbExpenses.map(mapExpense),
-    companies: sbCompanies.map(mapCompany),
-    productCategories: sbProdCats.map(mapCategory),
-    units: sbUnits.map(mapUnit),
-    godowns: sbGodowns.map(mapGodown),
-    routes: sbRoutes.map(mapRoute),
+    companies: dedupeByName(sbCompanies.map(mapCompany)),
+    productCategories: dedupeByName(sbProdCats.map(mapCategory)),
+    units: dedupeByName(sbUnits.map(mapUnit)),
+    godowns: dedupeByName(sbGodowns.map(mapGodown)),
+    routes: dedupeByName(sbRoutes.map(mapRoute)),
     settings: sbSettings
       ? {
         shopName: sbSettings.shop_name,

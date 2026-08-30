@@ -1,10 +1,11 @@
 'use client';
 
 import React from 'react';
-import { ClipboardList, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Printer, Calendar } from 'lucide-react';
+import { ClipboardList, TrendingUp, TrendingDown, Printer, Calendar } from 'lucide-react';
 import type { StockAdjustment } from '../../types';
 import type { Language }        from '../../translations';
 import { printStockAdjustmentLog } from '../../lib/printUtils';
+import Pagination from '../ui/Pagination';
 
 interface AdjustmentAuditLogProps {
   language:             Language;
@@ -21,8 +22,6 @@ interface AdjustmentAuditLogProps {
   onResetAdjustmentDates:      () => void;
 }
 
-const ITEMS_PER_PAGE = 5;
-
 export default function AdjustmentAuditLog({
   language, adjustments, paginatedAdjustments,
   currentPage, totalPages, startIndex,
@@ -34,6 +33,7 @@ export default function AdjustmentAuditLog({
   function handlePrev() { onPageChange(Math.max(currentPage - 1, 1)); }
   function handleNext() { onPageChange(Math.min(currentPage + 1, totalPages)); }
 
+  const ITEMS_PER_PAGE = 5;
   const endIndex = Math.min(startIndex + ITEMS_PER_PAGE, adjustments.length);
   const rangeLabel = bn
     ? `${adjustments.length} টির মধ্যে ${startIndex + 1}–${endIndex}`
@@ -200,30 +200,15 @@ export default function AdjustmentAuditLog({
               </table>
             </div>
 
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between text-xs bg-white border border-slate-200 rounded-none px-4 py-3 shadow-sm">
-                <span className="text-slate-500 font-semibold">{rangeLabel}</span>
-                <div className="flex items-center gap-1.5">
-                  <button type="button" onClick={handlePrev} disabled={currentPage === 1}
-                    className="p-1.5 rounded-none border border-slate-200 hover:bg-slate-50 disabled:opacity-40 cursor-pointer transition-all">
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => {
-                    function handlePageClick() { onPageChange(page); }
-                    return (
-                      <button key={page} type="button" onClick={handlePageClick}
-                        className={`px-3 py-1.5 rounded-none border font-semibold cursor-pointer transition-all ${currentPage === page ? 'bg-violet-700 text-white border-violet-700' : 'border-slate-200 text-slate-600 hover:bg-slate-100'}`}>
-                        {page}
-                      </button>
-                    );
-                  })}
-                  <button type="button" onClick={handleNext} disabled={currentPage === totalPages}
-                    className="p-1.5 rounded-none border border-slate-200 hover:bg-slate-50 disabled:opacity-40 cursor-pointer transition-all">
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            )}
+            <div className="mt-4">
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={onPageChange}
+                totalItems={adjustments.length}
+                language={language}
+              />
+            </div>
           </>
         )}
     </div>

@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import Pagination from './ui/Pagination';
 import { 
   Box, 
   Plus, 
@@ -209,7 +210,7 @@ export default function ProcurementModule({
 
   // Pagination for Procurement list
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   // History List Filter States
   const [procListSearch, setProcListSearch] = useState('');
@@ -812,48 +813,18 @@ export default function ProcurementModule({
           )}
 
           {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="px-5 py-4 bg-white border border-slate-200 rounded-none flex items-center justify-between text-xs shadow-sm">
-              <span className="text-slate-500 font-semibold">
-                {tProc.showingLabel
-                  .replace('{start}', String(startIndex + 1))
-                  .replace('{end}', String(Math.min(startIndex + itemsPerPage, totalProcurements)))
-                  .replace('{total}', String(totalProcurements))}
-              </span>
-              <div className="flex items-center gap-1.5">
-                <button
-                  id="proc-page-prev"
-                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                  disabled={currentPage === 1}
-                  className="p-1.5 rounded-none border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 transition-all cursor-pointer"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                  <button
-                    id={`proc-page-num-${page}`}
-                    key={page}
-                    onClick={() => setCurrentPage(page)}
-                    className={`px-3 py-1.5 rounded-none border font-semibold cursor-pointer ${
-                      currentPage === page 
-                        ? 'bg-slate-900 text-white border-slate-900' 
-                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    {page}
-                  </button>
-                ))}
-                <button
-                  id="proc-page-next"
-                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                  disabled={currentPage === totalPages}
-                  className="p-1.5 rounded-none border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 transition-all cursor-pointer"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          )}
+          <div className="mt-4">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              itemsPerPage={itemsPerPage}
+              onItemsPerPageChange={setItemsPerPage}
+              pageSizeOptions={[5, 10, 20, 50, 100]}
+              totalItems={totalProcurements}
+              language={language}
+            />
+          </div>
         </div>
       )}
               {/* RENDER TAB: Create Procurement Invoice */}
