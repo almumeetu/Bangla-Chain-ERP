@@ -3,7 +3,7 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { Settings, ClipboardList, Users, Eye, EyeOff, Plus, Trash2, Check, Shield, KeyRound, UserCheck, Download, Upload, Database } from 'lucide-react';
 import { exportBackup, exportPartialBackup, importBackup } from '../lib/backupRestore';
-import { clearAllUserData } from '../lib/db';
+import { clearAllUserData, upsertSR, deleteSR } from '../lib/db';
 import { updatePassword } from '../lib/auth';
 import DirectoryModule from './DirectoryModule';
 import { SR } from '../types';
@@ -165,25 +165,41 @@ export default function SettingsModule({
   };
 
   // ─── SR: save credentials ─────────────────────────────────────
-  const handleSaveSrCredentials = useCallback((srId: string) => {
+  const handleSaveSrCredentials = useCallback(async (srId: string) => {
     if (!editSrUsername.trim()) {
       error(language === 'bn' ? 'তথ্য দিন' : 'Required', language === 'bn' ? 'ইউজারনেম দিন।' : 'Please enter a username.');
       return;
     }
+    const target = srs.find(s => s.id === srId);
+    if (!target) return;
+
+    const updatedSr: SR = {
+      ...target,
+      loginUsername: editSrUsername.trim(),
+      loginPassword: editSrPassword.trim()
+    };
+
     setSrs(prev => {
-      const updated = prev.map(s =>
-        s.id === srId
-          ? { ...s, loginUsername: editSrUsername.trim(), loginPassword: editSrPassword.trim() }
-          : s
-      );
+      const updated = prev.map(s => s.id === srId ? updatedSr : s);
       localStorage.setItem('erp_srs', JSON.stringify(updated));
       return updated;
     });
+
+    try {
+      await upsertSR(updatedSr);
+      success(
+        language === 'bn' ? 'সংরক্ষিত' : 'Saved',
+        language === 'bn' ? 'এসআর ক্রেডেনশিয়াল ক্লাউডে সফলভাবে সেভ হয়েছে।' : 'SR credentials successfully saved to cloud database.'
+      );
+    } catch (err: any) {
+      console.error('[SettingsModule] SR save error:', err);
+    }
+
     setEditingSrId(null);
-  }, [editSrUsername, editSrPassword, setSrs, language]);
+  }, [editSrUsername, editSrPassword, srs, setSrs, language, success, error]);
 
   // ─── New SR: create ───────────────────────────────────────────
-  const handleCreateNewSr = useCallback((e: React.FormEvent) => {
+  const handleCreateNewSr = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     setNewSrError('');
 
@@ -223,13 +239,23 @@ export default function SettingsModule({
       return updated;
     });
 
+    try {
+      await upsertSR(newSr);
+      success(
+        language === 'bn' ? 'তৈরি সম্পন্ন' : 'Created',
+        language === 'bn' ? 'নতুন এসআর ক্লাউড ডাটাবেজে যুক্ত হয়েছে।' : 'New SR account created in cloud database.'
+      );
+    } catch (err: any) {
+      console.error('[SettingsModule] SR create error:', err);
+    }
+
     setNewSrName('');
     setNewSrPhone('');
     setNewSrUsername('');
     setNewSrPassword('');
     setShowNewSrForm(false);
     setNewSrError('');
-  }, [newSrName, newSrPhone, newSrUsername, newSrPassword, srs, setSrs, language]);
+  }, [newSrName, newSrPhone, newSrUsername, newSrPassword, srs, setSrs, language, success]);
 
   // ─── SR: delete ──────────────────────────────────────────────
   const handleDeleteSr = (srId: string, srName: string) => {
@@ -239,6 +265,7 @@ export default function SettingsModule({
       localStorage.setItem('erp_srs', JSON.stringify(updated));
       return updated;
     });
+    deleteSR(srId).catch(console.error);
   };
 
   const loggedEmail = typeof window !== 'undefined' ? (localStorage.getItem('erp_user_email') || 'admin') : 'admin';

@@ -74,26 +74,22 @@ function getServiceClient() {
 
 async function verifyPassword(plaintext: string, stored: string | null): Promise<boolean> {
   if (!stored) return false;
+  const cleanPlain = String(plaintext).trim();
+  const cleanStored = String(stored).trim();
 
   // Bcrypt hash detection (starts with $2b$ or $2a$)
-  if (stored.startsWith('$2')) {
+  if (cleanStored.startsWith('$2')) {
     try {
       // Dynamic import to avoid bundling bcryptjs on client
       const bcrypt = await import('bcryptjs');
-      return await bcrypt.compare(plaintext, stored);
+      return await bcrypt.compare(cleanPlain, cleanStored);
     } catch {
       return false;
     }
   }
 
-  // Legacy: plain-text comparison (timing-safe using constant-time compare)
-  // This allows smooth migration without forcing all SRs to reset passwords.
-  if (stored.length !== plaintext.length) return false;
-  let mismatch = 0;
-  for (let i = 0; i < stored.length; i++) {
-    mismatch |= stored.charCodeAt(i) ^ plaintext.charCodeAt(i);
-  }
-  return mismatch === 0;
+  // Plain-text comparison (timing-safe fallback)
+  return cleanStored === cleanPlain || stored === plaintext;
 }
 
 // ── JWT Token Generator ────────────────────────────────────────────────────────
@@ -211,7 +207,7 @@ export async function POST(req: NextRequest) {
   let query = supabase
     .from('srs')
     .select('id, name, owner_id, login_username, login_password, password_hash, is_active, company_id, assigned_route_id, assigned_company_ids, commission_rate, phone')
-    .eq('login_username', username);
+    .ilike('login_username', username.trim());
 
   if (owner_id) {
     query = query.eq('owner_id', owner_id);
@@ -243,8 +239,18 @@ export async function POST(req: NextRequest) {
   let hasDisabledMatch = false;
 
   for (const candidate of srsList) {
-    const storedPassword = candidate.password_hash || candidate.login_password;
-    const isValid = await verifyPassword(password, storedPassword);
+    let isValid = false;
+
+    // Check plain-text login_password first (allows instant login after Admin reset)
+    if (candidate.login_password) {
+      isValid = await verifyPassword(password, candidate.login_password);
+    }
+
+    // If not matched, check password_hash (bcrypt)
+    if (!isValid && candidate.password_hash) {
+      isValid = await verifyPassword(password, candidate.password_hash);
+    }
+
     if (isValid) {
       if (candidate.is_active === false) {
         hasDisabledMatch = true;
@@ -320,9 +326,8 @@ export async function POST(req: NextRequest) {
       const hash = await bcrypt.hash(password, 12);
       await supabase
         .from('srs')
-        .update({ password_hash: hash, login_password: null }) // Clear plain-text
-        .eq('id', sr.id)
-        .eq('owner_id', sr.owner_id);
+        .update({ password_hash: hash })
+        .eq('id', sr.id);
     } catch {
       // Non-fatal: upgrade failure is logged but does not block login
       console.warn('[SR Auth] Password upgrade to bcrypt failed for SR:', sr.id);

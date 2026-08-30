@@ -45,6 +45,7 @@ import { getLocalDateString } from './dashboard/dashboardUtils';
 import { getStockValueDP, getStockValueTP, formatProductStock } from '../lib/productUtils';
 import PersonnelManagement from './PersonnelManagement';
 import { useToast } from './ui/Toast';
+import { upsertSR } from '../lib/db';
 
 interface DirectoryModuleProps {
   products: Product[];
@@ -940,21 +941,23 @@ export default function DirectoryModule({
     const primaryCompany = companies.find(c => c.id === primaryCompanyId || c.name === primaryCompanyId);
 
     if (editingSr) {
-      setSrs(prev => prev.map(s => s.id === editingSr.id ? {
-        ...s,
+      const updatedSr: SR = {
+        ...editingSr,
         name: srName,
         phone: srPhone,
         commissionRate: srCommissionRate,
         assignedCompanyIds: srAssignedCompanies,
         companyId: primaryCompanyId,
         companyName: primaryCompany?.name || primaryCompanyId,
-        isActive: s.isActive ?? true,
-        loginUsername: srLoginUsername,
-        loginPassword: srLoginPassword
-      } : s));
+        isActive: editingSr.isActive ?? true,
+        loginUsername: srLoginUsername.trim(),
+        loginPassword: srLoginPassword.trim()
+      };
+      setSrs(prev => prev.map(s => s.id === editingSr.id ? updatedSr : s));
+      upsertSR(updatedSr).catch(console.error);
       setEditingSr(null);
     } else {
-      setSrs(prev => [...prev, {
+      const newSr: SR = {
         id: `sr-${Date.now()}`,
         name: srName,
         phone: srPhone,
@@ -963,9 +966,11 @@ export default function DirectoryModule({
         companyId: primaryCompanyId,
         companyName: primaryCompany?.name || primaryCompanyId,
         isActive: true,
-        loginUsername: srLoginUsername,
-        loginPassword: srLoginPassword
-      }]);
+        loginUsername: srLoginUsername.trim(),
+        loginPassword: srLoginPassword.trim()
+      };
+      setSrs(prev => [...prev, newSr]);
+      upsertSR(newSr).catch(console.error);
     }
     setShowSrModal(false);
   }, [srName, srPhone, srCommissionRate, srAssignedCompanies, srLoginUsername, srLoginPassword, editingSr, srs, setSrs, companies, language]);

@@ -376,15 +376,22 @@ export default function ChallanModule({
   };
 
   React.useEffect(() => {
-    if (userRole === 'sr' && activeSrName) {
-      setFilterSR(activeSrName);
-      setAppliedSR(activeSrName);
+    if (userRole === 'sr') {
+      if (activeSrName) {
+        setFilterSR(activeSrName);
+        setAppliedSR(activeSrName);
+      }
+      if (srAssignedCompanyNames.length === 1) {
+        setFilterCompany(srAssignedCompanyNames[0]);
+        setAppliedCompany(srAssignedCompanyNames[0]);
+      }
     }
-  }, [userRole, activeSrName]);
+  }, [userRole, activeSrName, srAssignedCompanyNames]);
 
   const handleReset = () => {
+    const defaultSrCompany = userRole === 'sr' && srAssignedCompanyNames.length === 1 ? srAssignedCompanyNames[0] : '';
     setSearchQuery('');
-    setFilterCompany('');
+    setFilterCompany(defaultSrCompany);
     setFilterSR(userRole === 'sr' ? activeSrName : '');
     setFilterRoute('');
     setFilterDeliveryMan('');
@@ -392,7 +399,7 @@ export default function ChallanModule({
     setFilterStartDate('');
     setFilterEndDate('');
     setAppliedSearch('');
-    setAppliedCompany('');
+    setAppliedCompany(defaultSrCompany);
     setAppliedSR(userRole === 'sr' ? activeSrName : '');
     setAppliedRoute('');
     setAppliedDeliveryMan('');
@@ -1516,8 +1523,8 @@ export default function ChallanModule({
           </div>
         </div>
 
-        {/* Quick Company / Brand Selection Pills (Admin only) */}
-        {userRole !== 'sr' && availableCompanies.length > 0 && (
+        {/* Quick Company / Brand Selection Pills */}
+        {availableCompanies.length > 1 && (
           <div className="flex flex-wrap items-center gap-1.5 pb-1">
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mr-1">
               {language === 'bn' ? 'কোম্পানি অনুযায়ী চালান:' : 'Filter By Company:'}
@@ -1535,7 +1542,7 @@ export default function ChallanModule({
                   : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
               }`}
             >
-              {language === 'bn' ? 'সকল কোম্পানি' : 'All Companies'} ({groupedData.length})
+              {userRole === 'sr' ? (language === 'bn' ? 'সকল অ্যাসাইনকৃত' : 'All Assigned') : (language === 'bn' ? 'সকল কোম্পানি' : 'All Companies')} ({groupedData.length})
             </button>
             {availableCompanies.map(cName => {
               const count = groupedData.filter(g => g.items.some(i => (i.company || products.find(p => p.name === i.productName)?.company || '').toLowerCase() === cName.toLowerCase())).length;
@@ -1566,27 +1573,32 @@ export default function ChallanModule({
           </div>
         )}
         
-        <div className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 ${userRole === 'sr' ? 'lg:grid-cols-5' : 'lg:grid-cols-4 xl:grid-cols-7'} gap-3`}>
+        <div className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 ${userRole === 'sr' ? 'lg:grid-cols-4 xl:grid-cols-6' : 'lg:grid-cols-4 xl:grid-cols-7'} gap-3`}>
           
-          {/* Company Dropdown (Admin only) */}
-          {userRole !== 'sr' && (
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-amber-700 uppercase tracking-wider block">
-                {tChallan.companyLabel || (language === 'bn' ? 'কোম্পানি / ব্র্যান্ড:' : 'Company / Brand:')}
-              </label>
-              <select
-                id="filter-company-select"
-                value={filterCompany}
-                onChange={(e) => setFilterCompany(e.target.value)}
-                className="h-10 w-full rounded-none border border-amber-300 bg-amber-50/20 px-3 text-xs font-bold text-amber-900 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100 transition-all cursor-pointer shadow-sm"
-              >
-                <option value="">{tChallan.allCompanies || (language === 'bn' ? 'সব কোম্পানি' : 'All Companies')}</option>
-                {availableCompanies.map(cName => (
-                  <option key={cName} value={cName}>{cName}</option>
-                ))}
-              </select>
-            </div>
-          )}
+          {/* Company Dropdown (Scoped to Assigned Companies for SR) */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-amber-700 uppercase tracking-wider block">
+              {tChallan.companyLabel || (language === 'bn' ? 'কোম্পানি / ব্র্যান্ড:' : 'Company / Brand:')}
+            </label>
+            <select
+              id="filter-company-select"
+              value={filterCompany}
+              onChange={(e) => setFilterCompany(e.target.value)}
+              disabled={userRole === 'sr' && availableCompanies.length <= 1}
+              className="h-10 w-full rounded-none border border-amber-300 bg-amber-50/20 px-3 text-xs font-bold text-amber-900 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100 transition-all cursor-pointer shadow-sm disabled:opacity-75 disabled:cursor-not-allowed"
+            >
+              {userRole === 'sr' && availableCompanies.length === 1 ? (
+                <option value={availableCompanies[0]}>{availableCompanies[0]}</option>
+              ) : (
+                <>
+                  <option value="">{userRole === 'sr' ? (language === 'bn' ? 'সকল অ্যাসাইনকৃত কোম্পানি' : 'All Assigned Companies') : (tChallan.allCompanies || (language === 'bn' ? 'সব কোম্পানি' : 'All Companies'))}</option>
+                  {availableCompanies.map(cName => (
+                    <option key={cName} value={cName}>{cName}</option>
+                  ))}
+                </>
+              )}
+            </select>
+          </div>
 
           {/* SR Dropdown */}
           <div className="space-y-1.5">
