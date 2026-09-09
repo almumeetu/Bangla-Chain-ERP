@@ -3,7 +3,7 @@
 import { useState, useCallback } from 'react';
 import type { Product, StockAdjustment } from '../../types';
 import type { Language } from '../../translations';
-import { getLocalDateString } from '../dashboard/dashboardUtils';
+import { getLocalDateString, createSafeISODate, matchesDateRange } from '../dashboard/dashboardUtils';
 
 export interface UseStockAdjustmentReturn {
   selectedProdId:     string | null;
@@ -77,11 +77,7 @@ export function useStockAdjustment(
   });
 
   const filteredAdjustments = adjustments.filter(adj => {
-    if (!adjustmentStartDate && !adjustmentEndDate) return true;
-    const adjDate = getLocalDateString(new Date(adj.date));
-    const matchesStart = adjustmentStartDate ? adjDate >= adjustmentStartDate : true;
-    const matchesEnd = adjustmentEndDate ? adjDate <= adjustmentEndDate : true;
-    return matchesStart && matchesEnd;
+    return matchesDateRange(adj.date, adjustmentStartDate, adjustmentEndDate);
   });
 
   const totalPages          = Math.ceil(filteredAdjustments.length / ITEMS_PER_PAGE) || 1;
@@ -145,17 +141,7 @@ export function useStockAdjustment(
     if (!adjustReason.trim())  { alert(language === 'bn' ? 'কারণ লিখুন।' : 'Please provide a reason.'); return; }
     if (variance === 0)        { alert(language === 'bn' ? 'কোনো পরিবর্তন নেই।' : 'No change detected.'); return; }
 
-    const now = new Date();
-    const [year, month, day] = (adjustmentDate || now.toISOString().split('T')[0]).split('-');
-    const adjDate = new Date(
-      Number(year),
-      Number(month) - 1,
-      Number(day),
-      now.getHours(),
-      now.getMinutes(),
-      now.getSeconds(),
-      now.getMilliseconds()
-    );
+    const dateISO = createSafeISODate(adjustmentDate);
 
     const newAdj: StockAdjustment = {
       id:             `adj-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
@@ -167,7 +153,7 @@ export function useStockAdjustment(
       qtyChanged:     variance,
       adjustedBy:     language === 'bn' ? 'ডিলার/মালিক (অ্যাডমিন)' : 'Owner/Dealer (Admin)',
       reason:         adjustReason.trim(),
-      date:           adjDate.toISOString(),
+      date:           dateISO,
     };
 
     setAdjustments(prev => [newAdj, ...prev]);

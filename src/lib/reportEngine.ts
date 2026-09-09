@@ -13,8 +13,11 @@
 
 import { jsPDF } from 'jspdf';
 import type {
-  Product, ChallanItem, SR, DeliveryMan, ExpenseRecord, CompanyBrand, Claim, ClaimSettlement
+  Product, ChallanItem, SR, DeliveryMan, ExpenseRecord, CompanyBrand, Claim, ClaimSettlement,
+  Procurement, StockAdjustment
 } from '../types';
+import { getLocalDateString, matchesDateRange } from '../components/dashboard/dashboardUtils';
+import { getHistoricStockForProduct } from './productUtils';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public types
@@ -53,6 +56,8 @@ export interface ReportOptions {
   companies:      CompanyBrand[];
   claims?:        Claim[];
   claimSettlements?: ClaimSettlement[];
+  procurements?:  Procurement[];
+  adjustments?:   StockAdjustment[];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -512,16 +517,23 @@ function drawKpiRow(
 // ─────────────────────────────────────────────────────────────────────────────
 
 function getFilteredProducts(opts: ReportOptions): Product[] {
-  return opts.products.filter(p => 
+  const base = opts.products.filter(p => 
     !opts.filterCompany || opts.filterCompany === 'All' || p.company === opts.filterCompany
   );
+  const todayStr = getLocalDateString(new Date());
+  if (opts.endDate && opts.endDate < todayStr) {
+    return base.map(p => ({
+      ...p,
+      currentStock: getHistoricStockForProduct(p, opts.endDate, opts.challans, opts.procurements, opts.adjustments)
+    }));
+  }
+  return base;
 }
 
 function getFilteredChallans(opts: ReportOptions): ChallanItem[] {
   return opts.challans.filter(ch => {
     if (!ch.createdAt) return true;
-    const date = ch.createdAt.split('T')[0];
-    const inRange  = date >= opts.startDate && date <= opts.endDate;
+    const inRange  = matchesDateRange(ch.createdAt, opts.startDate, opts.endDate);
     const inCo     = !opts.filterCompany || opts.filterCompany === 'All' || ch.company === opts.filterCompany;
     const inSR     = !opts.filterSR      || opts.filterSR      === 'All' || (ch.srName || '').toLowerCase() === opts.filterSR.toLowerCase();
     const inDM     = !opts.filterDM      || opts.filterDM      === 'All' || (ch.deliveryManName || '').toLowerCase() === opts.filterDM.toLowerCase();
@@ -965,8 +977,16 @@ function genDayEnd(ctx: DocContext, opts: ReportOptions, dynamicInfo: DynamicRep
       const soldQty  = pc.reduce((s, ch) => s + Math.max(0, (ch.qty ?? 0) - (ch.returnedQty || 0) - (ch.damagedQty || 0)), 0);
       const salesAmt = pc.reduce((s, ch) => s + (ch.totalAmount ?? 0), 0);
       const grossQty = pc.reduce((s, ch) => s + ch.qty, 0);
-      const opening  = p.currentStock + grossQty;
-      const closing  = p.currentStock;
+      const closing  = getHistoricStockForProduct(p, opts.endDate, opts.challans, opts.procurements, opts.adjustments);
+      const prevDay  = (() => {
+        if (!opts.startDate) return '';
+        const [y, m, d] = opts.startDate.split('-').map(Number);
+        const dt = new Date(y, (m || 1) - 1, (d || 1) - 1, 12, 0, 0);
+        return getLocalDateString(dt);
+      })();
+      const opening  = prevDay
+        ? getHistoricStockForProduct(p, prevDay, opts.challans, opts.procurements, opts.adjustments)
+        : closing + grossQty;
       const stockAmt = closing * (p.defaultPP || 0);
 
       totSalesAmt += salesAmt;
@@ -1075,7 +1095,7 @@ export function exportReportPDF(opts: ReportOptions): void {
   }
 
   const shop    = (opts.shopName || 'ERP').replace(/[^a-zA-Z0-9_]/g, '_');
-  const dateTag = new Date().toISOString().split('T')[0];
+  const dateTag = getLocalDateString(new Date());
   ctx.doc.save(`${shop}_${dynamicInfo.fileTag}_${dateTag}.pdf`);
 }
 
@@ -1101,7 +1121,7 @@ export function exportReportExcel(opts: ReportOptions): void {
     csv += row(['#', 'Product', 'Company', 'SR', 'Delivery Man', 'Date', 'Qty', 'Returned', 'Damaged', 'Rate', 'Total Amount']);
     fch.forEach((ch, i) => {
       csv += row([i + 1, ch.productName, ch.company || '', ch.srName, ch.deliveryManName,
-                  ch.createdAt?.split('T')[0] || '', ch.qty, ch.returnedQty || 0, ch.damagedQty || 0, ch.rate, ch.totalAmount]);
+                  getLocalDateString(ch.createdAt), ch.qty, ch.returnedQty || 0, ch.damagedQty || 0, ch.rate, ch.totalAmount]);
     });
   } else if (opts.type === 'pricelist') {
     csv += row(['#', 'Company', 'Product', 'SKU', 'Carton Multiplier', 'DP Rate', 'TP Rate', 'MRP', 'Margin %']);
@@ -1172,8 +1192,16 @@ export function exportReportExcel(opts: ReportOptions): void {
         const salesQty  = pc.reduce((s, ch) => s + Math.max(0, (ch.qty ?? 0) - (ch.returnedQty || 0) - (ch.damagedQty || 0)), 0);
         const salesAmt  = pc.reduce((s, ch) => s + (ch.totalAmount ?? 0), 0);
         const grossQty  = pc.reduce((s, ch) => s + ch.qty, 0);
-        const opening   = p.currentStock + grossQty;
-        const closing   = p.currentStock;
+        const closing   = getHistoricStockForProduct(p, opts.endDate, opts.challans, opts.procurements, opts.adjustments);
+        const prevDay   = (() => {
+          if (!opts.startDate) return '';
+          const [y, m, d] = opts.startDate.split('-').map(Number);
+          const dt = new Date(y, (m || 1) - 1, (d || 1) - 1, 12, 0, 0);
+          return getLocalDateString(dt);
+        })();
+        const opening   = prevDay
+          ? getHistoricStockForProduct(p, prevDay, opts.challans, opts.procurements, opts.adjustments)
+          : closing + grossQty;
         const stockAmt  = closing * (p.defaultPP || 0);
         csv += row([++i, co, p.name, p.sku, p.defaultPP || 0, p.defaultWSP || 0, opening, salesQty, closing, salesAmt, stockAmt]);
       });
@@ -1196,7 +1224,7 @@ export function exportReportExcel(opts: ReportOptions): void {
   const a    = document.createElement('a');
   a.href     = url;
   const shop = (opts.shopName || 'ERP').replace(/[^a-zA-Z0-9_]/g, '_');
-  a.download = `${shop}_${dynamicInfo.fileTag}_${new Date().toISOString().split('T')[0]}.csv`;
+  a.download = `${shop}_${dynamicInfo.fileTag}_${getLocalDateString(new Date())}.csv`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -1486,7 +1514,7 @@ export function printReport(opts: ReportOptions): void {
         <td><b>${ch.productName}</b><br><span style="font-size:9px;color:#64748b">${ch.company || ''}</span></td>
         <td>${ch.srName}</td>
         <td>${ch.deliveryManName || '—'}</td>
-        <td class="text-center">${ch.createdAt ? ch.createdAt.split('T')[0] : '—'}</td>
+        <td class="text-center">${ch.createdAt ? getLocalDateString(ch.createdAt) : '—'}</td>
         <td class="text-right font-mono">${ch.qty}</td>
         <td class="text-center font-mono">${ch.returnedQty || 0}</td>
         <td class="text-right font-mono font-bold">${fmtBDT(ch.totalAmount || 0)}</td>
@@ -1692,8 +1720,16 @@ export function printReport(opts: ReportOptions): void {
         const soldQty = pc.reduce((s, ch) => s + Math.max(0, (ch.qty ?? 0) - (ch.returnedQty || 0) - (ch.damagedQty || 0)), 0);
         const salesAmt = pc.reduce((s, ch) => s + (ch.totalAmount ?? 0), 0);
         const grossQty = pc.reduce((s, ch) => s + ch.qty, 0);
-        const opening = p.currentStock + grossQty;
-        const closing = p.currentStock;
+        const closing = getHistoricStockForProduct(p, opts.endDate, opts.challans, opts.procurements, opts.adjustments);
+        const prevDay = (() => {
+          if (!opts.startDate) return '';
+          const [y, m, d] = opts.startDate.split('-').map(Number);
+          const dt = new Date(y, (m || 1) - 1, (d || 1) - 1, 12, 0, 0);
+          return getLocalDateString(dt);
+        })();
+        const opening = prevDay
+          ? getHistoricStockForProduct(p, prevDay, opts.challans, opts.procurements, opts.adjustments)
+          : closing + grossQty;
         const stockAmt = closing * (p.defaultPP || 0);
         return `<tr>
           <td class="text-center">${i+1}</td>

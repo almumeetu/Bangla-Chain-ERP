@@ -494,6 +494,7 @@ export async function upsertProduct(p: Product): Promise<void> {
     stock_alert_threshold: p.stockAlertThreshold ?? 10,
     custom_units: (p.customUnits as any) ?? [],
     damage_history: (p.damageHistory as any) ?? [],
+    created_at: p.createdAt || new Date().toISOString(),
   });
 }
 export async function deleteProduct(id: string): Promise<void> {
@@ -534,6 +535,7 @@ export async function upsertChallan(c: ChallanItem): Promise<void> {
     sr_commission_type: c.srCommissionType ?? 'Percentage',
     sr_commission_value: c.srCommissionValue ?? 0,
     sr_commission_amount: c.srCommissionAmount ?? 0,
+    created_at: c.createdAt || new Date().toISOString(),
   });
 }
 
@@ -759,6 +761,7 @@ export async function upsertProcurement(p: Procurement): Promise<void> {
     payment_status: p.paymentStatus ?? 'Pending',
     additional_cost: p.additionalCost ?? 0,
     global_total: p.globalTotal ?? 0,
+    created_at: p.createdAt || new Date().toISOString(),
   });
 }
 export async function deleteProcurement(id: string): Promise<void> {
@@ -780,6 +783,7 @@ export async function insertStockAdjustment(a: StockAdjustment): Promise<void> {
     qty_changed: a.qtyChanged ?? 0,
     adjusted_by: a.adjustedBy ?? '',
     reason: a.reason ?? '',
+    date: a.date || new Date().toISOString(),
   });
 }
 
@@ -811,6 +815,7 @@ export async function upsertExpense(e: ExpenseRecord): Promise<void> {
     expense_date: e.expenseDate ?? '',
     notes: e.notes ?? '',
     paid_to: e.paidTo ?? '',
+    created_at: e.createdAt || new Date().toISOString(),
   });
 }
 export async function deleteExpense(id: string): Promise<void> {

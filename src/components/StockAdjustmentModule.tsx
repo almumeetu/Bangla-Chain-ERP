@@ -11,6 +11,8 @@ import AdjustmentForm          from './stock/AdjustmentForm';
 import AdjustmentAuditLog      from './stock/AdjustmentAuditLog';
 import { printInventoryValuation } from '../lib/printUtils';
 import Pagination from './ui/Pagination';
+import { getLocalDateString } from './dashboard/dashboardUtils';
+import { getHistoricStockForProduct as getHistoricStockForProductUtil } from '../lib/productUtils';
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -78,12 +80,6 @@ export default function StockAdjustmentModule({
   adjustments, setAdjustments, products, setProducts, categories, language, procurements = [], challans = [],
   defaultTab = 'adjustments', onTabChange,
 }: StockAdjustmentModuleProps) {
-  const getLocalDateString = (date: Date) => {
-    const offset = date.getTimezoneOffset();
-    const localDate = new Date(date.getTime() - (offset * 60 * 1000));
-    return localDate.toISOString().split('T')[0];
-  };
-
   const [activeTab, setActiveTab] = React.useState<'adjustments' | 'history'>(defaultTab);
   const [stockHistoryDate, setStockHistoryDate] = React.useState<string>(() => getLocalDateString(new Date()));
 
@@ -175,37 +171,7 @@ export default function StockAdjustmentModule({
 
   // ── Historic stock calculation helper ─────────────────────────────────────────
   const getHistoricStockForProduct = (product: Product, targetDate: string) => {
-    if (product.createdAt && product.createdAt.slice(0, 10) > targetDate) {
-      return 0;
-    }
-    let stock = product.currentStock;
-
-    procurements.forEach(proc => {
-      const procDate = proc.deliveryDate || proc.invoiceDate || (proc.createdAt ? proc.createdAt.slice(0, 10) : null);
-      if (procDate && procDate > targetDate) {
-        const item = proc.items.find(i => i.productId === product.id);
-        if (item) {
-          stock -= (item.qty + (item.bonusQty || 0));
-        }
-      }
-    });
-
-    challans.forEach(challan => {
-      const challanDate = challan.createdAt.slice(0, 10);
-      if (challanDate && challanDate > targetDate) {
-        if (challan.productName === product.name) {
-          stock += (challan.totalQty - (challan.returnedQty || 0));
-        }
-      }
-    });
-
-    adjustments.forEach(adj => {
-      if (adj.productId === product.id && adj.date && adj.date > targetDate) {
-        stock -= adj.qtyChanged;
-      }
-    });
-
-    return Math.max(0, stock);
+    return getHistoricStockForProductUtil(product, targetDate, challans, procurements, adjustments);
   };
 
   // ── Stock layout formatting helper ──────────────────────────────────────────

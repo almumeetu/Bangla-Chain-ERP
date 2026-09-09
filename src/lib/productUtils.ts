@@ -12,7 +12,8 @@
  * single-source-of-truth lives here.
  */
 
-import type { Product } from '../types';
+import type { Product, ChallanItem, Procurement, StockAdjustment } from '../types';
+import { getLocalDateString } from '../components/dashboard/dashboardUtils';
 
 // ─── Basic accessors ──────────────────────────────────────────────────────────
 
@@ -235,4 +236,62 @@ export function calcReturnedQty(
     return returnedCartons * cs + returnedPcs;
   }
   return returnedCartons + (returnedPcs / cs);
+}
+
+/**
+ * Calculates the historical stock quantity of a product as of targetDate (YYYY-MM-DD).
+ * Accurately rolls back delivered challans, procurements, and adjustments that occurred AFTER targetDate.
+ */
+export function getHistoricStockForProduct(
+  product: Product,
+  targetDate?: string | null,
+  challans: ChallanItem[] = [],
+  procurements: Procurement[] = [],
+  adjustments: StockAdjustment[] = []
+): number {
+  const normTarget = getLocalDateString(targetDate);
+  if (!normTarget) return product.currentStock;
+
+  const todayStr = getLocalDateString(new Date());
+  if (normTarget >= todayStr) {
+    return product.currentStock;
+  }
+
+  let stock = product.currentStock;
+
+  // 1. Rollback procurements received after targetDate (subtract goods that arrived later)
+  procurements.forEach(proc => {
+    const procDate = getLocalDateString(proc.deliveryDate || proc.invoiceDate || proc.createdAt);
+    if (procDate && procDate > normTarget) {
+      const item = proc.items?.find(i => i.productId === product.id);
+      if (item) {
+        stock -= (item.qty + (item.bonusQty || 0));
+      }
+    }
+  });
+
+  // 2. Rollback delivered challans after targetDate (add back goods that were delivered later)
+  challans.forEach(challan => {
+    // Only Delivered challans reduce current stock in ERP transactions
+    if (challan.status !== 'Delivered') return;
+    const challanDate = getLocalDateString(challan.createdAt);
+    if (challanDate && challanDate > normTarget) {
+      if ((challan.productName || '').trim().toLowerCase() === (product.name || '').trim().toLowerCase()) {
+        const netDelivered = (challan.totalQty || challan.qty || 0) - (challan.returnedQty || 0);
+        stock += Math.max(0, netDelivered);
+      }
+    }
+  });
+
+  // 3. Rollback adjustments made after targetDate (subtract positive changes, add negative changes)
+  adjustments.forEach(adj => {
+    if (adj.productId === product.id && adj.date) {
+      const adjDate = getLocalDateString(adj.date);
+      if (adjDate && adjDate > normTarget) {
+        stock -= (adj.qtyChanged || 0);
+      }
+    }
+  });
+
+  return Math.max(0, stock);
 }

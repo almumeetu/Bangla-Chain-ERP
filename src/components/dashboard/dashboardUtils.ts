@@ -14,15 +14,62 @@ export function formatBDT(amount: number): string {
 
 // ── Date helpers ──────────────────────────────────────────────────────────────
 
-export function getLocalDateString(dateObj: Date): string {
-  const offset    = dateObj.getTimezoneOffset();
-  const localDate = new Date(dateObj.getTime() - offset * 60 * 1000);
-  return localDate.toISOString().split('T')[0];
+export function getLocalDateString(val?: Date | string | number | null): string {
+  if (!val) return '';
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    if (!trimmed) return '';
+    // If it's already YYYY-MM-DD, return it directly to avoid timezone shift
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      return trimmed;
+    }
+    const d = new Date(trimmed);
+    if (isNaN(d.getTime())) return '';
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+  const d = val instanceof Date ? val : new Date(val);
+  if (isNaN(d.getTime())) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/**
+ * Creates an ISO string anchored at 12:00:00 (noon) local time from a YYYY-MM-DD string.
+ * This guarantees the calendar date never shifts backward or forward across any UTC offset.
+ */
+export function createSafeISODate(dateStr?: string): string {
+  const safeStr = dateStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr.trim())
+    ? dateStr.trim()
+    : getLocalDateString(new Date());
+  const [year, month, day] = safeStr.split('-').map(Number);
+  const localNoon = new Date(year, (month || 1) - 1, day || 1, 12, 0, 0);
+  return localNoon.toISOString();
+}
+
+/**
+ * Checks if a date falls within [startDate, endDate] range inclusive using local date comparisons.
+ */
+export function matchesDateRange(
+  dateValue: string | Date | undefined | null,
+  startDate?: string,
+  endDate?: string
+): boolean {
+  if (!startDate && !endDate) return true;
+  const dStr = getLocalDateString(dateValue);
+  if (!dStr) return false;
+  if (startDate && dStr < startDate) return false;
+  if (endDate && dStr > endDate) return false;
+  return true;
 }
 
 export function getChallanDate(id: string, createdAt?: string): string {
   // If the challan has a real createdAt timestamp (from Supabase), use it
-  if (createdAt) return getLocalDateString(new Date(createdAt));
+  if (createdAt) return getLocalDateString(createdAt);
 
   // Legacy hardcoded IDs from the initial seed data
   const HARDCODED: Record<string, string> = {
@@ -37,7 +84,7 @@ export function getChallanDate(id: string, createdAt?: string): string {
   // Fallback: try to parse a timestamp embedded in the id
   if (id.startsWith('ch-')) {
     const ms = Number(id.split('-')[1]);
-    if (!isNaN(ms)) return new Date(ms).toISOString().split('T')[0];
+    if (!isNaN(ms)) return getLocalDateString(new Date(ms));
   }
 
   return getLocalDateString(new Date());

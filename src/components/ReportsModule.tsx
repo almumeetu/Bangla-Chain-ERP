@@ -19,9 +19,10 @@ import {
   ChevronUp,
   ChevronDown,
 } from 'lucide-react';
-import { Product, ChallanItem, SR, CompanyBrand, ExpenseRecord, DeliveryMan, UnitOfMeasure, ProductUnit, Claim, ClaimSettlement } from '../types';
+import { Product, ChallanItem, SR, CompanyBrand, ExpenseRecord, DeliveryMan, UnitOfMeasure, ProductUnit, Claim, ClaimSettlement, Procurement, StockAdjustment } from '../types';
 import { translations, Language } from '../translations';
-import { getStockValueDP, getStockValueTP, getDP, getTP } from '../lib/productUtils';
+import { getStockValueDP, getStockValueTP, getDP, getTP, getHistoricStockForProduct } from '../lib/productUtils';
+import { getLocalDateString, matchesDateRange } from './dashboard/dashboardUtils';
 import { exportReportPDF, exportReportExcel, printReport, type ReportType } from '../lib/reportEngine';
 import Pagination from './ui/Pagination';
 
@@ -166,6 +167,8 @@ interface ReportsModuleProps {
   loggedInSrName?: string;
   claims?:      Claim[];
   claimSettlements?: ClaimSettlement[];
+  procurements?: Procurement[];
+  adjustments?: StockAdjustment[];
   defaultTab?: ReportTab;
   onTabChange?: (tab: ReportTab) => void;
 }
@@ -188,6 +191,8 @@ export default function ReportsModule({
   loggedInSrName,
   claims = [],
   claimSettlements = [],
+  procurements = [],
+  adjustments = [],
   defaultTab = 'stock',
   onTabChange
 }: ReportsModuleProps) {
@@ -309,9 +314,9 @@ export default function ReportsModule({
   const [startDate, setStartDate] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() - 30);
-    return d.toISOString().split('T')[0];
+    return getLocalDateString(d);
   });
-  const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [endDate, setEndDate] = useState(() => getLocalDateString(new Date()));
 
   // Global filters
   const [selectedCompanyFilter, setSelectedCompanyFilter] = useState('All');
@@ -360,7 +365,7 @@ export default function ReportsModule({
   const handlePresetChange = useCallback((val: string) => {
     setPreset(val);
     const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
+    const todayStr = getLocalDateString(today);
     
     if (val === 'today') {
       setStartDate(todayStr);
@@ -390,8 +395,8 @@ export default function ReportsModule({
   const filteredChallans = useMemo(() => {
     return challans.filter(ch => {
       if (!ch.createdAt) return true;
-      const date = ch.createdAt.split('T')[0];
-      const matchesDate = date >= startDate && date <= endDate;
+      const date = getLocalDateString(ch.createdAt);
+      const matchesDate = matchesDateRange(date, startDate, endDate);
       const matchesCompany = selectedCompanyFilter === 'All' || ch.company === selectedCompanyFilter;
       const matchesSR = selectedSrFilter === 'All' || (ch.srName || '').toLowerCase() === selectedSrFilter.toLowerCase();
       const matchesDM = selectedDeliveryManFilter === 'All' || (ch.deliveryManName || '').toLowerCase() === selectedDeliveryManFilter.toLowerCase();
@@ -427,15 +432,24 @@ export default function ReportsModule({
   }, [products, selectedCompanyFilter, selectedSrFilter, srs, companies]);
 
   // ═══════════════════════════════════════════════════════════════
-  // 1. STOCK REPORT DATA CALCULATION (with DP & TP)
+  // 1. STOCK REPORT DATA CALCULATION (with DP & TP & Date Filter)
   // ═══════════════════════════════════════════════════════════════
   const stockReportData = useMemo(() => {
-    const brandList = Array.from(new Set(filteredStockProducts.map(p => p.company).filter(Boolean)));
+    const todayStr = getLocalDateString(new Date());
+    const isPastDate = Boolean(endDate && endDate < todayStr);
+
+    const effectiveStockProducts = filteredStockProducts.map(p => {
+      if (!isPastDate) return p;
+      const histStock = getHistoricStockForProduct(p, endDate, challans, procurements, adjustments);
+      return { ...p, currentStock: histStock };
+    });
+
+    const brandList = Array.from(new Set(effectiveStockProducts.map(p => p.company).filter(Boolean)));
     let grandValueDP = 0;
     let grandValueTP = 0;
 
     const rows = brandList.map(brandName => {
-      const brandProducts = filteredStockProducts.filter(p => p.company === brandName);
+      const brandProducts = effectiveStockProducts.filter(p => p.company === brandName);
       const totalValueDP = brandProducts.reduce((sum, p) => sum + getStockValueDP(p), 0);
       const totalValueTP = brandProducts.reduce((sum, p) => sum + getStockValueTP(p), 0);
       const stockQtyObj = getAggregatedStockQty(brandProducts, 'currentStock');
@@ -452,16 +466,19 @@ export default function ReportsModule({
       };
     });
 
-    const grandStockQtyObj = getAggregatedStockQty(filteredStockProducts, 'currentStock');
+    const grandStockQtyObj = getAggregatedStockQty(effectiveStockProducts, 'currentStock');
 
     return {
       rows,
+      effectiveStockProducts,
       grandStockQtyObj,
       grandValueDP,
       grandValueTP,
-      grandPotentialMargin: Math.max(0, grandValueTP - grandValueDP)
+      grandPotentialMargin: Math.max(0, grandValueTP - grandValueDP),
+      isPastDate,
+      asOfDate: isPastDate ? endDate : todayStr,
     };
-  }, [filteredStockProducts]);
+  }, [filteredStockProducts, endDate, challans, procurements, adjustments]);
 
   // ═══════════════════════════════════════════════════════════════
   // 2. SALES REPORT DATA CALCULATION
@@ -844,10 +861,20 @@ export default function ReportsModule({
         const pChallans = companyChallans.filter(ch => (ch.productName || '').trim().toLowerCase() === (p.name || '').trim().toLowerCase());
         const salesQty   = pChallans.reduce((s, ch) => s + Math.max(0, ch.qty - (ch.returnedQty || 0) - (ch.damagedQty || 0)), 0);
         const salesAmt   = pChallans.reduce((s, ch) => s + (ch.totalAmount || 0), 0);
-        // Opening stock = current stock + gross sold qty (since stock was reduced after sales)
         const grossQty   = pChallans.reduce((s, ch) => s + ch.qty, 0);
-        const openingStock = p.currentStock + grossQty;
-        const closingStock = p.currentStock;
+
+        // Effective closing stock as of endDate
+        const closingStock = getHistoricStockForProduct(p, endDate, challans, procurements, adjustments);
+        // Opening stock as of day before startDate
+        const prevDay = (() => {
+          if (!startDate) return '';
+          const [y, m, d] = startDate.split('-').map(Number);
+          const dt = new Date(y, (m || 1) - 1, (d || 1) - 1, 12, 0, 0);
+          return getLocalDateString(dt);
+        })();
+        const openingStock = prevDay
+          ? getHistoricStockForProduct(p, prevDay, challans, procurements, adjustments)
+          : closingStock + grossQty;
         const stockAmt     = closingStock * p.defaultPP;
         const costOfSales  = salesQty * p.defaultPP;
         const profit       = salesAmt - costOfSales;
@@ -877,7 +904,7 @@ export default function ReportsModule({
     });
 
     return result;
-  }, [products, filteredChallans, selectedCompanyFilter]);
+  }, [products, filteredChallans, selectedCompanyFilter, startDate, endDate, challans, procurements, adjustments]);
 
   // ═══════════════════════════════════════════════════════════════
   // REPORT EXPORT — PDF / Excel / Print
@@ -920,13 +947,15 @@ export default function ReportsModule({
       expenses,
       companies,
       claims,
-      claimSettlements
+      claimSettlements,
+      procurements,
+      adjustments
     };
   }, [
     activeTab, stockSubTab, salesSubTab, shopName, shopSubBrand, shopLogo, userRole, loggedInSrName,
     startDate, endDate, language,
     selectedCompanyFilter, selectedSrFilter, selectedDeliveryManFilter,
-    products, challans, srs, deliveryMen, expenses, companies, claims, claimSettlements
+    products, challans, srs, deliveryMen, expenses, companies, claims, claimSettlements, procurements, adjustments
   ]);
 
   const handleDownloadPDF = useCallback(() => {
@@ -1197,7 +1226,9 @@ export default function ReportsModule({
           <div className={`grid grid-cols-1 sm:grid-cols-2 ${userRole !== 'sr' ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-4`}>
             <div className="bg-white border border-slate-200 rounded-none p-5 shadow-sm">
               <p className="text-[10px] font-bold uppercase text-slate-400 tracking-wider mb-2">
-                Total Current Stock
+                {stockReportData.isPastDate
+                  ? (language === 'bn' ? `মোট স্টক (${stockReportData.asOfDate} অনুযায়ী)` : `Total Stock (as of ${stockReportData.asOfDate})`)
+                  : (language === 'bn' ? 'মোট বর্তমান স্টক' : 'Total Current Stock')}
               </p>
               <CartonPcsDisplay
                 cartons={stockReportData.grandStockQtyObj.cartons}
@@ -1323,9 +1354,9 @@ export default function ReportsModule({
           })()}
 
           {stockSubTab === 'product' && (() => {
-            const totalProductRows = filteredStockProducts.length;
+            const totalProductRows = stockReportData.effectiveStockProducts.length;
             const startIdx = (productStockPage - 1) * productStockItemsPerPage;
-            const pagedProductRows = filteredStockProducts.slice(startIdx, startIdx + productStockItemsPerPage);
+            const pagedProductRows = stockReportData.effectiveStockProducts.slice(startIdx, startIdx + productStockItemsPerPage);
             const totalPages = Math.ceil(totalProductRows / productStockItemsPerPage) || 1;
 
             return (
@@ -1343,7 +1374,11 @@ export default function ReportsModule({
                         <th className="px-4 py-3">Product Name</th>
                         <th className="px-4 py-3">Company</th>
                         <th className="px-4 py-3">SKU</th>
-                        <th className="px-4 py-3 text-center">Current Stock</th>
+                        <th className="px-4 py-3 text-center">
+                          {stockReportData.isPastDate 
+                            ? (language === 'bn' ? `স্টক (${stockReportData.asOfDate})` : `Stock (${stockReportData.asOfDate})`) 
+                            : (language === 'bn' ? 'বর্তমান স্টক' : 'Current Stock')}
+                        </th>
                         {userRole !== 'sr' && <th className="px-4 py-3 text-center">Damaged</th>}
                         <th className="px-4 py-3 text-right text-indigo-600">DP Rate</th>
                         <th className="px-4 py-3 text-right text-emerald-600">TP Rate</th>

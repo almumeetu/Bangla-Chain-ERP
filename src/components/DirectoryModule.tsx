@@ -41,8 +41,8 @@ import {
   StockAdjustment
 } from '../types';
 import { translations as dict, Language } from '../translations';
-import { getLocalDateString } from './dashboard/dashboardUtils';
-import { getStockValueDP, getStockValueTP, formatProductStock } from '../lib/productUtils';
+import { getLocalDateString, createSafeISODate, matchesDateRange } from './dashboard/dashboardUtils';
+import { getStockValueDP, getStockValueTP, formatProductStock, getHistoricStockForProduct as getHistoricStockForProductUtil } from '../lib/productUtils';
 import PersonnelManagement from './PersonnelManagement';
 import { useToast } from './ui/Toast';
 import { upsertSR } from '../lib/db';
@@ -751,16 +751,6 @@ export default function DirectoryModule({
   const [routeTerritory, setRouteTerritory] = useState('');
   const [routeAssignedSR, setRouteAssignedSR] = useState('');
 
-  const matchesDateRange = useCallback((dateValue: string | undefined, startDate: string, endDate: string) => {
-    if (!startDate && !endDate) return true;
-    if (!dateValue) return false;
-
-    const normalizedDate = getLocalDateString(new Date(dateValue));
-    const matchesStart = startDate ? normalizedDate >= startDate : true;
-    const matchesEnd = endDate ? normalizedDate <= endDate : true;
-    return matchesStart && matchesEnd;
-  }, []);
-
   const formatBDT = useCallback((amount: number) => {
     return `৳${amount.toLocaleString('en-BD')}`;
   }, []);
@@ -886,19 +876,7 @@ export default function DirectoryModule({
       name: prodName,
       sku: prodSku,
       company: prodCompany,
-      createdAt: (() => {
-        const now = new Date();
-        const [year, month, day] = (prodCreatedAt || now.toISOString().split('T')[0]).split('-');
-        return new Date(
-          Number(year),
-          Number(month) - 1,
-          Number(day),
-          now.getHours(),
-          now.getMinutes(),
-          now.getSeconds(),
-          now.getMilliseconds()
-        ).toISOString();
-      })(),
+      createdAt: createSafeISODate(prodCreatedAt || (editingProduct?.createdAt ? getLocalDateString(editingProduct.createdAt) : undefined)),
       categoryId: prodCategoryId || undefined,
       customUnits: [{ name: 'Carton', multiplier: cs }],
       defaultGodownId: prodGodownId || undefined,
@@ -1326,7 +1304,7 @@ export default function DirectoryModule({
     setProdPricePerPiece(0);
     setProdPrimaryUnit('Piece');
     setProdAlertThreshold(50);
-    setProdCreatedAt(new Date().toISOString().split('T')[0]);
+    setProdCreatedAt(getLocalDateString(new Date()));
     setShowProductModal(true);
   }, [companies, productCategories, godowns]);
 
@@ -1407,7 +1385,7 @@ export default function DirectoryModule({
     setProdPricePerPiece(Number(pcsPrice.toFixed(2)));
     setProdPrimaryUnit(p.primaryUnit || 'Piece');
     setProdAlertThreshold(p.stockAlertThreshold ?? 50);
-    setProdCreatedAt(p.createdAt ? p.createdAt.split('T')[0] : new Date().toISOString().split('T')[0]);
+    setProdCreatedAt(p.createdAt ? getLocalDateString(p.createdAt) : getLocalDateString(new Date()));
     setShowProductModal(true);
   }, []);
 
@@ -1581,37 +1559,7 @@ export default function DirectoryModule({
         };
 
         const getHistoricStockForProduct = (product: Product, targetDate: string) => {
-          if (product.createdAt && product.createdAt.slice(0, 10) > targetDate) {
-            return 0;
-          }
-          let stock = product.currentStock;
-
-          procurements.forEach(proc => {
-            const procDate = proc.deliveryDate || proc.invoiceDate || (proc.createdAt ? proc.createdAt.slice(0, 10) : null);
-            if (procDate && procDate > targetDate) {
-              const item = proc.items.find(i => i.productId === product.id);
-              if (item) {
-                stock -= (item.qty + (item.bonusQty || 0));
-              }
-            }
-          });
-
-          challans.forEach(challan => {
-            const challanDate = challan.createdAt.slice(0, 10);
-            if (challanDate && challanDate > targetDate) {
-              if (challan.productName === product.name) {
-                stock += (challan.totalQty - (challan.returnedQty || 0));
-              }
-            }
-          });
-
-          adjustments.forEach(adj => {
-            if (adj.productId === product.id && adj.date && adj.date.slice(0, 10) > targetDate) {
-              stock -= adj.qtyChanged;
-            }
-          });
-
-          return Math.max(0, stock);
+          return getHistoricStockForProductUtil(product, targetDate, challans, procurements, adjustments);
         };
 
         const filteredProducts = products.filter(p => {

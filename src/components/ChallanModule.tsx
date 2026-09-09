@@ -32,6 +32,7 @@ import { printChallanInvoice, printChallanSheet } from '../lib/printUtils';
 import { sendInvoiceEmail } from '../lib/db';
 import { Customer } from '../lib/localStore';
 import { formatProductStock } from '../lib/productUtils';
+import { getLocalDateString, matchesDateRange } from './dashboard/dashboardUtils';
 
 export interface GroupedOrder {
   id: string;
@@ -493,11 +494,9 @@ export default function ChallanModule({
     // Status tab filter
     const matchesStatus = selectedStatusTab === 'All' ? true : group.status === selectedStatusTab;
 
-    const groupDateStr = group.createdAt.slice(0, 10);
-    const matchesStartDate = appliedStartDate ? groupDateStr >= appliedStartDate : true;
-    const matchesEndDate = appliedEndDate ? groupDateStr <= appliedEndDate : true;
+    const matchesDate = matchesDateRange(group.createdAt, appliedStartDate, appliedEndDate);
 
-    return matchesSearch && matchesCompany && matchesSR && matchesRoute && matchesDeliveryMan && matchesStatus && matchesStartDate && matchesEndDate;
+    return matchesSearch && matchesCompany && matchesSR && matchesRoute && matchesDeliveryMan && matchesStatus && matchesDate;
   });
 
   // Native Sliced Pagination

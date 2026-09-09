@@ -439,6 +439,8 @@ export default function App() {
             loggedInSrName={srName}
             claims={db.claims}
             claimSettlements={db.claimSettlements}
+            procurements={db.procurements}
+            adjustments={db.adjustments}
             defaultTab={repTab}
             onTabChange={(tab) => {
               const sub = `reports-${tab}`;

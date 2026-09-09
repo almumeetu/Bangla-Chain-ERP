@@ -245,6 +245,7 @@ export interface ExpenseRecord {
   expenseDate: string;
   notes: string;
   paidTo: string;
+  createdAt?: string;
 }
 
 export const INITIAL_SRS: SR[] = [
