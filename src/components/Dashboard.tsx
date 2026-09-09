@@ -35,6 +35,10 @@ export default function Dashboard({
 }: DashboardProps) {
   const m = useDashboardMetrics(products, challans, procurements, expenses, srs);
 
+  const uniqueChallanCount = React.useMemo(() => {
+    return new Set(challans.map(c => c.challanNo || (c.id && /-\d+$/.test(c.id) ? c.id.replace(/-\d+$/, '') : c.id))).size;
+  }, [challans]);
+
   function handleDownloadDashboardPDF() { onDownloadPDF('dashboard'); }
 
   return (
@@ -75,7 +79,7 @@ export default function Dashboard({
         totalDamagedVal={m.totalDamagedVal}
         totalDamagedValTP={m.totalDamagedValTP}
         totalDamagedQty={m.totalDamagedQty}
-        challanCount={challans.length}
+        challanCount={uniqueChallanCount}
         expenseCount={expenses.length}
       />
 

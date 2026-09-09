@@ -162,8 +162,14 @@ function mapProduct(row: Awaited<ReturnType<typeof db.products.getAll>>[number])
 }
 
 function mapChallan(row: Awaited<ReturnType<typeof db.challans.getAll>>[number]): ChallanItem {
+  const idStr = row.id || '';
+  const derivedChallanNo = idStr.includes('-') && /-\d+$/.test(idStr)
+    ? idStr.replace(/-\d+$/, '')
+    : undefined;
+
   return {
     id: row.id,
+    challanNo: (row as any).challan_no || (row as any).challan_id || derivedChallanNo,
     productName: row.product_name,
     company: row.company,
     attribute: row.attribute,
@@ -537,6 +543,44 @@ export async function upsertChallan(c: ChallanItem): Promise<void> {
     sr_commission_amount: c.srCommissionAmount ?? 0,
     created_at: c.createdAt || new Date().toISOString(),
   });
+}
+
+export async function upsertChallansBatch(items: ChallanItem[]): Promise<void> {
+  if (!items || items.length === 0) return;
+  const ownerId = await getOwnerId();
+  const rows = items.map(c => ({
+    id: c.id,
+    owner_id: ownerId,
+    product_name: c.productName ?? '',
+    company: c.company ?? '',
+    attribute: c.attribute ?? '',
+    qty: c.qty ?? 0,
+    bonus_qty: c.bonusQty ?? 0,
+    total_qty: c.totalQty ?? 0,
+    rate: c.rate ?? 0,
+    total_amount: c.totalAmount ?? 0,
+    sr_name: c.srName ?? '',
+    route_name: c.routeName ?? '',
+    delivery_man_name: c.deliveryManName ?? '',
+    status: c.status ?? 'Pending',
+    returned_qty: c.returnedQty ?? 0,
+    damaged_qty: c.damagedQty ?? 0,
+    commission_amount: c.commissionAmount ?? 0,
+    customer_id: c.customerId ?? null,
+    customer_name: c.customerName ?? null,
+    returned_cartons: c.returnedCartons ?? 0,
+    returned_pcs: c.returnedPcs ?? 0,
+    damaged_cartons: c.damagedCartons ?? 0,
+    damaged_pcs: c.damagedPcs ?? 0,
+    extra_profit_amount: c.extraProfitAmount ?? 0,
+    selected_unit_name: c.selectedUnitName ?? 'Piece',
+    sr_commission_type: c.srCommissionType ?? 'Percentage',
+    sr_commission_value: c.srCommissionValue ?? 0,
+    sr_commission_amount: c.srCommissionAmount ?? 0,
+    created_at: c.createdAt || new Date().toISOString(),
+  }));
+
+  await (db.challans as any).upsert(rows);
 }
 
 /**

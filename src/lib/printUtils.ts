@@ -190,7 +190,7 @@ export function printChallanInvoice(items: ChallanItem[]): void {
     `;
   }).join('');
 
-  let voucherNo = ch.id || '';
+  let voucherNo = ch.challanNo || (ch.id && /-\d+$/.test(ch.id) ? ch.id.replace(/-\d+$/, '') : ch.id) || '';
   if (!voucherNo || voucherNo.includes('_') || voucherNo.includes('T')) {
     const ts = new Date(ch.createdAt).getTime();
     voucherNo = !isNaN(ts) ? `CH-${ts.toString().slice(-6)}` : `CH-${Date.now().toString().slice(-6)}`;

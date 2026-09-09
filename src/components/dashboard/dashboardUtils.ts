@@ -79,11 +79,12 @@ export function getChallanDate(id: string, createdAt?: string): string {
     'ch-4': '2026-06-24',
     'ch-5': '2026-06-25',
   };
-  if (HARDCODED[id]) return HARDCODED[id];
+  const lowerId = (id || '').toLowerCase();
+  if (HARDCODED[lowerId]) return HARDCODED[lowerId];
 
   // Fallback: try to parse a timestamp embedded in the id
-  if (id.startsWith('ch-')) {
-    const ms = Number(id.split('-')[1]);
+  if (lowerId.startsWith('ch-')) {
+    const ms = Number(lowerId.split('-')[1]);
     if (!isNaN(ms)) return getLocalDateString(new Date(ms));
   }
 

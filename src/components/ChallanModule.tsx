@@ -24,7 +24,9 @@ import {
   Pencil,
   Building,
   Mail,
-  Truck
+  Truck,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { ChallanItem, SR, Route, DeliveryMan, Product, ProductAttribute, CompanyBrand } from '../types';
 import { translations, Language } from '../translations';
@@ -36,6 +38,7 @@ import { getLocalDateString, matchesDateRange } from './dashboard/dashboardUtils
 
 export interface GroupedOrder {
   id: string;
+  orderNo?: string;
   items: ChallanItem[];
   createdAt: string;
   srName: string;
@@ -206,6 +209,16 @@ export default function ChallanModule({
     }
   }, [toast]);
   const [selectedCompany, setSelectedCompany] = useState(''); // Selected brand for the Challan (e.g. Pran, Olympic, Haque)
+  const [expandedGroupIds, setExpandedGroupIds] = useState<Set<string>>(new Set());
+
+  const toggleExpandGroup = (groupId: string) => {
+    setExpandedGroupIds(prev => {
+      const next = new Set(prev);
+      if (next.has(groupId)) next.delete(groupId);
+      else next.add(groupId);
+      return next;
+    });
+  };
   const [newChallanItems, setNewChallanItems] = useState<{
     id: string;
     productName: string;
@@ -432,36 +445,98 @@ export default function ChallanModule({
     setCurrentPage(1);
   };
 
-  // 1. Group data first
+  // 1. Robust Grouping Engine: Consolidates line items belonging to the same Challan into 1 single parent row
   const groupedData = React.useMemo(() => {
-    const map = new Map<string, GroupedOrder>();
-    challans.forEach(item => {
-      // Create a unique key per "Order" using createdAt, SR, Route, Delivery Man, and Customer Name
-      // This groups items created at the exact same moment for the same customer.
-      const key = `${item.createdAt}_${item.srName}_${item.routeName}_${item.deliveryManName}_${item.customerName || 'WalkIn'}`;
-      if (!map.has(key)) {
-        map.set(key, {
-          id: key,
-          items: [],
+    const norm = (s?: string | null) => (s || '').trim().toLowerCase();
+    const groups: GroupedOrder[] = [];
+
+    // Sort items so items belonging to the same challan are adjacent (by createdAt, then ID)
+    const sortedChallans = [...challans].sort((a, b) => {
+      const ta = new Date(a.createdAt || 0).getTime();
+      const tb = new Date(b.createdAt || 0).getTime();
+      return ta - tb;
+    });
+
+    sortedChallans.forEach(item => {
+      // 1. Explicit parent challanNo if available
+      const itemChallanNo = item.challanNo || (item as any).challan_no || (item as any).challan_id;
+
+      // 2. Structured prefix from ID if matching e.g. "CH-1741512345678-1" or "ch-1741512345678-0"
+      const idStr = item.id || '';
+      const derivedPrefix = (idStr.includes('-') && /-\d+$/.test(idStr))
+        ? idStr.replace(/-\d+$/, '')
+        : '';
+
+      // Find an existing group this item belongs to
+      let matchedGroup: GroupedOrder | undefined;
+
+      for (const g of groups) {
+        // Direct match on explicit challanNo
+        if (itemChallanNo && (g.id === itemChallanNo || g.orderNo === itemChallanNo)) {
+          matchedGroup = g;
+          break;
+        }
+
+        // Direct match on derived ID prefix
+        if (derivedPrefix && (g.id === derivedPrefix || g.orderNo === derivedPrefix)) {
+          matchedGroup = g;
+          break;
+        }
+
+        // Match if any sibling item in group shares the same prefix
+        if (derivedPrefix && g.items.some(i => i.id && i.id.replace(/-\d+$/, '') === derivedPrefix)) {
+          matchedGroup = g;
+          break;
+        }
+
+        // Clustered time-window match for legacy database records:
+        // Match items sharing exact same Customer + SR + Route + DeliveryMan + Status within 60s
+        const sameCust = norm(g.customerName) === norm(item.customerName);
+        const sameSR = norm(g.srName) === norm(item.srName);
+        const sameRoute = norm(g.routeName) === norm(item.routeName);
+        const sameDM = norm(g.deliveryManName) === norm(item.deliveryManName);
+        const sameStatus = g.status === item.status;
+
+        if (sameCust && sameSR && sameRoute && sameDM && sameStatus) {
+          const gTime = new Date(g.createdAt || 0).getTime();
+          const itemTime = new Date(item.createdAt || 0).getTime();
+          if (!isNaN(gTime) && !isNaN(itemTime) && Math.abs(gTime - itemTime) <= 60000) {
+            matchedGroup = g;
+            break;
+          }
+        }
+      }
+
+      if (matchedGroup) {
+        matchedGroup.items.push(item);
+        matchedGroup.totalAmount += (item.totalAmount || 0);
+        matchedGroup.totalQty += (item.totalQty || 0);
+        matchedGroup.itemCount += 1;
+      } else {
+        const primaryId = itemChallanNo || derivedPrefix || (item.id ? item.id.replace(/-\d+$/, '') : `CH-${Date.now()}`);
+        const cleanOrderNo = primaryId.startsWith('CH-') || primaryId.startsWith('ch-')
+          ? primaryId.toUpperCase()
+          : `ORD-${new Date(item.createdAt || Date.now()).getTime().toString().slice(-6)}`;
+
+        groups.push({
+          id: primaryId,
+          orderNo: cleanOrderNo,
+          items: [item],
           createdAt: item.createdAt,
           srName: item.srName,
           routeName: item.routeName,
           deliveryManName: item.deliveryManName,
           customerName: item.customerName,
           status: item.status,
-          totalAmount: 0,
-          totalQty: 0,
-          itemCount: 0
+          totalAmount: item.totalAmount || 0,
+          totalQty: item.totalQty || 0,
+          itemCount: 1
         });
       }
-      const g = map.get(key)!;
-      g.items.push(item);
-      g.totalAmount += item.totalAmount;
-      g.totalQty += item.totalQty;
-      g.itemCount += 1;
     });
-    // Sort descending by date
-    return Array.from(map.values()).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    // Sort descending by creation date
+    return groups.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [challans]);
 
   // Filtered dataset on Groups (scoped to SR and SR company in SR mode)
@@ -470,6 +545,7 @@ export default function ChallanModule({
       ? group.items.some(i => i.productName.toLowerCase().includes(appliedSearch.toLowerCase())) ||
         group.items.some(i => i.attribute.toLowerCase().includes(appliedSearch.toLowerCase())) ||
         (group.customerName || '').toLowerCase().includes(appliedSearch.toLowerCase()) ||
+        (group.orderNo || '').toLowerCase().includes(appliedSearch.toLowerCase()) ||
         group.id.toLowerCase().includes(appliedSearch.toLowerCase())
       : true;
 
@@ -698,6 +774,8 @@ export default function ChallanModule({
 
 
     const createdAt = new Date().toISOString();
+    const batchTimestamp = Date.now();
+    const parentChallanId = `CH-${batchTimestamp}`;
     const totalGross = newChallanItems.reduce((sum, item) => sum + (item.qty * item.rate), 0);
     const challanComm = Number(newCommissionAmount) || 0;
     const challanExtraProfit = Number(newExtraProfitAmount) || 0;
@@ -718,7 +796,8 @@ export default function ChallanModule({
       const company = prodObj ? prodObj.company : selectedCompany || 'Pran';
 
       return {
-        id: `ch-${Date.now()}-${index}`,
+        id: `${parentChallanId}-${index + 1}`,
+        challanNo: parentChallanId,
         productName: item.productName,
         company,
         attribute: item.attribute || 'None',
@@ -1302,6 +1381,7 @@ export default function ChallanModule({
     let tempProducts = [...products];
     let tempCustomers = [...customers];
     let tempChallans = [...challans];
+    let savedChallanItems: ChallanItem[] = [];
 
     try {
       executeTransaction(() => {
@@ -1341,6 +1421,7 @@ export default function ChallanModule({
           const totalAmount = billableQty * item.rate - (item.commissionAmount || 0) + (item.extraProfitAmount || 0);
           return {
             ...item,
+            challanNo: item.challanNo || editingOrder.orderNo || editingOrder.id,
             srName: editSR,
             routeName: editRoute,
             deliveryManName: editDeliveryMan,
@@ -1349,6 +1430,7 @@ export default function ChallanModule({
             totalAmount
           };
         });
+        savedChallanItems = finalChallanItems;
 
         if (editStatus === 'Delivered') {
           finalChallanItems.forEach(newItem => {
@@ -1394,25 +1476,19 @@ export default function ChallanModule({
         return { products: tempProducts, customers: tempCustomers, challans: tempChallans };
       });
 
-      if (viewingOrder && viewingOrder.id === editingOrder.id) {
-        const finalChallanItems = tempChallans.filter(c => c.createdAt === viewingOrder.createdAt && c.srName === editSR && c.routeName === editRoute);
-        if (finalChallanItems.length === 0) {
-          setViewingOrder(null);
-        } else {
-          setViewingOrder({
-            id: `${viewingOrder.createdAt}_${editSR}_${editRoute}_${editDeliveryMan}`,
-            items: finalChallanItems,
-            createdAt: viewingOrder.createdAt,
-            srName: editSR,
-            routeName: editRoute,
-            deliveryManName: editDeliveryMan,
-            customerName: finalChallanItems[0]?.customerName,
-            status: editStatus,
-            totalAmount: finalChallanItems.reduce((acc, curr) => acc + curr.totalAmount, 0),
-            totalQty: finalChallanItems.reduce((acc, curr) => acc + curr.totalQty, 0),
-            itemCount: finalChallanItems.length
-          });
-        }
+      if (viewingOrder && (viewingOrder.id === editingOrder.id || viewingOrder.orderNo === editingOrder.orderNo)) {
+        setViewingOrder({
+          ...viewingOrder,
+          items: savedChallanItems,
+          srName: editSR,
+          routeName: editRoute,
+          deliveryManName: editDeliveryMan,
+          customerName: savedChallanItems[0]?.customerName,
+          status: editStatus,
+          totalAmount: savedChallanItems.reduce((acc, curr) => acc + curr.totalAmount, 0),
+          totalQty: savedChallanItems.reduce((acc, curr) => acc + curr.totalQty, 0),
+          itemCount: savedChallanItems.length
+        });
       }
 
       setEditingOrder(null);
@@ -1424,9 +1500,10 @@ export default function ChallanModule({
 
   // CSV Exporter (Active filtered sheet)
   const downloadCSV = () => {
-    const headers = ['#', 'Product Name', 'Attribute', 'Qty', 'Bonus Qty', 'Total Qty', 'Rate (BDT)', 'Total Amount (BDT)', 'SR Name', 'Route Beat', 'Delivery Man', 'Status'];
+    const headers = ['#', 'Challan No', 'Product Name', 'Attribute', 'Qty', 'Bonus Qty', 'Total Qty', 'Rate (BDT)', 'Total Amount (BDT)', 'SR Name', 'Route Beat', 'Delivery Man', 'Status'];
     const rows = filteredChallans.map((c, index) => [
       index + 1,
+      `"${c.challanNo || (c.id && /-\d+$/.test(c.id) ? c.id.replace(/-\d+$/, '') : c.id)}"`,
       `"${c.productName.replace(/"/g, '""')}"`,
       `"${c.attribute.replace(/"/g, '""')}"`,
       c.qty,
@@ -1857,6 +1934,7 @@ export default function ChallanModule({
             <tbody className="divide-y divide-slate-100">
               {paginatedOrders.map((g, index) => {
                 const globalIndex = startIndex + index + 1;
+                const isExpanded = expandedGroupIds.has(g.id);
                 
                 let statusStyle = "bg-amber-50 text-amber-750 border-amber-250";
                 if (g.status === 'Delivered') {
@@ -1865,116 +1943,200 @@ export default function ChallanModule({
                   statusStyle = "bg-blue-50 text-blue-700 border-blue-200";
                 }
 
+                const displayOrderNo = g.orderNo || (g.id.startsWith('CH-') || g.id.startsWith('ch-')
+                  ? g.id.toUpperCase()
+                  : `ORD-${new Date(g.createdAt).getTime().toString().slice(-6)}`);
+
                 return (
-                  <tr key={g.id} className="hover:bg-slate-50/50 transition-colors duration-250 group">
-                    <td className="px-5 py-4 text-center text-slate-400 font-mono font-bold whitespace-nowrap">{globalIndex}</td>
-                    <td className="px-5 py-4 font-bold text-slate-800 whitespace-nowrap">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="font-mono text-slate-900">ORD-{new Date(g.createdAt).getTime().toString().slice(-6)}</span>
-                        {(() => {
-                          const orderCompanies = Array.from(new Set(g.items.map(i => i.company || products.find(p => p.name === i.productName)?.company).filter(Boolean)));
-                          if (orderCompanies.length === 0) return null;
+                  <React.Fragment key={g.id}>
+                    <tr className="hover:bg-slate-50/50 transition-colors duration-250 group">
+                      <td className="px-5 py-4 text-center text-slate-400 font-mono font-bold whitespace-nowrap">{globalIndex}</td>
+                      <td className="px-5 py-4 font-bold text-slate-800 whitespace-nowrap">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-mono text-slate-900 font-bold">{displayOrderNo}</span>
+                          {(() => {
+                            const orderCompanies = Array.from(new Set(g.items.map(i => i.company || products.find(p => p.name === i.productName)?.company).filter(Boolean)));
+                            if (orderCompanies.length === 0) return null;
+                            return (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-800 font-extrabold text-[10px] rounded-none border border-blue-300 uppercase tracking-wider shadow-2xs">
+                                <Building className="w-2.5 h-2.5 text-blue-600" />
+                                {orderCompanies.join(', ')}
+                              </span>
+                            );
+                          })()}
+                        </div>
+                        {g.customerName && (
+                          <div className="text-[11px] text-indigo-650 font-extrabold flex items-center gap-1 mt-0.5">
+                            <Building className="w-3 h-3 text-indigo-500 shrink-0" />
+                            {g.customerName}
+                          </div>
+                        )}
+                        <div className="text-[10px] text-slate-400 font-normal mt-0.5">{new Date(g.createdAt).toLocaleDateString()}</div>
+                      </td>
+                      <td className="px-5 py-4 text-center font-bold text-slate-700 whitespace-nowrap">
+                        <button
+                          type="button"
+                          onClick={() => toggleExpandGroup(g.id)}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-750 rounded-none text-[11px] font-bold border border-slate-300 cursor-pointer transition-all active:scale-95 shadow-2xs"
+                          title={isExpanded ? (language === 'bn' ? 'পণ্য তালিকা লুকান' : 'Hide Items') : (language === 'bn' ? 'পণ্য তালিকা দেখুন' : 'Expand Items')}
+                        >
+                          <span>{g.itemCount} items</span>
+                          {isExpanded ? <ChevronUp className="w-3 h-3 text-slate-600" /> : <ChevronDown className="w-3 h-3 text-slate-600" />}
+                        </button>
+                      </td>
+                      <td className="px-5 py-4 text-center font-bold text-slate-800 font-mono bg-slate-50/30 whitespace-nowrap">{g.totalQty}</td>
+                      <td className="px-5 py-4 text-right whitespace-nowrap">
+                        <div className="font-mono font-extrabold text-slate-900">৳{g.totalAmount.toLocaleString('en-BD')}</div>
+                        {userRole !== 'sr' && (() => {
+                          const profit = g.items.reduce((sum, item) => {
+                            const pp = products.find(p => p.name === item.productName)?.defaultPP ?? item.rate * 0.85;
+                            const netQty = Math.max(0, item.qty - (item.returnedQty || 0));
+                            const cogs = netQty * pp;
+                            const revenue = (netQty * item.rate) - (item.commissionAmount || 0) + (item.extraProfitAmount || 0);
+                            return sum + (revenue - cogs);
+                          }, 0);
+                          const isPositive = profit >= 0;
                           return (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-800 font-extrabold text-[10px] rounded-none border border-blue-300 uppercase tracking-wider shadow-2xs">
-                              <Building className="w-2.5 h-2.5 text-blue-600" />
-                              {orderCompanies.join(', ')}
-                            </span>
+                            <div className={`inline-flex items-center gap-0.5 mt-1 px-2 py-0.5 rounded-none text-[10px] font-bold border ${
+                              isPositive 
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                                : 'bg-rose-50 text-rose-700 border-rose-200'
+                            }`}>
+                              <span>{isPositive ? '▲' : '▼'}</span>
+                              <span>৳{Math.round(Math.abs(profit)).toLocaleString('en-BD')}</span>
+                            </div>
                           );
                         })()}
-                      </div>
-                      {g.customerName && (
-                        <div className="text-[11px] text-indigo-650 font-extrabold flex items-center gap-1 mt-0.5">
-                          <Building className="w-3 h-3 text-indigo-500 shrink-0" />
-                          {g.customerName}
+                      </td>
+                      <td className="px-5 py-4 font-bold text-slate-605 max-w-[120px] truncate whitespace-nowrap" title={g.srName}>
+                        {g.srName}
+                      </td>
+                      <td className="px-5 py-4">
+                        <span className="px-2.5 py-0.5 bg-slate-100 text-slate-850 rounded-none text-xs font-bold border border-slate-200 truncate block max-w-[180px] whitespace-nowrap" title={g.routeName}>
+                          {g.routeName || 'N/A'}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4 font-bold text-slate-700 text-sm max-w-[155px] truncate whitespace-nowrap" title={g.deliveryManName}>
+                        {g.deliveryManName}
+                      </td>
+                      <td className="px-5 py-4 text-center">
+                        <span className={`inline-block px-3 py-1 rounded-none text-[10px] font-bold border uppercase tracking-wider ${statusStyle}`}>
+                          {g.status === 'Delivered' ? tCommon.delivered : g.status === 'Shipped' ? tCommon.shipped : tCommon.pending}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4 text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          {g.status !== 'Delivered' && (
+                            <button
+                              id={`order-action-deliver-${g.id}`}
+                              onClick={() => handleGroupStatusChange(g.id, 'Delivered')}
+                              className="inline-flex items-center gap-1 h-9 px-2.5 rounded-none border border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700 font-bold text-xs cursor-pointer shadow-sm active:scale-95 transition-all"
+                              title={language === 'bn' ? 'চালান ডেলিভারি করুন' : 'Deliver Order'}
+                            >
+                              <Truck className="w-3.5 h-3.5 stroke-[2.5]" />
+                              <span className="hidden sm:inline">{language === 'bn' ? 'ডেলিভারি' : 'Deliver'}</span>
+                            </button>
+                          )}
+                          <button
+                            id={`order-action-view-${g.id}`}
+                            onClick={() => setViewingOrder(g)}
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-none border border-slate-350 bg-white text-slate-650 hover:bg-slate-100 cursor-pointer hover:border-slate-800 shadow-sm active:scale-95 transition-all"
+                            title="View Order Details"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          {g.status !== 'Delivered' && (
+                            <button
+                              id={`order-action-edit-${g.id}`}
+                              onClick={() => handleOpenEditOrderModal(g)}
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-none border border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 hover:border-blue-400 cursor-pointer shadow-sm active:scale-95 transition-all"
+                              title="Edit Order"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                          )}
+                          <button
+                            id={`order-action-delete-${g.id}`}
+                            onClick={() => handleDeleteGroup(g.id)}
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-none border border-rose-100 bg-rose-50 text-rose-600 hover:bg-rose-100 cursor-pointer shadow-sm active:scale-95 transition-all"
+                            title="Delete Order"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
-                      )}
-                      <div className="text-[10px] text-slate-400 font-normal mt-0.5">{new Date(g.createdAt).toLocaleDateString()}</div>
-                    </td>
-                    <td className="px-5 py-4 text-center font-bold text-slate-700 whitespace-nowrap">
-                      <span className="px-2.5 py-1 bg-slate-50 text-slate-600 rounded-none text-[11px] font-bold border border-slate-200">{g.itemCount} items</span>
-                    </td>
-                    <td className="px-5 py-4 text-center font-bold text-slate-800 font-mono bg-slate-50/30 whitespace-nowrap">{g.totalQty}</td>
-                    <td className="px-5 py-4 text-right whitespace-nowrap">
-                      <div className="font-mono font-extrabold text-slate-900">৳{g.totalAmount.toLocaleString('en-BD')}</div>
-                      {userRole !== 'sr' && (() => {
-                        const profit = g.items.reduce((sum, item) => {
-                          const pp = products.find(p => p.name === item.productName)?.defaultPP ?? item.rate * 0.85;
-                          const netQty = Math.max(0, item.qty - (item.returnedQty || 0));
-                          const cogs = netQty * pp;
-                          const revenue = (netQty * item.rate) - (item.commissionAmount || 0) + (item.extraProfitAmount || 0);
-                          return sum + (revenue - cogs);
-                        }, 0);
-                        const isPositive = profit >= 0;
-                        return (
-                          <div className={`inline-flex items-center gap-0.5 mt-1 px-2 py-0.5 rounded-none text-[10px] font-bold border ${
-                            isPositive 
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
-                              : 'bg-rose-50 text-rose-700 border-rose-200'
-                          }`}>
-                            <span>{isPositive ? '▲' : '▼'}</span>
-                            <span>৳{Math.round(Math.abs(profit)).toLocaleString('en-BD')}</span>
+                      </td>
+                    </tr>
+                    {isExpanded && (
+                      <tr key={`${g.id}-expanded`} className="bg-slate-50/90 border-b border-slate-200">
+                        <td colSpan={10} className="px-6 py-3.5">
+                          <div className="bg-white border border-slate-200 p-3 shadow-2xs">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-extrabold text-slate-800">
+                                  {language === 'bn' ? 'চালানের পণ্যসমূহ' : 'Products in Challan'} ({g.itemCount})
+                                </span>
+                                <span className="text-[10px] text-slate-500 font-mono font-bold">
+                                  {displayOrderNo}
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setViewingOrder(g)}
+                                className="text-xs text-indigo-600 hover:text-indigo-800 font-bold cursor-pointer underline flex items-center gap-1"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                                {language === 'bn' ? 'সম্পূর্ণ ইনভয়েস ও প্রিন্ট ভিউ' : 'Full Invoice & Print'}
+                              </button>
+                            </div>
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-xs text-left border-collapse">
+                                <thead>
+                                  <tr className="border-b border-slate-200 text-slate-500 font-bold bg-slate-50/80 text-[11px]">
+                                    <th className="py-2 px-3">#</th>
+                                    <th className="py-2 px-3">{language === 'bn' ? 'পণ্যের নাম' : 'Product'}</th>
+                                    <th className="py-2 px-3">{language === 'bn' ? 'কোম্পানি' : 'Company'}</th>
+                                    <th className="py-2 px-3 text-center">{language === 'bn' ? 'অর্ডার পরিমাণ' : 'Order Qty'}</th>
+                                    <th className="py-2 px-3 text-center text-blue-600">{language === 'bn' ? 'বোনাস' : 'Bonus'}</th>
+                                    <th className="py-2 px-3 text-center text-rose-600">{language === 'bn' ? 'ফেরত' : 'Return'}</th>
+                                    <th className="py-2 px-3 text-center text-amber-600">{language === 'bn' ? 'ড্যামেজ' : 'Damage'}</th>
+                                    <th className="py-2 px-3 text-center text-emerald-700 font-extrabold">{language === 'bn' ? 'প্রকৃত ডেলিভারি' : 'Net Qty'}</th>
+                                    <th className="py-2 px-3 text-right">{language === 'bn' ? 'দর (TP)' : 'Rate'}</th>
+                                    <th className="py-2 px-3 text-right">{language === 'bn' ? 'মোট টাকা' : 'Total Amount'}</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                  {g.items.map((it, itIdx) => {
+                                    const netQty = Math.max(0, it.qty - (it.returnedQty || 0) - (it.damagedQty || 0));
+                                    return (
+                                      <tr key={it.id || itIdx} className="hover:bg-slate-50/60">
+                                        <td className="py-2 px-3 text-slate-400 font-mono text-[11px]">{itIdx + 1}</td>
+                                        <td className="py-2 px-3 font-semibold text-slate-800">
+                                          {it.productName}
+                                          {it.attribute && it.attribute !== 'None' && it.attribute !== 'Default' && (
+                                            <span className="text-[10px] text-slate-400 ml-1">({it.attribute})</span>
+                                          )}
+                                        </td>
+                                        <td className="py-2 px-3 text-slate-600 text-[11px]">{it.company || '—'}</td>
+                                        <td className="py-2 px-3 text-center font-bold font-mono text-[11px]">
+                                          {it.qty} {it.selectedUnitName || 'Pcs'}
+                                        </td>
+                                        <td className="py-2 px-3 text-center font-mono text-blue-600 text-[11px]">+{it.bonusQty || 0}</td>
+                                        <td className="py-2 px-3 text-center font-mono text-rose-600 text-[11px]">{it.returnedQty || 0}</td>
+                                        <td className="py-2 px-3 text-center font-mono text-amber-600 text-[11px]">{it.damagedQty || 0}</td>
+                                        <td className="py-2 px-3 text-center font-mono font-black text-emerald-700 text-[11px]">{netQty}</td>
+                                        <td className="py-2 px-3 text-right font-mono text-[11px]">৳{it.rate.toLocaleString('en-BD')}</td>
+                                        <td className="py-2 px-3 text-right font-mono font-bold text-slate-900 text-[11px]">৳{it.totalAmount.toLocaleString('en-BD')}</td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
                           </div>
-                        );
-                      })()}
-                    </td>
-                    <td className="px-5 py-4 font-bold text-slate-605 max-w-[120px] truncate whitespace-nowrap" title={g.srName}>
-                      {g.srName}
-                    </td>
-                    <td className="px-5 py-4">
-                      <span className="px-2.5 py-0.5 bg-slate-100 text-slate-850 rounded-none text-xs font-bold border border-slate-200 truncate block max-w-[180px] whitespace-nowrap" title={g.routeName}>
-                        {g.routeName || 'N/A'}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4 font-bold text-slate-700 text-sm max-w-[155px] truncate whitespace-nowrap" title={g.deliveryManName}>
-                      {g.deliveryManName}
-                    </td>
-                    <td className="px-5 py-4 text-center">
-                      <span className={`inline-block px-3 py-1 rounded-none text-[10px] font-bold border uppercase tracking-wider ${statusStyle}`}>
-                        {g.status === 'Delivered' ? tCommon.delivered : g.status === 'Shipped' ? tCommon.shipped : tCommon.pending}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4 text-center">
-                      <div className="flex items-center justify-center gap-1.5">
-                        {g.status !== 'Delivered' && (
-                          <button
-                            id={`order-action-deliver-${g.id}`}
-                            onClick={() => handleGroupStatusChange(g.id, 'Delivered')}
-                            className="inline-flex items-center gap-1 h-9 px-2.5 rounded-none border border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700 font-bold text-xs cursor-pointer shadow-sm active:scale-95 transition-all"
-                            title={language === 'bn' ? 'চালান ডেলিভারি করুন' : 'Deliver Order'}
-                          >
-                            <Truck className="w-3.5 h-3.5 stroke-[2.5]" />
-                            <span className="hidden sm:inline">{language === 'bn' ? 'ডেলিভারি' : 'Deliver'}</span>
-                          </button>
-                        )}
-                        <button
-                          id={`order-action-view-${g.id}`}
-                          onClick={() => setViewingOrder(g)}
-                          className="inline-flex h-9 w-9 items-center justify-center rounded-none border border-slate-350 bg-white text-slate-650 hover:bg-slate-100 cursor-pointer hover:border-slate-800 shadow-sm active:scale-95 transition-all"
-                          title="View Order Details"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        {g.status !== 'Delivered' && (
-                          <button
-                            id={`order-action-edit-${g.id}`}
-                            onClick={() => handleOpenEditOrderModal(g)}
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-none border border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 hover:border-blue-400 cursor-pointer shadow-sm active:scale-95 transition-all"
-                            title="Edit Order"
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </button>
-                        )}
-                        <button
-                          id={`order-action-delete-${g.id}`}
-                          onClick={() => handleDeleteGroup(g.id)}
-                          className="inline-flex h-9 w-9 items-center justify-center rounded-none border border-rose-100 bg-rose-50 text-rose-600 hover:bg-rose-100 cursor-pointer shadow-sm active:scale-95 transition-all"
-                          title="Delete Order"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
                 );
               })}
               {filteredOrders.length === 0 && (

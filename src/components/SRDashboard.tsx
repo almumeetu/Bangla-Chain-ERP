@@ -396,7 +396,9 @@ export default function SRDashboard({
                   return (
                     <tr key={ch.id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="py-3 px-3">
-                        <span className="font-mono font-bold text-slate-800 block">{ch.id}</span>
+                        <span className="font-mono font-bold text-slate-800 block">
+                          {ch.challanNo || (ch.id && /-\d+$/.test(ch.id) ? ch.id.replace(/-\d+$/, '') : ch.id)}
+                        </span>
                         <span className="text-[11px] text-slate-400">{dateStr}</span>
                       </td>
                       <td className="py-3 px-3">

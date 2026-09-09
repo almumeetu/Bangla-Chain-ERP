@@ -597,7 +597,7 @@ export default function ReportsModule({
       const revenue = dmChallans.reduce((sum, ch) => sum + (ch.totalAmount || 0), 0);
       const returns = dmChallans.reduce((sum, ch) => sum + (ch.returnedQty || 0), 0);
       const damages = dmChallans.reduce((sum, ch) => sum + (ch.damagedQty || 0), 0);
-      const totalChallans = dmChallans.length;
+      const totalChallans = new Set(dmChallans.map(ch => ch.challanNo || (ch.id && /-\d+$/.test(ch.id) ? ch.id.replace(/-\d+$/, '') : ch.id))).size;
       const dpTotal = dmChallans.reduce((sum, ch) => {
         const product = products.find(p => (p.name || '').trim().toLowerCase() === (ch.productName || '').trim().toLowerCase());
         const netQty = Math.max(0, ch.qty - (ch.returnedQty || 0) - (ch.damagedQty || 0));

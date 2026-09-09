@@ -726,6 +726,7 @@ export default function SellModule({
     const currentTimeStr = new Date().toISOString().slice(11, 24);
     const orderTimestamp = new Date(`${orderDate}T${currentTimeStr}`).toISOString();
     const effectiveSR = selectedSR || loggedInSrNameStorage || loggedInSr?.name || '';
+    const parentChallanId = `CH-${Date.now()}`;
 
     const newChallans: ChallanItem[] = activeCartItems.map((item, idx) => {
       const isCarton = isCartonProduct(item.product);
@@ -738,7 +739,8 @@ export default function SellModule({
       const rate = isCarton ? pricePerCarton : pricePerPiece;
 
       return {
-        id: `CH-${Date.now()}-${idx + 1}`,
+        id: `${parentChallanId}-${idx + 1}`,
+        challanNo: parentChallanId,
         productName: item.product.name,
         company: item.product.company || '',
         attribute: item.selectedSpec,

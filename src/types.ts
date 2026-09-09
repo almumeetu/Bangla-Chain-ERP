@@ -157,6 +157,7 @@ export interface ProductAttribute {
 
 export interface ChallanItem {
   id: string;
+  challanNo?: string;       // Parent Challan / Invoice Identifier (e.g. "CH-1741512345678")
   productName: string;
   company: string;          // Product's brand/manufacturer
   attribute: string; 

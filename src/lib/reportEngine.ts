@@ -642,12 +642,13 @@ function genSales(ctx: DocContext, opts: ReportOptions, dynamicInfo: DynamicRepo
   const totalQty = fch.reduce((s, ch) => s + ch.qty, 0);
   const totalRet = fch.reduce((s, ch) => s + (ch.returnedQty || 0), 0);
   const totalDmg = fch.reduce((s, ch) => s + (ch.damagedQty || 0), 0);
+  const deliveredOrdersCount = new Set(fch.map(ch => ch.challanNo || (ch.id && /-\d+$/.test(ch.id) ? ch.id.replace(/-\d+$/, '') : ch.id))).size;
 
   drawKpiRow(ctx, [
-    { label: 'Delivered Orders', value: fmtNum(fch.length),  r: 99,  g: 102, b: 241 },
-    { label: 'Units Sold',       value: fmtNum(totalQty),    r: 16,  g: 185, b: 129 },
-    { label: 'Total Revenue',    value: fmtTK(totalRev),     r: 245, g: 158, b: 11  },
-    { label: 'Returns/Damages',  value: fmtNum(totalRet + totalDmg), r: 239, g: 68, b: 68 },
+    { label: 'Delivered Orders', value: fmtNum(deliveredOrdersCount), r: 99,  g: 102, b: 241 },
+    { label: 'Units Sold',       value: fmtNum(totalQty),             r: 16,  g: 185, b: 129 },
+    { label: 'Total Revenue',    value: fmtTK(totalRev),              r: 245, g: 158, b: 11  },
+    { label: 'Returns/Damages',  value: fmtNum(totalRet + totalDmg),  r: 239, g: 68,  b: 68  },
   ]);
 
   // Company summary
