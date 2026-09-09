@@ -361,7 +361,7 @@ export default function StockAdjustmentModule({
                     <div>
                       <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider block">{company} {bn ? 'স্টক' : 'Stock'}</span>
                       <span className={`text-lg font-black font-mono mt-1 block ${styles.text}`}>
-                        {stats.totalStock.toLocaleString()} <span className="text-xs font-bold text-slate-500">Pcs</span>
+                        {stats.totalStock.toLocaleString()} <span className="text-xs font-bold text-slate-500">{bn ? 'ইউনিট' : 'Units'}</span>
                       </span>
                     </div>
                     <div className={`w-8 h-8 rounded-none flex items-center justify-center shrink-0 border transition-colors duration-300 ${styles.iconBg}`}>
@@ -431,6 +431,7 @@ export default function StockAdjustmentModule({
           {/* Audit log */}
           <AdjustmentAuditLog
             language={language}
+            products={products}
             adjustments={adjustments}
             paginatedAdjustments={hook.paginatedAdjustments}
             currentPage={hook.currentPage}
@@ -461,7 +462,7 @@ export default function StockAdjustmentModule({
                   {bn ? 'মোট স্টক পরিমাণ' : 'Total Stock Volume'}
                 </span>
                 <span className="text-xl font-black text-slate-900 font-mono tracking-tight">
-                  {totalStockVolumePcs.toLocaleString()} <span className="text-xs font-bold text-slate-500">Pcs</span>
+                  {totalStockVolumePcs.toLocaleString()} <span className="text-xs font-bold text-slate-500">{bn ? 'পিস (Pcs)' : 'Pcs'}</span>
                 </span>
               </div>
             </div>

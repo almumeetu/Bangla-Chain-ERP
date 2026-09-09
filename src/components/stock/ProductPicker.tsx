@@ -102,7 +102,7 @@ export default function ProductPicker({
                 <div className="flex items-center gap-1.5 justify-end">
                   {isLow && <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />}
                   <span className={`text-[10px] font-bold font-mono px-1.5 py-0.5 rounded-none border ${isLow ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
-                    {p.currentStock.toLocaleString()} Pcs
+                    {p.currentStock.toLocaleString()} {p.primaryUnit === 'Carton' ? (bn ? 'কার্টন' : 'Ctn') : (bn ? 'পিস' : 'Pcs')}
                   </span>
                 </div>
                 <div className="text-[10px] font-semibold text-slate-500 font-mono">

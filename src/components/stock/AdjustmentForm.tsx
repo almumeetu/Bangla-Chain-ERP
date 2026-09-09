@@ -66,12 +66,12 @@ export default function AdjustmentForm({
         <div className="bg-slate-50 rounded-none border border-slate-200 p-3 text-center">
           <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">{bn ? 'বর্তমান স্টক' : 'Current Stock'}</p>
           <p className="text-lg font-extrabold text-slate-700 font-mono">{product.currentStock.toLocaleString()}</p>
-          <p className="text-[9px] text-slate-400 font-semibold">{product.primaryUnit === 'Carton' ? 'Ctn' : 'Pcs'}</p>
+          <p className="text-[9px] text-slate-400 font-semibold">{product.primaryUnit === 'Carton' ? (bn ? 'কার্টন' : 'Ctn') : (bn ? 'পিস' : 'Pcs')}</p>
         </div>
         <div className="bg-slate-50 rounded-none border border-slate-200 p-3 text-center">
           <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">{bn ? 'নতুন স্টক' : 'New Stock'}</p>
           <p className="text-lg font-extrabold text-indigo-700 font-mono">{newStockQty.toLocaleString()}</p>
-          <p className="text-[9px] text-slate-400 font-semibold">{product.primaryUnit === 'Carton' ? 'Ctn' : 'Pcs'}</p>
+          <p className="text-[9px] text-slate-400 font-semibold">{product.primaryUnit === 'Carton' ? (bn ? 'কার্টন' : 'Ctn') : (bn ? 'পিস' : 'Pcs')}</p>
         </div>
         <div className={`rounded-none border p-3 text-center ${variantBg}`}>
           <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">{bn ? 'পার্থক্য' : 'Variance'}</p>
@@ -79,13 +79,16 @@ export default function AdjustmentForm({
           <div className="flex justify-center mt-0.5">
             {variance > 0 ? <TrendingUp className="w-3 h-3 text-emerald-500" /> : variance < 0 ? <TrendingDown className="w-3 h-3 text-rose-500" /> : <span className="text-[9px] text-slate-400">—</span>}
           </div>
+          <p className="text-[9px] text-slate-400 font-semibold mt-0.5">{product.primaryUnit === 'Carton' ? (bn ? 'কার্টন' : 'Ctn') : (bn ? 'পিস' : 'Pcs')}</p>
         </div>
       </div>
 
       {/* Quantity controls */}
       <div>
         <label className="block text-xs font-bold text-slate-600 uppercase tracking-wide mb-2">
-          {bn ? 'সংশোধিত স্টক পরিমাণ *' : 'Corrected Stock Quantity *'}
+          {bn 
+            ? `সংশোধিত স্টক পরিমাণ (${product.primaryUnit === 'Carton' ? 'কার্টনে' : 'পিসে'}) *` 
+            : `Corrected Stock Quantity (${product.primaryUnit === 'Carton' ? 'in Cartons' : 'in Pieces'}) *`}
         </label>
         <div className="flex items-center gap-2">
           <button type="button" onClick={() => onStepQty(-1)}

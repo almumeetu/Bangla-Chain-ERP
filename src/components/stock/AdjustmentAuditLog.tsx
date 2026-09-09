@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { ClipboardList, TrendingUp, TrendingDown, Printer, Calendar } from 'lucide-react';
-import type { StockAdjustment } from '../../types';
+import type { StockAdjustment, Product } from '../../types';
 import type { Language }        from '../../translations';
 import { printStockAdjustmentLog } from '../../lib/printUtils';
 import Pagination from '../ui/Pagination';
@@ -11,6 +11,7 @@ interface AdjustmentAuditLogProps {
   language:             Language;
   adjustments:          StockAdjustment[];
   paginatedAdjustments: StockAdjustment[];
+  products?:            Product[];
   currentPage:          number;
   totalPages:           number;
   startIndex:           number;
@@ -23,7 +24,7 @@ interface AdjustmentAuditLogProps {
 }
 
 export default function AdjustmentAuditLog({
-  language, adjustments, paginatedAdjustments,
+  language, adjustments, paginatedAdjustments, products,
   currentPage, totalPages, startIndex,
   adjustmentStartDate, adjustmentEndDate,
   onPageChange, onAdjustmentStartDateChange, onAdjustmentEndDateChange, onResetAdjustmentDates,
@@ -169,18 +170,27 @@ export default function AdjustmentAuditLog({
                           <p className="font-semibold text-slate-800 leading-tight">{adj.productName}</p>
                           <p className="text-[10px] text-slate-400 font-mono mt-0.5">{adj.adjustedBy}</p>
                         </td>
-                        <td className="px-4 py-3.5 text-center font-mono font-semibold text-slate-500">
-                          {adj.oldQty.toLocaleString()}
+                        <td className="px-4 py-3.5 text-center font-mono font-semibold text-slate-500 whitespace-nowrap">
+                          {adj.oldQty.toLocaleString()} {(() => {
+                            const prod = products?.find(p => p.id === adj.productId || p.name === adj.productName);
+                            return <span className="text-[10px] text-slate-400 font-sans">{prod?.primaryUnit === 'Carton' ? (bn ? 'কার্টন' : 'Ctn') : (bn ? 'পিস' : 'Pcs')}</span>;
+                          })()}
                         </td>
-                        <td className="px-4 py-3.5 text-center font-mono font-bold text-slate-800">
-                          {adj.newQty.toLocaleString()}
+                        <td className="px-4 py-3.5 text-center font-mono font-bold text-slate-800 whitespace-nowrap">
+                          {adj.newQty.toLocaleString()} {(() => {
+                            const prod = products?.find(p => p.id === adj.productId || p.name === adj.productName);
+                            return <span className="text-[10px] text-slate-400 font-sans">{prod?.primaryUnit === 'Carton' ? (bn ? 'কার্টন' : 'Ctn') : (bn ? 'পিস' : 'Pcs')}</span>;
+                          })()}
                         </td>
-                        <td className="px-4 py-3.5 text-center">
+                        <td className="px-4 py-3.5 text-center whitespace-nowrap">
                           <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-none text-[11px] font-bold border ${changeClass}`}>
                             {isIncrease
                               ? <TrendingUp className="w-3 h-3" />
                               : <TrendingDown className="w-3 h-3" />}
-                            {isIncrease ? `+${adj.qtyChanged}` : adj.qtyChanged}
+                            {isIncrease ? `+${adj.qtyChanged}` : adj.qtyChanged} {(() => {
+                              const prod = products?.find(p => p.id === adj.productId || p.name === adj.productName);
+                              return prod?.primaryUnit === 'Carton' ? (bn ? 'কার্টন' : 'Ctn') : (bn ? 'পিস' : 'Pcs');
+                            })()}
                           </span>
                         </td>
                         <td className="px-4 py-3.5 text-slate-600 italic text-xs max-w-[180px] truncate">
