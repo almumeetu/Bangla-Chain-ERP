@@ -34,7 +34,7 @@ import { printChallanInvoice, printChallanSheet } from '../lib/printUtils';
 import { sendInvoiceEmail } from '../lib/db';
 import { Customer } from '../lib/localStore';
 import { formatProductStock } from '../lib/productUtils';
-import { getLocalDateString, matchesDateRange } from './dashboard/dashboardUtils';
+import { getLocalDateString, matchesDateRange, createSafeISODate } from './dashboard/dashboardUtils';
 
 export interface GroupedOrder {
   id: string;
@@ -196,6 +196,7 @@ export default function ChallanModule({
 
   // New Challan Creation Modal State
   const [showAddModal, setShowAddModal] = useState(false);
+  const [newChallanDate, setNewChallanDate] = useState(() => getLocalDateString(new Date()));
 
   // Toast Notification State
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -773,7 +774,7 @@ export default function ChallanModule({
     }
 
 
-    const createdAt = new Date().toISOString();
+    const createdAt = createSafeISODate(newChallanDate);
     const batchTimestamp = Date.now();
     const parentChallanId = `CH-${batchTimestamp}`;
     const totalGross = newChallanItems.reduce((sum, item) => sum + (item.qty * item.rate), 0);
@@ -872,6 +873,7 @@ export default function ChallanModule({
       setNewDeliveryMan('');
       setNewCustomerName('');
       setNewStatus('Pending');
+      setNewChallanDate(getLocalDateString(new Date()));
     } catch (err) {
       // executeTransaction already alerts the user
     }
@@ -2194,8 +2196,8 @@ export default function ChallanModule({
 
             <form onSubmit={handleCreateChallan} className="modal-body p-6 space-y-5">
               
-              {/* Brand Company Select */}
-              <div className="grid grid-cols-1 gap-4">
+              {/* Brand Company Select & Challan Date */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-slate-700">
                     {language === 'bn' ? 'কোম্পানি / ব্র্যান্ড নির্বাচন করুন *' : 'Select Company / Brand *'}
@@ -2256,6 +2258,20 @@ export default function ChallanModule({
                     <option value="Olympic">Olympic</option>
                     <option value="Haque">Haque</option>
                   </select>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-slate-700">
+                    {language === 'bn' ? 'চালান / ইনভয়েস তারিখ *' : 'Challan / Invoice Date *'}
+                  </label>
+                  <input
+                    id="new-challan-date-input"
+                    type="date"
+                    required
+                    value={newChallanDate}
+                    onChange={(e) => setNewChallanDate(e.target.value)}
+                    className="h-11 w-full rounded-none border-2 border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all font-mono"
+                  />
                 </div>
               </div>
 

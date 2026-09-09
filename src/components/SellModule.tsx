@@ -13,6 +13,7 @@ import { printSalesOrder, type SalesOrderData } from '../lib/printUtils';
 import { Customer } from '../lib/localStore';
 import { useToast } from './ui/Toast';
 import { getTPPerCarton, getTPPerPiece, getCartonSize, isCartonProduct } from '../lib/productUtils';
+import { createSafeISODate } from './dashboard/dashboardUtils';
 
 interface SellModuleProps {
   products: Product[];
@@ -723,8 +724,7 @@ export default function SellModule({
 
     const activeCartItems = cart;
 
-    const currentTimeStr = new Date().toISOString().slice(11, 24);
-    const orderTimestamp = new Date(`${orderDate}T${currentTimeStr}`).toISOString();
+    const orderTimestamp = createSafeISODate(orderDate);
     const effectiveSR = selectedSR || loggedInSrNameStorage || loggedInSr?.name || '';
     const parentChallanId = `CH-${Date.now()}`;
 

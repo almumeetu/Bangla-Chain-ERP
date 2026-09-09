@@ -436,11 +436,15 @@ export default function ReportsModule({
   // ═══════════════════════════════════════════════════════════════
   const stockReportData = useMemo(() => {
     const todayStr = getLocalDateString(new Date());
-    const isPastDate = Boolean(endDate && endDate < todayStr);
+    // Determine effective stock date: prioritize past endDate, fallback to past startDate, else today
+    const targetStockDate = (endDate && endDate < todayStr)
+      ? endDate
+      : (startDate && startDate < todayStr ? startDate : (endDate || todayStr));
+    const isPastDate = Boolean(targetStockDate && targetStockDate < todayStr);
 
     const effectiveStockProducts = filteredStockProducts.map(p => {
       if (!isPastDate) return p;
-      const histStock = getHistoricStockForProduct(p, endDate, challans, procurements, adjustments);
+      const histStock = getHistoricStockForProduct(p, targetStockDate, challans, procurements, adjustments);
       return { ...p, currentStock: histStock };
     });
 
@@ -476,9 +480,9 @@ export default function ReportsModule({
       grandValueTP,
       grandPotentialMargin: Math.max(0, grandValueTP - grandValueDP),
       isPastDate,
-      asOfDate: isPastDate ? endDate : todayStr,
+      asOfDate: isPastDate ? targetStockDate : todayStr,
     };
-  }, [filteredStockProducts, endDate, challans, procurements, adjustments]);
+  }, [filteredStockProducts, startDate, endDate, challans, procurements, adjustments]);
 
   // ═══════════════════════════════════════════════════════════════
   // 2. SALES REPORT DATA CALCULATION
@@ -928,14 +932,19 @@ export default function ReportsModule({
       claims:  'claims',
     };
     const mappedType: ReportType = typeMap[activeTab];
+    const todayStr = getLocalDateString(new Date());
+    const effectiveStockDate = (endDate && endDate < todayStr)
+      ? endDate
+      : (startDate && startDate < todayStr ? startDate : (endDate || todayStr));
+
     return {
       type:          mappedType,
       subTab:        activeTab === 'stock' ? stockSubTab : (activeTab === 'sales' ? salesSubTab : undefined),
       shopName:      shopName     || 'Bangla-Chain ERP',
       shopSubBrand:  shopSubBrand || 'Distribution Management System',
       generatedBy:   userRole === 'admin' ? (typeof window !== 'undefined' && localStorage.getItem('erp_settings') ? ((JSON.parse(localStorage.getItem('erp_settings')!) as { ownerName?: string }).ownerName || 'Admin') : 'Admin') : (loggedInSrName || 'SR'),
-      startDate,
-      endDate,
+      startDate:     activeTab === 'stock' ? effectiveStockDate : startDate,
+      endDate:       activeTab === 'stock' ? effectiveStockDate : endDate,
       language,
       filterCompany: selectedCompanyFilter !== 'All' ? selectedCompanyFilter : undefined,
       filterSR:      selectedSrFilter      !== 'All' ? selectedSrFilter      : undefined,
@@ -1081,57 +1090,111 @@ export default function ReportsModule({
         )}
       </div>
 
-      {/* Date Range Selector Panel */}
-      <div className="bg-indigo-50/30 border border-indigo-200 rounded-none p-5 shadow-sm flex flex-col md:flex-row items-center gap-4 justify-between">
-        <div className="flex items-center gap-4.5 w-full md:w-auto">
-          <div className="flex items-center gap-2 text-slate-850 font-bold text-xs shrink-0">
-            <Calendar className="w-4 h-4 text-indigo-500 animate-pulse" />
-            <span className="text-indigo-900">Period Preset:</span>
+      {/* Date Range / As-Of Date Selector Panel */}
+      {activeTab === 'stock' ? (
+        <div className="bg-indigo-50/30 border border-indigo-200 rounded-none p-5 shadow-sm flex flex-col md:flex-row items-center gap-4 justify-between">
+          <div className="flex items-center gap-3 w-full md:w-auto">
+            <div className="flex items-center gap-2 text-slate-850 font-bold text-xs shrink-0">
+              <Calendar className="w-4 h-4 text-indigo-500 animate-pulse" />
+              <span className="text-indigo-900 font-bold">
+                {language === 'bn' ? 'স্টক রিপোর্ট তারিখ (As of Date):' : 'Stock Status As Of:'}
+              </span>
+            </div>
+            <span className="text-[11px] text-slate-500 font-medium hidden sm:inline">
+              {language === 'bn' ? '(নির্বাচিত তারিখ অনুযায়ী নির্দিষ্ট দিনের স্টক স্থিতি দেখাবে)' : '(Shows inventory balance as of this date)'}
+            </span>
           </div>
-          <select
-            value={preset}
-            onChange={e => handlePresetChange(e.target.value)}
-            className="h-9 rounded-none border border-indigo-200 bg-white px-3 text-xs font-bold text-indigo-850 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all cursor-pointer shadow-sm"
-          >
-            <option value="today">Today</option>
-            <option value="month">This Month</option>
-            <option value="year">This Year</option>
-            <option value="custom">Custom Range</option>
-          </select>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-bold text-slate-400 uppercase">From:</span>
-            <div className="relative flex items-center">
-              <div className="absolute left-2.5 w-6 h-6 rounded-none bg-indigo-50 border border-indigo-200/60 flex items-center justify-center pointer-events-none z-10">
-                <Calendar className="w-3.5 h-3.5 text-indigo-500" />
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                const todayStr = getLocalDateString(new Date());
+                setEndDate(todayStr);
+                setStartDate(todayStr);
+              }}
+              className={`h-9 px-3 text-xs font-bold border transition-all cursor-pointer ${
+                ((endDate && endDate >= getLocalDateString(new Date())) || !endDate) && ((startDate && startDate >= getLocalDateString(new Date())) || !startDate)
+                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                  : 'bg-white text-slate-700 border-indigo-200 hover:bg-indigo-50'
+              }`}
+            >
+              {language === 'bn' ? 'বর্তমান স্টক (Today)' : 'Current Stock (Today)'}
+            </button>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold text-slate-400 uppercase">
+                {language === 'bn' ? 'নির্দিষ্ট তারিখ:' : 'Select Date:'}
+              </span>
+              <div className="relative flex items-center">
+                <div className="absolute left-2.5 w-6 h-6 rounded-none bg-indigo-50 border border-indigo-200/60 flex items-center justify-center pointer-events-none z-10">
+                  <Calendar className="w-3.5 h-3.5 text-indigo-500" />
+                </div>
+                <input
+                  type="date"
+                  value={(endDate && endDate < getLocalDateString(new Date())) ? endDate : ((startDate && startDate < getLocalDateString(new Date())) ? startDate : getLocalDateString(new Date()))}
+                  max={getLocalDateString(new Date())}
+                  onChange={e => {
+                    const selectedVal = e.target.value;
+                    setEndDate(selectedVal);
+                    setStartDate(selectedVal);
+                  }}
+                  className="h-9 pl-10 pr-2.5 rounded-none border border-indigo-200 bg-white text-xs font-bold text-slate-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all font-mono shadow-sm"
+                />
               </div>
-              <input
-                type="date"
-                disabled={preset !== 'custom'}
-                value={startDate}
-                onChange={e => setStartDate(e.target.value)}
-                className="h-9 pl-10 pr-2.5 rounded-none border border-indigo-200 bg-white text-xs font-bold text-slate-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 disabled:bg-slate-50 disabled:text-slate-450 transition-all font-mono shadow-sm"
-              />
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-bold text-slate-400 uppercase">To:</span>
-            <div className="relative flex items-center">
-              <div className="absolute left-2.5 w-6 h-6 rounded-none bg-rose-50 border border-rose-200/60 flex items-center justify-center pointer-events-none z-10">
-                <Calendar className="w-3.5 h-3.5 text-rose-500" />
+        </div>
+      ) : (
+        <div className="bg-indigo-50/30 border border-indigo-200 rounded-none p-5 shadow-sm flex flex-col md:flex-row items-center gap-4 justify-between">
+          <div className="flex items-center gap-4.5 w-full md:w-auto">
+            <div className="flex items-center gap-2 text-slate-850 font-bold text-xs shrink-0">
+              <Calendar className="w-4 h-4 text-indigo-500 animate-pulse" />
+              <span className="text-indigo-900">Period Preset:</span>
+            </div>
+            <select
+              value={preset}
+              onChange={e => handlePresetChange(e.target.value)}
+              className="h-9 rounded-none border border-indigo-200 bg-white px-3 text-xs font-bold text-indigo-850 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all cursor-pointer shadow-sm"
+            >
+              <option value="today">Today</option>
+              <option value="month">This Month</option>
+              <option value="year">This Year</option>
+              <option value="custom">Custom Range</option>
+            </select>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold text-slate-400 uppercase">From:</span>
+              <div className="relative flex items-center">
+                <div className="absolute left-2.5 w-6 h-6 rounded-none bg-indigo-50 border border-indigo-200/60 flex items-center justify-center pointer-events-none z-10">
+                  <Calendar className="w-3.5 h-3.5 text-indigo-500" />
+                </div>
+                <input
+                  type="date"
+                  disabled={preset !== 'custom'}
+                  value={startDate}
+                  onChange={e => setStartDate(e.target.value)}
+                  className="h-9 pl-10 pr-2.5 rounded-none border border-indigo-200 bg-white text-xs font-bold text-slate-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 disabled:bg-slate-50 disabled:text-slate-450 transition-all font-mono shadow-sm"
+                />
               </div>
-              <input
-                type="date"
-                disabled={preset !== 'custom'}
-                value={endDate}
-                onChange={e => setEndDate(e.target.value)}
-                className="h-9 pl-10 pr-2.5 rounded-none border border-indigo-200 bg-white text-xs font-bold text-slate-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 disabled:bg-slate-50 disabled:text-slate-450 transition-all font-mono shadow-sm"
-              />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold text-slate-400 uppercase">To:</span>
+              <div className="relative flex items-center">
+                <div className="absolute left-2.5 w-6 h-6 rounded-none bg-rose-50 border border-rose-200/60 flex items-center justify-center pointer-events-none z-10">
+                  <Calendar className="w-3.5 h-3.5 text-rose-500" />
+                </div>
+                <input
+                  type="date"
+                  disabled={preset !== 'custom'}
+                  value={endDate}
+                  onChange={e => setEndDate(e.target.value)}
+                  className="h-9 pl-10 pr-2.5 rounded-none border border-indigo-200 bg-white text-xs font-bold text-slate-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 disabled:bg-slate-50 disabled:text-slate-450 transition-all font-mono shadow-sm"
+                />
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Global Filters Panel */}
       <div className="bg-indigo-50/30 border border-indigo-200 rounded-none p-5 shadow-sm space-y-4">
@@ -1299,7 +1362,9 @@ export default function ReportsModule({
             return (
               <div className="bg-white border border-slate-200 rounded-none p-6 shadow-sm space-y-6">
                 <div className="border-b border-slate-100 pb-3">
-                  <h3 className="font-bold text-slate-800 text-sm">{t.companyStockTitle}</h3>
+                  <h3 className="font-bold text-slate-800 text-sm">
+                    {t.companyStockTitle} {stockReportData.isPastDate && `(${language === 'bn' ? `${stockReportData.asOfDate} অনুযায়ী` : `as of ${stockReportData.asOfDate}`})`}
+                  </h3>
                 </div>
 
                 <div className="overflow-x-auto">
@@ -1363,7 +1428,7 @@ export default function ReportsModule({
               <div className="bg-white border border-slate-200 rounded-none p-6 shadow-sm space-y-6">
                 <div className="border-b border-slate-100 pb-3">
                   <h3 className="font-bold text-slate-800 text-sm">
-                    Product-wise Stock Details (with DP & TP)
+                    Product-wise Stock Details (with DP & TP) {stockReportData.isPastDate && `(${language === 'bn' ? `${stockReportData.asOfDate} অনুযায়ী` : `as of ${stockReportData.asOfDate}`})`}
                   </h3>
                 </div>
 

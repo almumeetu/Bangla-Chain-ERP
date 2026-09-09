@@ -516,15 +516,19 @@ function drawKpiRow(
 // Filter helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-function getFilteredProducts(opts: ReportOptions): Product[] {
+export function getFilteredProducts(opts: ReportOptions): Product[] {
   const base = opts.products.filter(p => 
     !opts.filterCompany || opts.filterCompany === 'All' || p.company === opts.filterCompany
   );
   const todayStr = getLocalDateString(new Date());
-  if (opts.endDate && opts.endDate < todayStr) {
+  const targetStockDate = (opts.endDate && opts.endDate < todayStr)
+    ? opts.endDate
+    : (opts.startDate && opts.startDate < todayStr ? opts.startDate : opts.endDate);
+
+  if (targetStockDate && targetStockDate < todayStr) {
     return base.map(p => ({
       ...p,
-      currentStock: getHistoricStockForProduct(p, opts.endDate, opts.challans, opts.procurements, opts.adjustments)
+      currentStock: getHistoricStockForProduct(p, targetStockDate, opts.challans, opts.procurements, opts.adjustments)
     }));
   }
   return base;
