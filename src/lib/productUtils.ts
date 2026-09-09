@@ -252,14 +252,6 @@ export function getHistoricStockForProduct(
   const normTarget = getLocalDateString(targetDate);
   if (!normTarget) return product.currentStock;
 
-  // If target date is prior to product registration, stock was 0
-  if (product.createdAt) {
-    const prodCreationDate = getLocalDateString(product.createdAt);
-    if (prodCreationDate && normTarget < prodCreationDate) {
-      return 0;
-    }
-  }
-
   const todayStr = getLocalDateString(new Date());
   if (normTarget >= todayStr) {
     return product.currentStock;
@@ -295,18 +287,6 @@ export function getHistoricStockForProduct(
         const returned = Number(challan.returnedQty) || 0;
         const netDelivered = Math.max(0, deliveredQty - returned);
         stock += netDelivered;
-      }
-    }
-  });
-
-  // 3. Rollback adjustments made after targetDate (subtract positive changes, add negative changes)
-  adjustments.forEach(adj => {
-    const isProdMatch = adj.productId === product.id ||
-      (adj.productName && (adj.productName || '').trim().toLowerCase() === targetProdName);
-    if (isProdMatch && adj.date) {
-      const adjDate = getLocalDateString(adj.date);
-      if (adjDate && adjDate > normTarget) {
-        stock -= (Number(adj.qtyChanged) || 0);
       }
     }
   });
