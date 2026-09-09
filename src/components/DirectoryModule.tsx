@@ -1558,6 +1558,13 @@ export default function DirectoryModule({
           return cat ? cat.name : '—';
         };
 
+        const todayStr = getLocalDateString(new Date());
+        // Determine effective historical stock date from To Date or From Date
+        const effectiveStockDate = (productEndDate && productEndDate < todayStr)
+          ? productEndDate
+          : (productStartDate && productStartDate < todayStr ? productStartDate : (productEndDate || productStartDate || stockHistoryDate || ''));
+        const isHistoricalStock = Boolean(effectiveStockDate && effectiveStockDate < todayStr);
+
         const getHistoricStockForProduct = (product: Product, targetDate: string) => {
           return getHistoricStockForProductUtil(product, targetDate, challans, procurements, adjustments);
         };
@@ -1566,9 +1573,21 @@ export default function DirectoryModule({
           const matchesSearch = p.name.toLowerCase().includes(productSearch.toLowerCase()) || p.sku.toLowerCase().includes(productSearch.toLowerCase());
           const matchesCompany = productCompanyFilter === 'All' || p.company === productCompanyFilter;
           const matchesCategory = productCategoryFilter === 'All' || p.categoryId === productCategoryFilter;
-          const displayStock = stockHistoryDate ? getHistoricStockForProduct(p, stockHistoryDate) : p.currentStock;
+          
+          const displayStock = isHistoricalStock
+            ? getHistoricStockForProduct(p, effectiveStockDate)
+            : p.currentStock;
+            
           const matchesStock = productStockFilter === 'All' || (productStockFilter === 'Low' && displayStock < 600);
-          const matchesDate = matchesDateRange(p.createdAt, productStartDate, productEndDate);
+          
+          // Historical stock filtering: products registered after effectiveStockDate did not exist yet
+          let matchesDate = true;
+          if (effectiveStockDate) {
+            const pRegDate = getLocalDateString(p.createdAt);
+            if (pRegDate && pRegDate > effectiveStockDate) {
+              matchesDate = false;
+            }
+          }
           
           // SR Filter removed - company filter is sufficient
           const matchesSr = true;
@@ -1582,11 +1601,11 @@ export default function DirectoryModule({
         const paginatedProducts = filteredProducts.slice((validPage - 1) * itemsPerPage, validPage * itemsPerPage);
 
         const totalProductsStockValuationDP = filteredProducts.reduce((sum, p) => {
-          const displayStock = stockHistoryDate ? getHistoricStockForProduct(p, stockHistoryDate) : p.currentStock;
+          const displayStock = isHistoricalStock ? getHistoricStockForProduct(p, effectiveStockDate) : p.currentStock;
           return sum + displayStock * p.defaultPP;
         }, 0);
         const totalProductsStockValuationTP = filteredProducts.reduce((sum, p) => {
-          const displayStock = stockHistoryDate ? getHistoricStockForProduct(p, stockHistoryDate) : p.currentStock;
+          const displayStock = isHistoricalStock ? getHistoricStockForProduct(p, effectiveStockDate) : p.currentStock;
           const isPiece = (p.primaryUnit ?? 'Piece') === 'Piece';
           const tp = isPiece
             ? (p.pricePerPiece || p.defaultWSP)
@@ -1594,11 +1613,11 @@ export default function DirectoryModule({
           return sum + displayStock * tp;
         }, 0);
         const totalStockQty = filteredProducts.reduce((sum, p) => {
-          const displayStock = stockHistoryDate ? getHistoricStockForProduct(p, stockHistoryDate) : p.currentStock;
+          const displayStock = isHistoricalStock ? getHistoricStockForProduct(p, effectiveStockDate) : p.currentStock;
           return sum + displayStock;
         }, 0);
         const lowStockCount = filteredProducts.filter(p => {
-          const displayStock = stockHistoryDate ? getHistoricStockForProduct(p, stockHistoryDate) : p.currentStock;
+          const displayStock = isHistoricalStock ? getHistoricStockForProduct(p, effectiveStockDate) : p.currentStock;
           return displayStock < 600;
         }).length;
 
@@ -1632,6 +1651,7 @@ export default function DirectoryModule({
                 <div>
                   <span className="text-[10px] text-purple-600 font-bold uppercase tracking-wider block">
                     {language === 'bn' ? 'মোট স্টক পরিমাণ' : 'Total Stock Quantity'}
+                    {isHistoricalStock && <span className="ml-1 text-[9px] text-indigo-600 font-mono font-bold">({effectiveStockDate})</span>}
                   </span>
                   <span className="text-2xl font-black text-slate-855 font-mono tracking-tight">
                     {totalStockQty.toLocaleString('en-BD')}
@@ -1648,6 +1668,7 @@ export default function DirectoryModule({
                 <div>
                   <span className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider block">
                     {language === 'bn' ? 'মোট ইনভেন্টরি মূল্য (DP)' : 'Total Inventory Value (DP)'}
+                    {isHistoricalStock && <span className="ml-1 text-[9px] text-emerald-700 font-mono font-bold">({effectiveStockDate})</span>}
                   </span>
                   <span className="text-2xl font-black text-slate-855 font-mono tracking-tight">
                     {formatBDT(totalProductsStockValuationDP)}
@@ -1664,6 +1685,7 @@ export default function DirectoryModule({
                 <div>
                   <span className="text-[10px] text-amber-600 font-bold uppercase tracking-wider block">
                     {language === 'bn' ? 'মোট ইনভেন্টরি মূল্য (TP)' : 'Total Inventory Value (TP)'}
+                    {isHistoricalStock && <span className="ml-1 text-[9px] text-amber-700 font-mono font-bold">({effectiveStockDate})</span>}
                   </span>
                   <span className="text-2xl font-black text-slate-855 font-mono tracking-tight">
                     {formatBDT(totalProductsStockValuationTP)}
@@ -1753,7 +1775,7 @@ export default function DirectoryModule({
                   {/* From Date */}
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-slate-500 tracking-wider block">
-                      {language === 'bn' ? 'শুরুর তারিখ (রেজিস্ট্রেশন)' : 'From Date (Reg)'}
+                      {language === 'bn' ? 'শুরুর তারিখ' : 'From Date'}
                     </label>
                     <div className="relative flex items-center rounded-none border border-slate-200 bg-slate-50/50 hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 shadow-sm focus-within:border-indigo-500 focus-within:ring-4 focus-within:ring-indigo-100/80 overflow-hidden bg-white">
                       <div className="absolute left-0 top-0 bottom-0 px-2.5 bg-indigo-500 border-r border-indigo-600 flex items-center justify-center text-white">
@@ -1771,7 +1793,7 @@ export default function DirectoryModule({
                   {/* To Date */}
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-slate-500 tracking-wider block">
-                      {language === 'bn' ? 'শেষের তারিখ (রেজিস্ট্রেশন)' : 'To Date (Reg)'}
+                      {language === 'bn' ? 'শেষ তারিখ (স্টক As-Of)' : 'To Date (Stock As-Of)'}
                     </label>
                     <div className="relative flex items-center rounded-none border border-slate-200 bg-slate-50/50 hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 shadow-sm focus-within:border-indigo-500 focus-within:ring-4 focus-within:ring-indigo-100/80 overflow-hidden bg-white">
                       <div className="absolute left-0 top-0 bottom-0 px-2.5 bg-rose-500 border-r border-rose-600 flex items-center justify-center text-white">
@@ -1822,93 +1844,13 @@ export default function DirectoryModule({
             </div>
 
             {/* Product View */}
-            {stockHistoryDate ? (
-              // Specialized snapshot table
-              <div className="bg-white border border-slate-200 rounded-none shadow-sm overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse min-w-[1000px]">
-                    <thead>
-                      <tr className="bg-slate-100/70 border-b border-slate-200 text-slate-600 text-[10px] uppercase font-extrabold tracking-wider">
-                        <th className="px-5 py-4">{language === 'bn' ? 'পণ্যের নাম' : 'Product Name'}</th>
-                        <th className="px-5 py-4">{language === 'bn' ? 'কোম্পানি' : 'Company'}</th>
-                        <th className="px-5 py-4">{language === 'bn' ? 'ক্যাটাগরি' : 'Category'}</th>
-                        <th className="px-5 py-4">{language === 'bn' ? 'স্টক পরিমাণ' : 'Stock Quantity'}</th>
-                        {userRole !== 'sr' && <th className="px-5 py-4 text-right">{language === 'bn' ? 'ডিলার মূল্য (DP)' : 'Dealer Price (DP)'}</th>}
-                        <th className="px-5 py-4 text-right">{language === 'bn' ? 'পাইকারি মূল্য (TP)' : 'Trade Price (TP)'}</th>
-                        {userRole !== 'sr' && <th className="px-5 py-4 text-right">{language === 'bn' ? 'স্টক মূল্য (DP)' : 'Stock Value (DP)'}</th>}
-                        <th className="px-5 py-4 text-right">{language === 'bn' ? 'স্টক মূল্য (TP)' : 'Stock Value (TP)'}</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {paginatedProducts.map(p => {
-                        const displayStock = getHistoricStockForProduct(p, stockHistoryDate);
-                        const tp = p.primaryUnit === 'Carton'
-                          ? (p.pricePerCarton || p.defaultWSP)
-                          : (p.pricePerPiece || p.defaultWSP);
-                        const stockValDP = displayStock * p.defaultPP;
-                        const stockValTP = displayStock * tp;
-                        const categoryName = getCategoryName(p.categoryId);
-
-                        return (
-                          <tr key={p.id} className="hover:bg-slate-50 transition-colors">
-                            <td className="px-5 py-3.5">
-                              <div className="font-bold text-slate-900 text-sm mb-0.5">{p.name}</div>
-                              <div className="flex items-center gap-1.5 mt-0.5">
-                                <span className="text-[10px] font-medium text-slate-400 font-mono">{p.sku}</span>
-                                <span className="text-slate-300">|</span>
-                                <span className="text-[9px] font-bold text-indigo-500 font-mono flex items-center gap-1" title={language === 'bn' ? 'এন্ট্রি তারিখ' : 'Registration Date'}>
-                                  📅 {new Date(p.createdAt).toLocaleDateString('en-BD')}
-                                </span>
-                              </div>
-                            </td>
-                            <td className="px-5 py-3.5 whitespace-nowrap">
-                              <span className={`inline-flex items-center px-2.5 py-1 rounded-none text-xs font-bold whitespace-nowrap border shadow-2xs ${getCompanyBadgeStyle(p.company)}`}>
-                                {p.company}
-                              </span>
-                            </td>
-                            <td className="px-5 py-3.5 text-xs font-semibold text-slate-650">
-                              {categoryName}
-                            </td>
-                            <td className="px-5 py-3.5 whitespace-nowrap">
-                              <div className="flex flex-col">
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-none text-[11px] font-bold font-mono uppercase tracking-wide border bg-slate-50 text-slate-800 border-slate-200">
-                                  {formatStock(displayStock, p.cartonSize || 24, p.primaryUnit)}
-                                </span>
-                                <span className="text-[9.5px] text-slate-500 font-mono font-bold mt-0.5">
-                                  ({language === 'bn' ? 'মোট' : 'Total'}: {getTotalPieces(displayStock, p.cartonSize || 24, p.primaryUnit).toLocaleString()} {language === 'bn' ? 'পিস' : 'Pcs'})
-                                </span>
-                              </div>
-                            </td>
-                            {userRole !== 'sr' && (
-                              <td className="px-5 py-3.5 text-xs text-right font-semibold text-slate-600 whitespace-nowrap font-mono">
-                                {formatBDT(p.defaultPP)}/{p.primaryUnit === 'Carton' ? 'Ctn' : 'pc'}
-                              </td>
-                            )}
-                            <td className="px-5 py-3.5 text-xs text-right text-indigo-600 font-semibold whitespace-nowrap font-mono">
-                              {formatBDT(tp)}/{p.primaryUnit === 'Carton' ? 'Ctn' : 'pc'}
-                            </td>
-                            {userRole !== 'sr' && (
-                              <td className="px-5 py-3.5 text-xs text-right text-emerald-600 font-semibold whitespace-nowrap font-mono">
-                                {formatBDT(stockValDP)}
-                              </td>
-                            )}
-                            <td className="px-5 py-3.5 text-xs text-right text-slate-900 font-semibold whitespace-nowrap font-mono">
-                              {formatBDT(stockValTP)}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            ) : viewMode === 'grid' ? (
+            {viewMode === 'grid' ? (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {paginatedProducts.map(p => {
                   const primaryUnit = p.customUnits && p.customUnits.length > 0 ? p.customUnits[0] : null;
                   const godownName = godowns.find(g => g.id === p.defaultGodownId)?.name || 'Main Godown';
                   const marginPct = p.defaultWSP > 0 ? ((p.defaultWSP - p.defaultPP) / p.defaultWSP) * 100 : 0;
-                  const displayStock = stockHistoryDate ? getHistoricStockForProduct(p, stockHistoryDate) : p.currentStock;
+                  const displayStock = isHistoricalStock ? getHistoricStockForProduct(p, effectiveStockDate) : p.currentStock;
                   const alertThreshold = p.stockAlertThreshold ?? 50;
                   const isLowStock = displayStock <= alertThreshold;
                   const tpPrice = p.primaryUnit === 'Carton' ? (p.pricePerCarton || p.defaultWSP) : (p.pricePerPiece || p.defaultWSP);
@@ -2086,7 +2028,7 @@ export default function DirectoryModule({
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {paginatedProducts.map(p => {
-                        const displayStock = stockHistoryDate ? getHistoricStockForProduct(p, stockHistoryDate) : p.currentStock;
+                        const displayStock = isHistoricalStock ? getHistoricStockForProduct(p, effectiveStockDate) : p.currentStock;
                         const isLowStock = displayStock < 600;
                         const isEditing = inlineEditingProductId === p.id;
 
